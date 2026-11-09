@@ -574,7 +574,7 @@ asking, as the API can't make a file without a currency.
   `shortestMonths` arrives only then; the Issue dialog offers only amounts already saved and asks for an email only;
   an expiry date is shown in UTC, named.
 - **Ask the shopper before they buy** (#1367; built by #1370): the editor's collapsed, optional section of CATALOG-DESIGN
-  part U, closed and empty on every product without questions, on every kind but a gift card. Questions of the three types
+  part U, closed and empty on every product without questions. Questions of the three types
   (choice list, text, photo or file) with their rules, a price only when asked (fixed, % of the version's price or per
   character; per item or once per line; per version; a choice's quantity; first N free), "Only ask when…", "Only for
   some versions", drag to reorder, "Copy questions from another product", the limits of 10 questions and 50 choices,

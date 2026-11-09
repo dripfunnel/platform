@@ -577,8 +577,6 @@ tables.
       There is no store setting, plan entitlement or feature flag.
     - Questions are written **per product**, with "Copy questions from another product" (U12).
       There are no reusable sets.
-    - Every kind of product may ask them except a **gift card**, whose recipient form is
-      already its question (decided here, #1367).
 50. **Three types.** A **choice list** (a maximum of 1 shows radio buttons; there is no separate
     "pick one" type), **text**, and a **photo or file upload**.
 51. **Price.** Anything that carries a price (a choice, a text answer, an upload) has:
@@ -1393,7 +1391,7 @@ plain: "question", "choice", "answer", "extra"; never "modifier", "option set" o
 property". Prices appear only when the merchant asks for one.
 
 - U1. **One collapsed, optional section**, "Ask the shopper before they buy", after "Choices and
-  versions" (D) on every product but a gift card (§3 fact 49). Closed and empty for every product
+  versions" (D). Closed and empty for every product
   without questions, with one line under its title: "Ask for a name to engrave, toppings, a photo
   to print…". With questions, its title says how many ("3 questions"). Opening it adds nothing to
   the product until a question is saved.
@@ -1463,8 +1461,10 @@ property". Prices appear only when the merchant asks for one.
   as in C16: "Add at least one choice", "Write the question", "Type a price in INR", "They must pick
   at least 4 but can pick only 3".
 - U15. **Vendors** see the section on their own products (§3 fact 57) under the approval rule of
-  L1–L5 and E3: questions are not one of the three fields that send an approved product back. The
-  merchant editing a vendor's product sees E1's banner. A Stock only vendor sees the section
+  L1–L5 and E3, where an extra's price counts as a price (ACCESS §7.2): adding, changing or
+  removing one sends an approved product back, with "Your price change needs approval"; any other
+  change to its questions goes live. The merchant's review (L3) shows the questions. The merchant
+  editing a vendor's product sees E1's banner. A Stock only vendor sees the section
   read-only (§4).
 - U16. **Translations** (part N): in a language's tab, question text, help and choice names are
   translatable; types, limits, prices and conditions are shared and locked, "same in every

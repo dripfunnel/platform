@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-11-09 (#1367, proposed: product customisation, the question tables, answers on `cart_line` and `order_line`, `shopper_upload` and `promotion.include_customisation`, §7.1, §7.3, §7.6, §7.7, §7.11). Before: 2026-11-06 (#1328: `issue_support_write_code()` among the definer functions, §5.3). Before: 2026-11-05 (#1215: wishlist reminders, migration 0385, §7.6). Before: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
+Last updated: 2026-11-09 (#1367, proposed: product customisation, the question tables, answers on `cart_line` and `order_line`, `shopper_upload` and its retention, an extra's price in the approval snapshot, and `promotion.include_customisation`, §7.1, §7.3, §7.6, §7.7, §7.11). Before: 2026-11-06 (#1328: `issue_support_write_code()` among the definer functions, §5.3). Before: 2026-11-05 (#1215: wishlist reminders, migration 0385, §7.6). Before: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
 and step key (0365), what `app_rider` reads of a delivery's warehouse, lines and customer, §7.6, §7.12). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the merchant role's column grants on delivery and offers, no request role reads the handover code). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
@@ -1223,9 +1223,12 @@ licence_key         (id, store_id, product_id, key, order_line_id NULL, assigned
                     -- returns text (CATALOG S8) are (release: decide)
 product_approved_snapshot
                     (product_id PK, store_id, seller_id NULL, name, prices jsonb, photo_ids uuid[],
-                     approved_at, approved_by)
+                     extras jsonb NULL, approved_at, approved_by)
                     -- prices is [{version_id, currency, amount, compare_at_amount}], one entry
-                    -- per version_price row at approval, every amount with its currency (§7.1)
+                    -- per version_price row at approval, every amount with its currency (§7.1);
+                    -- extras (#1367, proposed) the price columns of its questions and choices and
+                    -- their product_question_amount rows, since an extra's price is a price
+                    -- (ACCESS §7.2)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
@@ -1303,8 +1306,7 @@ product_question    (id, product_id, store_id, seller_id NULL, kind ('choice'|'t
                     -- currency (product_question_amount); price_per NOT NULL with a price_mode.
                     -- shown_if_choice_id: the one condition (fact 54), a choice of another question
                     -- of the same product whose own shown_if_choice_id is null (a trigger: one level
-                    -- deep), so a condition is a column, not a table. Not on a gift card's product
-                    -- (a trigger, fact 49)
+                    -- deep), so a condition is a column, not a table
 product_question_choice
                     (id, question_id, product_id, store_id, seller_id NULL, label, position smallint,
                      available boolean DEFAULT true, photo_asset_id NULL, max_quantity smallint DEFAULT 1,
@@ -1578,7 +1580,9 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- Export gathers the customer row (if any), customer_address, every
                     -- order placed under the customer id or, for a guest, under the
                     -- verified email or phone, with their email, phone and address
-                    -- snapshots, promotion_usage rows, cart reminders and consent history.
+                    -- snapshots, promotion_usage rows, cart reminders and consent history,
+                    -- and (#1367) the answers and shopper_upload files of those orders and
+                    -- of the carts under the same customer id or email.
                     -- Deletion keeps orders and usage rows (money history) and applies one
                     -- rule: EVERY column on these tables that can hold personal data is
                     -- blanked or replaced by a placeholder, every search tsvector built from
@@ -1590,8 +1594,8 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- promotion_usage.customer_email; refund.note and "return".note;
                     -- fulfilment.tracking_number and tracking_url (a tracking page can
                     -- identify the person); cart_reminder rows' sent subjects; the text
-                    -- answers in those orders' cart_line and order_line answers, and their
-                    -- shopper_upload files (#1367); every
+                    -- answers in the cart_line and order_line answers of those orders and
+                    -- carts, and their shopper_upload rows and files (#1367); every
                     -- order_document asset of those orders (invoices, packing slips, labels
                     -- and return labels all carry the name and address), the rows keeping
                     -- kind, number and date; any export_job or customer_data_request file
@@ -1710,17 +1714,21 @@ order_line (+ columns) answers jsonb NULL, unit_extras_amount bigint NOT NULL DE
                     -- "order".currency (§7.1). unit_extras_amount is the per-item extras inside
                     -- unit_amount; line_extras_amount the once-per-line extras, part of
                     -- line_total_amount, so refunds and returns work on the line's total as today
-shopper_upload      (id, store_id, order_id NULL, question_id NULL, r2_key, mime ('image/jpeg'|'image/png'
+shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('image/jpeg'|'image/png'
                      |'image/webp'|'image/heic'|'application/pdf'), bytes, checksum, created_at)
                     -- a file a shopper uploaded as an answer (#1367, proposed; built by #1369),
                     -- tied to the cart it was sent with (order_id, the cart's id, which stays the
                     -- order's), checked by content, ≤ 10 MB (10485760 bytes). Never in asset:
-                    -- no shop branch can reach it by a product photo's rule. ON DELETE SET NULL on
-                    -- order_id and question_id: nothing deletes the file automatically (rule 30 of
-                    -- #1367); clearing an expired cart's uploads is a later card. r2_key under the
-                    -- store's prefix, selected by no request role; the merchant side and a
-                    -- line's supplier open a file only through a short-lived signed link the
-                    -- engine mints (§7.11)
+                    -- no shop branch can reach it by a product photo's rule. Retention (rule 30
+                    -- of #1367, no automatic deletion): order_id is NOT NULL and ON DELETE
+                    -- RESTRICT, and the expired-cart sweep skips a cart that holds uploads, so
+                    -- every file stays reachable through its cart or order (customer_id, or a
+                    -- guest's email), which is how export and erasure find it (§7.5); clearing
+                    -- unordered carts' uploads, cart and files together, is a later card.
+                    -- question_id is ON DELETE SET NULL (a deleted question keeps the file).
+                    -- r2_key under the store's prefix, selected by no request role; the merchant
+                    -- side and a line's supplier open a file only through a short-lived signed
+                    -- link the engine mints (§7.11)
 order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount'|'shipping'
                      |'tax'|'duties'|'rounding'), promotion_id NULL, promotion_code_id NULL,
                      label, amount, tax_rate_bps NULL, tax_zone_id NULL)
