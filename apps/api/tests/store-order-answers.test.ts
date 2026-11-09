@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { hiddenFromSupport } from '#apis/store/shopperDetails'
+import { handleShopperUpload } from '#apis/store/shopperUploads'
+import { linkSigner } from '#auth/signedLink'
 import { handleSupportSession, supportSessionPaths } from '#apis/store/supportSession'
 import { hashSessionId } from '#auth/session'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
@@ -28,6 +30,10 @@ const cookies = { owner: '', supplier: '', other: '', bOwner: '' }
 type Who = keyof typeof people
 let orderId = ''
 let supportCookie = ''
+let fileId = ''
+const signer = linkSigner(btoa(String.fromCharCode(...new Uint8Array(32).fill(7))), 'shopper-uploads')
+const objects = new Map<string, Uint8Array<ArrayBuffer>>()
+const bucket = { get: async (key: string) => (objects.has(key) ? { body: new Blob([objects.get(key) ?? new Uint8Array()]).stream() } : null) } as never
 
 const answers = (who: string, text: string, amount: number) => [
   { question: '00000000-0000-4000-8000-000000000001', label: 'Topping', main_label: null, kind: 'choice', choices: [{ choice: '00000000-0000-4000-8000-000000000002', label: 'Cheese', main_label: null, quantity: 1, free: 0, unit: String(amount), amount: String(amount), per: 'item' }], unit: null, amount: String(amount), per: null },
@@ -62,6 +68,12 @@ beforeAll(async () => {
     db.sql`insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, quantity, unit_amount, discount_amount, tax_amount, line_total_amount, position, answers, unit_extras_amount, line_extras_amount)
       values (${orderId}, ${t.storeA1}, ${seller}, ${v?.id ?? ''}, ${p?.id ?? ''}, 'Cake', 2, 33000, 0, 0, 66100, ${position}, ${db.sql.json(answers('Message', text, 3000))}, 3000, 100)`
   await line(null, 0, 'For the store')
+  // The merchant's line also answers an upload question with one file (#1369).
+  fileId = crypto.randomUUID()
+  const key = `stores/${t.storeA1}/shopper-uploads/${orderId}/${fileId}`
+  await db.sql`insert into shopper_upload (id, store_id, order_id, r2_key, mime, bytes, checksum) values (${fileId}, ${t.storeA1}, ${orderId}, ${key}, 'image/png', 4, ${'e'.repeat(64)})`
+  objects.set(key, new Uint8Array([1, 2, 3, 4]))
+  await db.sql`update order_line set answers = answers || ${db.sql.json([{ question: '00000000-0000-4000-8000-000000000004', label: 'Photo', main_label: null, kind: 'upload', uploads: [fileId], unit: '200', amount: '200', per: 'line' }])} where order_id = ${orderId} and seller_id is null`
   await line(t.sellerA1First, 1, 'For Anand')
   await line(t.sellerA1Second, 2, 'For Bhatia')
   for (const seller of [null, t.sellerA1First, t.sellerA1Second]) {
@@ -95,7 +107,7 @@ const gql = async (source: string, caller: Who | 'support') => {
       ? { cookie: `${supportCookieName}=${supportCookie}` }
       : { cookie: `${storeCookieName}=${cookies[caller]}`, [storeHeader]: caller === 'bOwner' ? t.storeB1 : t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, clock, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: storeActivityFor(standing, activityLog), facts, now: () => clock }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: storeActivityFor(standing, activityLog), facts, uploadLinks: await signer, now: () => clock }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, errors: result.errors }
 }
@@ -136,6 +148,32 @@ describe('an order line’s answers (#1368)', () => {
     const context = { caller: { kind: 'person' as const, userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
     const rows = await withScope(db.sql, context, (tx) => selectMerchantExportLines(tx, t.storeA1, 'all', null, 10))
     expect(rows.map((r) => r.line_amount)).toEqual(['66100', '66100', '66100'])
+  })
+
+  it('gives the merchant side a 10-minute link to a shopper’s file, and a partner support session none', async () => {
+    const filesOf = async (caller: Who | 'support') => {
+      const result = await gql(`{ order(id: "${orderId}") { parts { lines { answers { kind files { id mime bytes url } } } } } }`, caller)
+      const order = result.data?.['order'] as { parts: { lines: { answers: { kind: string; files: { id: string; mime: string; bytes: number; url: string | null }[] }[] }[] }[] }
+      return order.parts.flatMap((p) => p.lines.flatMap((l) => l.answers.flatMap((a) => a.files)))
+    }
+    const [file] = await filesOf('owner')
+    expect(file).toMatchObject({ id: fileId, mime: 'image/png', bytes: 4 })
+    expect(file?.url).toMatch(new RegExp(`^/api/shopper-uploads/${t.storeA1}/${fileId}\\.\\d+\\.[A-Za-z0-9_-]{43}$`))
+    const open = (url: string, at = clock) => handleShopperUpload(new Request(`https://${host}${url}`), { sql: db.sql, now: () => at, uploadLinks: null }, bucket)
+    const serve = async (url: string, at = clock) => handleShopperUpload(new Request(`https://${host}${url}`), { sql: db.sql, now: () => at, uploadLinks: await signer }, bucket)
+    const opened = await serve(file?.url ?? '')
+    expect(opened.status).toBe(200)
+    expect(opened.headers.get('content-type')).toBe('image/png')
+    expect(opened.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(new Uint8Array(await opened.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]))
+    // Expired, tampered, or with no key to check it: closed.
+    expect((await serve(file?.url ?? '', new Date(clock.getTime() + 11 * 60_000))).status).toBe(404)
+    expect((await serve((file?.url ?? '').replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')))).status).toBe(404)
+    expect((await serve((file?.url ?? '').replace(t.storeA1, t.storeB1))).status).toBe(404)
+    expect((await open(file?.url ?? '')).status).toBe(404)
+    // Support sees the file is there, never a link; a supplier's own line has no file, and the merchant's line isn't its to see.
+    expect((await filesOf('support')).map((f) => f.url)).toEqual([null])
+    expect(await filesOf('supplier')).toEqual([])
   })
 
   it('shows another store nothing', async () => {

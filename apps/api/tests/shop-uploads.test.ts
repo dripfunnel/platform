@@ -16,10 +16,10 @@ let t: Tenants
 let storeId = ''
 const host = 'prints.shop.example'
 const ids = { product: '', version: '', photo: '', photoOrPdf: '', hiddenQuestion: '' }
-const bucket = new Map<string, Uint8Array>()
+const bucket = new Map<string, Uint8Array<ArrayBuffer>>()
 const files = {
   put: async (key: string, body: Uint8Array) => {
-    bucket.set(key, body)
+    bucket.set(key, new Uint8Array(body))
   },
   get: async (key: string) => (bucket.has(key) ? { body: new Blob([bucket.get(key) ?? new Uint8Array()]).stream() } : null),
   delete: async (key: string) => {
@@ -80,7 +80,7 @@ const contextOf = async (token: string | null): Promise<ShopContext> => {
     now: () => new Date(),
   }
 }
-const send = async (token: string | null, question: string, body: Uint8Array) => {
+const send = async (token: string | null, question: string, body: Uint8Array<ArrayBuffer>) => {
   const response = await handleUpload(
     new Request(`https://${host}/shop-api/uploads?question=${question}`, { method: 'POST', body, headers: { 'content-length': String(body.byteLength), ...(token ? { 'x-shop-cart': token } : {}) } }),
     await contextOf(token),
@@ -160,7 +160,7 @@ describe('a shopper’s files (#1369)', () => {
     const [queued] = await db.sql<{ payload: { key: string } }[]>`select payload from outbox where kind = 'upload.delete' and payload ->> 'key' like ${`%/${spare}`}`
     expect(queued?.payload.key).toMatch(new RegExp(`^stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/${spare}$`))
     expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
-    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload } as never)
+    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload } as never, new AbortController().signal)
     expect(bucket.has(queued?.payload.key ?? '')).toBe(false)
   })
 
