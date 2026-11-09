@@ -1531,6 +1531,8 @@ builds the table must ship:
 - a supplier writing a question, choice, amount or version row on another owner's product or question is refused: the
   owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
   another owner's row touches nothing;
+- a supplier writing a choice, an amount or a version limit under a question it doesn't own gets not
+  found, and one it writes under its own question carries that question's owner, whatever it sent;
 - a supplier gets a link only to a file its own line's answers name, of that line's order and store: an upload id
   of another order or store, even sent beside its own line, gets no link;
 - a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
