@@ -6,9 +6,14 @@ import { studioBasePath } from '../render/studio'
 import { useStorefront } from '../store/context'
 import type { Photo, VideoFile } from './photo'
 
+// Next inlines this literal in every bundle; core's tsconfig loads no Node types.
+declare const process: { env: { NODE_ENV?: string } }
+
 const widths = [320, 480, 640, 960, 1280, 1920] as const
-// Cloudflare image resizing on the live site (decided 2026-10-05 on #337); a preview shows the original.
-export const resized = (source: string, width: number) => `/cdn-cgi/image/width=${width},quality=82,format=auto/${source}`
+// Cloudflare image resizing on the live site (decided 2026-10-05 on #337); a preview shows the original, and so does a
+// clone's `next dev`, which has no Cloudflare in front of it (storefront ARCHITECTURE §2.1).
+export const resized = (source: string, width: number) =>
+  process.env.NODE_ENV === 'development' ? source : `/cdn-cgi/image/width=${width},quality=82,format=auto/${source}`
 
 /** In the studio frame the shop's files are asked for under `/__studio/{session}/`, since the frame carries no cookie (AI-STUDIO §3 step 6). */
 export const frameAddress = (address: string, base: string | null): string => {

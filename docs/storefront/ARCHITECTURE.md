@@ -165,7 +165,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   content and read through `t()`; it takes no address, and an id that isn't a file of this store shows nothing.
 - **`<Image>`** takes only a picture core decoded (`Photo`), with the width over height (`ratio`) that sets its width and
   height; on the live site it is resized through Cloudflare's `/cdn-cgi/image/` (320 to 1920 px), and a preview shows the
-  original. *Since #1105* a built page names each catalogue picture by its copy on the asset host (LIVE-SHOP §4 step 3),
+  original, as does a clone's `next dev`, which has no Cloudflare in front of it. *Since #1105* a built page names each catalogue picture by its copy on the asset host (LIVE-SHOP §4 step 3),
   and `<Image>` keeps that address while the Shop API's fresh answer names the same file. Only the picture core marks as the page's main one loads eagerly. **`<Video>`** needs a poster, never
   preloads, plays muted only while on screen and never under reduced motion; the size cap is the media library's, not
   the browser's.
