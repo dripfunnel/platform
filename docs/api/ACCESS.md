@@ -911,9 +911,12 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   **hidden from the storefront until approved**, only when the vendor changed its **name, a
   price (the product's or a version's) or its photo set**. Any other edit goes live at the
   next publish. **An extra's price is a price** (decided here on #1367, so a vendor can't add a
-  charge the merchant hasn't seen): adding, changing or removing the price of a question or a
-  choice (CATALOG-DESIGN §3 fact 51) sends the product back; any other change to its questions
-  goes live. The engine compares the three against the approved values on save; the
+  charge the merchant hasn't seen): a change to anything that sets what a question charges
+  sends the product back: adding, changing or removing the price of a question or a choice
+  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance, a choice's
+  maximum quantity, per item or once per line, and a per-character question's maximum length.
+  Any other change to its questions (text, order, conditions, availability, versions) goes
+  live. The engine compares the three against the approved values on save; the
   portal says which change needs approval. Accepted with the decision: a vendor can take its
   own product off sale by editing one of those fields, which the Owner sees in the queue and
   the activity log.
@@ -1447,7 +1450,8 @@ builds the table must ship:
   before the switch; a `to-store` supplier never reads the store's onward shipment of its
   lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
   zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
-  its own lines' unit and line amounts with the currency and never a discount, tax or total
+  its own lines' unit and line amounts (once-per-line extras included) and answers with the
+  currency and never a discount, tax or total
   (§7.3; DATA-MODEL §7.6, §7.11);
 - a supplier reading its own refunds never receives `by_user_id`, an override's `note`, a
   return's `note` or a ledger entry's `note` (DATA-MODEL §7.6, §5.3);

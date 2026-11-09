@@ -1226,11 +1226,13 @@ product_approved_snapshot
                      extras jsonb NULL, approved_at, approved_by)
                     -- prices is [{version_id, currency, amount, compare_at_amount}], one entry
                     -- per version_price row at approval, every amount with its currency (§7.1);
-                    -- extras (#1367) the price columns of its questions and choices and their
-                    -- product_question_amount rows, since an extra's price is a price (ACCESS §7.2).
+                    -- extras (#1367) everything that sets what a question charges: the price
+                    -- columns, product_question_amount rows (per-version ones included),
+                    -- free_picks, max_quantity, price_per and, on a per-character question,
+                    -- max_length, since an extra's price is a price (ACCESS §7.2).
                     -- Not built (found on #1368): no migration creates this table; a supplier's
-                    -- save compares the stored rows instead (catalog/rules.ts reviewedChanges), an
-                    -- extra's price among them (catalog/questions.ts extrasPriceChanged)
+                    -- save compares the stored rows instead (catalog/rules.ts reviewedChanges),
+                    -- those charge-setting fields among them (catalog/questions.ts extrasPriceChanged)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
@@ -2558,8 +2560,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   name and `shipping_address`; never email, phone, `billing_address`, any order `*_amount`,
   `notes`, `cancel_reason`, `search`, `access_token_hash`, `"return".note` or any
   `order_adjustment`. **`order_line_for_supplier`** is the one place a supplier sees money:
-  for its own lines only, `quantity`, `unit_amount`, `line_amount = unit_amount × quantity`
-  and the order's `currency`, so "Your sales" and the refund ceiling have a figure with its
+  for its own lines only, `quantity`, `unit_amount`, `line_amount = unit_amount × quantity
+  + line_extras_amount` (a customised line's once-per-line extras, #1367), its `answers` and
+  the order's `currency`, so "Your sales" and the refund ceiling have a figure with its
   currency (DESIGN-BRIEF fact 6; the price before the merchant's discount, since who pays a
   discount is open, OFFERS fact 18); never `discount_amount`, `tax_amount`,
   `line_total_amount` or a tax rate or zone, which carry the shopper's order-level discount
