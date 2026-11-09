@@ -927,7 +927,7 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
   S2: story module text, size-chart labels and notes, specification names and values, FAQs,
   highlights, warranty and returns text, badge labels, `seo_title` and `seo_description`,
   policies, compliance fields, a promotion's shopper-facing name and description, and a
-  product question's text and help and its choices' names (#1367). The
+  product question's text, help and example and its choices' names (#1367). The
   main-language text stays on the row itself and is required; other languages fall back to
   it (facts 19–20). A content page's or post's other languages are the exception, in
   `storefront_content_translation` (§7.8), since its body is a document of blocks. Compliance fields may be translated into a language the store does not
@@ -1402,7 +1402,8 @@ translation         (store_id, seller_id NULL, entity ('product'|'version'|'coll
                     -- seller_id is set by a trigger from the entity; language references
                     -- store_language, whose rows a supplier reads (it translates its own products)
                     -- #1367 (proposed): entity gains question (field name: its text; help: its
-                    -- help, ≤ 500 characters) and question_choice (field name), entity_id the row's id
+                    -- help, ≤ 500 characters; example: a text question's, ≤ 100) and question_choice
+                    -- (field name), entity_id the row's id
 product_search      (product_id, store_id, language, document tsvector)
                     PRIMARY KEY (product_id, language)
                     -- the storefront's per-language index with main-language fallback
