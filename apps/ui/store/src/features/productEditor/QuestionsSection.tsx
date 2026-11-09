@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { ConfirmDialog } from '@dripfunnel/shared/ui'
+import { useEffect, useRef, useState } from 'react'
 import { copyProductQuestions, searchProductsWithQuestions, uploadPhoto, type CopiedQuestions } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { Draft } from '../common/productDraft'
@@ -225,17 +226,20 @@ const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { 
           </span>
         )}
       </header>
-      {confirming && (
-        <div className="df-question-confirm" role="alertdialog" aria-label={words.delete}>
-          <p>{fill(words.deleteConfirm, { label: q.label || words.question })}</p>
-          <button type="button" className="df-button df-button--danger" onClick={remove}>
-            {words.deleteYes}
-          </button>
-          <button type="button" className="df-button" onClick={() => setConfirming(false)}>
-            {words.keep}
-          </button>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirming}
+        title={words.deleteYes}
+        target={q.label || words.question}
+        consequence={fill(words.deleteConfirm, { label: q.label || words.question })}
+        confirmLabel={words.deleteYes}
+        cancelLabel={words.keep}
+        danger
+        onConfirm={() => {
+          setConfirming(false)
+          remove()
+        }}
+        onCancel={() => setConfirming(false)}
+      />
       <label>
         {words.question}
         <input maxLength={200} placeholder={words.questionPlaceholder} value={q.label} readOnly={disabled} onChange={(e) => setQ({ ...q, label: e.target.value })} />
@@ -422,13 +426,28 @@ const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { 
   )
 }
 
-/** U12: a product search of the ones that have questions, a confirm that names what's replaced, and what couldn't come. */
+type Source = { id: string; name: string; questionCount: number }
+
+/** U12: a search of the products that have questions (debounced, newest answer wins), a confirm that names what's replaced, and what couldn't come. */
 const CopyQuestions = ({ copy, has }: { copy: NonNullable<Props['copy']>; has: number }) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [found, setFound] = useState<{ id: string; name: string; questionCount: number }[] | null>(null)
-  const [chosen, setChosen] = useState<{ id: string; name: string; questionCount: number } | null>(null)
+  const [found, setFound] = useState<{ kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; list: Source[] }>({ kind: 'idle' })
+  const [chosen, setChosen] = useState<Source | null>(null)
   const [state, setState] = useState<{ kind: 'idle' } | { kind: 'copying' } | { kind: 'done'; copied: CopiedQuestions } | { kind: 'failed' }>({ kind: 'idle' })
+  const asked = useRef(0)
+  useEffect(() => {
+    if (!open) return
+    const ask = (asked.current += 1)
+    setFound({ kind: 'loading' })
+    const timer = setTimeout(() => {
+      searchProductsWithQuestions(search).then(
+        (list) => ask === asked.current && setFound({ kind: 'ready', list: list.filter((p) => p.id !== copy.productId) }),
+        () => ask === asked.current && setFound({ kind: 'failed' }),
+      )
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [open, search, copy.productId])
   if (copy.dirty) return <p className="df-editor-hint">{`${words.copy}: ${words.copySave}`}</p>
   if (!open) {
     return (
@@ -442,46 +461,48 @@ const CopyQuestions = ({ copy, has }: { copy: NonNullable<Props['copy']>; has: n
     <div className="df-question-copy">
       <label>
         {words.copySearch}
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            void searchProductsWithQuestions(e.target.value).then((list) => setFound(list.filter((p) => p.id !== copy.productId)))
-          }}
-        />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} />
       </label>
-      {found && found.length === 0 && <p className="df-editor-hint">{words.copyNone}</p>}
-      <ul>
-        {(found ?? []).map((p) => (
-          <li key={p.id}>
-            <button type="button" className="df-editor-link" onClick={() => setChosen(p)}>
-              {fill(words.copyItem, { name: p.name, count: count(p.questionCount) })}
-            </button>
-          </li>
-        ))}
-      </ul>
-      {chosen && state.kind !== 'done' && (
-        <div role="alertdialog" aria-label={words.copy}>
-          <p>{fill(has > 0 ? words.copyConfirm : words.copyConfirmNone, { count: count(chosen.questionCount), name: chosen.name })}</p>
-          <button
-            type="button"
-            className="df-button df-button--primary"
-            disabled={state.kind === 'copying'}
-            onClick={() => {
-              setState({ kind: 'copying' })
-              copyProductQuestions(chosen.id, copy.productId, copy.revision).then(
-                (copied) => {
-                  setState({ kind: 'done', copied })
-                  copy.onCopied(copied)
-                },
-                () => setState({ kind: 'failed' }),
-              )
-            }}
-          >
-            {words.copyYes}
-          </button>
-        </div>
+      {found.kind === 'loading' && <p role="status">{words.copySearching}</p>}
+      {found.kind === 'failed' && <p role="alert">{words.copySearchFailed}</p>}
+      {found.kind === 'ready' && found.list.length === 0 && <p className="df-editor-hint">{words.copyNone}</p>}
+      {found.kind === 'ready' && found.list.length > 0 && (
+        <ul>
+          {found.list.map((p) => (
+            <li key={p.id}>
+              <button type="button" className="df-editor-link" onClick={() => setChosen(p)}>
+                {fill(words.copyItem, { name: p.name, count: count(p.questionCount) })}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
+      <ConfirmDialog
+        open={chosen !== null && state.kind !== 'done'}
+        title={words.copy}
+        target={chosen?.name ?? ''}
+        consequence={chosen ? fill(has > 0 ? words.copyConfirm : words.copyConfirmNone, { count: count(chosen.questionCount), name: chosen.name }) : ''}
+        confirmLabel={words.copyYes}
+        cancelLabel={words.keep}
+        danger={has > 0}
+        blocked={state.kind === 'copying' ? words.copyCopying : null}
+        error={state.kind === 'failed' ? words.copyFailed : null}
+        onConfirm={() => {
+          if (!chosen) return
+          setState({ kind: 'copying' })
+          copyProductQuestions(chosen.id, copy.productId, copy.revision).then(
+            (copied) => {
+              setState({ kind: 'done', copied })
+              copy.onCopied(copied)
+            },
+            () => setState({ kind: 'failed' }),
+          )
+        }}
+        onCancel={() => {
+          setChosen(null)
+          setState({ kind: 'idle' })
+        }}
+      />
       {state.kind === 'done' && (
         <p role="status">
           {words.copyDone}{' '}
@@ -489,7 +510,6 @@ const CopyQuestions = ({ copy, has }: { copy: NonNullable<Props['copy']>; has: n
             fill(words.copyDropped, { amounts: formatCount(state.copied.droppedAmounts), limits: formatCount(state.copied.droppedVersionLimits), photos: formatCount(state.copied.droppedPhotos) })}
         </p>
       )}
-      {state.kind === 'failed' && <p role="alert">{words.copyFailed}</p>}
     </div>
   )
 }
