@@ -34,6 +34,29 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.12.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Products can ask the shopper questions before buying (#1367, #1372). `AddToCart` and `BuyNow` open core\'s sealed customisation modal for a product that asks any; a product without questions adds as before, and the modal\'s code loads only when needed.',
+      'A cart line now carries `answers`, `lineId` and `slug`, and the problem `check_answers`. Show a customised line\'s answers with `<LineAnswers line={line} />` and offer Edit with `<EditAnswers line={line} />` under the line in the cart; both render nothing on a line without answers. The codemods add them to a cart view that still has the shipped markup; a theme that changed it places them itself.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/CartView.tsx'],
+        find: "import { CodeField, Image, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'",
+        replace: "import { CodeField, EditAnswers, Image, LineAnswers, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'",
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/CartView.tsx'],
+        find: '{line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}',
+        replace: '{line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}\n                <LineAnswers line={line} className={styles.version} />\n                <EditAnswers line={line} className={styles.remove} />',
+      },
+    ],
+  },
+  {
     version: '0.11.0',
     kind: 'minor',
     security: false,

@@ -13,6 +13,7 @@ import { stockSchema, type Badge, type Stock } from '../pricing/brand'
 import { moneySchema, type Money } from '../pricing/money'
 import type { LegalNotice } from '../sealed/components'
 import { textOfRichText } from '../platform/text/richText'
+import { decodeQuestions, questionFields, questionsSchema, rememberQuestions, type Question } from './questions'
 import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, type ProductCard } from './summary'
 
 // A product page (ARCHITECTURE §2.1 `products`; DESIGN §6): which versions exist and can be bought, the chosen version's
@@ -23,7 +24,7 @@ const list = <T extends z.ZodType>(item: T) => z.array(item).nullable().optional
 const money = moneySchema.nullable().optional().catch(null)
 const count = z.number().int().nonnegative().nullable().optional()
 
-const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} }`
+const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} } ${questionFields}`
 export const productQuery = `query Product($slug: String!) { product(slug: $slug) { ${productFields} } store { marketId markets { id countries } } }`
 
 const answerSchema = z.object({
@@ -55,6 +56,7 @@ const answerSchema = z.object({
       seoTitle: text,
       seoDescription: text,
       related: cardsSchema,
+      questions: questionsSchema,
     })
     .nullable(),
   store: z.object({ marketId: text, markets: list(z.object({ id: text, countries: list(z.string()) })) }).nullable().optional(),
@@ -98,6 +100,8 @@ export type Product = {
   returns: string | null
   warranty: string | null
   related: ProductCard[]
+  /** What the shopper is asked before buying (#1367); empty for a product without questions, which adds as before. */
+  questions: Question[]
   seoTitle: string | null
   seoDescription: string | null
 }
@@ -168,6 +172,7 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     related: p.related,
     seoTitle: p.seoTitle ?? null,
     seoDescription: p.seoDescription ?? null,
+    questions: decodeQuestions(p.questions),
   }
 }
 
@@ -206,7 +211,12 @@ export const useProduct = (): ProductPage => {
   const slug = itemSlug(path, '/products/')
   const versionId = slug ? itemSlug(path, `${productPath(slug)}`) : null
   const loaded = useShopData(slug ? JSON.stringify(['product', slug]) : null, async (client) => client.query(productQuery, answerSchema, { slug }))
-  const product = useMemo(() => (loaded.data ? decode(loaded.data, t) : null), [loaded.data, t])
+  const product = useMemo(() => {
+    const decoded = loaded.data ? decode(loaded.data, t) : null
+    // Add to cart and Buy now hold only a version id: this is how they know the product asks questions.
+    if (decoded) rememberQuestions({ id: decoded.id, name: decoded.name, versionIds: decoded.versions.map((v) => v.id), questions: decoded.questions })
+    return decoded
+  }, [loaded.data, t])
   // A partial choice (a colour before a size) lives here; a complete one is the version's own address.
   const [picked, setPicked] = useState<{ productId: string; versionId: string | null; chosen: Record<string, string> } | null>(null)
   const chosen = useMemo(() => {

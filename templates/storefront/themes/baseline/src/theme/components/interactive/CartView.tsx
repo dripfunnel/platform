@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { CodeField, Image, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
+import { CodeField, EditAnswers, Image, LineAnswers, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
 import { shop } from '../styles/shop'
@@ -98,6 +98,8 @@ export const CartView = () => {
                   {line.lineTotal ? <Price money={line.lineTotal} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} /> : null}
                 </div>
                 {line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}
+                <LineAnswers line={line} className={styles.version} />
+                <EditAnswers line={line} className={styles.remove} />
                 {line.gift ? <p className={styles.version}>{t('shop.cart.giftFor', { name: line.gift.recipientName, email: line.gift.recipientEmail })}</p> : null}
                 {problemWords(line) ? <p className={styles.problem}>{problemWords(line)}</p> : null}
                 <div className={styles.actions}>

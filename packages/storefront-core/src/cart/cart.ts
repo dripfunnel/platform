@@ -9,6 +9,7 @@ import { navigate } from '../platform/browser/router'
 import { photoOf, type Photo } from '../platform/media/photo'
 import { useStorefront } from '../platform/store/context'
 import { moneySchema, type Money } from '../pricing/money'
+import type { Answer } from '../products/questions'
 import { moneyFields, productPath } from '../products/summary'
 
 // The cart (storefront ARCHITECTURE §2.1 `cart`; DESIGN §6): the Shop API's active order is the only cart state, read once
@@ -16,7 +17,7 @@ import { moneyFields, productPath } from '../products/summary'
 
 const m = `{ ${moneyFields} }`
 const addressFields = 'name line1 line2 city region postalCode country phone latitude longitude'
-export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
+export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { id versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } answers { questionId question kind text per amount ${m} choices { choiceId label quantity free } uploads { id kind } } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
 
 const text = z.string().nullable().optional()
 const count = z.number().int().nullable().optional()
@@ -27,6 +28,22 @@ const addressSchema = z
   .nullable()
   .optional()
   .transform((a): CartAddress | null => (a?.name && a.line1 && a.city && a.country ? { name: a.name, line1: a.line1, line2: a.line2 ?? null, city: a.city, region: a.region ?? null, postalCode: a.postalCode ?? null, country: a.country, phone: a.phone ?? null, pin: pinOf(a) } : null))
+
+const answersSchema = z
+  .array(
+    z.object({
+      questionId: text,
+      question: text,
+      kind: text,
+      text,
+      per: text,
+      amount: money,
+      choices: z.array(z.object({ choiceId: text, label: text, quantity: count, free: count })).nullable().optional(),
+      uploads: z.array(z.object({ id: text, kind: text })).nullable().optional(),
+    }),
+  )
+  .nullable()
+  .optional()
 
 export const cartSchema = z.object({
   id: z.string(),
@@ -40,7 +57,7 @@ export const cartSchema = z.object({
   readyToPay: z.boolean().nullable().optional(),
   deliverable: z.boolean().nullable().optional(),
   shippingOption: text,
-  lines: z.array(z.object({ versionId: z.string(), quantity: z.number().int().positive(), productName: text, productSlug: text, versionName: text, photoUrl: text, unitPrice: money, lineTotal: money, discount: money, available: count, problem: text, gift: z.object({ recipientName: text, recipientEmail: text, sendOn: text, message: text }).nullable().optional() })),
+  lines: z.array(z.object({ id: text, answers: answersSchema, versionId: z.string(), quantity: z.number().int().positive(), productName: text, productSlug: text, versionName: text, photoUrl: text, unitPrice: money, lineTotal: money, discount: money, available: count, problem: text, gift: z.object({ recipientName: text, recipientEmail: text, sendOn: text, message: text }).nullable().optional() })),
   subtotal: moneySchema,
   discount: money,
   discounts: z.array(z.object({ name: text, code: text, amount: money })).nullable().optional(),
@@ -58,16 +75,25 @@ export const cartSchema = z.object({
 
 export type CartAddress = { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string | null; country: string; phone: string | null; pin?: Pin | null }
 
-/** What stops a line being bought: gone, not sold in the shopper's market, without a price, or more than is left. */
-export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short'
-const lineProblems: readonly LineProblem[] = ['unavailable', 'not_sold_here', 'not_priced', 'short']
+/** What stops a line being bought: gone, not sold in the shopper's market, without a price, more than is left, or answers that no longer fit (Edit them). */
+export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short' | 'check_answers'
+const lineProblems: readonly LineProblem[] = ['unavailable', 'not_sold_here', 'not_priced', 'short', 'check_answers']
+
+/** A customised line's answer as the engine priced it (#1368): what was picked, typed or uploaded, and its extra. */
+export type LineAnswer = { questionId: string; question: string; kind: 'CHOICE' | 'TEXT' | 'UPLOAD'; text: string | null; amount: Money | null; per: 'ITEM' | 'LINE' | null; choices: { choiceId: string; label: string; quantity: number; free: number }[]; uploads: { id: string; kind: string }[] }
 
 export type CartLine = {
+  /** The line's own id, which Edit names; null until the engine answers a new one. */
+  lineId: string | null
   versionId: string
+  /** Its answers to the product's questions; empty on a line without any. */
+  answers: LineAnswer[]
   quantity: number
   name: string
   /** The product's page, when it is still in the catalogue. */
   href: string | null
+  /** The product's slug, which Edit reads its questions by. */
+  slug: string | null
   versionName: string | null
   photo: Photo | null
   unitPrice: Money | null
@@ -141,7 +167,13 @@ export const viewCart = (cart: Decoded, overlay: readonly Overlay[] = []): Cart 
     if (quantity <= 0) return []
     const photo = l.photoUrl ? photoOf(l.photoUrl, l.productName ?? null) : null
     const problem = lineProblems.find((p) => p === l.problem) ?? null
-    return [{ versionId: l.versionId, quantity, name: l.productName ?? '', href: l.productSlug ? productPath(l.productSlug) : null, versionName: l.versionName ?? null, photo, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, discount: l.discount ?? null, available: l.available ?? null, problem, pending: quantity !== l.quantity, gift: l.gift?.recipientName && l.gift.recipientEmail ? { recipientName: l.gift.recipientName, recipientEmail: l.gift.recipientEmail, sendOn: l.gift.sendOn ?? null, message: l.gift.message ?? null } : null }]
+    const answers = (l.answers ?? []).flatMap((a): LineAnswer[] => {
+      const kind = (['CHOICE', 'TEXT', 'UPLOAD'] as const).find((k) => k === a.kind)
+      return a.questionId && a.question && kind
+        ? [{ questionId: a.questionId, question: a.question, kind, text: a.text ?? null, amount: a.amount ?? null, per: a.per === 'LINE' ? 'LINE' : a.per === 'ITEM' ? 'ITEM' : null, choices: (a.choices ?? []).flatMap((c) => (c.choiceId && c.label ? [{ choiceId: c.choiceId, label: c.label, quantity: c.quantity ?? 1, free: c.free ?? 0 }] : [])), uploads: (a.uploads ?? []).flatMap((u) => (u.id ? [{ id: u.id, kind: u.kind ?? 'image' }] : [])) }]
+        : []
+    })
+    return [{ lineId: l.id ?? null, answers, versionId: l.versionId, quantity, name: l.productName ?? '', href: l.productSlug ? productPath(l.productSlug) : null, slug: l.productSlug ?? null, versionName: l.versionName ?? null, photo, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, discount: l.discount ?? null, available: l.available ?? null, problem, pending: quantity !== l.quantity, gift: l.gift?.recipientName && l.gift.recipientEmail ? { recipientName: l.gift.recipientName, recipientEmail: l.gift.recipientEmail, sendOn: l.gift.sendOn ?? null, message: l.gift.message ?? null } : null }]
   })
   const known = new Set(cart.lines.map((l) => l.versionId))
   const adding = overlay.filter((o) => o.kind === 'add' && !known.has(o.versionId)).reduce((n, o) => n + o.quantity, 0)
@@ -300,7 +332,8 @@ export const useCartState = () => {
 }
 
 const lineChange = (name: string, args: string) => `mutation ${name}($versionId: ID!, $quantity: Int!) { ${args} { cartToken cart { ${cartFields} } } }`
-const addMutation = `mutation Add($versionId: ID!, $quantity: Int!, $gift: ShopGiftCardInput) { addToCart(versionId: $versionId, quantity: $quantity, gift: $gift) { cartToken cart { ${cartFields} } } }`
+const addMutation = `mutation Add($versionId: ID!, $quantity: Int!, $gift: ShopGiftCardInput, $answers: [ShopAnswerInput!]) { addToCart(versionId: $versionId, quantity: $quantity, gift: $gift, answers: $answers) { cartToken cart { ${cartFields} } } }`
+const answersMutation = `mutation Answers($lineId: ID!, $answers: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $lineId, answers: $answers) { cartToken cart { ${cartFields} } } }`
 const quantityMutation = lineChange('Quantity', 'setCartQuantity(versionId: $versionId, quantity: $quantity)')
 const applyMutation = `mutation Apply($code: String!) { applyCode(code: $code) { state cart { ${cartFields} } } }`
 const removeCodeMutation = `mutation RemoveCode($code: String!) { removeCode(code: $code) { cart { ${cartFields} } } }`
@@ -329,6 +362,10 @@ export type CartPage = {
   removeGiftCard: () => Promise<boolean>
   /** Adds the version to the cart, then opens checkout. */
   buyNow: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
+  /** Adds the version with the shopper's answers (the customisation modal, #1372): null once added, else the refusal's code. */
+  addWithAnswers: (versionId: string, quantity: number, answers: readonly Answer[], gift?: GiftRecipient) => Promise<string | null>
+  /** Replaces a customised line's answers (Edit), repriced or joined to a line with the same answers: null once done, else the code. */
+  editAnswers: (lineId: string, answers: readonly Answer[]) => Promise<string | null>
   retry: () => void
 }
 
@@ -357,6 +394,8 @@ export const useCart = (): CartPage => {
       if (added) navigate('/checkout/')
       return added
     },
+    addWithAnswers: async (versionId, quantity, answers, gift) => ((await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, quantity, kind: 'add' })) !== null ? null : (store.get().error ?? 'UNKNOWN')),
+    editAnswers: async (lineId, answers) => ((await store.change(answersMutation, { lineId, answers }, changeSchema)) !== null ? null : (store.get().error ?? 'UNKNOWN')),
     retry: () => void store.reload(),
   }
 }

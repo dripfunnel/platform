@@ -1,15 +1,19 @@
 import type { z } from 'zod'
 
+/** A refused answer's `problems` (ANSWERS_INVALID): which question, which choice, and why. */
+export type AnswerProblem = { questionId: string | null; choiceId: string | null; reason: string }
+
 export class ShopApiError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly problems: readonly AnswerProblem[] = [],
   ) {
     super(message)
   }
 }
 
-type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string } }[] }
+type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string; problems?: AnswerProblem[] } }[] }
 
 /** The request headers the Shop API reads (apps/api/src/auth/shopCaller.ts). */
 export const shopHeaders = {
@@ -77,7 +81,7 @@ export const createShopClient = ({ endpoint = '/shop-api', storeKey, timeoutMs =
     }
     const body = (await response.json().catch(() => ({}))) as GraphQLResponse<T>
     const error = body.errors?.[0]
-    if (error) throw new ShopApiError(error.extensions?.code ?? 'UNKNOWN', error.message)
+    if (error) throw new ShopApiError(error.extensions?.code ?? 'UNKNOWN', error.message, error.extensions?.problems ?? [])
     if (!body.data) throw new ShopApiError(response.ok ? 'EMPTY_RESPONSE' : `HTTP_${response.status}`, 'The Shop API returned no data.')
     return body.data
   }
@@ -92,7 +96,8 @@ export const createShopClient = ({ endpoint = '/shop-api', storeKey, timeoutMs =
     return parsed.data as z.infer<S>
   }
 
-  return { request, query }
+  // Uploads go beside the GraphQL endpoint with the same headers (`POST {endpoint}/uploads`, #1369).
+  return { request, query, endpoint, headers: headersFor }
 }
 
 export type ShopClient = ReturnType<typeof createShopClient>
