@@ -255,7 +255,6 @@ describe('who reads the question rows (DATA-MODEL §7.11)', () => {
     subscription: 'active',
   })
   const shopper = (storeId = t.storeA1, partnerId = t.partnerA): CallerContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
-  const count = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from product_question`)[0]?.n ?? 0)
 
   it('holds a supplier to its own products’, another store to none, and a shopper to visible products’, on every question table', async () => {
     const tables = ['product_question', 'product_question_choice', 'product_question_amount', 'product_question_version'] as const
