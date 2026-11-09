@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { CurrencyPrice, MarketReadiness } from '#engine/modules/markets/index'
 import { approvalAudit, catalogAudit, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import type { AmountRow, ChoiceRow, PriceRow, QuestionRow } from '#db/scoped/questions'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
@@ -44,6 +45,10 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   INVALID_FILTER: 'A filter value isn’t this store’s, or is listed twice.',
   INVALID_LISTING: 'Something in the listing sections isn’t valid.',
   LISTING_REFUSED: 'A related product, badge or size chart isn’t one this product can use.',
+  QUESTION_LIMIT: 'A product can ask up to 10 questions.',
+  CHOICE_LIMIT: 'A question can have up to 50 choices.',
+  INVALID_QUESTION: 'Something in a question isn’t valid.',
+  CURRENCY_NOT_SOLD: 'A price is in a currency this store doesn’t type prices in.',
 }
 
 const sorts: readonly ProductSort[] = ['created', 'updated', 'name', 'price_low', 'price_high', 'stock']
@@ -76,12 +81,14 @@ interface SummaryView {
   updatedAt: string
   /** Per market, what it still lacks to sell there; null for a supplier, which reads no market. */
   readiness: MarketReadiness[] | null
+  /** How many questions it asks shoppers (CATALOG U12's product search). */
+  questionCount: number
 }
 
 /** Where the portal reads a catalogue file: on its own host, through the caller's scope (assets.ts). */
 export const assetUrl = (assetId: string): string => `/api/assets/${assetId}`
 
-const summaryOf = (r: ProductListRow, currency: string | null, readiness: MarketReadiness[] | null): SummaryView => ({
+const summaryOf = (r: ProductListRow, currency: string | null, readiness: MarketReadiness[] | null, questionCount = 0): SummaryView => ({
   id: r.id,
   name: r.name,
   slug: r.slug,
@@ -101,7 +108,23 @@ const summaryOf = (r: ProductListRow, currency: string | null, readiness: Market
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
   readiness,
+  questionCount,
 })
+
+/** An extra's price as the editor reads it (FIRST-RELEASE §19): amounts for every version, then each version's own. */
+const extraPriceOf = (p: PriceRow) => {
+  if (!p.price_mode || !p.price_per) return null
+  const general = p.amounts.filter((a) => a.version_id === null)
+  const versions = [...new Set(p.amounts.flatMap((a) => (a.version_id ? [a.version_id] : [])))]
+  const amountsOf = (rows: readonly AmountRow[]) => rows.map((a) => ({ currency: a.currency, amount: a.amount }))
+  return {
+    mode: p.price_mode.toUpperCase(),
+    per: p.price_per.toUpperCase(),
+    percentBps: p.price_bps,
+    amounts: amountsOf(general),
+    versionAmounts: versions.map((versionId) => ({ versionId, amounts: amountsOf(p.amounts.filter((a) => a.version_id === versionId)) })),
+  }
+}
 
 export const registerProducts = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -144,6 +167,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
       readiness: t.field({ type: [Readiness], nullable: true, extensions: { access: { ...merchantRead, machine: true } }, resolve: (p) => p.readiness }),
+      questionCount: t.exposeInt('questionCount'),
     }),
   })
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
@@ -257,6 +281,68 @@ export const registerProducts = (builder: StoreBuilder) => {
     }),
   })
 
+  type ExtraPriceView = NonNullable<ReturnType<typeof extraPriceOf>>
+  const QuestionAmount = builder.objectRef<{ currency: string; amount: string }>('QuestionAmount').implement({
+    fields: (t) => ({ currency: t.exposeString('currency'), amount: t.exposeString('amount') }),
+  })
+  const VersionAmounts = builder.objectRef<ExtraPriceView['versionAmounts'][number]>('QuestionVersionAmounts').implement({
+    fields: (t) => ({ versionId: t.exposeID('versionId'), amounts: t.field({ type: [QuestionAmount], resolve: (v) => v.amounts }) }),
+  })
+  const ExtraPrice = builder.objectRef<ExtraPriceView>('ExtraPrice').implement({
+    fields: (t) => ({
+      // FIXED, PERCENT or PER_CHARACTER; ITEM (each one bought) or LINE (once for the line).
+      mode: t.exposeString('mode'),
+      per: t.exposeString('per'),
+      percentBps: t.exposeInt('percentBps', { nullable: true }),
+      amounts: t.field({ type: [QuestionAmount], resolve: (p) => p.amounts }),
+      versionAmounts: t.field({ type: [VersionAmounts], resolve: (p) => p.versionAmounts }),
+    }),
+  })
+  const QuestionChoice = builder.objectRef<ChoiceRow>('ProductQuestionChoice').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      label: t.exposeString('label'),
+      photoAssetId: t.exposeID('photo_asset_id', { nullable: true }),
+      available: t.exposeBoolean('available'),
+      maxQuantity: t.exposeInt('max_quantity'),
+      price: t.field({ type: ExtraPrice, nullable: true, resolve: (c) => extraPriceOf(c) }),
+    }),
+  })
+  const ShownIf = builder.objectRef<{ questionId: string; choiceId: string }>('ProductQuestionCondition').implement({
+    fields: (t) => ({ questionId: t.exposeID('questionId'), choiceId: t.exposeID('choiceId') }),
+  })
+  const Question = builder.objectRef<QuestionRow & { all: readonly QuestionRow[] }>('ProductQuestion').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // CHOICE, TEXT or UPLOAD (CATALOG fact 50).
+      kind: t.string({ resolve: (q) => q.kind.toUpperCase() }),
+      label: t.exposeString('label'),
+      help: t.exposeString('help', { nullable: true }),
+      required: t.exposeBoolean('required'),
+      minPicks: t.exposeInt('min_picks', { nullable: true }),
+      maxPicks: t.exposeInt('max_picks', { nullable: true }),
+      freePicks: t.exposeInt('free_picks', { nullable: true }),
+      maxLength: t.exposeInt('max_length', { nullable: true }),
+      multiline: t.exposeBoolean('multiline', { nullable: true }),
+      example: t.exposeString('example', { nullable: true }),
+      // IMAGE, PDF or IMAGE_PDF.
+      accept: t.string({ nullable: true, resolve: (q) => q.accept?.toUpperCase() ?? null }),
+      maxFiles: t.exposeInt('max_files', { nullable: true }),
+      price: t.field({ type: ExtraPrice, nullable: true, resolve: (q) => extraPriceOf(q) }),
+      shownIf: t.field({
+        type: ShownIf,
+        nullable: true,
+        resolve: (q) => {
+          const on = q.shown_if_choice_id ? q.all.find((x) => x.choices.some((c) => c.id === q.shown_if_choice_id)) : undefined
+          return on && q.shown_if_choice_id ? { questionId: on.id, choiceId: q.shown_if_choice_id } : null
+        },
+      }),
+      // Null: every version.
+      versionIds: t.idList({ nullable: true, resolve: (q) => (q.version_ids.length > 0 ? q.version_ids : null) }),
+      choices: t.field({ type: [QuestionChoice], resolve: (q) => q.choices }),
+    }),
+  })
+
   const ProductType = builder.objectRef<ProductView>('Product').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -301,6 +387,14 @@ export const registerProducts = (builder: StoreBuilder) => {
       listing: t.field({ type: ListingType, resolve: (p) => p }),
       sizeChartId: t.exposeID('size_chart_id', { nullable: true }),
       video: t.field({ type: VideoType, nullable: true, resolve: (p) => p.video }),
+      // The questions shoppers answer before buying, in order (CATALOG facts 49–57).
+      questions: t.field({
+        type: [Question],
+        resolve: async (p, _, ctx) => {
+          const all = await service(ctx).questions(p.id)
+          return all.map((q) => ({ ...q, all }))
+        },
+      }),
       createdAt: t.string({ resolve: (p) => p.created_at.toISOString() }),
       updatedAt: t.string({ resolve: (p) => p.updated_at.toISOString() }),
     }),
@@ -366,6 +460,49 @@ export const registerProducts = (builder: StoreBuilder) => {
   const OptionInput = builder.inputType('ProductOptionInput', {
     fields: (t) => ({ id: t.id(), name: t.string({ required: true }), values: t.field({ type: [ValueInput], required: true }) }),
   })
+  const AmountInput = builder.inputType('QuestionAmountInput', { fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }) }) })
+  const VersionAmountInput = builder.inputType('QuestionVersionAmountInput', {
+    // A version by its place in `versions`, as `filterValues` names one.
+    fields: (t) => ({ version: t.int({ required: true }), amounts: t.field({ type: [AmountInput], required: true }) }),
+  })
+  const ExtraPriceInput = builder.inputType('ExtraPriceInput', {
+    fields: (t) => ({
+      mode: t.string({ required: true }),
+      per: t.string({ required: true }),
+      percentBps: t.int(),
+      amounts: t.field({ type: [AmountInput] }),
+      versionAmounts: t.field({ type: [VersionAmountInput] }),
+    }),
+  })
+  const ChoiceInput = builder.inputType('ProductQuestionChoiceInput', {
+    fields: (t) => ({ id: t.id(), label: t.string({ required: true }), photoAssetId: t.string(), available: t.boolean(), maxQuantity: t.int(), price: t.field({ type: ExtraPriceInput }) }),
+  })
+  const ShownIfInput = builder.inputType('ProductQuestionConditionInput', {
+    // The question and its choice by their places in this input's `questions` and that question's `choices`.
+    fields: (t) => ({ question: t.int({ required: true }), choice: t.int({ required: true }) }),
+  })
+  const QuestionInputType = builder.inputType('ProductQuestionInput', {
+    fields: (t) => ({
+      id: t.id(),
+      kind: t.string({ required: true }),
+      label: t.string({ required: true }),
+      help: t.string(),
+      required: t.boolean(),
+      minPicks: t.int(),
+      maxPicks: t.int(),
+      freePicks: t.int(),
+      maxLength: t.int(),
+      multiline: t.boolean(),
+      example: t.string(),
+      accept: t.string(),
+      maxFiles: t.int(),
+      price: t.field({ type: ExtraPriceInput }),
+      shownIf: t.field({ type: ShownIfInput }),
+      // Versions by their places in `versions`; left out or empty is every version.
+      versions: t.intList(),
+      choices: t.field({ type: [ChoiceInput] }),
+    }),
+  })
   const ProductInputType = builder.inputType('ProductInput', {
     fields: (t) => ({
       name: t.string({ required: true }),
@@ -386,6 +523,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       filterValues: t.field({ type: [FilterValueInput] }),
       listing: t.field({ type: ListingInputType }),
       sizeChartId: t.string(),
+      // Left out keeps the product's questions; [] removes them (CATALOG U14).
+      questions: t.field({ type: [QuestionInputType] }),
     }),
   })
   const PatchInput = builder.inputType('ProductsPatch', { fields: (t) => ({ visible: t.boolean({ required: true }) }) })
@@ -397,6 +536,16 @@ export const registerProducts = (builder: StoreBuilder) => {
       // approved | pending | sent_back, or null outside approval; `reviewed` names the change that needs it (CATALOG E3).
       approval: t.exposeString('approval', { nullable: true }),
       reviewed: t.exposeStringList('reviewed'),
+    }),
+  })
+
+  // What a copy couldn't bring along: amounts and limits for versions this product lacks, and another owner's photos (U12).
+  const CopiedQuestions = builder.objectRef<{ product: { id: string; slug: string; revision: number; approval: string | null; reviewed: string[] }; droppedAmounts: number; droppedVersionLimits: number; droppedPhotos: number }>('CopiedQuestions').implement({
+    fields: (t) => ({
+      product: t.field({ type: Saved, resolve: (c) => c.product }),
+      droppedAmounts: t.exposeInt('droppedAmounts'),
+      droppedVersionLimits: t.exposeInt('droppedVersionLimits'),
+      droppedPhotos: t.exposeInt('droppedPhotos'),
     }),
   })
 
@@ -429,7 +578,16 @@ export const registerProducts = (builder: StoreBuilder) => {
       const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'products', total: result.wanted }, ctx.now())
       throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'products', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })
     }
-    const facts = result.reason === 'STALE_REVISION' ? { revision: result.revision } : result.reason === 'INVALID_INPUT' && result.field ? { field: result.field } : {}
+    const facts =
+      result.reason === 'STALE_REVISION'
+        ? { revision: result.revision }
+        : result.reason === 'INVALID_INPUT' && result.field
+          ? { field: result.field }
+          : result.reason === 'QUESTION_LIMIT' || result.reason === 'CHOICE_LIMIT'
+            ? { limit: result.limit }
+            : result.reason === 'INVALID_QUESTION'
+              ? { question: result.question, choice: result.choice, field: result.field }
+              : {}
     throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...facts } })
   }
 
@@ -459,8 +617,14 @@ export const registerProducts = (builder: StoreBuilder) => {
         const page = sortedPageOf(rows, window, sort, byTime, (r) => ({ value: sortValueOf(r, sort), id: r.id }))
         // The page's readiness in one go, the merchant side's alone (a supplier reads no market).
         const readiness = tenantCaller(ctx).seller === null ? await marketsService(ctx).readiness(page.nodes.map((r) => r.id)) : null
-        return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null)), pageInfo: page.pageInfo }
+        const questionCounts = await service(ctx).questionCounts(page.nodes.map((r) => r.id))
+        return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null, questionCounts.get(r.id) ?? 0)), pageInfo: page.pageInfo }
       },
+    }),
+    // Whether the store has an undeleted product with questions: the offer editor's switch shows only then (OFFERS-DESIGN §3.1).
+    hasCustomisation: t.boolean({
+      extensions: { access: { api: 'store', scope: 'store', permission: 'offers.read', target: 'none' } },
+      resolve: (_, __, ctx) => service(ctx).hasCustomisation(),
     }),
     productCounts: t.field({ type: Counts, extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).counts() }),
     product: t.field({
@@ -525,6 +689,20 @@ export const registerProducts = (builder: StoreBuilder) => {
         if (chart && stored?.size_chart_id !== chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
         await requireSections(ctx, input, stored)
         return answered(ctx, await service(ctx).update(id, args.revision, input))
+      },
+    }),
+    // "Copy questions from another product" (CATALOG U12): the target's questions become the source's, at its revision.
+    copyProductQuestions: t.field({
+      type: CopiedQuestions,
+      args: { fromProductId: t.arg.id({ required: true }), toProductId: t.arg.id({ required: true }), revision: t.arg.int({ required: true }) },
+      extensions: { access: { ...write, audit: catalogAudit.updated } },
+      resolve: async (_, args, ctx) => {
+        const [from, to] = [String(args.fromProductId).toLowerCase(), String(args.toProductId).toLowerCase()]
+        if (!isUuid(from) || !isUuid(to)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
+        const result = await service(ctx).copyQuestions(from, to, args.revision)
+        const product = await answered(ctx, result)
+        const dropped = result.ok && 'dropped' in result && result.dropped ? result.dropped : { amounts: 0, versionLimits: 0, photos: 0 }
+        return { product, droppedAmounts: dropped.amounts, droppedVersionLimits: dropped.versionLimits, droppedPhotos: dropped.photos }
       },
     }),
     duplicateProduct: t.field({

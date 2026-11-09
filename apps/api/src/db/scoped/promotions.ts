@@ -26,6 +26,8 @@ export interface OfferRow {
   per_customer_limit: number | null
   uses_count: number
   combines_with: { product: boolean; order: boolean; shipping: boolean }
+  /** "Include customisation extras" (#1368, OFFERS-DESIGN §3.1). */
+  include_customisation: boolean
   created_at: Date
   updated_at: Date
   revision: number
@@ -59,7 +61,7 @@ const statusIs = (tx: ScopedSql, status: OfferStatusFilter, now: Date) => {
 
 const columns = (tx: ScopedSql) => tx`
   p.id, p.name, p.internal_name, p.description, p.trigger, p.enabled, p.starts_at, p.ends_at, p.total_uses_limit, p.per_customer_limit,
-  p.uses_count, p.combines_with, p.created_at, p.updated_at, p.revision,
+  p.uses_count, p.combines_with, p.include_customisation, p.created_at, p.updated_at, p.revision,
   (select c.code from promotion_code c where c.promotion_id = p.id and c.batch_id is null and c.replaced_at is null limit 1) as code,
   coalesce((select json_agg(json_build_object('operation', r.operation, 'args', r.args) order by r.position) from promotion_condition r where r.promotion_id = p.id), '[]'::json) as conditions,
   (select json_build_object('operation', a.operation, 'args', a.args) from promotion_action a where a.promotion_id = p.id order by a.position limit 1) as action
@@ -140,13 +142,14 @@ export interface OfferWrite {
   totalUsesLimit: number | null
   perCustomerLimit: number | null
   combines: { product: boolean; order: boolean; shipping: boolean }
+  includeCustomisation: boolean
 }
 
 export const insertOffer = async (tx: ScopedSql, storeId: string, o: OfferWrite, byUserId: string): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into promotion (store_id, name, internal_name, description, trigger, enabled, starts_at, ends_at, total_uses_limit, per_customer_limit, combines_with, created_by_user_id)
+    insert into promotion (store_id, name, internal_name, description, trigger, enabled, starts_at, ends_at, total_uses_limit, per_customer_limit, combines_with, include_customisation, created_by_user_id)
     values (${storeId}, ${o.name}, ${o.internalName}, ${o.description}, ${o.trigger}, ${o.enabled}, ${o.startsAt}, ${o.endsAt}, ${o.totalUsesLimit}, ${o.perCustomerLimit},
-      ${tx.json(o.combines)}, ${byUserId})
+      ${tx.json(o.combines)}, ${o.includeCustomisation}, ${byUserId})
     returning id
   `
   if (!row) throw new Error('promotion: insert returned no row')
@@ -157,7 +160,7 @@ export const updateOffer = async (tx: ScopedSql, id: string, o: OfferWrite, now:
   const [row] = await tx<{ revision: number }[]>`
     update promotion set name = ${o.name}, internal_name = ${o.internalName}, description = ${o.description}, trigger = ${o.trigger}, enabled = ${o.enabled},
       starts_at = ${o.startsAt}, ends_at = ${o.endsAt}, total_uses_limit = ${o.totalUsesLimit}, per_customer_limit = ${o.perCustomerLimit},
-      combines_with = ${tx.json(o.combines)}, updated_at = ${now}, revision = revision + 1
+      combines_with = ${tx.json(o.combines)}, include_customisation = ${o.includeCustomisation}, updated_at = ${now}, revision = revision + 1
     where id = ${id} returning revision
   `
   if (!row) throw new Error('promotion: update found no row')

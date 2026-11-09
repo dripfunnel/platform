@@ -243,6 +243,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
     totalUsesLimit: d.totalUsesLimit,
     perCustomerLimit: d.perCustomerLimit,
     combines: d.combines,
+    includeCustomisation: d.includeCustomisation,
   })
   const rulesOf = (d: Pick<OfferDefinition, 'conditions' | 'action'>) => {
     const split = ({ operation, ...args }: Condition | Action) => ({ operation, args: toStored(args as Condition) })
@@ -334,7 +335,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       const copy = await insertOffer(
         tx,
         storeId,
-        { name, internalName: found.internal_name, description: found.description, trigger: found.trigger, enabled: false, startsAt: found.starts_at, endsAt: found.ends_at, totalUsesLimit: found.total_uses_limit, perCustomerLimit: found.per_customer_limit, combines: found.combines_with },
+        { name, internalName: found.internal_name, description: found.description, trigger: found.trigger, enabled: false, startsAt: found.starts_at, endsAt: found.ends_at, totalUsesLimit: found.total_uses_limit, perCustomerLimit: found.per_customer_limit, combines: found.combines_with, includeCustomisation: found.include_customisation },
         actor.id,
       )
       const rules = rulesOf(found)
