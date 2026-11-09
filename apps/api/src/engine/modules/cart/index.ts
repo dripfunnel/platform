@@ -667,13 +667,14 @@ export const createCartService = (deps: CartDeps) => {
         if ((await selectCartUploads(tx, cartId)).length >= maxCartUploads) throw new Refused('TOO_MANY_UPLOADS')
         await insertShopperUpload(tx, { id, storeId, orderId: cartId, questionId: qid, mime, bytes: body.byteLength, checksum })
       })
-    // A file whose row never committed: deleted now, or queued when R2 refuses, so none is left behind (rule 30 is about timers).
-    const unput = async (context: TenantContext, key: string) => {
+    // A file whose row never committed: deleted now, or queued when R2 refuses; if both fail, the error names its ids (never its content).
+    const unput = async (key: string) => {
       const gone = files.delete ? await files.delete(key).then(() => true, () => false) : false
-      if (!gone) {
-        // No row was deleted, so no trigger queues it: the job is written in system scope (the shop role has no outbox grant).
-        await withSystemScope(sql, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch(() => undefined)
-      }
+      if (gone) return
+      // No row was deleted, so no trigger queues it: the job is written in system scope (the shop role has no outbox grant).
+      await withSystemScope(sql, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch((cause: unknown) => {
+        throw new Error(`upload: ${key} left on R2, its delete and its job both refused`, { cause })
+      })
     }
     const putIn = async (context: TenantContext, token: string | null) => {
       const cartId = await cartFor(context, token)
@@ -683,7 +684,7 @@ export const createCartService = (deps: CartDeps) => {
       try {
         await record(context, cartId)
       } catch (error) {
-        await unput(context, key)
+        await unput(key)
         throw error
       }
       return { id, mime, token }

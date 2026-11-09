@@ -264,6 +264,32 @@ describe('a shopper’s files (#1369)', () => {
     expect(keys[2]).toBe(`upload-cart:${storeId}:cart:${cart.id}`)
   })
 
+  it('leaves no file behind when its row fails: deleted, else queued, else an error naming its ids', async () => {
+    const put = (key: string, body: Uint8Array) => {
+      bucket.set(key, new Uint8Array(body))
+      // The question's product goes hidden between the cart check and the row, so the row's insert is refused.
+      return db.sql`update product set visibility = 'hidden' where id = ${ids.product}`.then(() => undefined)
+    }
+    const failing = { put, get: files.get, delete: async () => Promise.reject(new Error('R2 down')) }
+    const send = async () =>
+      handleUpload(new Request(`https://${host}/shop-api/uploads?question=${ids.photo}`, { method: 'POST', body: png(), headers: { 'content-length': String(png().byteLength) } }), await contextOf(null), failing).catch((error: unknown) => error)
+    try {
+      // R2 refuses the delete: the job is queued instead.
+      const queuedBefore = (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'upload.delete'`)[0]?.n ?? 0
+      expect(await send()).toBeInstanceOf(Error)
+      expect((await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'upload.delete'`)[0]?.n).toBe(queuedBefore + 1)
+      await db.sql`update product set visibility = 'visible' where id = ${ids.product}`
+      // The job refused as well: the error names the file's ids, never its content.
+      await db.sql`alter table outbox add constraint test_no_upload_jobs check (kind <> 'upload.delete') not valid`
+      const error = await send()
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toMatch(new RegExp(`^upload: stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/[0-9a-f-]{36} left on R2`))
+    } finally {
+      await db.sql`alter table outbox drop constraint if exists test_no_upload_jobs`
+      await db.sql`update product set visibility = 'visible' where id = ${ids.product}`
+    }
+  })
+
   it('keeps a cart holding files out of the expired-cart sweep', async () => {
     const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
     await db.sql`update "order" set cart_expires_at = now() - interval '1 day' where id = ${cart.id}`
