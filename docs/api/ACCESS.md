@@ -43,10 +43,10 @@ Last updated: 2026-11-09 (#1367: product customisation: a supplier's questions a
 | **Audit rows are written in the same transaction as the change**, append-only | Logs; a best-effort async write | A privileged change without its audit row can't commit. |
 | **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
 | **Suppliers manage their own team** (decided 2026-09-28): the merchant sets the supplier's access level; Supplier admins manage its users' team roles within it | The merchant manages every supplier user | The merchant decides what a supplier may do, not who works there ([DATA-MODEL.md](DATA-MODEL.md) §4.2). |
-| **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
+| **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper but its own lines' answers to a product's questions, §7.1) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
 | **Each supplier refunds its own items; the store can override; the override goes to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
 | **2-factor is optional for everyone, Owners included, and off by default** in the people pool (decided 2026-10-29 on #1008, reversing 2026-10-02's "required for Owners"): authenticator app or SMS, ten single-use backup codes, turned on and off in My profile (§2, §4). "Require 2-factor for the whole team" (§14.4) is not built | Required for Owners; required for everyone; nobody | The prototype still shows the Owner as required (its `enrol` view and the Owner wording in My profile); the docs win here (designs/INCOMPLETE-FEATURES.md). |
-| **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those three fields change what the shopper is sold. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
+| **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02); a question's charge-setting fields count as a price (decided 2026-11-09 by Gaurav on #1367, §7.2) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those fields change what the shopper is sold and pays. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
 | **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-02 on #186's review with the prototype's modal, replacing the morning's "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
 
 ---
@@ -894,8 +894,10 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   vendor writes questions on its own products like any other product field, under §7.2's rule, where
   an extra's price counts as a price, and never on the merchant's or another vendor's. It sees the answers and uploads of **its own lines only**, whatever its
   shipping mode, since it makes the item: through `order_line_for_supplier` and a file link the
-  engine mints after checking the line is its own (DATA-MODEL §7.11). A `to-store` part still shows
-  it nothing else of the customer (§7.3).
+  engine mints after checking the line is its own (DATA-MODEL §7.11). Text answers and uploads are
+  shopper details (CATALOG-DESIGN fact 57), but they are also what the item is made from, so a
+  `to-store` supplier gets its own lines' answers too: the **one exception to §7.3** (decided
+  2026-11-09 by Gaurav on #1367). It gets nothing else of the customer: no name, email, phone or address.
 
 ### 7.2 Approval is a per-store setting
 
@@ -913,7 +915,7 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   next publish. **An extra's price is a price** (decided here on #1367, so a vendor can't add a
   charge the merchant hasn't seen): a change to anything that sets what a question charges
   sends the product back: adding, changing or removing the price of a question or a choice
-  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance, a choice's
+  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance and maximum picks, a choice's
   maximum quantity, per item or once per line, and a per-character question's maximum length;
   and, on a question that charges (its own price or a priced choice), making it required, its
   minimum picks, its condition and its versions, which decide which shoppers pay it. Any other
@@ -952,10 +954,11 @@ first platform's constructed view.
   scoped layer filters it.
 - **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4),
   **by the part's stored mode**: a **`to-store`** part shows the supplier **nothing** of the
-  customer, not even a name; the order shows "For <store>". A **`to-shopper`** part shows
+  customer, not even a name, except its own lines' answers to a product's questions (§7.1); the order shows "For <store>". A **`to-shopper`** part shows
   **name and delivery address, never email or phone**. The merchant's order view says which
   mode each part is in. The isolation matrix includes a supplier switched from `to-store` to
-  `to-shopper` still seeing nothing on the orders placed before the switch.
+  `to-shopper` still seeing nothing of the customer, beyond its own lines' answers, on the orders
+  placed before the switch.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
@@ -1446,11 +1449,12 @@ builds the table must ship:
   lines, refunds and ledger entries, and seeing nothing of the other's, counts and search
   included (DATA-MODEL §7.1, §7.11);
 - a supplier's view of orders and returns: a `to-store` supplier's search and count by a
-  shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
+  shopper's email return nothing, and it reads no name, email, phone or address, only its own
+  lines' answers and their file links (§7.1); a `to-shopper` supplier sees the name and shipping address
   of its own parts and no total; `app_supplier` selecting from `"order"` or `"return"`
   directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
-  lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
-  before the switch; a `to-store` supplier never reads the store's onward shipment of its
+  lists; a supplier switched `to-store → to-shopper` still sees nothing of the customer, beyond
+  its own lines' answers, on orders placed before the switch; a `to-store` supplier never reads the store's onward shipment of its
   lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
   zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
   its own lines' unit and line amounts (once-per-line extras included) and answers with the
@@ -1525,6 +1529,16 @@ builds the table must ship:
   `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`, and deleting
   another cart's or store's upload id (`DELETE /shop-api/uploads/{id}`) deletes nothing and answers
   `UPLOAD_NOT_FOUND`, by the `delete` branch's own-cart test, not by engine code alone;
+- a supplier writing a question, choice, amount or version row on another owner's product or question is refused: the
+  owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
+  another owner's row touches nothing;
+- an `upload.delete` job naming another store's key, or a file a `shopper_upload` row still names,
+  deletes nothing; `app_shop` inserting any outbox row is refused by the grant, a deleted upload's
+  job coming from its row by trigger;
+- a supplier writing a choice, an amount or a version limit under a question it doesn't own gets not
+  found, and one it writes under its own question carries that question's owner, whatever it sent;
+- a supplier gets a link only to a file its own line's answers name, of that line's order and store: an upload id
+  of another order or store, even sent beside its own line, gets no link;
 - a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
   `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
   by the grant;

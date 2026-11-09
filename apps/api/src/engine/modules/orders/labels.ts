@@ -40,10 +40,26 @@ export const parcelOf = (lines: readonly BookingLineRow[], picked: readonly { li
     const l = byId.get(p.lineId)
     return l ? [{ line: l, quantity: p.quantity }] : []
   })
+  // A once-per-line extra (an engraving) is part of what the goods are worth (#1368): spread over the line's units to the minor
+  // unit, so the whole line declares exactly what was paid and a partial pick its units' share.
+  const extraOf = (line: (typeof lines)[number], picked: number) => {
+    const units = BigInt(Math.max(1, line.quantity))
+    const extra = BigInt(line.line_extras_amount)
+    // Even shares, the remainder a minor unit each on the first units.
+    return (extra / units) * BigInt(picked) + BigInt(Math.min(picked, Number(extra % units)))
+  }
+  const valued = items.map(({ line, quantity }) => ({ line, quantity, value: BigInt(line.unit_amount) * BigInt(quantity) + extraOf(line, quantity) }))
   return {
-    items: items.map(({ line, quantity }) => ({ name: line.name, sku: line.sku, quantity, unitAmount: BigInt(line.unit_amount), hsCode: line.hs_code })),
+    // A value that doesn't divide by the units is two entries, a minor unit apart, so the items sum to exactly what was paid.
+    items: valued.flatMap(({ line, quantity, value }) => {
+      const units = BigInt(Math.max(1, quantity))
+      const base = value / units
+      const over = Number(value % units)
+      const entry = (count: number, unitAmount: bigint) => ({ name: line.name, sku: line.sku, quantity: count, unitAmount, hsCode: line.hs_code })
+      return over === 0 ? [entry(quantity, base)] : [entry(over, base + 1n), entry(quantity - over, base)]
+    }),
     weightGrams: items.reduce((sum, { line, quantity }) => sum + (line.weight_grams && line.weight_grams > 0 ? line.weight_grams : defaultWeightGrams) * quantity, 0),
-    amount: items.reduce((sum, { line, quantity }) => sum + BigInt(line.unit_amount) * BigInt(quantity), 0n),
+    amount: valued.reduce((sum, { value }) => sum + value, 0n),
   }
 }
 

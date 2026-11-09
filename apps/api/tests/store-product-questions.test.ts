@@ -155,6 +155,10 @@ describe('questions on a product (#1368)', () => {
     delete noQuestions['questions']
     await gql(save, 'owner', { id, revision, input: noQuestions })
     expect(((await read(id)).data?.['product'] as { questions: Q[] }).questions).toHaveLength(4)
+    // A client sending null by accident keeps them too.
+    const sentNull = await gql(save, 'owner', { id, revision: revision + 1, input: { ...noQuestions, questions: null } })
+    expect(sentNull.errors).toBeUndefined()
+    expect(((await read(id)).data?.['product'] as { questions: Q[] }).questions).toHaveLength(4)
     const copy = await gql(save, 'owner', { input: sized('Plain cake', []) })
     expect(((await read((copy.data?.['saveProduct'] as Saved).id)).data?.['product'] as { questions: Q[] }).questions).toEqual([])
   })
@@ -281,12 +285,44 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     const required = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
     expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: required })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    // A priced list's maximum picks: more picks, more to pay. Back too.
+    const toppings = (maxPicks: number) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }, { kind: 'CHOICE', label: 'Charms', maxPicks, choices: [{ label: 'Star', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('100') } }] }])
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: toppings(1) })
+    const charms = ((await read(pen.id, 'supplier')).data?.['product'] as { questions: Q[] }).questions[1]
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const raised = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }, { id: charms?.id, kind: 'CHOICE', label: 'Charms', maxPicks: 3, choices: [{ id: charms?.choices[0]?.id, label: 'Star', maxQuantity: 3, price: { mode: 'FIXED', per: 'ITEM', amounts: inr('100') } }] }])
+    expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: raised })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const back = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: back })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     // Widening a priced question to more versions makes more shoppers pay it: back too.
     const limited = (versions: number[]) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, versions, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
     await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0]) })
     await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0, 1]) })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
     await db.sql`update store set vendor_products_require_approval = false where id = ${t.storeA1}`
+  })
+
+  it('holds a supplier’s product to the pricing currency when the merchant side saves it', async () => {
+    const pen = (await gql(save, 'supplier', { input: sized('Gift pen', [{ kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })).data?.['saveProduct'] as Saved
+    const { revision, versions, questions } = (await read(pen.id)).data?.['product'] as { revision: number; versions: { id: string }[]; questions: Q[] }
+    const input = sized('Gift pen', [{ id: questions[0]?.id, kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: [...inr('500'), { currency: 'USD', amount: '10' }] } }])
+    const usd = await gql(save, 'owner', { id: pen.id, revision, input: { ...input, versions: input.versions.map((v, i) => ({ ...v, id: versions[i]?.id })) } })
+    expect(usd.code).toBe('CURRENCY_NOT_SOLD')
+  })
+
+  it('copies between a supplier’s own products', async () => {
+    const from = (await gql(save, 'supplier', { input: sized('Engraved mug', [{ kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })).data?.['saveProduct'] as Saved
+    const to = (await gql(save, 'supplier', { input: sized('Engraved flask', []) })).data?.['saveProduct'] as Saved
+    const copied = await gql(
+      `mutation C($from: ID!, $to: ID!, $r: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $r) { droppedAmounts droppedVersionLimits droppedPhotos } }`,
+      'supplier',
+      { from: from.id, to: to.id, r: to.revision },
+    )
+    expect(copied.data?.['copyProductQuestions']).toEqual({ droppedAmounts: 0, droppedVersionLimits: 0, droppedPhotos: 0 })
+    const questions = ((await read(to.id, 'supplier')).data?.['product'] as { questions: Q[] }).questions
+    expect(questions.map((q) => [q.label, q.price?.amounts])).toEqual([['Name to engrave', inr('500')]])
   })
 
   it('copies a merchant product’s questions onto a supplier’s without its photos or the currencies the supplier can’t type', async () => {
@@ -348,12 +384,16 @@ describe('who reads the question rows (DATA-MODEL §7.11)', () => {
     await db.sql`update product_question_choice set photo_asset_id = ${asset?.id ?? ''} where id = ${firstChoice?.id ?? ''}`
     await db.sql`insert into store_language (store_id, language, status) values (${t.storeA1}, 'hi-IN', 'active') on conflict do nothing`
     await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'name', 'hi-IN', 'टॉपिंग', md5('Extra toppings'))`
+    // A question's help and example translate too, within their own limits; a choice has a name only.
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'help', 'hi-IN', ${'अ'.repeat(500)}, md5('Pick up to three'))`
+    await expect(db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'example', 'hi-IN', ${'अ'.repeat(101)}, md5('x'))`).rejects.toThrow(/translation_text/)
+    await expect(db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question_choice', ${firstChoice?.id ?? ''}, 'help', 'hi-IN', 'x', md5('x'))`).rejects.toThrow(/translation_field/)
     const shopperSees = () =>
       withScope(db.sql, shopper(), async (tx) => ({
         photo: (await tx<{ n: number }[]>`select count(*)::int as n from asset where id = ${asset?.id ?? ''}`)[0]?.n ?? 0,
         words: (await tx<{ n: number }[]>`select count(*)::int as n from translation where entity = 'question' and entity_id = ${firstChoice?.question_id ?? ''}`)[0]?.n ?? 0,
       }))
-    expect(await shopperSees()).toEqual({ photo: 1, words: 1 })
+    expect(await shopperSees()).toEqual({ photo: 1, words: 2 })
     const visible = await counts(shopper())
     await db.sql`update product set visibility = 'hidden' where id = ${cake}`
     const hidden = await counts(shopper())

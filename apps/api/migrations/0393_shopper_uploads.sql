@@ -33,7 +33,9 @@ create policy shopper_upload_shop on shopper_upload for all to app_shop
   using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id')
     and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart'))
   with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id')
-    and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart'));
+    and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart')
+    -- The question too is read under its own shop policy: a visible product's, of this store.
+    and exists (select 1 from product_question q where q.id = question_id and q.store_id = shopper_upload.store_id));
 create policy request_scope on shopper_upload as restrictive for all to app_request, app_shop
   using (app_setting_text('app.scope') in ('store', 'shop') and (current_user <> 'app_shop' or app_setting_text('app.scope') = 'shop'))
   with check (app_setting_text('app.scope') in ('store', 'shop') and (current_user <> 'app_shop' or app_setting_text('app.scope') = 'shop'));
@@ -42,15 +44,20 @@ create policy platform_scope on shopper_upload as restrictive for all to app_pla
 create policy system_scope on shopper_upload as restrictive for all to app_system
   using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 
--- A shopper's removal queues its file's deletion in the same transaction, held to its own store by outbox_insert.
-grant insert on outbox to app_shop;
-do $$
-declare
-  roles text;
+-- A deleted row queues its own file's deletion in the same transaction, the key taken from the row, never from a caller:
+-- the shop role holds no outbox grant.
+create function shopper_upload_deleted() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
-  select string_agg(format('%I', r), ', ') into roles
-  from (select unnest(p.roles::text[]) as r from pg_policies p where p.schemaname = 'public' and p.tablename = 'outbox' and p.policyname = 'outbox_insert'
-        union select 'app_shop') x;
-  execute format('alter policy outbox_insert on outbox to %s', roles);
+  insert into outbox (kind, idempotency_key, payload, partner_id, store_id)
+  select 'upload.delete', 'upload.delete:' || s.partner_id || ':' || old.store_id || ':' || old.id, jsonb_build_object('key', old.r2_key), s.partner_id, old.store_id
+  from store s where s.id = old.store_id
+  on conflict (idempotency_key) do nothing;
+  return null;
 end
 $$;
+alter function shopper_upload_deleted() owner to app_definer;
+create trigger shopper_upload_deleted after delete on shopper_upload for each row execute function shopper_upload_deleted();

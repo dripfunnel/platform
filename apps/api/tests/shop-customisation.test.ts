@@ -113,6 +113,22 @@ describe('customised lines in the cart', () => {
     expect(tooMany.problems?.[0]?.reason).toBe('QUANTITY_TOO_HIGH')
   })
 
+  it('holds a line with no answers to a required question, at add and once one is added later', async () => {
+    const mug = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Name mug', 'name-mug', 'visible') returning id`)).id
+    const version = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${mug}, 'name-mug', 0, false) returning id`)).id
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${version}, ${storeId}, 'INR', '20000')`
+    const before = await add(null, version, 1, null)
+    const held = (before.data?.['addToCart'] as { cartToken: string | null } | undefined)?.cartToken ?? ''
+    expect(linesOf(before)[0]?.problem).toBeNull()
+    await db.sql`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline, required) values (${mug}, ${storeId}, 'text', 'Name', 1, 20, false, true)`
+    // The line from before is still priced as it was, and told to check its choices.
+    expect((await cartLines(held)).find((l) => l.versionId === version)).toMatchObject({ problem: 'check_answers', lineTotal: { amount: '20000' } })
+    // Leaving the answers out at add skips nothing on the server.
+    const skipped = await add(null, version, 1, null)
+    expect(skipped.code).toBe('ANSWERS_INVALID')
+    expect(skipped.problems).toEqual([{ questionId: expect.any(String), choiceId: null, reason: 'REQUIRED' }])
+  })
+
   it('prices each line with its extras: per item in the unit, once per line on the line, and a version’s own amount', async () => {
     const added = await add(null, ids.small, 2, withWrap('Happy 30 Asha'))
     expect(added.errors).toBeUndefined()
@@ -125,23 +141,23 @@ describe('customised lines in the cart', () => {
     expect(large.find((l) => l.versionId === ids.large)?.unitPrice).toEqual({ amount: '50000' })
   })
 
-  it('keeps equal answers on one line and different answers apart, and adds a product without questions as before', async () => {
+  it('keeps equal answers on one line, waits for the next release for other answers on that version, and adds a product without questions as before', async () => {
     const again = linesOf(await add(token, ids.small, 1, [...withWrap('Happy 30 Asha')].reverse()))
     expect(again.filter((l) => l.versionId === ids.small)).toHaveLength(1)
     expect(again.find((l) => l.versionId === ids.small)?.quantity).toBe(3)
-    const other = linesOf(await add(token, ids.small, 1, withWrap('Hi Ravi')))
-    expect(other.filter((l) => l.versionId === ids.small)).toHaveLength(2)
+    // Until the contract migration drops cart_line's old key (0392's note), a version holds one line.
+    expect((await add(token, ids.small, 1, withWrap('Hi Ravi'))).code).toBe('ONE_LINE_PER_VERSION')
     const plain = linesOf(await add(token, ids.plain, 2, null))
     expect(plain.find((l) => l.versionId === ids.plain)).toMatchObject({ quantity: 2, unitPrice: { amount: '5000' }, lineTotal: { amount: '10000' }, answers: [] })
   })
 
-  it('edits a line’s answers, joining the line that already has them', async () => {
-    const lines = await cartLines(token)
-    const ravi = lines.find((l) => l.answers.some((a) => a.text === 'Hi Ravi'))
-    const edited = await gql('mutation E($l: ID!, $a: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $l, answers: $a) { cart { lines { ' + lineFields + ' } } } }', token, { l: ravi?.id, a: withWrap('Happy 30 Asha') })
+  it('edits a line’s answers in place, repricing it', async () => {
+    const before = (await cartLines(token)).find((l) => l.versionId === ids.small)
+    const edited = await gql('mutation E($l: ID!, $a: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $l, answers: $a) { cart { lines { ' + lineFields + ' } } } }', token, { l: before?.id, a: withWrap('Hi Ravi') })
     const small = linesOf(edited, 'updateCartLineAnswers').filter((l) => l.versionId === ids.small)
     expect(small).toHaveLength(1)
-    expect(small[0]?.quantity).toBe(4)
+    expect(small[0]).toMatchObject({ id: before?.id, quantity: 3, unitPrice: { amount: '39700' } })
+    expect(small[0]?.answers.find((a) => a.questionId === ids.message)?.text).toBe('Hi Ravi')
     const changed = await gql(`mutation { setCartQuantity(versionId: "${ids.small}", lineId: "${small[0]?.id}", quantity: 1) { cart { lines { ${lineFields} } } } }`, token)
     expect(linesOf(changed, 'setCartQuantity').find((l) => l.versionId === ids.small)?.quantity).toBe(1)
     expect((await gql(`mutation { setCartQuantity(versionId: "${ids.small}", quantity: 1) { cart { problems } } }`, token)).code).toBe('INVALID_INPUT')
@@ -160,10 +176,10 @@ describe('customised lines in the cart', () => {
     const promo = (await one(db.sql<{ id: string }[]>`insert into promotion (store_id, name, trigger, enabled, include_customisation) values (${storeId}, 'Ten off', 'automatic', true, false) returning id`)).id
     await db.sql`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${promo}, ${storeId}, 'products_percentage_discount', ${db.sql.json({ percent: 10, targets: { productIds: [ids.product], collectionIds: [], filterValueIds: [] }, exclude: { giftCards: false, onSale: false }, cap: null })}, 0)`
     const small = (await cartLines(token)).find((l) => l.versionId === ids.small)
-    // 10% of the cake alone (30000), not of the line's 45300 with its extras.
+    // 10% of the cake alone (30000), not of the line's 44700 with its extras.
     expect(small?.discount).toEqual({ amount: '3000' })
     await db.sql`update promotion set include_customisation = true where id = ${promo}`
-    expect((await cartLines(token)).find((l) => l.versionId === ids.small)?.discount).toEqual({ amount: '4530' })
+    expect((await cartLines(token)).find((l) => l.versionId === ids.small)?.discount).toEqual({ amount: '4470' })
     await db.sql`update promotion set enabled = false where id = ${promo}`
   })
 
@@ -177,7 +193,7 @@ describe('customised lines in the cart', () => {
     const orderId = (placed.data?.['placeOrder'] as { orderId: string }).orderId
     const [line] = await db.sql<{ answers: { label: string; amount: string; choices?: { label: string }[]; text?: string }[]; unit_amount: string; unit_extras_amount: string; line_extras_amount: string }[]>`
       select answers, unit_amount::text, unit_extras_amount::text, line_extras_amount::text from order_line where order_id = ${orderId} and version_id = ${ids.small}`
-    expect(line).toMatchObject({ unit_amount: '40300', unit_extras_amount: '10300', line_extras_amount: '5000' })
+    expect(line).toMatchObject({ unit_amount: '39700', unit_extras_amount: '9700', line_extras_amount: '5000' })
     await db.sql`update product_question set label = 'Renamed' where id = ${ids.toppings}`
     const [after] = await db.sql<{ answers: { label: string }[] }[]>`select answers from order_line where order_id = ${orderId} and version_id = ${ids.small}`
     expect(after?.answers.map((a) => a.label).sort()).toEqual(['Gift wrap', 'Message', 'Toppings'])
@@ -195,18 +211,6 @@ describe('customised lines in the cart', () => {
     expect(same.errors).toBeUndefined()
     expect(linesOf(same).find((l) => l.versionId === ids.small)?.quantity).toBe(2)
     expect((await add(fresh, ids.small, 1, withWrap('One too many'))).code).toBe('TOO_MANY_LINES')
-  })
-
-  it('counts a version’s stock across its lines: two lines short together are both short', async () => {
-    const mug = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Mug', 'mug', 'visible') returning id`)).id
-    const version = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${mug}, 'mug', 0, true) returning id`)).id
-    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${version}, ${storeId}, 'INR', 1000)`
-    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${version}, w.id, ${storeId}, 3 from warehouse w where w.store_id = ${storeId} and w.is_default`
-    const name = (await one(db.sql<{ id: string }[]>`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline) values (${mug}, ${storeId}, 'text', 'Name', 1, 20, false) returning id`)).id
-    const first = ((await add(null, version, 2, [{ questionId: name, text: 'Asha' }])).data?.['addToCart'] as { cartToken: string }).cartToken
-    expect((await cartLines(first)).map((l) => l.problem)).toEqual([null])
-    const both = linesOf(await add(first, version, 2, [{ questionId: name, text: 'Ravi' }]))
-    expect(both.map((l) => l.problem)).toEqual(['short', 'short'])
   })
 
   it('refuses another store’s versions and questions', async () => {
@@ -228,5 +232,36 @@ describe('customised lines in the cart', () => {
     const theirLine = (await cartLines(theirs))[0]
     expect((await gql('mutation E($l: ID!, $a: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $l, answers: $a) { cart { id } } }', mine, { l: theirLine?.id, a: withWrap('Stolen') })).code).toBe('INVALID_INPUT')
     expect((await cartLines(theirs))[0]?.answers.find((a) => a.questionId === ids.message)?.text).toBe('Theirs')
+  })
+})
+
+describe('after the next release drops cart_line’s old key (the contract half of 0392)', () => {
+  // The contract migration, applied to this file's own database: what a version's lines do once it ships.
+  beforeAll(async () => {
+    await db.sql`alter table cart_line drop constraint cart_line_pkey`
+    await db.sql`alter table cart_line add constraint cart_line_pkey primary key using index cart_line_line_key`
+  })
+
+  it('keeps different answers on separate lines, and Edit joins the line that already has them', async () => {
+    const fresh = ((await add(null, ids.small, 1, withWrap('Asha'))).data?.['addToCart'] as { cartToken: string }).cartToken
+    const two = linesOf(await add(fresh, ids.small, 1, withWrap('Ravi')))
+    expect(two.filter((l) => l.versionId === ids.small)).toHaveLength(2)
+    const ravi = two.find((l) => l.answers.some((a) => a.text === 'Ravi'))
+    const edited = await gql('mutation E($l: ID!, $a: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $l, answers: $a) { cart { lines { ' + lineFields + ' } } } }', fresh, { l: ravi?.id, a: withWrap('Asha') })
+    const small = linesOf(edited, 'updateCartLineAnswers').filter((l) => l.versionId === ids.small)
+    expect(small).toHaveLength(1)
+    expect(small[0]?.quantity).toBe(2)
+  })
+
+  it('counts a version’s stock across its lines: two lines short together are both short', async () => {
+    const mug = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Mug', 'mug', 'visible') returning id`)).id
+    const version = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${mug}, 'mug', 0, true) returning id`)).id
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${version}, ${storeId}, 'INR', 1000)`
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${version}, w.id, ${storeId}, 3 from warehouse w where w.store_id = ${storeId} and w.is_default`
+    const name = (await one(db.sql<{ id: string }[]>`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline) values (${mug}, ${storeId}, 'text', 'Name', 1, 20, false) returning id`)).id
+    const first = ((await add(null, version, 2, [{ questionId: name, text: 'Asha' }])).data?.['addToCart'] as { cartToken: string }).cartToken
+    expect((await cartLines(first)).map((l) => l.problem)).toEqual([null])
+    const both = linesOf(await add(first, version, 2, [{ questionId: name, text: 'Ravi' }]))
+    expect(both.map((l) => l.problem)).toEqual(['short', 'short'])
   })
 })

@@ -218,7 +218,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       url: t.exposeString('url', { nullable: true }),
     }),
   })
-  const LineAnswer = builder.objectRef<Answer & { currency: string }>('OrderLineAnswer').implement({
+  const LineAnswer = builder.objectRef<Answer & { currency: string; files: ReadonlyMap<string, { id: string; mime: string; bytes: number }> }>('OrderLineAnswer').implement({
     fields: (t) => ({
       // In the store's main language when the shopper saw another (DATA-MODEL §7.6), so a packing slip reads in the merchant's.
       question: t.string({ resolve: (a) => a.main_label ?? a.label }),
@@ -233,17 +233,16 @@ export const registerOrders = (builder: StoreBuilder) => {
       files: t.field({
         type: [ShopperFile],
         resolve: async (a, _, ctx) => {
-          const ids = a.uploads ?? []
-          if (ids.length === 0 || !ctx.sql) return []
+          const rows = (a.uploads ?? []).flatMap((id) => a.files.get(id) ?? [])
+          if (rows.length === 0) return []
           const storeId = actingCaller(ctx).context.storeId
           const signer = isSupportCaller(ctx) ? null : (ctx.uploadLinks ?? null)
-          const rows = await shopperFiles(ctx.sql, storeId, ids)
-          return Promise.all(rows.map(async (f) => ({ id: f.id, mime: f.mime, bytes: f.bytes, url: signer ? await shopperUploadUrl(signer, storeId, f.id, ctx.now()) : null })))
+          return Promise.all(rows.map(async (f) => ({ ...f, url: signer ? await shopperUploadUrl(signer, storeId, f.id, ctx.now()) : null })))
         },
       }),
     }),
   })
-  const Line = builder.objectRef<OrderLineRow & { currency: string }>('OrderLine').implement({
+  const Line = builder.objectRef<OrderLineRow & { currency: string; files?: ReadonlyMap<string, { id: string; mime: string; bytes: number }> }>('OrderLine').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
       versionId: t.exposeID('version_id'),
@@ -263,7 +262,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       refundedQuantity: t.exposeInt('refunded_quantity'),
       sentToStoreQuantity: t.exposeInt('sent_quantity'),
       // What the shopper answered before buying (#1368); empty on most lines.
-      answers: t.field({ type: [LineAnswer], resolve: (l) => (l.answers ?? []).map((a) => ({ ...a, currency: l.currency })) }),
+      answers: t.field({ type: [LineAnswer], resolve: (l) => (l.answers ?? []).map((a) => ({ ...a, currency: l.currency, files: l.files ?? new Map() })) }),
     }),
   })
   const Shipment = builder.objectRef<FulfilmentRow>('OrderShipment').implement({
@@ -291,14 +290,15 @@ export const registerOrders = (builder: StoreBuilder) => {
     }),
   })
   // "You pack these" or "{Supplier} packs these": one part an owner, with the mode it was placed under.
-  const Part = builder.objectRef<OrderPartRow & { currency: string }>('OrderPart').implement({
+  type OrderFile = { id: string; mime: string; bytes: number }
+  const Part = builder.objectRef<OrderPartRow & { currency: string; files: ReadonlyMap<string, OrderFile> }>('OrderPart').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
       supplierId: t.exposeID('seller_id', { nullable: true }),
       supplierName: t.exposeString('seller_name', { nullable: true }),
       shippingMode: t.exposeString('shipping_mode'),
       state: t.exposeString('state'),
-      lines: t.field({ type: [Line], resolve: (p) => p.lines.map((l) => ({ ...l, currency: p.currency })) }),
+      lines: t.field({ type: [Line], resolve: (p) => p.lines.map((l) => ({ ...l, currency: p.currency, files: p.files })) }),
     }),
   })
   const ShipmentLine = builder.objectRef<FulfilmentRow['lines'][number]>('OrderShipmentLine').implement({
@@ -380,7 +380,17 @@ export const registerOrders = (builder: StoreBuilder) => {
       placedAt: t.string({ resolve: (o) => o.placed_at.toISOString() }),
       customerName: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.customer_name) }),
       shippingAddress: t.field({ type: Address, nullable: true, resolve: (o) => o.shipping_address }),
-      parts: t.field({ type: [Part], resolve: (o) => o.parts.map((p) => ({ ...p, currency: o.currency })) }),
+      // The order's shoppers' files read once for all its answers (#1369), never one query an answer.
+      parts: t.field({
+        type: [Part],
+        resolve: async (o, _, ctx) => {
+          const ids = o.parts.flatMap((p) => p.lines.flatMap((l) => (l.answers ?? []).flatMap((a) => a.uploads ?? [])))
+          // Only this order's files: an id its lines name from another order or store opens nothing (ACCESS §11.1).
+          const rows = ids.length > 0 && ctx.sql ? await shopperFiles(ctx.sql, actingCaller(ctx).context.storeId, o.id, [...new Set(ids)]) : []
+          const files = new Map(rows.map((f) => [f.id, { id: f.id, mime: f.mime, bytes: f.bytes }]))
+          return o.parts.map((p) => ({ ...p, currency: o.currency, files }))
+        },
+      }),
       history: t.field({ type: [Event], resolve: (o) => o.history }),
       shipments: t.field({ type: [Shipment], resolve: (o) => o.fulfilments }),
       returns: t.field({ type: [Return], resolve: (o) => o.returns }),

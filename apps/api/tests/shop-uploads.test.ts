@@ -2,7 +2,11 @@ import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleUpload } from '#apis/shop/uploads'
+import { hashSessionId } from '#auth/session'
 import { resolveShopper } from '#auth/shopCaller'
+import type { CallerContext, SellerScope } from '#core/tenancy'
+import { withScope } from '#db/scoped/index'
+import { insertOutbox } from '#db/scoped/outbox'
 import { uploadDeleteDeliverer } from '#jobs/queues/deliverers/uploadDelete'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -160,7 +164,15 @@ describe('a shopper’s files (#1369)', () => {
     const [queued] = await db.sql<{ payload: { key: string } }[]>`select payload from outbox where kind = 'upload.delete' and payload ->> 'key' like ${`%/${spare}`}`
     expect(queued?.payload.key).toMatch(new RegExp(`^stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/${spare}$`))
     expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
-    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload } as never, new AbortController().signal)
+    // A row naming another store can't delete this store's file.
+    await expect(uploadDeleteDeliverer(db.sql, files).deliver({ payload: queued?.payload, storeId: crypto.randomUUID() } as never, new AbortController().signal)).rejects.toThrow()
+    expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
+    // A job naming a file still on record (in use by a line) deletes nothing.
+    const live = (await db.sql<{ order_id: string }[]>`select order_id from shopper_upload where id = ${first}`)[0]?.order_id ?? ''
+    const liveKey = `stores/${storeId}/shopper-uploads/${live}/${first}`
+    await expect(uploadDeleteDeliverer(db.sql, files).deliver({ payload: { key: liveKey }, storeId } as never, new AbortController().signal)).rejects.toThrow()
+    expect(bucket.has(liveKey)).toBe(true)
+    await uploadDeleteDeliverer(db.sql, files).deliver({ payload: queued?.payload, storeId } as never, new AbortController().signal)
     expect(bucket.has(queued?.payload.key ?? '')).toBe(false)
   })
 
@@ -180,6 +192,102 @@ describe('a shopper’s files (#1369)', () => {
     addressOk = false
     expect((await send(token, ids.photo, jpeg())).status).toBe(429)
     addressOk = true
+  })
+
+  it('caps a body as it streams, whatever its header says', async () => {
+    const big = new Uint8Array(10 * 1024 * 1024 + 10)
+    big.set([0xff, 0xd8, 0xff], 0)
+    const chunked = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let at = 0; at < big.byteLength; at += 1024 * 1024) controller.enqueue(big.subarray(at, at + 1024 * 1024))
+        controller.close()
+      },
+    })
+    const response = await handleUpload(new Request(`https://${host}/shop-api/uploads?question=${ids.photo}`, { method: 'POST', body: chunked, duplex: 'half', headers: { 'x-shop-cart': token } } as RequestInit), await contextOf(token), files)
+    expect(response.status).toBe(413)
+  })
+
+  it('holds the rows to their store and the shopper to its own cart; no request role reads a key', async () => {
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    const other = (await one(db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, 'Other prints', 'other-prints', 'IN', 'INR', 'active') returning id`)).id
+    const person = (storeId: string, sellerScope: SellerScope = { kind: 'all' }): CallerContext => ({ caller: { kind: 'person', userId: crypto.randomUUID(), sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope, subscription: 'active' })
+    const shopperOf = (storeId: string): CallerContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+    const count = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from shopper_upload where order_id = ${cart.id}`)[0]?.n ?? 0)
+    expect(await count(person(storeId))).toBeGreaterThan(0)
+    expect(await count(person(other))).toBe(0)
+    // A shopper with no token holds no cart: it sees none, and deletes none.
+    expect(await count(shopperOf(storeId))).toBe(0)
+    expect(await withScope(db.sql, shopperOf(storeId), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
+    expect(await withScope(db.sql, shopperOf(other), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
+    await expect(withScope(db.sql, shopperOf(other), (tx) => tx`insert into shopper_upload (id, store_id, order_id, r2_key, mime, bytes, checksum) values (${crypto.randomUUID()}, ${other}, ${cart.id}, ${`stores/${other}/shopper-uploads/${cart.id}/${crypto.randomUUID()}`}, 'image/png', 1, ${'f'.repeat(64)})`)).rejects.toThrow()
+    // Its own cart, but a question it can't read (a hidden product's) or none: the insert's check refuses it.
+    const own: CallerContext = { caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const row = (questionId: string | null) =>
+      withScope(db.sql, own, (tx) => { const id = crypto.randomUUID(); return tx`insert into shopper_upload (id, store_id, order_id, question_id, r2_key, mime, bytes, checksum) values (${id}, ${storeId}, ${cart.id}, ${questionId}, ${`stores/${storeId}/shopper-uploads/${cart.id}/${id}`}, 'image/png', 1, ${'f'.repeat(64)})` })
+    await expect(row(ids.hiddenQuestion)).rejects.toThrow(/row-level security/)
+    await expect(row(null)).rejects.toThrow(/row-level security/)
+    // The shop role writes no outbox row at all: a deleted file's job comes from the row, by trigger.
+    const queue = (kind: string) => withScope(db.sql, own, (tx) => insertOutbox(tx, { kind, idempotencyKey: crypto.randomUUID(), payload: { key: 'x' }, partnerId: t.partnerA, storeId }))
+    await expect(queue('email.send')).rejects.toThrow(/permission denied/)
+    await expect(queue('upload.delete')).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, person(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, shopperOf(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, person(storeId, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx`select id from shopper_upload`)).rejects.toThrow(/permission denied/)
+    expect((await db.sql`select 1 from shopper_upload where order_id = ${cart.id}`).length).toBeGreaterThan(0)
+  })
+
+  it('lets the owner erase a file from its cart after the cart has expired', async () => {
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    const [loose] = await db.sql<{ id: string }[]>`
+      select u.id from shopper_upload u where u.order_id = ${cart.id} and not exists (select 1 from cart_line l where l.order_id = u.order_id
+        and l.answers is not null and jsonb_path_exists(l.answers, '$[*].uploads[*] ? (@ == $id)', jsonb_build_object('id', u.id::text))) limit 1`
+    await db.sql`update "order" set cart_expires_at = now() - interval '1 day' where id = ${cart.id}`
+    const gone = await remove(token, loose?.id ?? '')
+    expect(gone).toMatchObject({ status: 200, body: { removed: true } })
+    expect((await db.sql`select 1 from shopper_upload where id = ${loose?.id ?? ''}`).length).toBe(0)
+    // Another cart's holder, or none, still finds nothing.
+    const stranger = await send(null, ids.photo, jpeg())
+    const still = (await db.sql<{ id: string }[]>`select id from shopper_upload where order_id = ${cart.id} limit 1`)[0]?.id ?? ''
+    expect((await remove(stranger.body.cartToken ?? '', still)).status).toBe(404)
+    await db.sql`update "order" set cart_expires_at = now() + interval '1 day' where id = ${cart.id}`
+  })
+
+  it('keys the per-cart limit on the cart the request opens, never on the header as sent', async () => {
+    const keys: string[] = []
+    const sent = async (header: string) =>
+      handleUpload(new Request(`https://${host}/shop-api/uploads/${crypto.randomUUID()}`, { method: 'DELETE', headers: { 'x-shop-cart': header } }), { ...(await contextOf(header)), allowUploadToCart: async (key: string) => (keys.push(key), true) }, files)
+    await sent('a'.repeat(64))
+    await sent('b'.repeat(64))
+    expect(keys).toEqual([`upload-cart:${storeId}:new:203.0.113.20`, `upload-cart:${storeId}:new:203.0.113.20`])
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    await sent(token)
+    expect(keys[2]).toBe(`upload-cart:${storeId}:cart:${cart.id}`)
+  })
+
+  it('leaves no file behind when its row fails: deleted, else queued, else an error naming its ids', async () => {
+    const put = (key: string, body: Uint8Array) => {
+      bucket.set(key, new Uint8Array(body))
+      // The question's product goes hidden between the cart check and the row, so the row's insert is refused.
+      return db.sql`update product set visibility = 'hidden' where id = ${ids.product}`.then(() => undefined)
+    }
+    const failing = { put, get: files.get, delete: async () => Promise.reject(new Error('R2 down')) }
+    const send = async () =>
+      handleUpload(new Request(`https://${host}/shop-api/uploads?question=${ids.photo}`, { method: 'POST', body: png(), headers: { 'content-length': String(png().byteLength) } }), await contextOf(null), failing).catch((error: unknown) => error)
+    try {
+      // R2 refuses the delete: the job is queued instead.
+      const queuedBefore = (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'upload.delete'`)[0]?.n ?? 0
+      expect(await send()).toBeInstanceOf(Error)
+      expect((await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'upload.delete'`)[0]?.n).toBe(queuedBefore + 1)
+      await db.sql`update product set visibility = 'visible' where id = ${ids.product}`
+      // The job refused as well: the error names the file's ids, never its content.
+      await db.sql`alter table outbox add constraint test_no_upload_jobs check (kind <> 'upload.delete') not valid`
+      const error = await send()
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toMatch(new RegExp(`^upload: stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/[0-9a-f-]{36} left on R2`))
+    } finally {
+      await db.sql`alter table outbox drop constraint if exists test_no_upload_jobs`
+      await db.sql`update product set visibility = 'visible' where id = ${ids.product}`
+    }
   })
 
   it('keeps a cart holding files out of the expired-cart sweep', async () => {

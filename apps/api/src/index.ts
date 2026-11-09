@@ -319,7 +319,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
-    ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(assets) } : {}),
+    ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(sql, assets) } : {}),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),

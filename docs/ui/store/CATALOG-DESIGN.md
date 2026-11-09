@@ -294,7 +294,8 @@ main language and offered languages, and translations per language with fallback
     - version names
     - collection name, web address and description
     - filter names and choice names
-    - question text, help text and the names of a question's choices (§3 fact 54; #1367)
+    - question text, help text, a text question's example and the names of a question's choices
+      (§3 fact 54; #1367)
 
     Price, stock, SKU, photos, classification code and tax class are the same in every
     language. The UI must make clear which fields change with the language and which do not.
@@ -610,7 +611,7 @@ tables.
     - A hidden question is never required, and its answer is dropped.
     - A question has optional help text, and a choice an optional photo.
     - Questions and choices are ordered by dragging, and the shopper sees that order.
-    - Question text, help and choice names are translatable (fact 18).
+    - Question text, help, a text question's example and choice names are translatable (fact 18).
 55. **Limits and availability.** 10 questions per product and 50 choices per question, with a
     clear message at each limit; the engine enforces both. Each choice has an on/off
     **Available** switch, with no stock count: an unavailable choice shows greyed out as "Not
@@ -623,10 +624,12 @@ tables.
     line's total as today, extras included.
 57. **Who sees what.**
     - **Vendors** write questions on their own products like any other product field, under
-      the same approval rule, and see answers and uploads only on their own lines (ACCESS
+      the same approval rule, where everything that sets what a question charges counts as a
+      price (ACCESS §7.2, U15), and see answers and uploads only on their own lines (ACCESS
       §7.1).
     - **Text answers and uploads are shopper details**: a partner support session sees them as
-      `•••••`, like an order's free-text note (ACCESS §8).
+      `•••••`, like an order's free-text note (ACCESS §8). The supplier that makes a line still
+      sees that line's answers, whatever its shipping mode (ACCESS §7.1).
     - Changing questions is a **product update** in the activity log, with no answers or file
       contents in the entry (LOGGING §3, §4.1).
     - Import and export skip questions (K13).
@@ -828,7 +831,8 @@ depend on an engine capability whose release is not yet chosen.
 - E2. A vendor editing their own product sees "Your store owner can also edit this product."
 - E3. A vendor edits an already-approved product. Settled 2026-10-02 (ACCESS.md §7.2): it goes
   back to waiting for approval, and off the storefront, **only when the name, a price or the
-  photos changed**; every other edit goes live. The save says which: "Your price, title or
+  photos changed**, a question's charge-setting fields counting as a price (U15); every other
+  edit goes live. The save says which: "Your price, title or
   photo change needs approval" or "Saved — live now".
 - E4. Two people edit the same product. The second save sees "Someone else changed this product
   2 minutes ago", with a choice to review or overwrite. The engine must detect the conflict (a
@@ -1464,13 +1468,15 @@ property". Prices appear only when the merchant asks for one.
   as in C16: "Add at least one choice", "Write the question", "Type a price in INR", "They must pick
   at least 4 but can pick only 3".
 - U15. **Vendors** see the section on their own products (§3 fact 57) under the approval rule of
-  L1–L5 and E3, where an extra's price counts as a price (ACCESS §7.2): adding, changing or
-  removing one sends an approved product back, with "Your price change needs approval"; any other
-  change to its questions goes live. The merchant's review (L3) shows the questions. The merchant
-  editing a vendor's product sees E1's banner. A Stock only vendor sees the section
-  read-only (§4).
-- U16. **Translations** (part N): in a language's tab, question text, help and choice names are
-  translatable; types, limits, prices and conditions are shared and locked, "same in every
+  L1–L5 and E3, with the charge-setting fields of ACCESS §7.2 counting as a price: an extra's price
+  and per-version amounts, a list's free allowance and maximum picks, a choice's maximum quantity, per item or once
+  per line, a per-character question's maximum length, and on a question that charges whether it's
+  required, its minimum picks, its condition and its versions. Changing any of them sends an
+  approved product back, with "Your change to what shoppers pay needs approval"; any other change
+  to its questions goes live. The merchant's review (L3) shows the questions. The merchant editing
+  a vendor's product sees E1's banner. A Stock only vendor sees the section read-only (§4).
+- U16. **Translations** (part N): in a language's tab, question text, help, a text question's
+  example and choice names are translatable; types, limits, prices and conditions are shared and locked, "same in every
   language".
 - U17. **What the shopper sees** is the storefront's sealed modal and the shop app's sheet
   ([storefront ARCHITECTURE](../../storefront/ARCHITECTURE.md) §3.5), opened by Add to cart, Buy

@@ -418,8 +418,11 @@ Design each module's responsibilities, tables, public API, events and invariants
   facts 49–57, the tables DATA-MODEL §7.3 and §7.6; names *(proposed)*). A product's questions
   are answered when its version goes in the cart, and the engine prices and checks the answers
   on **every** cart read, the modal's quote and placement alike; a shopper sends ids, text and
-  files, never a price. **A line without answers takes today's path**: no question is loaded,
-  and its price, query and refusals are unchanged.
+  files, never a price. **A product without questions takes today's path**: no question is
+  loaded (the cart already knows whether a product has any), and its price, query and refusals
+  are unchanged. A product with questions is checked even on a line sent or kept with no
+  answers: `addToCart` with them left out is refused `REQUIRED` for a required, shown
+  question, and a line added before such a question existed is flagged `check_answers`.
   - **Which questions count**: those shown for the line, meaning the line's version is among
     the question's versions (none listed is all) and its condition's choice, if any, is picked.
     A hidden question is never required, and its answer is dropped before the line's key is
@@ -432,7 +435,10 @@ Design each module's responsibilities, tables, public API, events and invariants
        else the general one; typed for a manual currency, else converted from the pricing
        currency at the reference rate with the store's rounding; then moved by the market's
        adjustment, as `P` is (CATALOG facts 25–26). A choice or answer with no amount in a
-       manual currency is **not available** in it. A percentage is `P × bps / 10000`, rounded
+       manual currency is **not available** in it, never priced at 0: the Shop API shows its
+       price with `amount: null`, an answer to it is refused (below), and a required priced
+       text or upload question so keeps the product out of a cart in that currency until the
+       merchant types the amount. A percentage is `P × bps / 10000`, rounded
        per unit by the money module's one rounding rule. Per character is the amount × the
        answer's characters.
     2. A choice picked `n` times counts `n` units, each at its amount.
@@ -453,10 +459,15 @@ Design each module's responsibilities, tables, public API, events and invariants
     (not a question or choice of this product), `WRONG_KIND` (an answer of another type),
     `REQUIRED`, `TOO_FEW_PICKS`, `TOO_MANY_PICKS` (quantities count), `QUANTITY_TOO_HIGH`
     (above a choice's `max_quantity`), `CHOICE_UNAVAILABLE` (switched off, or not available in
-    the cart's currency), `TEXT_TOO_LONG`, `TOO_MANY_FILES` and `UPLOAD_NOT_FOUND` (not a file
+    the cart's currency; for a priced text or upload question with no amount in it, the same
+    reason with no `choiceId`), `TEXT_TOO_LONG`, `TOO_MANY_FILES` and `UPLOAD_NOT_FOUND` (not a file
     of this cart and question). An answer to a hidden question is dropped, never refused. The
     quote answers the same `problems` without refusing, so the modal can show them beside each
     question.
+  - **One line a version, until the contract migration** (#1368; DATA-MODEL §7.6): different
+    answers for a version the cart already holds are refused `ONE_LINE_PER_VERSION` ("This is
+    already in your cart with other choices") until the next release drops `cart_line`'s old key;
+    then they are a line of their own.
   - **A line that stops fitting** (a choice turned off, a required question added, a maximum
     lowered) is still priced, with the line problem **`check_answers`** ("Check your choices"),
     so checkout refuses it as any line problem (`LINE_PROBLEM`) until the shopper edits it.
@@ -473,9 +484,16 @@ Design each module's responsibilities, tables, public API, events and invariants
     it, so Edit removes it from the answers instead; under `shopper_upload`'s shop `delete`
     policy), removing its line or emptying the cart, so a guest who gave no email can still erase
     their own uploads; the R2 object goes through the outbox (`upload.delete`), retried until done.
+    **Opening one** (the merchant side, a line's supplier) is by a 10-minute signed link on the
+    portal's host (DATA-MODEL §7.11), served with the content type checked at upload, never the
+    shopper's, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none';
+    img-src 'self'; sandbox` (no script, and an opaque origin, so the file never runs as the
+    portal or reads its cookies), `Referrer-Policy: no-referrer`, `Cache-Control: private`. A
+    JPEG, PNG or WebP opens inline; a HEIC photo (which most browsers can't draw) and a PDF only
+    download (`Content-Disposition: attachment`).
   - **The public APIs** gain each line's answers as new, additive fields (the Store API's
     `OrderLine.answers`, the Shop API's `ShopOrderLine.answers`). Order webhooks carry the order's
-    id and number only, as today, so the answers come with the order read (#1368).
+    id and number only, as today, so answers come with the order read and no outbox row holds them (#1368).
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided

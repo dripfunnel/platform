@@ -88,8 +88,9 @@ shows what is needed.
 | Local pickup with hours and locations | ✓ | ✓ | — | ~ (pickup hours; no location choice) |
 | Local delivery (radius or postcode, time slots) | ✓ | ✓ | — | — |
 
-Questions a shopper answers before buying (custom text, choices or an upload, each able to add to the price) left this
-table on 2026-11-09: specified on #1367 in `docs/ui/store/CATALOG-DESIGN.md` part U, with no prototype drawn, by decision.
+Product personalisation (custom text, choices or an upload, each able to add to the price) left this table on
+2026-11-09, as card #1367 says: it is specified in `docs/ui/store/CATALOG-DESIGN.md` part U, and Gaurav decided the
+docs describe its behaviour instead of a prototype.
 
 ### 2.3 Orders and fulfilment
 

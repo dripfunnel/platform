@@ -13,7 +13,7 @@ import { findGiftCard, giftCardById, type GiftCardView } from '#engine/modules/g
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
-import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
+import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadCart, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
@@ -26,6 +26,7 @@ export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './ru
 export type { AnswerInput, AnswerProblem, AnswerReason, PricedAnswer, ExtraChoice, ShopQuestion, StoredAnswer } from './answers'
 export { snapshotOf } from './answers'
 export { cleanAddress, cleanContact } from './rules'
+export { maxUploadBytes } from './uploads'
 export type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
@@ -42,6 +43,7 @@ export type CartRefusal =
   | 'GIFT_CARD_INVALID'
   | 'NOT_IN_PREVIEW'
   | 'ANSWERS_INVALID'
+  | 'ONE_LINE_PER_VERSION'
   | UploadRefusal
 
 /** A shopper's file refused (PLATFORM-PROMPT §5.4 "Uploads"; #1369). */
@@ -50,6 +52,8 @@ export type UploadRefusal = 'FILE_TYPE' | 'FILE_TOO_LARGE' | 'UNKNOWN_QUESTION' 
 /** Where a shopper's file is put (the Worker's ASSETS bucket). */
 export interface UploadStore {
   put: (key: string, body: Uint8Array, options: { httpMetadata: { contentType: string } }) => Promise<unknown>
+  /** Takes back a file whose row never committed. */
+  delete?: (key: string) => Promise<unknown>
 }
 
 export const uploadDeleteKind = 'upload.delete'
@@ -58,7 +62,10 @@ export const uploadDeleteKind = 'upload.delete'
  * An order's files by id, for a signed link: read in system scope, held to the store. The caller names only ids from a line
  * it can see (the merchant side's order, or a supplier's own line through its view, DATA-MODEL §7.11).
  */
-export const shopperFiles = (sql: postgres.Sql, storeId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, ids))
+export const shopperFiles = (sql: postgres.Sql, storeId: string, orderId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, orderId, ids))
+
+/** The one file a signed link names, while its store is still open (not suspended, cancelled or closed). */
+export const servableShopperFile = (sql: postgres.Sql, storeId: string, id: string) => withSystemScope(sql, (tx) => selectServableUpload(tx, storeId, id))
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5
@@ -236,8 +243,9 @@ export const createCartService = (deps: CartDeps) => {
   /** `known`: the lines' items when the caller already looked them up in this request. */
   const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> => {
     const items = known ?? (await catalog(context).cartItems(row.lines.map((l) => l.version_id)))
-    // A line without answers takes today's path: its product's questions are loaded only for lines that have answers.
-    const customised = [...new Set(row.lines.flatMap((l) => (l.answers ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
+    // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
+    const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
+    const customised = [...new Set(row.lines.flatMap((l) => (asks(l) ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
     const questions = customised.length > 0 ? await catalog(context).questions(customised) : new Map<string, ShopQuestion[]>()
     const withFiles = row.lines.some((l) => uploadsIn(l.answers).length > 0)
     const files = withFiles ? new Map((await withScope(sql, context, (tx) => selectCartUploads(tx, row.id))).map((u) => [u.id, u.question_id])) : new Map<string, string | null>()
@@ -246,8 +254,9 @@ export const createCartService = (deps: CartDeps) => {
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      const checked = l.answers && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers), (u, q) => files.get(u) === q) : null
-      const extras = checked ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
+      const checked = asks(l) && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers ?? []), (u, q) => files.get(u) === q) : null
+      // A line with no answers keeps no extras; it only learns it no longer fits.
+      const extras = checked && (l.answers !== null || checked.problems.length > 0) ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
       return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
@@ -382,13 +391,6 @@ export const createCartService = (deps: CartDeps) => {
     return (uploadId: string, questionId: string) => files.get(uploadId) === questionId
   }
 
-  /** Files no line names any more, deleted with their objects' deletion queued in the same transaction (DATA-MODEL §7.6). */
-  const release = async (tx: ScopedSql, cartId: string, ids: readonly string[]) => {
-    for (const id of await releaseCartUploads(tx, cartId, ids)) {
-      await insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key: uploadKey(storeId, cartId, id) }, partnerId: deps.context.partnerId, storeId })
-    }
-  }
-
   /**
    * The line's answers checked against its product's questions now, priced for the cart; a product without questions
    * and no answers asks nothing more (#1368). Refused as ANSWERS_INVALID with what is wrong.
@@ -446,6 +448,8 @@ export const createCartService = (deps: CartDeps) => {
         const lineId = gift
           ? await addCartLine(tx, storeId, found.id, id, stored, 1, 1)
           : await addCartLine(tx, storeId, found.id, id, stored, quantity, maxQuantity)
+        // Different answers for a version already in the cart wait for the contract migration (0392's note).
+        if (lineId === 'version_taken') throw new Refused('ONE_LINE_PER_VERSION')
         if (gift) await setCartGift(tx, found.id, lineId, gift)
         await write(tx, found, {})
         const row = await selectCart(tx, storeId, now())
@@ -480,7 +484,7 @@ export const createCartService = (deps: CartDeps) => {
       const line = lineId ? row.lines.find((l) => l.id === lineId.toLowerCase() && l.version_id === id) : row.lines.find((l) => l.version_id === id && l.answers === null)
       if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
       await setCartLineQuantity(tx, row.id, line.id, quantity)
-      if (quantity === 0) await release(tx, row.id, uploadsIn(line.answers))
+      if (quantity === 0) await releaseCartUploads(tx, row.id, uploadsIn(line.answers))
       await write(tx, row, {})
     })
 
@@ -495,7 +499,7 @@ export const createCartService = (deps: CartDeps) => {
       await setCartLineAnswers(tx, row.id, line.id, checked && checked.stored.length > 0 ? checked.stored : null, line.gift ? 1 : maxQuantity)
       // A file the new answers no longer name goes, unless another line still does.
       const kept = new Set(uploadsIn(checked?.stored ?? []))
-      await release(tx, row.id, uploadsIn(line.answers).filter((u) => !kept.has(u)))
+      await releaseCartUploads(tx, row.id, uploadsIn(line.answers).filter((u) => !kept.has(u)))
       await write(tx, row, {})
     })
 
@@ -642,10 +646,11 @@ export const createCartService = (deps: CartDeps) => {
     if (!question) return { ok: false, reason: 'UNKNOWN_QUESTION' }
     if (!accepted(question.accept, mime)) return { ok: false, reason: 'FILE_TYPE' }
     const checksum = await sha256Hex(body)
-    const putIn = (context: TenantContext, token: string | null) =>
+    const id = crypto.randomUUID()
+    // The cart first (made if need be), the file on R2 with no transaction open, then its row under the cart's lock.
+    const cartFor = (context: TenantContext, token: string | null) =>
       withScope(sql, context, async (tx) => {
         let found = await selectCart(tx, storeId, now())
-        if (found) await lockCartRow(tx, storeId, found.id)
         if (!found) {
           if (customerId === null && token === null) return null
           const tokenHash = context.caller.kind === 'shopper' ? (context.caller.orderTokenHash ?? null) : null
@@ -654,12 +659,36 @@ export const createCartService = (deps: CartDeps) => {
           if (!found) throw new Refused('NO_CART')
         }
         if ((await selectCartUploads(tx, found.id)).length >= maxCartUploads) throw new Refused('TOO_MANY_UPLOADS')
-        const id = crypto.randomUUID()
-        await insertShopperUpload(tx, { id, storeId, orderId: found.id, questionId: qid, mime, bytes: body.byteLength, checksum })
-        // Put before commit: a refused put rolls the row back, so no row ever names a missing file.
-        await files.put(uploadKey(storeId, found.id, id), body, { httpMetadata: { contentType: mime } })
-        return { id, mime, token }
+        return found.id
       })
+    const record = (context: TenantContext, cartId: string) =>
+      withScope(sql, context, async (tx) => {
+        await lockCartRow(tx, storeId, cartId)
+        if ((await selectCartUploads(tx, cartId)).length >= maxCartUploads) throw new Refused('TOO_MANY_UPLOADS')
+        await insertShopperUpload(tx, { id, storeId, orderId: cartId, questionId: qid, mime, bytes: body.byteLength, checksum })
+      })
+    // A file whose row never committed: deleted now, or queued when R2 refuses; if both fail, the error names its ids (never its content).
+    const unput = async (key: string) => {
+      const gone = files.delete ? await files.delete(key).then(() => true, () => false) : false
+      if (gone) return
+      // No row was deleted, so no trigger queues it: the job is written in system scope (the shop role has no outbox grant).
+      await withSystemScope(sql, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch((cause: unknown) => {
+        throw new Error(`upload: ${key} left on R2, its delete and its job both refused`, { cause })
+      })
+    }
+    const putIn = async (context: TenantContext, token: string | null) => {
+      const cartId = await cartFor(context, token)
+      if (!cartId) return null
+      const key = uploadKey(storeId, cartId, id)
+      await files.put(key, body, { httpMetadata: { contentType: mime } })
+      try {
+        await record(context, cartId)
+      } catch (error) {
+        await unput(key)
+        throw error
+      }
+      return { id, mime, token }
+    }
     try {
       if (customerId === null && !shopper?.orderTokenHash) {
         if (!(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
@@ -676,16 +705,17 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  /** "Remove" on a file in the modal: one of this cart's not yet named by a line; its object's deletion is queued. */
+  /** "Remove" on a file in the modal: one of the shopper's carts', even past its life, not named by a line; its object's deletion is queued. */
   const removeUpload = async (uploadId: string): Promise<CartResult<true>> => {
     const id = uploadId.toLowerCase()
     if (!isUuid(id)) return { ok: false, reason: 'UPLOAD_NOT_FOUND' }
     try {
       return await withScope(sql, deps.context, async (tx) => {
-        const row = await selectCart(tx, storeId, now())
-        if (!row || !(await selectCartUploads(tx, row.id)).some((u) => u.id === id)) throw new Refused('UPLOAD_NOT_FOUND')
-        if (row.lines.some((l) => uploadsIn(l.answers).includes(id))) throw new Refused('UPLOAD_IN_USE')
-        await release(tx, row.id, [id])
+        const held = await selectUploadCart(tx, storeId, id)
+        if (!held) throw new Refused('UPLOAD_NOT_FOUND')
+        await lockCartRow(tx, storeId, held.order_id)
+        if ((await selectUploadCart(tx, storeId, id))?.named !== false) throw new Refused('UPLOAD_IN_USE')
+        await releaseCartUploads(tx, held.order_id, [id])
         return { ok: true as const, value: true as const }
       })
     } catch (error) {
@@ -694,5 +724,8 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  return { cart, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
+  /** The guest cart the request's token really opens (expired or not), for keying a limit on it; null for a made-up token. */
+  const guestCartId = () => withScope(sql, deps.context, (tx) => selectGuestCartId(tx, storeId))
+
+  return { cart, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BookingPlaceRow } from '#db/scoped/labels'
-import { fromAddressOf } from './labels'
+import { fromAddressOf, parcelOf } from './labels'
 
 const place: BookingPlaceRow = {
   store_name: 'Juniper',
@@ -24,5 +24,24 @@ describe('where a label leaves from', () => {
 
   it('never puts the location’s pin on Store info’s address, which it falls back to', () => {
     expect(fromAddressOf({ ...place, warehouse_address: {} }, 'w1')).toMatchObject({ line1: '4 Johari Bazaar', city: 'Jaipur', pin: null })
+  })
+})
+
+// A label's declared value (#1368): a once-per-line customisation extra is part of what the goods are worth, spread over the
+// line's units to the minor unit, so a whole line declares exactly what the shopper paid.
+const bookingLine = (id: string, unit: string, quantity: number, lineExtras: string) => ({ id, name: id, sku: null, hs_code: null, unit_amount: unit, line_extras_amount: lineExtras, quantity, weight_grams: 500 })
+
+describe('parcelOf', () => {
+  it('declares a whole line at what the shopper paid, extras spread to the minor unit', () => {
+    const parcel = parcelOf([bookingLine('engraved', '33000', 3, '1000'), bookingLine('plain', '5000', 3, '0')], [{ lineId: 'engraved', quantity: 3 }, { lineId: 'plain', quantity: 3 }])
+    expect(parcel.amount).toBe(33000n * 3n + 1000n + 15000n)
+    // 100000 over 3 units: one at 33334, two at 33333, so the items sum to the paid value too.
+    expect(parcel.items.map((i) => [i.quantity, i.unitAmount])).toEqual([[1, 33334n], [2, 33333n], [3, 5000n]])
+    expect(parcel.items.reduce((sum, i) => sum + i.unitAmount * BigInt(i.quantity), 0n)).toBe(parcel.amount)
+  })
+
+  it('declares a partial pick with its units’ share of the extra', () => {
+    const parcel = parcelOf([bookingLine('engraved', '33000', 3, '1000')], [{ lineId: 'engraved', quantity: 1 }])
+    expect(parcel.amount).toBe(33334n)
   })
 })
