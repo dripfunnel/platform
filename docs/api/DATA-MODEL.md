@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-11-06 (#1328: `issue_support_write_code()` among the definer functions, §5.3). Before: 2026-11-05 (#1215: wishlist reminders, migration 0385, §7.6). Before: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
+Last updated: 2026-11-09 (#1367, proposed: product customisation, the question tables, answers on `cart_line` and `order_line`, `shopper_upload` and `promotion.include_customisation`, §7.1, §7.3, §7.6, §7.7, §7.11). Before: 2026-11-06 (#1328: `issue_support_write_code()` among the definer functions, §5.3). Before: 2026-11-05 (#1215: wishlist reminders, migration 0385, §7.6). Before: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
 and step key (0365), what `app_rider` reads of a delivery's warehouse, lines and customer, §7.6, §7.12). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the merchant role's column grants on delivery and offers, no request role reads the handover code). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
@@ -887,7 +887,8 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
 - **Supplier ownership reaches every child row.** Every table in §7.11's first class carries
   `seller_id`; on a child it is the parent's, copied by a trigger from the row it points at
   (`product` → options, values, versions, prices, photos, compliance, specs, FAQs, highlights,
-  filter assignments, badges, the approval snapshot; `product_version` → prices, option
+  filter assignments, badges, the approval snapshot, questions; `product_question` → its
+  choices, amounts and version limits; `product_version` → prices, option
   values, stock levels; `warehouse` → stock levels, where the version's owner must be the
   warehouse's or the merchant's; `order_part` → return lines and refund lines; `fulfilment`
   → its lines; `product_photo` → its `asset`), never from input. **`fulfilment` is the one
@@ -925,7 +926,8 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
   filter value names and texts) plus, from Q10, R11, S9, fact 21, fact 47, OFFERS fact 13 and
   S2: story module text, size-chart labels and notes, specification names and values, FAQs,
   highlights, warranty and returns text, badge labels, `seo_title` and `seo_description`,
-  policies, compliance fields, and a promotion's shopper-facing name and description. The
+  policies, compliance fields, a promotion's shopper-facing name and description, and a
+  product question's text and help and its choices' names (#1367). The
   main-language text stays on the row itself and is required; other languages fall back to
   it (facts 19–20). A content page's or post's other languages are the exception, in
   `storefront_content_translation` (§7.8), since its body is a document of blocks. Compliance fields may be translated into a language the store does not
@@ -1279,6 +1281,55 @@ product_related     (product_id, related_product_id, store_id, seller_id NULL, p
                     -- manual picks only; product.related_mode = 'auto_collection' ignores them
 product_badge       (product_id, badge_id, store_id, seller_id NULL)             -- manual badges only (S5)
 
+product_question    (id, product_id, store_id, seller_id NULL, kind ('choice'|'text'|'upload'),
+                     label, help NULL, required boolean DEFAULT false, position smallint,
+                     min_picks smallint NULL, max_picks smallint NULL, free_picks smallint NULL,
+                     max_length smallint NULL, multiline boolean NULL, example NULL,
+                     accept ('image'|'pdf'|'image_pdf') NULL, max_files smallint NULL,
+                     price_mode ('fixed'|'percent'|'per_character') NULL, price_bps integer NULL,
+                     price_per ('item'|'line') NULL, shown_if_choice_id NULL)
+                    UNIQUE (product_id, position) DEFERRABLE INITIALLY DEFERRED
+                    CHECK (position BETWEEN 1 AND 10)                    -- 10 a product (fact 55)
+                    -- CATALOG facts 49–57, #1367 (proposed). label 1–200 characters, help ≤ 500,
+                    -- example ≤ 100. By kind, the other kinds' columns null:
+                    -- choice: min_picks 0–max_picks, max_picks 1–99 (DEFAULT 1, "pick one"),
+                    --   free_picks 0–max_picks (DEFAULT 0), required = (min_picks >= 1); its price
+                    --   is on its choices, so price_* null;
+                    -- text: max_length 1–500 (DEFAULT 100), multiline NOT NULL (DEFAULT false);
+                    -- upload: accept NOT NULL (DEFAULT 'image'), max_files 1–5 (DEFAULT 1).
+                    -- Price (text and upload only): price_mode null is free (fact 51);
+                    -- 'per_character' only on text; 'percent' needs price_bps 1–10000 (of the
+                    -- version's price); 'fixed' and 'per_character' need an amount in the pricing
+                    -- currency (product_question_amount); price_per NOT NULL with a price_mode.
+                    -- shown_if_choice_id: the one condition (fact 54), a choice of another question
+                    -- of the same product whose own shown_if_choice_id is null (a trigger: one level
+                    -- deep), so a condition is a column, not a table. Not on a gift card's product
+                    -- (a trigger, fact 49)
+product_question_choice
+                    (id, question_id, product_id, store_id, seller_id NULL, label, position smallint,
+                     available boolean DEFAULT true, photo_asset_id NULL, max_quantity smallint DEFAULT 1,
+                     price_mode ('fixed'|'percent') NULL, price_bps integer NULL, price_per ('item'|'line') NULL)
+                    UNIQUE (question_id, position) DEFERRABLE INITIALLY DEFERRED
+                    CHECK (position BETWEEN 1 AND 50)                    -- 50 a question (fact 55)
+                    -- only on a question of kind 'choice'; label 1–100; max_quantity 1–99 (1: no
+                    -- quantity picker, fact 51); price columns as on the question; photo_asset_id
+                    -- follows product_photo's ownership rule (Part 2 below)
+product_question_amount
+                    (id, store_id, seller_id NULL, question_id NULL, choice_id NULL, version_id NULL,
+                     currency, amount)
+                    UNIQUE NULLS NOT DISTINCT (question_id, choice_id, version_id, currency)
+                    CHECK (num_nonnulls(question_id, choice_id) = 1) CHECK (amount >= 0)
+                    -- a fixed or per-character amount in minor units (§7.1): version_id null is
+                    -- the amount for every version, a row with version_id that version's own
+                    -- (fact 51, 'fixed' only); one row per manual currency the merchant typed,
+                    -- the pricing currency's required; converting currencies are computed when
+                    -- read, as version prices are (§7.2 store_currency); version_id is a version
+                    -- of the same product (trigger)
+product_question_version
+                    (question_id, version_id, store_id, seller_id NULL)
+                    PRIMARY KEY (question_id, version_id)
+                    -- "only for some versions" (fact 54): no rows is every version
+
 collection          (id, store_id, name, slug, description, kind ('manual'|'automatic'),
                      match ('all'|'any'), parent_id NULL, inherit_parent boolean,
                      visibility, image_asset_id, sort ('manual'|'newest'|'price_asc'|'price_desc'
@@ -1342,6 +1393,8 @@ translation         (store_id, seller_id NULL, entity ('product'|'version'|'coll
                     -- text it translated, so "changed since translated" (N5) is a comparison;
                     -- seller_id is set by a trigger from the entity; language references
                     -- store_language, whose rows a supplier reads (it translates its own products)
+                    -- #1367 (proposed): entity gains question (field name: its text; description:
+                    -- its help) and question_choice (field name), entity_id the row's id
 product_search      (product_id, store_id, language, document tsvector)
                     PRIMARY KEY (product_id, language)
                     -- the storefront's per-language index with main-language fallback
@@ -1410,6 +1463,15 @@ products last), and the studio's summary of best sellers (SAAS §9.2). Grants an
 `app_request` reads its own store's on the merchant side (no supplier branch; `app_supplier` has no grant); `app_shop`
 reads `store_id`, `product_id` and `position` of its storefront's store, **never `units`**, so a sort's cursor holds a
 position and no sales figure reaches a shopper; partner and platform scope read nothing (§7.11, inside the store).
+
+**Product customisation** (#1367, proposed; built by #1368): the four `product_question*` tables above are children of
+`product` (§7.1), so a supplier's carry its `seller_id` and a merchant's null. The limits are structural: a position
+out of range or taken is refused by the database, so an 11th question or a 51st choice can't be written, whatever the
+caller. A product's questions are saved with the product, at its revision (CATALOG E4), and changing them moves
+`storefront.catalog_version` as any catalogue write does. Deleting a question or a choice deletes its rows (a placed
+order keeps its snapshot, §7.6); a soft-deleted version's amounts and limits are ignored. A product with no
+`product_question` rows answers an empty list of questions, and its cart lines carry no answers and are priced
+exactly as before (PLATFORM-PROMPT §5.4).
 
 ### 7.4 Inventory
 
@@ -1527,7 +1589,9 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- billing_address, notes, cancel_reason, access_token_hash and search;
                     -- promotion_usage.customer_email; refund.note and "return".note;
                     -- fulfilment.tracking_number and tracking_url (a tracking page can
-                    -- identify the person); cart_reminder rows' sent subjects; every
+                    -- identify the person); cart_reminder rows' sent subjects; the text
+                    -- answers in those orders' cart_line and order_line answers, and their
+                    -- shopper_upload files (#1367); every
                     -- order_document asset of those orders (invoices, packing slips, labels
                     -- and return labels all carry the name and address), the rows keeping
                     -- kind, number and date; any export_job or customer_data_request file
@@ -1621,6 +1685,42 @@ order_line          (id, order_id, store_id, seller_id NULL, version_id, product
                     -- product's owner at placement. Built (0068) with tax_class_id (the class's
                     -- id, not a key), position and reserved_warehouse_id, and without
                     -- tax_zone_id yet
+cart_line (+ columns) id uuid UNIQUE DEFAULT gen_random_uuid(), answers jsonb NULL,
+                     answers_key text NOT NULL DEFAULT ''
+                    PRIMARY KEY (order_id, version_id, answers_key)   -- was (order_id, version_id)
+                    -- product customisation (#1367, proposed; CATALOG facts 49–57): answers is
+                    -- [{question, choices: [{choice, quantity}]} | {question, text} | {question,
+                    -- uploads: [shopper_upload id]}], ids only and never a price, ordered by
+                    -- question id then choice id, text trimmed and NFC-normalised, a hidden
+                    -- question's answer dropped (PLATFORM-PROMPT §5.4); answers_key is the hex
+                    -- SHA-256 of that jsonb, set by a trigger from answers, '' when answers is null
+                    -- or empty, so equal answers are one line (fact 56) and a line without answers
+                    -- keeps today's one-per-version key. id names a line in the Shop API (Edit,
+                    -- the quantity of a customised line). app_shop writes answers on its own
+                    -- cart under the cart's policy, never answers_key; the engine checks them on
+                    -- every read
+order_line (+ columns) answers jsonb NULL, unit_extras_amount bigint NOT NULL DEFAULT 0,
+                     line_extras_amount bigint NOT NULL DEFAULT 0
+                    -- the immutable snapshot of a customised line at placement (#1367, proposed),
+                    -- null on any other line: [{question, label, main_label NULL, kind, choices:
+                    -- [{label, main_label NULL, quantity, free, unit, amount}] | text | uploads:
+                    -- [shopper_upload id], unit NULL, amount, per ('item'|'line')}], labels as the
+                    -- shopper saw them (the order's language) with the main language's beside them
+                    -- when different, each extra's unit and amount (after the free allowance) in
+                    -- "order".currency (§7.1). unit_extras_amount is the per-item extras inside
+                    -- unit_amount; line_extras_amount the once-per-line extras, part of
+                    -- line_total_amount, so refunds and returns work on the line's total as today
+shopper_upload      (id, store_id, order_id NULL, question_id NULL, r2_key, mime ('image/jpeg'|'image/png'
+                     |'image/webp'|'image/heic'|'application/pdf'), bytes, checksum, created_at)
+                    -- a file a shopper uploaded as an answer (#1367, proposed; built by #1369),
+                    -- tied to the cart it was sent with (order_id, the cart's id, which stays the
+                    -- order's), checked by content, ≤ 10 MB (10485760 bytes). Never in asset:
+                    -- no shop branch can reach it by a product photo's rule. ON DELETE SET NULL on
+                    -- order_id and question_id: nothing deletes the file automatically (rule 30 of
+                    -- #1367); clearing an expired cart's uploads is a later card. r2_key under the
+                    -- store's prefix, selected by no request role; the merchant side and a
+                    -- line's supplier open a file only through a short-lived signed link the
+                    -- engine mints (§7.11)
 order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount'|'shipping'
                      |'tax'|'duties'|'rounding'), promotion_id NULL, promotion_code_id NULL,
                      label, amount, tax_rate_bps NULL, tax_zone_id NULL)
@@ -1841,14 +1941,18 @@ fixed and documented (fact 7); nothing here reorders promotions.
 promotion           (id, store_id, name, internal_name NULL, description, enabled boolean,
                      disabled_reason ('past_due') NULL, starts_at NULL, ends_at NULL,
                      total_uses_limit NULL, per_customer_limit NULL, uses_count integer,
-                     combines_with jsonb, show_on_product_page boolean, deleted_at)
+                     combines_with jsonb, show_on_product_page boolean,
+                     include_customisation boolean NOT NULL DEFAULT true, deleted_at)
                     -- OFFERS fact 1; uses_count maintained atomically with promotion_usage
                     -- (fact 8); combines_with per fact 7 holds the Shopify-style flags, and
                     -- the M3 "best only" and M4 "one code per order" choices, each (release:
                     -- decide); disabled_reason lets "Turn back on" be offered after past due
                     -- (Offers); show_on_product_page is fact 17 / O4 (release: decide);
                     -- internal_name (release: decide); soft delete keeps past orders'
-                    -- adjustments (fact 14, settled 2026-10-02 on #188's review: soft)
+                    -- adjustments (fact 14, settled 2026-10-02 on #188's review: soft);
+                    -- include_customisation is "Include customisation extras" (#1367,
+                    -- proposed; OFFERS-DESIGN §3.1): false makes the offer read each
+                    -- customised line at its version's price alone (PLATFORM-PROMPT §5.4)
 promotion_condition (id, promotion_id, store_id, operation, args jsonb, position)
                     -- operation ∈ OFFERS fact 3's keys: minimum_order_amount (amount per
                     -- currency in args), contains_products, at_least_n_with_filter_values,
@@ -2547,6 +2651,36 @@ decide which columns and which tables each caller kind may select at all**. `app
   event names a store or a partner, and only the SaaS layer writes it).
 - **Partner and platform scope**: `signup` (partner); `app`, `core_release`, `storefront_template` and `core_rollout` (platform; `core_rollout_store` carries `store_id` and is account level, above). Nothing else in §7:
   a table in none of these classes is a gap the structural test (§5.4) reports.
+- **Product customisation** (#1367, proposed; §7.3, §7.6, §7.7):
+  - **Merchant and supplier**: `product_question`, `product_question_choice`,
+    `product_question_amount` and `product_question_version` are **store-and-seller** (the first
+    class): the merchant side reads and writes every row, a supplier only its own products' (it
+    writes them like any other product field, under ACCESS §7.2), with no partner or platform
+    branch.
+  - **Shopper (`app_shop`)**: a `shop` read branch on all four, `EXISTS` on the product passing
+    its own shop rule, so only a visible product's questions are read, unavailable choices
+    included (they show greyed out; the engine refuses them); their `translation` rows by the
+    same rule. On `cart_line` it writes `answers` on its own cart under the cart's policy and
+    never `answers_key` (the trigger's); on `order_line` it reads `answers`, `unit_extras_amount`
+    and `line_extras_amount` of its own order. `shopper_upload` is **inside the store** with a
+    `shop` branch of `EXISTS (SELECT 1 FROM "order" o WHERE o.id = order_id AND o.state =
+    'cart')`: `insert` and `select` (never `r2_key`) on its own cart's files only.
+  - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
+    `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
+    grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
+    `order_line_for_supplier` shows the line is its own.
+  - **Merchant side's files**: `app_request` reads `shopper_upload` without `r2_key`; a file opens
+    only through the engine's short-lived signed link.
+  - **Support**: no policy of its own. The Store API shows a partner support session every text
+    answer as `•••••` and no file link (ACCESS §8, `apis/store/shopperDetails.ts`), wherever an
+    answer appears (orders, abandoned carts); choice names are the merchant's words and show.
+  - **Offers**: `promotion.include_customisation` is a column of a table inside the store, with no
+    new branch.
+  - **Indexes**: `product_question (store_id, seller_id, product_id, position)`,
+    `product_question_choice (question_id, position)`, `product_question_amount (question_id)`
+    and `(choice_id)`, `product_question_version (version_id)`, `shopper_upload (store_id,
+    order_id)`; "the store has a product with questions" (OFFERS-DESIGN §3.1) is an `EXISTS` on
+    `product_question (store_id, …)` joined to undeleted products.
 - **Column rules**, all by role (§5.3): `product_version.cost_amount` and `cost_currency`
   never to `app_shop`; `access_token_hash` and every `*_enc` and `key_enc` to no request
   role; the AI prompt columns never to `app_partner` or `app_platform`; the refund, return and ledger free

@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-11-09 (#1367: product customisation, how the engine prices and checks a line's answers, §5.4). Before: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -414,6 +414,61 @@ Design each module's responsibilities, tables, public API, events and invariants
   re-check; cancelling it releases the stock, and so does a bank transfer left unpaid for **3
   days**, a system cancellation logged with the system as actor (LOGGING §3); "Mark as paid"
   (Owner and Manager, ACCESS §5.1) doesn't re-check stock the order already holds.
+- **Product customisation** (decided 2026-11-09 on #1367; the rules are CATALOG-DESIGN §3
+  facts 49–57, the tables DATA-MODEL §7.3 and §7.6; names *(proposed)*). A product's questions
+  are answered when its version goes in the cart, and the engine prices and checks the answers
+  on **every** cart read, the modal's quote and placement alike; a shopper sends ids, text and
+  files, never a price. **A line without answers takes today's path**: no question is loaded,
+  and its price, query and refusals are unchanged.
+  - **Which questions count**: those shown for the line, meaning the line's version is among
+    the question's versions (none listed is all) and its condition's choice, if any, is picked.
+    A hidden question is never required, and its answer is dropped before the line's key is
+    made. Text is trimmed and NFC-normalised; a single-line answer's line breaks become spaces;
+    an empty answer is no answer. Characters, for a text's length and its per-character price,
+    are grapheme clusters (`Intl.Segmenter`), spaces inside the text included.
+  - **Pricing a line** in the cart's currency and market, for version price `P` and quantity
+    `q`:
+    1. An extra's **amount** is the per-version amount for the line's version if there is one,
+       else the general one; typed for a manual currency, else converted from the pricing
+       currency at the reference rate with the store's rounding; then moved by the market's
+       adjustment, as `P` is (CATALOG facts 25–26). A choice or answer with no amount in a
+       manual currency is **not available** in it. A percentage is `P × bps / 10000`, rounded
+       per unit by the money module's one rounding rule. Per character is the amount × the
+       answer's characters.
+    2. A choice picked `n` times counts `n` units, each at its amount.
+    3. **First N free**: a list's `free_picks` units with the lowest amounts are free (ties by
+       choice position).
+    4. **Per item** extras add to the unit price: `unit = P + Σ per-item`; **once per line**
+       extras are added once: `goods = unit × q + Σ per-line`.
+    5. **Tax** on `goods` by the line's tax class (the version's), as for any line.
+    6. **Offers** see `goods`, unless the offer's `include_customisation` is off: then it reads
+       the line as `P × q`: what it takes off, its cap, its minimum and its tiers are worked on
+       that (OFFERS-DESIGN §3.1), and the extras are always paid.
+
+    Placement snapshots the answers, labels and each extra's amount on `order_line` (DATA-MODEL
+    §7.6). Refunds and returns work on the line's total as today, extras included.
+  - **Checking answers** (every rule of CATALOG facts 53–55), on `addToCart`,
+    `updateCartLineAnswers` and the quote: one refusal, **`ANSWERS_INVALID`**, whose `problems`
+    each name the `questionId` (and `choiceId` where it applies) and a `reason`: `UNKNOWN`
+    (not a question or choice of this product), `WRONG_KIND` (an answer of another type),
+    `REQUIRED`, `TOO_FEW_PICKS`, `TOO_MANY_PICKS` (quantities count), `QUANTITY_TOO_HIGH`
+    (above a choice's `max_quantity`), `CHOICE_UNAVAILABLE` (switched off, or not available in
+    the cart's currency), `TEXT_TOO_LONG`, `TOO_MANY_FILES` and `UPLOAD_NOT_FOUND` (not a file
+    of this cart and question). An answer to a hidden question is dropped, never refused. The
+    quote answers the same `problems` without refusing, so the modal can show them beside each
+    question.
+  - **A line that stops fitting** (a choice turned off, a required question added, a maximum
+    lowered) is still priced, with the line problem **`check_answers`** ("Check your choices"),
+    so checkout refuses it as any line problem (`LINE_PROBLEM`) until the shopper edits it.
+  - **Uploads** (`POST /shop-api/uploads?question={id}`, the raw file; built by #1369): the type
+    is checked by the file's content, never its name or declared type, against what the
+    question accepts; at most 10 MB; only for an upload question of a visible product;
+    rate-limited per cart (`UPLOAD_RATE_LIMITER`, 10 a minute) and per host and address as
+    every Shop API call. Refusals: `FILE_TYPE`,
+    `FILE_TOO_LARGE`, `UNKNOWN_QUESTION`, `RATE_LIMITED`. Uploading with no cart makes one, as
+    `addToCart` does. No file name or content is logged.
+  - **Order webhooks and the public APIs** gain each line's answers as new, additive fields,
+    through the outbox.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided

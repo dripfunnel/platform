@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-09 (#1367: product customisation: a supplier's questions and its lines' answers, answers and uploads hidden from support, the isolation rows, §7.1, §8, §11.1). Before: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -890,6 +890,13 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   are the merchant's own, as a gift card is the store's liability. The engine refuses any other
   kind from a vendor (`SUPPLIER_FIELD`), and `product_supplier_physical` refuses the row; a
   download's file, key pool and kind details are Store API fields of scope `store` only.
+- **Questions the shopper answers** (decided 2026-11-09 on #1367; CATALOG-DESIGN §3 facts 49–57): a
+  vendor writes questions on its own products like any other product field, under §7.2's rule (they
+  are not one of the three fields that send an approved product back), and never on the merchant's
+  or another vendor's. It sees the answers and uploads of **its own lines only**, whatever its
+  shipping mode, since it makes the item: through `order_line_for_supplier` and a file link the
+  engine mints after checking the line is its own (DATA-MODEL §7.11). A `to-store` part still shows
+  it nothing else of the customer (§7.3).
 
 ### 7.2 Approval is a per-store setting
 
@@ -1038,7 +1045,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   customers and orders read `•••••` (`apis/store/shopperDetails.ts`) wherever the Store API returns them:
   orders, customers, abandoned carts, wishlists, issued gift cards, Home, own delivery, and in the activity
   log an order note, a shopper's own label, and the label, changes and reason of an entry about a shopper's
-  record (customer, address, cart, wishlist), though LOGGING.md §4.1 keeps them out already. A support session's search by a shopper's name, email or phone finds nothing, and its
+  record (customer, address, cart, wishlist), though LOGGING.md §4.1 keeps them out already. A cart or order
+  line's text answers read `•••••` too, and its uploaded files have no link (#1367; choice names are the
+  merchant's words and show). A support session's search by a shopper's name, email or phone finds nothing, and its
   activity log search finds nothing at all; an order number still finds its order. Every order action is open to it whenever it may make changes.
 - **Time-limited**: 90 minutes, **extendable once by 30** by its own agent, as staff impersonation (§8.1)
   (decided 2026-11-06 on #1328, replacing 30 minutes with no extension, #337). The agent extends from the
@@ -1492,6 +1501,27 @@ builds the table must ship:
   with another customer's id, or with `state <> 'cart'`, is refused (DATA-MODEL §5.3, §7.11);
 - the AI metering view returns partner A's stores to partner A and none of partner B's, every
   store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).
+
+**Rows added with product customisation (#1367)**, for #1368 and #1369 (DATA-MODEL §7.3, §7.6, §7.11):
+
+- two suppliers in one store, each reading and writing the questions, choices, amounts and version
+  limits of its own products only; a supplier writing a question on the merchant's product, or
+  copying questions from or to a product it doesn't own (`copyProductQuestions`), gets "not found";
+  store B's product as either end of a copy in store A is "not found";
+- a shopper reads the questions of a visible product only, never a hidden, deleted or another store's
+  product's, and their translations by the same rule;
+- a shopper writes `answers` only on its own cart's lines, never `answers_key`, and a price sent
+  anywhere in an answer changes nothing: the engine prices the line;
+- a shopper uploads only to its own cart, reads only its own cart's `shopper_upload` rows and never
+  `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`;
+- a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
+  `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
+  by the grant;
+- a partner support session, before and after elevation, reads every text answer as `•••••` and gets
+  no file link, on orders and abandoned carts alike; a partner or platform query on any of these
+  tables returns nothing;
+- `promotion.include_customisation` is read and written by the merchant side only, as the rest of
+  an offer.
 
 ### 11.2 Structural tests
 
