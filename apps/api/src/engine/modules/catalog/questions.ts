@@ -336,11 +336,7 @@ export const extrasPriceChanged = (before: readonly QuestionRow[], after: readon
   return was.size !== now.size || [...now].some(([id, key]) => was.get(id) !== key)
 }
 
-/**
- * Another product's questions as this one's (CATALOG U12): every question, choice, price and condition; a version's amount
- * or limit only where this product has a version with the same choices, a choice's photo only for the same owner. Answers
- * what couldn't come along.
- */
+/** Another product's questions as this one's; what a version or owner can't take is dropped and counted (CATALOG U12). */
 export const copiedQuestions = (
   source: readonly QuestionRow[],
   map: { versionOf: (sourceVersionId: string) => number | null; samePhotoOwner: boolean; currencies: ReadonlySet<string> },
