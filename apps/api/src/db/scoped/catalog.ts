@@ -5,7 +5,7 @@ import { pgArray, uniqueViolation, type ScopedSql } from './index'
 // The catalogue's core (DATA-MODEL §7.3, migration 0041): every read and write runs in the caller's
 // scope, so a supplier reaches its own products only and RLS is the backstop of every query here.
 
-export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back' | 'missing_info' | 'low_stock'
+export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back' | 'missing_info' | 'low_stock' | 'with_questions'
 
 export interface ProductListRow {
   id: string
@@ -64,6 +64,9 @@ const filterOf = (tx: ScopedSql, filter: ProductFilter) => {
       return tx`(p.description = '' or not exists (select 1 from product_photo ph where ph.product_id = p.id))`
     case 'low_stock':
       return lowStock(tx, 'p')
+    // Copy questions' product search (CATALOG U12): only products that ask some.
+    case 'with_questions':
+      return tx`exists (select 1 from product_question q where q.product_id = p.id)`
     case 'all':
       return tx`true`
   }
