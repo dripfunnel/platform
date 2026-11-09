@@ -22,6 +22,8 @@ export type PriceDraft = {
   manual: { currency: string; amount: string }[]
   /** A version's own amount by its key, as typed; empty uses `amount`. */
   byVersion: Record<string, string>
+  /** A version's amounts in other currencies, by its key, as they came. */
+  manualByVersion: Record<string, { currency: string; amount: string }[]>
 }
 
 export type ChoiceDraft = { id: string | null; key: string; label: string; available: boolean; maxQuantity: string; photoAssetId: string | null; price: PriceDraft | null }
@@ -51,7 +53,7 @@ export type QuestionDraft = {
 let next = 0
 export const newKey = (): string => `k${(next += 1)}`
 
-export const newPrice = (mode: PriceMode = 'FIXED'): PriceDraft => ({ mode, per: 'ITEM', amount: '', percent: '', manual: [], byVersion: {} })
+export const newPrice = (mode: PriceMode = 'FIXED'): PriceDraft => ({ mode, per: 'ITEM', amount: '', percent: '', manual: [], byVersion: {}, manualByVersion: {} })
 export const newChoice = (): ChoiceDraft => ({ id: null, key: newKey(), label: '', available: true, maxQuantity: '1', photoAssetId: null, price: null })
 export const newQuestion = (kind: QuestionKind): QuestionDraft => ({
   id: null,
@@ -89,6 +91,13 @@ const priceDraftOf = (p: StoredPrice | null, currency: string, keyOfVersion: (id
         const key = keyOfVersion(v.versionId)
         const amount = v.amounts.find((a) => a.currency === currency)?.amount
         return key && amount !== undefined ? [[key, typedOf(amount, currency)]] : []
+      }),
+    ),
+    manualByVersion: Object.fromEntries(
+      p.versionAmounts.flatMap((v) => {
+        const key = keyOfVersion(v.versionId)
+        const others = v.amounts.filter((a) => a.currency !== currency)
+        return key && others.length > 0 ? [[key, others]] : []
       }),
     ),
   }
@@ -205,9 +214,10 @@ export const questionsInputOf = (drafts: readonly QuestionDraft[], currency: str
     if (p.mode === 'PERCENT') return { mode: p.mode, per: p.per, percentBps: Math.round(Number(p.percent) * 100) }
     const versionAmounts =
       p.mode === 'FIXED'
-        ? Object.entries(p.byVersion).flatMap(([key, typed]) => {
-            const version = versionKeys.indexOf(key)
-            return version === -1 || typed.trim() === '' ? [] : [{ version, amounts: [{ currency, amount: minor(typed) }] }]
+        ? versionKeys.flatMap((key, version) => {
+            const typed = p.byVersion[key] ?? ''
+            const amounts = [...(typed.trim() === '' ? [] : [{ currency, amount: minor(typed) }]), ...(p.manualByVersion[key] ?? [])]
+            return amounts.length === 0 ? [] : [{ version, amounts }]
           })
         : []
     return { mode: p.mode, per: p.per, amounts: [{ currency, amount: minor(p.amount) }, ...p.manual], ...(versionAmounts.length > 0 ? { versionAmounts } : {}) }

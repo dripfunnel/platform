@@ -23,7 +23,13 @@ const stored = (over: Partial<StoredQuestion>): StoredQuestion => ({
   ...over,
 })
 const wrap = stored({ id: 'q-wrap', kind: 'CHOICE', label: 'Gift wrap', minPicks: 0, maxPicks: 1, freePicks: 0, choices: [{ id: 'c-yes', label: 'Yes', photoAssetId: null, available: true, maxQuantity: 1, price: null }] })
-const note = stored({ id: 'q-note', label: 'Note', shownIf: { questionId: 'q-wrap', choiceId: 'c-yes' }, versionIds: ['v-l'], price: { mode: 'FIXED', per: 'ITEM', percentBps: null, amounts: [inr('3000'), { currency: 'USD', amount: '40' }], versionAmounts: [{ versionId: 'v-l', amounts: [inr('4500')] }] } })
+const note = stored({
+  id: 'q-note',
+  label: 'Note',
+  shownIf: { questionId: 'q-wrap', choiceId: 'c-yes' },
+  versionIds: ['v-l'],
+  price: { mode: 'FIXED', per: 'ITEM', percentBps: null, amounts: [inr('3000'), { currency: 'USD', amount: '40' }], versionAmounts: [{ versionId: 'v-l', amounts: [inr('4500'), { currency: 'USD', amount: '60' }] }, { versionId: 'v-m', amounts: [{ currency: 'USD', amount: '45' }] }] },
+})
 const keyOf = (id: string) => ({ 'v-m': 'm', 'v-l': 'l' })[id] ?? null
 
 describe('the questions draft', () => {
@@ -40,7 +46,15 @@ describe('the questions draft', () => {
       required: false,
       maxLength: 100,
       multiline: false,
-      price: { mode: 'FIXED', per: 'ITEM', amounts: [inr('3000'), { currency: 'USD', amount: '40' }], versionAmounts: [{ version: 1, amounts: [inr('4500')] }] },
+      price: {
+        mode: 'FIXED',
+        per: 'ITEM',
+        amounts: [inr('3000'), { currency: 'USD', amount: '40' }],
+        versionAmounts: [
+          { version: 0, amounts: [{ currency: 'USD', amount: '45' }] },
+          { version: 1, amounts: [inr('4500'), { currency: 'USD', amount: '60' }] },
+        ],
+      },
     })
   })
 
