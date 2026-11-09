@@ -294,7 +294,8 @@ main language and offered languages, and translations per language with fallback
     - version names
     - collection name, web address and description
     - filter names and choice names
-    - question text, help text and the names of a question's choices (§3 fact 54; #1367)
+    - question text, help text, a text question's example and the names of a question's choices
+      (§3 fact 54; #1367)
 
     Price, stock, SKU, photos, classification code and tax class are the same in every
     language. The UI must make clear which fields change with the language and which do not.
@@ -610,7 +611,7 @@ tables.
     - A hidden question is never required, and its answer is dropped.
     - A question has optional help text, and a choice an optional photo.
     - Questions and choices are ordered by dragging, and the shopper sees that order.
-    - Question text, help and choice names are translatable (fact 18).
+    - Question text, help, a text question's example and choice names are translatable (fact 18).
 55. **Limits and availability.** 10 questions per product and 50 choices per question, with a
     clear message at each limit; the engine enforces both. Each choice has an on/off
     **Available** switch, with no stock count: an unavailable choice shows greyed out as "Not
@@ -1473,8 +1474,8 @@ property". Prices appear only when the merchant asks for one.
   approved product back, with "Your change to what shoppers pay needs approval"; any other change
   to its questions goes live. The merchant's review (L3) shows the questions. The merchant editing
   a vendor's product sees E1's banner. A Stock only vendor sees the section read-only (§4).
-- U16. **Translations** (part N): in a language's tab, question text, help and choice names are
-  translatable; types, limits, prices and conditions are shared and locked, "same in every
+- U16. **Translations** (part N): in a language's tab, question text, help, a text question's
+  example and choice names are translatable; types, limits, prices and conditions are shared and locked, "same in every
   language".
 - U17. **What the shopper sees** is the storefront's sealed modal and the shop app's sheet
   ([storefront ARCHITECTURE](../../storefront/ARCHITECTURE.md) §3.5), opened by Add to cart, Buy
