@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { copyProductQuestions, searchProductsWithQuestions, uploadPhoto, type CopiedQuestions } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { Draft } from '../common/productDraft'
-import { maxChoices, maxQuestions, newChoice, newPrice, newQuestion, questionProblems, summaryOf, type ChoiceDraft, type PriceDraft, type QuestionDraft, type QuestionKind, type QuestionProblem } from '../common/productQuestions'
+import { maxChoices, maxQuestions, newChoice, newPrice, newQuestion, questionProblems, summaryOf, withValidConditions, type ChoiceDraft, type PriceDraft, type QuestionDraft, type QuestionKind, type QuestionProblem } from '../common/productQuestions'
 import type { Update } from './EditorCards'
 import { Section } from './EditorSections'
 
@@ -36,6 +36,7 @@ const problemText = (p: QuestionProblem, currency: string) =>
     price: fill(words.priceWrong, { currency }),
     quantity: words.quantityWrong,
     versions: words.versionsNone,
+    versionsChanged: words.versionsChanged,
   })[p.field]
 
 const Problem = ({ problems, field, choice = null, currency }: { problems: readonly QuestionProblem[]; field: QuestionProblem['field']; choice?: string | null; currency: string }) => {
@@ -121,6 +122,7 @@ const PriceEditor = ({ price, set, kind, currency, manual, versions, disabled, l
 
 const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, manual, versions, disabled, problems, questionKey }: { choice: ChoiceDraft; set: (c: ChoiceDraft) => void; remove: () => void; move: (by: -1 | 1) => void; first: boolean; last: boolean; many: boolean; currency: string; manual: readonly string[]; versions: Props['versions']; disabled: boolean; problems: readonly QuestionProblem[]; questionKey: string }) => {
   const [uploading, setUploading] = useState(false)
+  const [photoFailed, setPhotoFailed] = useState(false)
   const own = problems.filter((p) => p.question === questionKey)
   return (
     <li className="df-question-choice">
@@ -156,21 +158,31 @@ const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, man
               <input
                 type="file"
                 accept="image/*"
-                hidden
+                className="df-visually-hidden"
+                aria-label={`${words.photoAdd}: ${choice.label || words.choice}`}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
+                  e.target.value = ''
                   if (!file) return
                   setUploading(true)
-                  void uploadPhoto(file).then((result) => {
-                    setUploading(false)
-                    if (result.ok) set({ ...choice, photoAssetId: result.assetId })
-                  })
+                  setPhotoFailed(false)
+                  uploadPhoto(file)
+                    .then((result) => {
+                      if (result.ok) set({ ...choice, photoAssetId: result.assetId })
+                      else setPhotoFailed(true)
+                    }, () => setPhotoFailed(true))
+                    .finally(() => setUploading(false))
                 }}
               />
             </label>
           )
         )}
       </span>
+      {photoFailed && (
+        <p className="df-editor-problem" role="alert">
+          {words.photoFailed}
+        </p>
+      )}
       <PriceEditor price={choice.price} set={(price) => set({ ...choice, price })} kind="CHOICE_ROW" currency={currency} manual={manual} versions={versions} disabled={disabled} label={choice.label || words.choice} />
       <Problem problems={own} field="price" choice={choice.key} currency={currency} />
       {!disabled && (
@@ -518,8 +530,9 @@ export const QuestionsSection = (props: Props) => {
   const { draft, update, disabled, currency } = props
   const questions = draft.questions
   const [open, setOpen] = useState(false)
-  const problems = questionProblems(questions, currency)
-  const setQuestions = (change: (q: QuestionDraft[]) => QuestionDraft[]) => update((d) => ({ ...d, questions: change(d.questions) }))
+  const problems = questionProblems(questions, currency, props.versions.length > 1 ? props.versions.map((v) => v.key) : null)
+  // Every change keeps conditions valid: a removed or moved choice or question clears what pointed at it (U9).
+  const setQuestions = (change: (q: QuestionDraft[]) => QuestionDraft[]) => update((d) => ({ ...d, questions: withValidConditions(change(d.questions)) }))
   const summary = questions.length > 0 ? fill(plural(words.count, questions.length), { count: formatCount(questions.length) }) : words.hint
   return (
     <Section title={words.title} summary={summary} open={open} onToggle={() => setOpen((o) => !o)} problem={problems.length > 0}>
