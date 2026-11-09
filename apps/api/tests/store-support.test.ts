@@ -210,7 +210,9 @@ describe('read-only until the store allows writes', () => {
     expect(forbiddenHeld).toEqual([])
     expect(codes.get('setPricesIncludeTax')).toBe('SUPPORT_READ_ONLY')
     expect(codes.get('changePassword')).toBe('BLOCKED_FOR_SUPPORT')
-    expect(codes.get('inviteMember')).toBe('SUPPORT_READ_ONLY')
+    expect(codes.get('inviteMember')).toBe('BLOCKED_FOR_SUPPORT')
+    // What #1344 opened still waits for an Allow.
+    for (const name of ['chooseTemplate', 'askDesign', 'publishDesign', 'changePlan', 'setPaymentMethod', 'cancelStore', 'connectStripe', 'connectStoreAiAccount', 'createApiKey', 'installApp', 'saveWebhook']) expect(codes.get(name), name).toBe('SUPPORT_READ_ONLY')
   })
 
   it('refuses a real write end to end and the database refuses it too', async () => {
@@ -249,14 +251,16 @@ describe('write elevation', () => {
     expect((await entries(id)).map((e) => e.action)).toEqual(expect.arrayContaining(['support_session.write_requested', 'support_session.write_allowed']))
   })
 
-  it('keeps the "never" list refused once allowed: the Owner, its own access, the switch, the person’s account', async () => {
+  it('keeps the "never" list refused once allowed: people, its own access, the switch, the person’s account', async () => {
     const id = await opened('owner', agents.priya, 'tok-never')
     const cookie = await enter('tok-never')
     await gql(q.ask, { support: cookie }, { n: 'Shipping rates' })
     await gql(q.allow, { person: 'owner' }, { id })
     expect((await gql(q.set, { support: cookie }, { a: false })).code).toBe('BLOCKED_FOR_SUPPORT')
     expect((await gql(q.allow, { support: cookie }, { id })).code).toBe('BLOCKED_FOR_SUPPORT')
-    expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "owner") }`, { support: cookie })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "staff") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await gql(`mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await gql(`mutation { removeMember(membershipId: "${seats.owner}") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
     expect((await gql(`mutation { changePassword(current: "a", next: "b") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
     // An Owner's own Allow sends no email: only a Manager's does.
     expect(await db.sql`select 1 from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`).toHaveLength(0)
@@ -363,7 +367,7 @@ describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
       // The merchant side says so too: Staff see that support can make changes, not "Read-only" (#1328).
       type Banner = { storeState: { support: { access: string } } }
       expect((await gql<Banner>(`{ storeState { support { access } } }`, { person: 'staff' })).data?.storeState.support.access).toBe('write')
-      expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "owner") }`, { support: cookie })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+      expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "staff") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
       expect((await gql(q.set, { support: cookie }, { a: false })).code).toBe('BLOCKED_FOR_SUPPORT')
       await db.sql`update membership set status = 'active' where id = ${seats.owner}`
       await db.sql`update "user" set status = 'active' where id = ${people.owner}`
@@ -412,8 +416,8 @@ describe('before the store’s own domain connects (#1340)', () => {
       codes.set(field.name, await storePolicy.authorize(access, ctx, {}, 'mutation', { name: field.name, root: true }).then(() => 'admitted', (error: { extensions?: { code?: string } }) => error.extensions?.code ?? 'error'))
     }
     expect([...codes].filter(([, code]) => code === 'SUPPORT_READ_ONLY')).toEqual([])
-    for (const name of ['setPricesIncludeTax', 'cancelOrder', 'refund', 'markOrderPaid', 'addOrderNote', 'inviteMember']) expect(codes.get(name)).toBe('admitted')
-    for (const name of ['addCustomer', 'updateCustomer', 'setCustomerNote', 'exportCustomers', 'exportOrders', 'changePassword', 'setSupportAccess']) expect(codes.get(name)).toBe('BLOCKED_FOR_SUPPORT')
+    for (const name of ['setPricesIncludeTax', 'cancelOrder', 'refund', 'markOrderPaid', 'addOrderNote']) expect(codes.get(name)).toBe('admitted')
+    for (const name of ['addCustomer', 'updateCustomer', 'setCustomerNote', 'exportCustomers', 'exportOrders', 'inviteMember', 'changePassword', 'setSupportAccess']) expect(codes.get(name)).toBe('BLOCKED_FOR_SUPPORT')
   })
 
   it('makes a change without an Allow, says so in the banner, and has nothing to ask for', async () => {

@@ -1067,8 +1067,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   the session), is replaced by a newer one and voided after 5 wrong tries, and works only while its issuer is still an active Owner or Manager of the store. Only its salted hash is kept, never logged.
   A redeemed code leaves the session as an Allow by the person who issued it, a Manager's emailing the Owners.
 - **Never, even elevated**: change the person's password, email, 2-factor or sign-in sessions (a support
-  session is not a person, so it can't act as one); change the Owner (the people service answers
-  `BLOCKED_WHILE_IMPERSONATING`); allow its own writes or change the store's support access; add, edit or export
+  session is not a person, so it can't act as one); invite, remove or change the role of anyone in the store, or
+  manage its suppliers and their teams, seats that would outlast the session; allow its own writes or change the
+  store's support access; add, edit or export
   customers (customer groups share `customers.write`), or export orders (#1340); export the store's data, whose bundle
   holds the shoppers, or the activity log. Everything else the seat may do is open, so support can set a store up for
   a merchant: payments and the store's card, billing (closing the store included), the AI account, API keys, apps,

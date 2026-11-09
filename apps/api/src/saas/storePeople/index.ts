@@ -73,7 +73,7 @@ type Write = { ok: true } | { ok: false; refusal: PeopleRefusal } | { ok: false;
 export const createStorePeopleService = ({ sql, caller, activity, facts, now }: StorePeopleDeps) => {
   const storeId = caller.store.id
   // ACCESS.md §8.1: staff acting as a user never change who owns the store.
-  const ownersBlocked = caller.context.caller.kind === 'impersonation' || caller.context.caller.kind === 'support'
+  const ownersBlocked = caller.context.caller.kind === 'impersonation'
   const inStore = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, caller.context, work)
 
   const entry = (action: string, target: { type: string; id: string; label: string }, reason: string | null): ActivityEntry => ({
