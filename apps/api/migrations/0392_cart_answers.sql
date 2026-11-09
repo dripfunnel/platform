@@ -7,9 +7,7 @@ alter table cart_line
   add column answers jsonb check (answers is null or (jsonb_typeof(answers) = 'array' and jsonb_array_length(answers) between 1 and 10)),
   add column answers_key text not null default '';
 alter table cart_line add constraint cart_line_id_key unique (id);
--- Expand: the line's new key beside the old one, so the release before keeps its `on conflict (order_id, version_id)` through
--- the deploy window and a rollback. The next release drops the old key (contract), and only then may a version have lines
--- with different answers; until it does, the engine refuses a second set (ONE_LINE_PER_VERSION).
+-- Expand: the new key beside the old one, which the next release drops (contract; DATA-MODEL §7.6).
 create unique index cart_line_line_key on cart_line (order_id, version_id, answers_key);
 
 -- Equal answers are one line (fact 56): the key is the answers' own hash, never the caller's to set. The engine writes the
