@@ -2,6 +2,7 @@ import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleUpload } from '#apis/shop/uploads'
+import { hashSessionId } from '#auth/session'
 import { resolveShopper } from '#auth/shopCaller'
 import type { CallerContext, SellerScope } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
@@ -213,6 +214,12 @@ describe('a shopper’s files (#1369)', () => {
     expect(await withScope(db.sql, shopperOf(storeId), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
     expect(await withScope(db.sql, shopperOf(other), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
     await expect(withScope(db.sql, shopperOf(other), (tx) => tx`insert into shopper_upload (id, store_id, order_id, r2_key, mime, bytes, checksum) values (${crypto.randomUUID()}, ${other}, ${cart.id}, ${`stores/${other}/shopper-uploads/${cart.id}/${crypto.randomUUID()}`}, 'image/png', 1, ${'f'.repeat(64)})`)).rejects.toThrow()
+    // Its own cart, but a question it can't read (a hidden product's) or none: the insert's check refuses it.
+    const own: CallerContext = { ...shopperOf(storeId), caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) } }
+    const row = (questionId: string | null) =>
+      withScope(db.sql, own, (tx) => { const id = crypto.randomUUID(); return tx`insert into shopper_upload (id, store_id, order_id, question_id, r2_key, mime, bytes, checksum) values (${id}, ${storeId}, ${cart.id}, ${questionId}, ${`stores/${storeId}/shopper-uploads/${cart.id}/${id}`}, 'image/png', 1, ${'f'.repeat(64)})` })
+    await expect(row(ids.hiddenQuestion)).rejects.toThrow(/row-level security/)
+    await expect(row(null)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, person(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, shopperOf(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, person(storeId, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx`select id from shopper_upload`)).rejects.toThrow(/permission denied/)

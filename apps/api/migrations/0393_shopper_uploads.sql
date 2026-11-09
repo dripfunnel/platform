@@ -33,7 +33,9 @@ create policy shopper_upload_shop on shopper_upload for all to app_shop
   using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id')
     and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart'))
   with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id')
-    and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart'));
+    and exists (select 1 from "order" o where o.id = order_id and o.state = 'cart')
+    -- The question too is read under its own shop policy: a visible product's, of this store.
+    and exists (select 1 from product_question q where q.id = question_id and q.store_id = shopper_upload.store_id));
 create policy request_scope on shopper_upload as restrictive for all to app_request, app_shop
   using (app_setting_text('app.scope') in ('store', 'shop') and (current_user <> 'app_shop' or app_setting_text('app.scope') = 'shop'))
   with check (app_setting_text('app.scope') in ('store', 'shop') and (current_user <> 'app_shop' or app_setting_text('app.scope') = 'shop'));
