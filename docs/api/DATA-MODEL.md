@@ -1334,6 +1334,9 @@ product_question_version
                     (question_id, version_id, store_id, seller_id NULL)
                     PRIMARY KEY (question_id, version_id)
                     -- "only for some versions" (fact 54): no rows is every version
+                    -- A choice's, amount's or version limit's seller_id and product_id are copied
+                    -- from its question (or its choice) by a trigger, never taken from input, and a
+                    -- question the caller can't read, or of another store, refuses the write.
 
 collection          (id, store_id, name, slug, description, kind ('manual'|'automatic'),
                      match ('all'|'any'), parent_id NULL, inherit_parent boolean,
