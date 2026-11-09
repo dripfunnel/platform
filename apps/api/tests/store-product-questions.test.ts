@@ -155,6 +155,10 @@ describe('questions on a product (#1368)', () => {
     delete noQuestions['questions']
     await gql(save, 'owner', { id, revision, input: noQuestions })
     expect(((await read(id)).data?.['product'] as { questions: Q[] }).questions).toHaveLength(4)
+    // A client sending null by accident keeps them too.
+    const sentNull = await gql(save, 'owner', { id, revision: revision + 1, input: { ...noQuestions, questions: null } })
+    expect(sentNull.errors).toBeUndefined()
+    expect(((await read(id)).data?.['product'] as { questions: Q[] }).questions).toHaveLength(4)
     const copy = await gql(save, 'owner', { input: sized('Plain cake', []) })
     expect(((await read((copy.data?.['saveProduct'] as Saved).id)).data?.['product'] as { questions: Q[] }).questions).toEqual([])
   })
@@ -298,6 +302,19 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0, 1]) })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
     await db.sql`update store set vendor_products_require_approval = false where id = ${t.storeA1}`
+  })
+
+  it('copies between a supplier’s own products', async () => {
+    const from = (await gql(save, 'supplier', { input: sized('Engraved mug', [{ kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })).data?.['saveProduct'] as Saved
+    const to = (await gql(save, 'supplier', { input: sized('Engraved flask', []) })).data?.['saveProduct'] as Saved
+    const copied = await gql(
+      `mutation C($from: ID!, $to: ID!, $r: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $r) { droppedAmounts droppedVersionLimits droppedPhotos } }`,
+      'supplier',
+      { from: from.id, to: to.id, r: to.revision },
+    )
+    expect(copied.data?.['copyProductQuestions']).toEqual({ droppedAmounts: 0, droppedVersionLimits: 0, droppedPhotos: 0 })
+    const questions = ((await read(to.id, 'supplier')).data?.['product'] as { questions: Q[] }).questions
+    expect(questions.map((q) => [q.label, q.price?.amounts])).toEqual([['Name to engrave', inr('500')]])
   })
 
   it('copies a merchant product’s questions onto a supplier’s without its photos or the currencies the supplier can’t type', async () => {
