@@ -113,6 +113,22 @@ describe('customised lines in the cart', () => {
     expect(tooMany.problems?.[0]?.reason).toBe('QUANTITY_TOO_HIGH')
   })
 
+  it('holds a line with no answers to a required question, at add and once one is added later', async () => {
+    const mug = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Name mug', 'name-mug', 'visible') returning id`)).id
+    const version = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${mug}, 'name-mug', 0, false) returning id`)).id
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${version}, ${storeId}, 'INR', '20000')`
+    const before = await add(null, version, 1, null)
+    const held = (before.data?.['addToCart'] as { cartToken: string | null } | undefined)?.cartToken ?? ''
+    expect(linesOf(before)[0]?.problem).toBeNull()
+    await db.sql`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline, required) values (${mug}, ${storeId}, 'text', 'Name', 1, 20, false, true)`
+    // The line from before is still priced as it was, and told to check its choices.
+    expect((await cartLines(held)).find((l) => l.versionId === version)).toMatchObject({ problem: 'check_answers', lineTotal: { amount: '20000' } })
+    // Leaving the answers out at add skips nothing on the server.
+    const skipped = await add(null, version, 1, null)
+    expect(skipped.code).toBe('ANSWERS_INVALID')
+    expect(skipped.problems).toEqual([{ questionId: expect.any(String), choiceId: null, reason: 'REQUIRED' }])
+  })
+
   it('prices each line with its extras: per item in the unit, once per line on the line, and a version’s own amount', async () => {
     const added = await add(null, ids.small, 2, withWrap('Happy 30 Asha'))
     expect(added.errors).toBeUndefined()

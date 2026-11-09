@@ -205,16 +205,18 @@ export const createCartService = (deps: CartDeps) => {
   /** `known`: the lines' items when the caller already looked them up in this request. */
   const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> => {
     const items = known ?? (await catalog(context).cartItems(row.lines.map((l) => l.version_id)))
-    // A line without answers takes today's path: its product's questions are loaded only for lines that have answers.
-    const customised = [...new Set(row.lines.flatMap((l) => (l.answers ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
+    // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
+    const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
+    const customised = [...new Set(row.lines.flatMap((l) => (asks(l) ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
     const questions = customised.length > 0 ? await catalog(context).questions(customised) : new Map<string, ShopQuestion[]>()
     const ofVersion = new Map<string, number>()
     for (const l of row.lines) ofVersion.set(l.version_id, (ofVersion.get(l.version_id) ?? 0) + l.quantity)
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      const checked = l.answers && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers)) : null
-      const extras = checked ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
+      const checked = asks(l) && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers ?? [])) : null
+      // A line with no answers keeps no extras; it only learns it no longer fits.
+      const extras = checked && (l.answers !== null || checked.problems.length > 0) ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
       return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
