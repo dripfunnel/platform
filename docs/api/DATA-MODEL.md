@@ -1726,9 +1726,11 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- guest's email), which is how export and erasure find it (§7.5); clearing
                     -- unordered carts' uploads, cart and files together, is a later card. A
                     -- cart that never had a customer or an email names no one, so no data
-                    -- request can reach its files: they wait for that card, bounded meanwhile
-                    -- by the upload limits (PLATFORM-PROMPT §5.4: 50 a cart, per-cart and
-                    -- per-address rates).
+                    -- request can reach its files; its holder erases them through the cart
+                    -- itself: removing a file in the modal, removing the line or emptying the
+                    -- cart deletes the row and its R2 object at once, a shopper's own action,
+                    -- not an automatic one (PLATFORM-PROMPT §5.4). Bounded meanwhile by the
+                    -- upload limits (50 a cart, per-cart and per-address rates).
                     -- question_id is ON DELETE SET NULL (a deleted question keeps the file).
                     -- r2_key under the store's prefix, selected by no request role; the merchant
                     -- side and a line's supplier open a file only through a short-lived signed
