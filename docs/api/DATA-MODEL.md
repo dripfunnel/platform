@@ -2700,7 +2700,9 @@ decide which columns and which tables each caller kind may select at all**. `app
     and `line_extras_amount` of its own order. `shopper_upload` is **inside the store** with a
     `shop` branch, for `select` (never `r2_key`) and in the `insert`'s `WITH CHECK`, of
     `store_id = app.store_id AND EXISTS (SELECT 1 FROM "order" o WHERE o.id = order_id AND
-    o.state = 'cart')`. The subquery runs under `"order"`'s own shop policy (its owner test,
+    o.state = 'cart')`, and the `insert` also `EXISTS (SELECT 1 FROM product_question q WHERE
+    q.id = question_id AND q.store_id = store_id)`, read under the question's own shop policy (a
+    visible product's), so a file answers a question of the same store. The subquery runs under `"order"`'s own shop policy (its owner test,
     `customer_id = app.customer_id` or the guest's `access_token_hash =
     current_order_token_hash()`), as `order_line`'s branch does, so it finds only the caller's
     own cart: a shopper inserts and reads its own cart's files only, never another's. A `delete`
