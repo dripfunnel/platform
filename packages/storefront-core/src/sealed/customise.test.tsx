@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cartOf, line, usd } from '../../test/cart'
+import { cartOf, line, line as line_, usd } from '../../test/cart'
 import { Provided, shopAnswering } from '../../test/shop'
 import { EditAnswers, LineAnswers } from '../cart/answers'
 import { AddToCart, BuyNow } from '../cart/buttons'
@@ -161,7 +161,8 @@ describe('a customised cart line', () => {
       </Provided>,
     )
     expect(screen.getByText('Gift wrap')).toBeTruthy()
-    expect(screen.getByText(/Yes · \+\$5\.00/)).toBeTruthy()
+    expect(screen.getByText('Yes')).toBeTruthy()
+    expect(screen.getByText('+$5.00')).toBeTruthy()
     await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Edit your choices for Organic Cotton Tee' })))
     const modal = await waitFor(() => inside())
     expect(modal.getByRole('heading', { name: 'Change your choices for Mug' })).toBeTruthy()
@@ -185,5 +186,91 @@ describe('a customised cart line', () => {
     )
     expect(screen.getAllByRole('button')).toHaveLength(1)
     expect(screen.getByRole('button').textContent).toBe('Check your choices')
+  })
+})
+
+describe('the modal’s rules and refusals', () => {
+  it('counts a text answer’s characters, shows an upload’s refusal plainly, and removes it', async () => {
+    rememberQuestions({ id: 'p4', name: 'Frame', versionIds: ['v-u'], questions: [{ ...base, id: 'q-t', kind: 'TEXT', label: 'Caption', maxLength: 30 }, { ...base, id: 'q-u', kind: 'UPLOAD', label: 'Your photo' }] })
+    shopAnswering(() => quote(4000))
+    class Refusing {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 413
+      responseText = JSON.stringify({ errors: [{ extensions: { code: 'FILE_TOO_LARGE' } }] })
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.onload?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Refusing)
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-u">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    await act(async () => void fireEvent.change(modal.getByRole('textbox', { name: 'Caption' }), { target: { value: 'Asha’s 30th' } }))
+    expect(modal.getByText(/11 of 30 characters/)).toBeTruthy()
+    const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'big.jpg', { type: 'image/jpeg' })] } }))
+    expect(await modal.findByText('That file is over 10 MB. Choose a smaller one.')).toBeTruthy()
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Remove big.jpg' })))
+    expect(modal.queryByText('big.jpg')).toBeNull()
+  })
+
+  it('says so when the total can’t be worked out at confirm, and adds nothing', async () => {
+    rememberQuestions({ id: 'p5', name: 'Bowl', versionIds: ['v-f'], questions: [{ ...base, id: 'q-f', kind: 'TEXT', label: 'Glaze' }] })
+    const asked = shopAnswering(() => ({ errors: [{ message: 'down', extensions: { code: 'INTERNAL' } }] }))
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-f">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
+    expect(await modal.findByText('We couldn’t add it. Try again.')).toBeTruthy()
+    expect(asked.some((a) => a.query.includes('addToCart'))).toBe(false)
+  })
+
+  it('says when Edit can’t read the product’s questions, rather than open nothing', async () => {
+    const line = viewCart(cartOf([{ ...line_('v-e', 1), id: 'line-e', answers: [{ questionId: 'q', question: 'Name', kind: 'TEXT', text: 'Asha', per: 'ITEM', amount: usd(0), choices: [], uploads: [] }] } as ReturnType<typeof line_>]) as never).lines[0]
+    if (!line) throw new Error('no line')
+    shopAnswering(() => ({ data: { product: null } }))
+    render(
+      <Provided client={client()}>
+        <EditAnswers line={line} />
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button')))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+  })
+})
+
+describe('answers in the order summary at review', () => {
+  it('lists each answer on its own row, worded as the cart line words them', async () => {
+    const { OrderSummary } = await import('./summary')
+    const { createI18n } = await import('../platform/i18n/i18n')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { t } = createI18n('en-US')
+    const cart = viewCart(
+      cartOf([
+        {
+          ...line_('v-s', 1),
+          id: 'line-s',
+          answers: [
+            { questionId: 'a', question: 'Toppings', kind: 'CHOICE', text: null, per: 'ITEM', amount: usd(500), choices: [{ choiceId: 'c1', label: 'Cheese', quantity: 2, free: 0 }, { choiceId: 'c2', label: 'Olives', quantity: 1, free: 0 }], uploads: [] },
+            { questionId: 'b', question: 'Your photos', kind: 'UPLOAD', text: null, per: 'LINE', amount: usd(0), choices: [], uploads: [{ id: 'f1', kind: 'image' }, { id: 'f2', kind: 'image' }] },
+          ],
+        } as ReturnType<typeof line_>,
+      ]) as never,
+    )
+    const html = renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)
+    expect(html).toContain('Toppings: Cheese × 2 and Olives')
+    expect(html).toContain('Your photos: 2 files')
   })
 })

@@ -88,11 +88,15 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
 
   // The live total: the newest answer wins, a moment after the last change.
   const asks = useRef(0)
+  const askQuote = async (answersNow: readonly Answer[]): Promise<Quote> => {
+    const { customisationQuote: q } = await client.query(quoteQuery, quoteSchema, { versionId, quantity, answers: answersNow })
+    return { lineTotal: q?.lineTotal ?? null, problems: (q?.problems ?? []).map((p) => ({ questionId: p.questionId ?? null, choiceId: p.choiceId ?? null, reason: p.reason })) }
+  }
   useEffect(() => {
     const n = (asks.current += 1)
     const timer = setTimeout(() => {
-      client.query(quoteQuery, quoteSchema, { versionId, quantity, answers: sent }).then(
-        ({ customisationQuote: q }) => n === asks.current && setQuote({ lineTotal: q?.lineTotal ?? null, problems: (q?.problems ?? []).map((p) => ({ questionId: p.questionId ?? null, choiceId: p.choiceId ?? null, reason: p.reason })) }),
+      askQuote(sent).then(
+        (q) => n === asks.current && setQuote(q),
         () => n === asks.current && setQuote(null),
       )
     }, 250)
@@ -139,8 +143,16 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
   const confirm = async () => {
     setShowProblems(true)
     setError(null)
-    if (!quote || quote.problems.length > 0) return
     setBusy(true)
+    // Decided on a quote of exactly these answers, asked now: the live one may be late or missing.
+    asks.current += 1
+    const fresh = await askQuote(sent).catch(() => null)
+    setQuote(fresh)
+    if (!fresh || fresh.problems.length > 0) {
+      setBusy(false)
+      if (!fresh) setError(t('customise.failed'))
+      return
+    }
     const refused = intent.kind === 'edit' ? await cart.editAnswers(intent.lineId, sent) : await cart.addWithAnswers(versionId, quantity, sent, gift ?? undefined)
     setBusy(false)
     if (refused) {
