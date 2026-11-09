@@ -311,7 +311,7 @@ entry `store.setup_step_skipped` names the step and `skipped` or `undone`, nothi
   the history with team notes, payment (items, delivery, tax, total, how it was paid), the
   customer and delivery address, the market. A supplier sees only its part and, by its shipping
   mode, nothing of the customer (`to-store`) or name and delivery address only (`to-shopper`,
-  ACCESS §7.3).
+  ACCESS §7.3); in both, its own lines' answers to a product's questions (ACCESS §7.1).
 - **Ship items**: per line and quantity, from a named warehouse; **book a label** through the
   connected courier or **enter tracking by hand**; partial shipping is normal. Packing slip,
   invoice and label print as documents.
