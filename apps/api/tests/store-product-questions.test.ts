@@ -304,6 +304,14 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     await db.sql`update store set vendor_products_require_approval = false where id = ${t.storeA1}`
   })
 
+  it('holds a supplier’s product to the pricing currency when the merchant side saves it', async () => {
+    const pen = (await gql(save, 'supplier', { input: sized('Gift pen', [{ kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })).data?.['saveProduct'] as Saved
+    const { revision, versions, questions } = (await read(pen.id)).data?.['product'] as { revision: number; versions: { id: string }[]; questions: Q[] }
+    const input = sized('Gift pen', [{ id: questions[0]?.id, kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: [...inr('500'), { currency: 'USD', amount: '10' }] } }])
+    const usd = await gql(save, 'owner', { id: pen.id, revision, input: { ...input, versions: input.versions.map((v, i) => ({ ...v, id: versions[i]?.id })) } })
+    expect(usd.code).toBe('CURRENCY_NOT_SOLD')
+  })
+
   it('copies between a supplier’s own products', async () => {
     const from = (await gql(save, 'supplier', { input: sized('Engraved mug', [{ kind: 'TEXT', label: 'Name to engrave', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })).data?.['saveProduct'] as Saved
     const to = (await gql(save, 'supplier', { input: sized('Engraved flask', []) })).data?.['saveProduct'] as Saved
@@ -376,8 +384,9 @@ describe('who reads the question rows (DATA-MODEL §7.11)', () => {
     await db.sql`update product_question_choice set photo_asset_id = ${asset?.id ?? ''} where id = ${firstChoice?.id ?? ''}`
     await db.sql`insert into store_language (store_id, language, status) values (${t.storeA1}, 'hi-IN', 'active') on conflict do nothing`
     await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'name', 'hi-IN', 'टॉपिंग', md5('Extra toppings'))`
-    // A question's help translates too, up to its own 500 characters; a choice has a name only.
+    // A question's help and example translate too, within their own limits; a choice has a name only.
     await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'help', 'hi-IN', ${'अ'.repeat(500)}, md5('Pick up to three'))`
+    await expect(db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'example', 'hi-IN', ${'अ'.repeat(101)}, md5('x'))`).rejects.toThrow(/translation_text/)
     await expect(db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question_choice', ${firstChoice?.id ?? ''}, 'help', 'hi-IN', 'x', md5('x'))`).rejects.toThrow(/translation_field/)
     const shopperSees = () =>
       withScope(db.sql, shopper(), async (tx) => ({
