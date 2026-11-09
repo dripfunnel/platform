@@ -1,10 +1,10 @@
 import { applyBps } from '#core/money'
 import { isUuid } from '#core/ids'
 import type { StoredAnswer } from '#db/scoped/cart'
-import type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/storefront/questions'
+import type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/storefront/index'
 
 export type { StoredAnswer } from '#db/scoped/cart'
-export type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/storefront/questions'
+export type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/storefront/index'
 
 // A line's answers to its product's questions, checked and priced (PLATFORM-PROMPT §5.4 "Product customisation"; CATALOG
 // facts 49–57), pure: the cart, the modal's quote and placement call the same rules, so the shopper is never shown one

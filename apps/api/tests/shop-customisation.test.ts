@@ -197,6 +197,18 @@ describe('customised lines in the cart', () => {
     expect((await add(fresh, ids.small, 1, withWrap('One too many'))).code).toBe('TOO_MANY_LINES')
   })
 
+  it('counts a version’s stock across its lines: two lines short together are both short', async () => {
+    const mug = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Mug', 'mug', 'visible') returning id`)).id
+    const version = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${mug}, 'mug', 0, true) returning id`)).id
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${version}, ${storeId}, 'INR', 1000)`
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${version}, w.id, ${storeId}, 3 from warehouse w where w.store_id = ${storeId} and w.is_default`
+    const name = (await one(db.sql<{ id: string }[]>`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline) values (${mug}, ${storeId}, 'text', 'Name', 1, 20, false) returning id`)).id
+    const first = ((await add(null, version, 2, [{ questionId: name, text: 'Asha' }])).data?.['addToCart'] as { cartToken: string }).cartToken
+    expect((await cartLines(first)).map((l) => l.problem)).toEqual([null])
+    const both = linesOf(await add(first, version, 2, [{ questionId: name, text: 'Ravi' }]))
+    expect(both.map((l) => l.problem)).toEqual(['short', 'short'])
+  })
+
   it('refuses another store’s versions and questions', async () => {
     const other = (await one(db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, 'Other', 'other-cakes', 'IN', 'INR', 'active') returning id`)).id
     const otherProduct = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${other}, 'Their cake', 'their-cake', 'visible') returning id`)).id

@@ -62,13 +62,14 @@ export const selectProductQuestions = async (tx: ScopedSql, productIds: readonly
   const rows = await tx<QuestionRow[]>`
     select q.id, q.product_id, q.kind, q.label, q.help, q.required, q.position, q.min_picks, q.max_picks, q.free_picks, q.max_length,
       q.multiline, q.example, q.accept, q.max_files, q.price_mode, q.price_bps, q.price_per, q.shown_if_choice_id,
-      coalesce((select json_agg(v.version_id order by v.version_id) from product_question_version v where v.question_id = q.id), '[]'::json) as version_ids,
+      coalesce((select json_agg(v.version_id order by v.version_id) from product_question_version v join product_version pv on pv.id = v.version_id and pv.deleted_at is null
+        where v.question_id = q.id), '[]'::json) as version_ids,
       coalesce((select json_agg(json_build_object('currency', a.currency, 'amount', a.amount::text, 'version_id', a.version_id) order by a.version_id nulls first, a.currency)
-        from product_question_amount a where a.question_id = q.id), '[]'::json) as amounts,
+        from product_question_amount a where a.question_id = q.id and (a.version_id is null or exists (select 1 from product_version pv where pv.id = a.version_id and pv.deleted_at is null))), '[]'::json) as amounts,
       coalesce((select json_agg(json_build_object('id', c.id, 'label', c.label, 'position', c.position, 'available', c.available, 'photo_asset_id', c.photo_asset_id,
           'max_quantity', c.max_quantity, 'price_mode', c.price_mode, 'price_bps', c.price_bps, 'price_per', c.price_per,
           'amounts', coalesce((select json_agg(json_build_object('currency', a.currency, 'amount', a.amount::text, 'version_id', a.version_id) order by a.version_id nulls first, a.currency)
-            from product_question_amount a where a.choice_id = c.id), '[]'::json)) order by c.position)
+            from product_question_amount a where a.choice_id = c.id and (a.version_id is null or exists (select 1 from product_version pv where pv.id = a.version_id and pv.deleted_at is null))), '[]'::json)) order by c.position)
         from product_question_choice c where c.question_id = q.id), '[]'::json) as choices
     from product_question q
     where q.product_id = any (${pgArray(productIds)}::uuid[])

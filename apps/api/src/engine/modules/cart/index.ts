@@ -235,12 +235,14 @@ export const createCartService = (deps: CartDeps) => {
     const questions = customised.length > 0 ? await catalog(context).questions(customised) : new Map<string, ShopQuestion[]>()
     const withFiles = row.lines.some((l) => uploadsIn(l.answers).length > 0)
     const files = withFiles ? new Map((await withScope(sql, context, (tx) => selectCartUploads(tx, row.id))).map((u) => [u.id, u.question_id])) : new Map<string, string | null>()
+    const ofVersion = new Map<string, number>()
+    for (const l of row.lines) ofVersion.set(l.version_id, (ofVersion.get(l.version_id) ?? 0) + l.quantity)
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
       const checked = l.answers && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers), (u, q) => files.get(u) === q) : null
       const extras = checked ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
-      return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
+      return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)

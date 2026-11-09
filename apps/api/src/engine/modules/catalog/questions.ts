@@ -303,11 +303,16 @@ export const questionWrites = (questions: readonly CleanQuestion[], versionIds: 
   }))
 }
 
-const priceKeyOf = (p: { price_mode: string | null; price_bps: number | null; price_per: string | null; amounts: readonly AmountRow[] } | null) =>
-  p?.price_mode ? `${p.price_mode}:${p.price_per}:${p.price_bps ?? ''}:${p.amounts.map((a) => `${a.version_id ?? ''}/${a.currency}/${BigInt(a.amount)}`).sort().join(',')}` : ''
+/** What sets an extra's charge (ACCESS §7.2): its price, per-version amounts, per item or line, and what multiplies it. */
+type ChargeFacts = { price_mode: string | null; price_bps: number | null; price_per: string | null; amounts: readonly AmountRow[]; multipliers: string }
+const priceKeyOf = (p: ChargeFacts | null) =>
+  p?.price_mode ? `${p.price_mode}:${p.price_per}:${p.price_bps ?? ''}:${p.multipliers}:${p.amounts.map((a) => `${a.version_id ?? ''}/${a.currency}/${BigInt(a.amount)}`).sort().join(',')}` : ''
+// A list's free allowance and a choice's quantity change what its choices charge; a per-character question's length its own.
+const questionMultipliers = (q: { kind: string; price_mode: string | null; free_picks: number | null; max_length: number | null }) =>
+  q.kind === 'choice' ? `free:${q.free_picks ?? 0}` : q.price_mode === 'per_character' ? `length:${q.max_length ?? 0}` : ''
 
-const writeKey = (p: { priceMode: string | null; priceBps: number | null; pricePer: string | null; amounts: readonly { currency: string; amount: string; versionId: string | null }[] }) =>
-  priceKeyOf({ price_mode: p.priceMode, price_bps: p.priceBps, price_per: p.pricePer, amounts: p.amounts.map((a) => ({ currency: a.currency, amount: a.amount, version_id: a.versionId })) })
+const writeKey = (p: { priceMode: string | null; priceBps: number | null; pricePer: string | null; amounts: readonly { currency: string; amount: string; versionId: string | null }[] }, multipliers: string) =>
+  priceKeyOf({ price_mode: p.priceMode, price_bps: p.priceBps, price_per: p.pricePer, amounts: p.amounts.map((a) => ({ currency: a.currency, amount: a.amount, version_id: a.versionId })), multipliers })
 
 /**
  * ACCESS §7.2: an extra's price is a price, so adding, changing or removing one on a supplier's approved product sends it
@@ -315,8 +320,18 @@ const writeKey = (p: { priceMode: string | null; priceBps: number | null; priceP
  */
 export const extrasPriceChanged = (before: readonly QuestionRow[], after: readonly QuestionWrite[]): boolean => {
   const keys = (rows: readonly { id: string; key: string }[]) => new Map(rows.filter((r) => r.key !== '').map((r) => [r.id, r.key]))
-  const was = keys(before.flatMap((q) => [{ id: q.id, key: priceKeyOf(q) }, ...q.choices.map((c: ChoiceRow) => ({ id: c.id, key: priceKeyOf(c) }))]))
-  const now = keys(after.flatMap((q) => [{ id: q.id, key: writeKey(q) }, ...q.choices.map((c) => ({ id: c.id, key: writeKey(c) }))]))
+  const was = keys(
+    before.flatMap((q) => [
+      { id: q.id, key: priceKeyOf({ ...q, multipliers: questionMultipliers(q) }) },
+      ...q.choices.map((c: ChoiceRow) => ({ id: c.id, key: priceKeyOf({ ...c, multipliers: `${questionMultipliers(q)}:qty:${c.max_quantity}` }) })),
+    ]),
+  )
+  const now = keys(
+    after.flatMap((q) => {
+      const m = questionMultipliers({ kind: q.kind, price_mode: q.priceMode, free_picks: q.freePicks, max_length: q.maxLength })
+      return [{ id: q.id, key: writeKey(q, m) }, ...q.choices.map((c) => ({ id: c.id, key: writeKey(c, `${m}:qty:${c.maxQuantity}`) }))]
+    }),
+  )
   return was.size !== now.size || [...now].some(([id, key]) => was.get(id) !== key)
 }
 
@@ -327,13 +342,18 @@ export const extrasPriceChanged = (before: readonly QuestionRow[], after: readon
  */
 export const copiedQuestions = (
   source: readonly QuestionRow[],
-  map: { versionOf: (sourceVersionId: string) => number | null; samePhotoOwner: boolean },
+  map: { versionOf: (sourceVersionId: string) => number | null; samePhotoOwner: boolean; currencies: ReadonlySet<string> },
 ): { questions: CleanQuestion[]; dropped: { amounts: number; versionLimits: number; photos: number } } => {
   const dropped = { amounts: 0, versionLimits: 0, photos: 0 }
   const choicePlace = new Map(source.flatMap((q, qi) => q.choices.map((c, ci) => [c.id, { question: qi, choice: ci }] as const)))
   const priceOf = (p: QuestionRow | ChoiceRow): CleanPrice | null => {
     if (!p.price_mode || !p.price_per) return null
     const amounts = p.amounts.flatMap((a): CleanAmount[] => {
+      // An amount in a currency the target's owner couldn't type (a supplier types the pricing one only, fact 51).
+      if (!map.currencies.has(a.currency)) {
+        dropped.amounts += 1
+        return []
+      }
       if (a.version_id === null) return [{ currency: a.currency, amount: a.amount, version: null }]
       const version = map.versionOf(a.version_id)
       if (version === null) {

@@ -110,6 +110,8 @@ export interface LineFacts {
   lineId?: string | null
   versionId: string
   quantity: number
+  /** How many of this version the whole cart holds, when two lines of it differ by their answers; absent is this line's. */
+  versionQuantity?: number
   /** The line's answers checked and priced (answers.ts); absent on a line without any. */
   extras?: { unit: bigint; line: bigint; invalid: boolean; answers: PricedAnswer[] } | null
   /** Null when the shopper can't see the version any more. */
@@ -124,7 +126,8 @@ export const priceLine = (l: LineFacts): PricedLine => {
   if (!l.item) return { ...base, unitPrice: null, lineTotal: null, problem: 'unavailable' }
   if (!l.item.soldHere) return { ...base, unitPrice: l.item.price, lineTotal: null, problem: 'not_sold_here' }
   if (!l.item.price) return { ...base, unitPrice: null, lineTotal: null, problem: 'not_priced' }
-  const short = l.item.available !== null && !l.item.continueSelling && l.quantity > l.item.available
+  // Stock is the version's, so two lines of it (different answers) are short together, not one by one.
+  const short = l.item.available !== null && !l.item.continueSelling && (l.versionQuantity ?? l.quantity) > l.item.available
   // Per-item extras are part of each unit's price, once-per-line ones are added once (PLATFORM-PROMPT §5.4 step 4).
   const unitPrice = { amount: l.item.price.amount + unitExtras, currency: l.item.price.currency }
   const lineTotal = { amount: unitPrice.amount * BigInt(l.quantity) + lineExtras, currency: l.item.price.currency }
