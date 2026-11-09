@@ -51,6 +51,8 @@ export type UploadRefusal = 'FILE_TYPE' | 'FILE_TOO_LARGE' | 'UNKNOWN_QUESTION' 
 /** Where a shopper's file is put (the Worker's ASSETS bucket). */
 export interface UploadStore {
   put: (key: string, body: Uint8Array, options: { httpMetadata: { contentType: string } }) => Promise<unknown>
+  /** Takes back a file whose row never committed. */
+  delete?: (key: string) => Promise<unknown>
 }
 
 export const uploadDeleteKind = 'upload.delete'
@@ -648,6 +650,7 @@ export const createCartService = (deps: CartDeps) => {
     if (!question) return { ok: false, reason: 'UNKNOWN_QUESTION' }
     if (!accepted(question.accept, mime)) return { ok: false, reason: 'FILE_TYPE' }
     const checksum = await sha256Hex(body)
+    let put: string | null = null
     const putIn = (context: TenantContext, token: string | null) =>
       withScope(sql, context, async (tx) => {
         let found = await selectCart(tx, storeId, now())
@@ -663,7 +666,8 @@ export const createCartService = (deps: CartDeps) => {
         const id = crypto.randomUUID()
         await insertShopperUpload(tx, { id, storeId, orderId: found.id, questionId: qid, mime, bytes: body.byteLength, checksum })
         // Put before commit: a refused put rolls the row back, so no row ever names a missing file.
-        await files.put(uploadKey(storeId, found.id, id), body, { httpMetadata: { contentType: mime } })
+        put = uploadKey(storeId, found.id, id)
+        await files.put(put, body, { httpMetadata: { contentType: mime } })
         return { id, mime, token }
       })
     try {
@@ -677,6 +681,8 @@ export const createCartService = (deps: CartDeps) => {
       const done = await putIn(deps.context, null)
       return done ? { ok: true, value: done } : { ok: false, reason: 'NO_CART' }
     } catch (error) {
+      // The row rolled back after its file went up (the commit failed): take the file back, best effort.
+      if (put && files.delete) await files.delete(put).catch(() => undefined)
       if (error instanceof Refused) return refusalOf(error)
       throw error
     }

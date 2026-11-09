@@ -162,7 +162,10 @@ describe('a shopper’s files (#1369)', () => {
     const [queued] = await db.sql<{ payload: { key: string } }[]>`select payload from outbox where kind = 'upload.delete' and payload ->> 'key' like ${`%/${spare}`}`
     expect(queued?.payload.key).toMatch(new RegExp(`^stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/${spare}$`))
     expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
-    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload } as never, new AbortController().signal)
+    // A row naming another store can't delete this store's file.
+    await expect(uploadDeleteDeliverer(files).deliver({ payload: queued?.payload, storeId: crypto.randomUUID() } as never, new AbortController().signal)).rejects.toThrow()
+    expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
+    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload, storeId } as never, new AbortController().signal)
     expect(bucket.has(queued?.payload.key ?? '')).toBe(false)
   })
 

@@ -13,7 +13,8 @@ const payload = z.object({ key: z.string().regex(/^stores\/[0-9a-f-]{36}\/shoppe
 export const uploadDeleteDeliverer = (files: { delete: (key: string) => Promise<unknown> }): Deliverer => ({
   deliver: async (effect) => {
     const parsed = payload.safeParse(effect.payload)
-    if (!parsed.success) throw new GiveUp('bad_payload')
+    // The key's store is the row's own: a row queued by one store never deletes another's file.
+    if (!parsed.success || effect.storeId === null || !parsed.data.key.startsWith(`stores/${effect.storeId}/shopper-uploads/`)) throw new GiveUp('bad_payload')
     await files.delete(parsed.data.key)
   },
 })
