@@ -624,8 +624,9 @@ filtered) are jobs with a download. Owner and Manager import; **Staff export**; 
 (catalogue tiers) and export **their own** (§1). **A supplier's export is its screen, as a file**:
 seller-scoped through the same serializer, so it holds only its own rows, never an order total,
 and customer fields by shipping mode — none for `to-store`, name and delivery address for
-`to-shopper` (ACCESS §7.3). A line's answers to a product's questions are in no export, the
-merchant's or a supplier's: they are read on the order (#1367). Every card that builds an export carries the isolation-matrix test for it (caller kind × store ×
+`to-shopper` (ACCESS §7.3). A line's answers to a product's questions are in no order or
+catalogue export, the merchant's or a supplier's: they are read on the order (#1367). A
+customer's data-request export does carry them, with the files (DATA-MODEL §7.5). Every card that builds an export carries the isolation-matrix test for it (caller kind × store ×
 seller, ACCESS §11.1): SAPI 11, 13, 14, 16, 18, 19 and 21, as each §20 row says; customers are never exported to a supplier.
 **A supplier's import writes only its own rows**: every imported row's `seller_id` comes from the
 session's `SellerScope`, never from a column in the file or Shopify's data; a row naming another
