@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { newChoice, newPrice, newQuestion, questionProblems, questionsDraftOf, questionsInputOf, type StoredQuestion } from './productQuestions'
+import { newChoice, newPrice, newQuestion, questionProblems, questionsDraftOf, questionsInputOf, withValidConditions, type StoredQuestion } from './productQuestions'
 
 // The editor's questions (CATALOG-DESIGN §6 U): read from the Store API, checked as the form shows them, and sent back as
 // ProductInput.questions names them (conditions, versions and version amounts by position in the same input).
@@ -80,5 +80,27 @@ describe('the editor’s questions', () => {
       ['list', 'label', 'choice'],
       ['list', 'quantity', 'choice'],
     ])
+  })
+
+  it('takes a percentage to the hundredth, as stored, and refuses one past it or over 100', () => {
+    const q = (percent: string) => ({ ...newQuestion('TEXT'), label: 'Gift note', price: { ...newPrice(), mode: 'PERCENT' as const, percent } })
+    expect(questionProblems([q('2.5')], 'INR')).toEqual([])
+    expect(questionProblems([q('2.555')], 'INR').map((p) => p.field)).toEqual(['price'])
+    expect(questionProblems([q('101')], 'INR').map((p) => p.field)).toEqual(['price'])
+  })
+
+  it('asks for the versions again when one ticked has since changed, rather than sending all', () => {
+    const q = { ...newQuestion('TEXT'), label: 'Name', versions: ['small', 'large'] }
+    expect(questionProblems([q], 'INR', ['small', 'large'])).toEqual([])
+    expect(questionProblems([q], 'INR', ['small', 'xl']).map((p) => p.field)).toEqual(['versionsChanged'])
+  })
+
+  it('drops a condition whose choice or list is gone, or no longer above', () => {
+    const list = { ...newQuestion('CHOICE'), label: 'Wrap', choices: [newChoice('Yes')] }
+    const choiceKey = list.choices[0]?.key ?? ''
+    const note = { ...newQuestion('TEXT'), label: 'Note', shownIf: { question: list.key, choice: choiceKey } }
+    expect(withValidConditions([list, note])[1]?.shownIf).toEqual({ question: list.key, choice: choiceKey })
+    expect(withValidConditions([{ ...list, choices: [] }, note])[1]?.shownIf).toBeNull()
+    expect(withValidConditions([note, list])[0]?.shownIf).toBeNull()
   })
 })

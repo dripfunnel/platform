@@ -172,28 +172,42 @@ export const questionsDraftOf = (stored: readonly StoredQuestion[], currency: st
   return drafts.map(({ stored: q, ...d }) => ({ ...d, shownIf: q.shownIf ? { question: keyOf.get(q.shownIf.questionId) ?? '', choice: keyOf.get(q.shownIf.choiceId) ?? '' } : null }))
 }
 
-export type QuestionProblem = { question: string; choice: string | null; field: 'label' | 'choices' | 'picks' | 'maxLength' | 'maxFiles' | 'price' | 'quantity' | 'versions' | 'free' }
+export type QuestionProblem = { question: string; choice: string | null; field: 'label' | 'choices' | 'picks' | 'maxLength' | 'maxFiles' | 'price' | 'quantity' | 'versions' | 'versionsChanged' | 'free' }
 
 const whole = (text: string, min: number, max: number): number | null => {
   const n = Number(text.trim())
   return /^\d+$/.test(text.trim()) && n >= min && n <= max ? n : null
 }
 
+// A percentage to the hundredth, as percentBps stores it (2.5% is 250).
+const percentOk = (text: string) => /^\d{1,3}(\.\d{1,2})?$/.test(text.trim()) && Number(text) > 0 && Number(text) <= 100
+
 const priceProblem = (p: PriceDraft, currency: string, kind: QuestionKind): boolean => {
-  if (p.mode === 'PERCENT') return whole(p.percent, 1, 100) === null
+  if (p.mode === 'PERCENT') return !percentOk(p.percent)
   if (p.mode === 'PER_CHARACTER' && kind !== 'TEXT') return true
   const typed = [p.amount, ...Object.values(p.byVersion).filter((t) => t.trim() !== '')]
   return typeof minorOf(p.amount, currency) !== 'number' || typed.some((t) => typeof minorOf(t, currency) !== 'number') || Object.entries(p.manual).some(([c, t]) => t.trim() !== '' && typeof minorOf(t, c) !== 'number')
 }
 
-/** What would stop the save, by question and field, in the order the form shows them (U14). */
-export const questionProblems = (drafts: readonly QuestionDraft[], currency: string): QuestionProblem[] =>
+/** A condition stays only while it names a choice of a choice list above with no condition of its own (U9). */
+export const withValidConditions = (drafts: readonly QuestionDraft[]): QuestionDraft[] =>
+  drafts.map((q, i) => {
+    if (!q.shownIf) return q
+    const { question, choice } = q.shownIf
+    const target = drafts.slice(0, i).find((x) => x.key === question)
+    return target && target.kind === 'CHOICE' && target.shownIf === null && target.choices.some((c) => c.key === choice) ? q : { ...q, shownIf: null }
+  })
+
+/** What would stop the save, by question and field, in the order the form shows them (U14); `versionKeys` are the live versions'. */
+export const questionProblems = (drafts: readonly QuestionDraft[], currency: string, versionKeys: readonly string[] | null = null): QuestionProblem[] =>
   drafts.flatMap((q): QuestionProblem[] => {
     const at = (field: QuestionProblem['field'], choice: string | null = null): QuestionProblem => ({ question: q.key, choice, field })
     const problems: QuestionProblem[] = []
     if (q.label.trim() === '') problems.push(at('label'))
     if (q.price && priceProblem(q.price, currency, q.kind)) problems.push(at('price'))
     if (q.versions !== null && q.versions.length === 0) problems.push(at('versions'))
+    // A version renamed or removed since it was ticked: picked again rather than sent as fewer, or all, versions.
+    else if (q.versions !== null && versionKeys !== null && q.versions.some((k) => !versionKeys.includes(k))) problems.push(at('versionsChanged'))
     if (q.kind === 'CHOICE') {
       if (q.choices.length === 0) problems.push(at('choices'))
       const max = whole(q.maxPicks, 1, 99)

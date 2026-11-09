@@ -242,6 +242,14 @@ describe('questions on a product (#1368)', () => {
     expect((await gql(`mutation C($from: ID!, $to: ID!, $r: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $r) { droppedAmounts } }`, 'bOwner', { from: id, to: target.id, r: target.revision })).code).toBe('NOT_FOUND')
   })
 
+  it('lists only the products that ask questions for Copy’s search (CATALOG U12)', async () => {
+    const listed = await gql('{ products(filter: "with_questions", first: 50) { nodes { id questionCount } } }', 'owner')
+    const nodes = (listed.data?.['products'] as { nodes: { id: string; questionCount: number }[] }).nodes
+    expect(nodes.length).toBeGreaterThan(0)
+    expect(nodes.every((n) => n.questionCount > 0)).toBe(true)
+    expect(nodes.map((n) => n.id)).toContain(id)
+  })
+
   it('tells the offer editor whether the store asks any questions', async () => {
     expect((await gql('{ hasCustomisation }', 'owner')).data?.['hasCustomisation']).toBe(true)
     expect((await gql('{ hasCustomisation }', 'bOwner')).data?.['hasCustomisation']).toBe(false)
