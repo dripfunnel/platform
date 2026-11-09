@@ -517,9 +517,15 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (t === 'order-confirmed') {
         const w = en.orderConfirmed
         const money = (amount: string) => en.money(o.locale, amount, o.currency)
+        // A customised line's answers under it, as the shopper gave them (#1371); files are counted, never attached.
+        const answers = (l: OrderEmailRow['lines'][number]) =>
+          (l.answers ?? []).map((a) => {
+            const value = a.kind === 'choice' ? (a.choices ?? []).map((c) => w.choice(c.label, c.quantity, c.free > 0)).join(', ') : a.kind === 'text' ? (a.text ?? '') : w.files(a.uploads?.length ?? 0)
+            return w.answer(a.label, value, BigInt(a.amount) > 0n ? money(a.amount) : null)
+          })
         const paragraphs = [
           w.intro(o.number),
-          ...o.lines.map((l) => w.line(l.quantity, item(l), money(l.amount))),
+          ...o.lines.flatMap((l) => [w.line(l.quantity, item(l), money(l.amount)), ...answers(l)]),
           w.total(money(o.total_amount)),
           ...(o.payment_method === 'cod' ? [w.cod(money(o.total_amount))] : o.payment_method === 'bank_transfer' ? [w.transfer] : []),
           ...(o.ship_to ? [w.shipTo(o.ship_to.name, o.ship_to.city)] : []),

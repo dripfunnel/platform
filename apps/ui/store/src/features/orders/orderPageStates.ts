@@ -34,7 +34,13 @@ const ownPart = (lines: OrderLine[], state = 'to_ship'): OrderPart => ({ id: 'pa
 const supplierPart = (lines: OrderLine[], mode = 'to-store', state = 'to_ship'): OrderPart => ({ id: 'part-nw', supplierId: 'seller-northwind', supplierName: 'Northwind Textiles', shippingMode: mode, state, lines })
 
 const shirt = (r: Partial<OrderLine> = {}) => line({ id: 'l1', name: 'Mara Linen Shirt', versionName: 'M / Indigo', quantity: 1, each: '249900', ...r })
-const cushion = (r: Partial<OrderLine> = {}) => line({ id: 'l2', name: 'Block-print Cushion Cover', quantity: 2, each: '89900', ...r })
+// A customised line (#1371): a choice with an extra, an engraving's text and an uploaded photo.
+const embroidery: NonNullable<OrderLine['answers']> = [
+  { question: 'Thread colour', kind: 'CHOICE', text: null, per: 'item', amount: { amount: '0', currency: 'INR' }, choices: [{ label: 'Gold', quantity: 1, free: 0 }], files: [] },
+  { question: 'Initials to embroider', kind: 'TEXT', text: 'A.R.', per: 'item', amount: { amount: '15000', currency: 'INR' }, choices: [], files: [] },
+  { question: 'Your pattern', kind: 'UPLOAD', text: null, per: 'line', amount: { amount: '0', currency: 'INR' }, choices: [], files: [{ id: 'f1', mime: 'application/pdf', bytes: 120000, url: '#' }] },
+]
+const cushion = (r: Partial<OrderLine> = {}) => line({ id: 'l2', name: 'Block-print Cushion Cover', quantity: 2, each: '89900', answers: embroidery, ...r })
 const dupatta = (r: Partial<OrderLine> = {}) => line({ id: 'l3', name: 'Handloom Cotton Dupatta', quantity: 1, each: '149900', ...r })
 
 const sampleOrder: Order | null = harness
