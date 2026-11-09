@@ -68,12 +68,25 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
   }, [client, versionId, quantity, sent, online])
 
   const closed = useRef(false)
+  const saving = useRef(false)
+  // Files this sheet uploaded are taken back when it goes without saving (Cancel, Back, or the screen leaving), so none is left to count.
+  const takeBack = useRef<() => void>(() => undefined)
+  takeBack.current = () => {
+    closed.current = true
+    for (const id of uploadedHere.current) void removeFile(host, uploadHeaders(), id)
+    uploadedHere.current.clear()
+  }
+  useEffect(() => {
+    // Set again on mount, as development's double mount runs the cleanup once.
+    closed.current = false
+    return () => {
+      if (!saving.current) takeBack.current()
+    }
+  }, [])
   const close = () => {
     // Not while the cart takes the answers: its files may be the new line's.
     if (busy) return
-    closed.current = true
-    // Files this sheet uploaded are taken back when it closes without saving, so none is left to count.
-    for (const id of uploadedHere.current) void removeFile(host, uploadHeaders(), id)
+    takeBack.current()
     onClose()
   }
 
@@ -130,6 +143,7 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
     setError(null)
     if (!online) return setError(t('customise.offline'))
     setBusy(true)
+    saving.current = true
     try {
       // Decided on a quote of exactly these answers, asked now: the live one may be late or missing.
       asks.current += 1
@@ -147,11 +161,15 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
         const token = await addWithAnswers(client, versionId, quantity, sent)
         if (token) await saveCartToken(token)
       }
+      // A file of a question no longer asked went with no answer: taken back, as no line names it.
+      const kept = new Set(sent.flatMap((a) => a.uploadIds ?? []))
+      for (const id of uploadedHere.current) if (!kept.has(id)) void removeFile(host, uploadHeaders(), id)
       uploadedHere.current.clear()
       onDone()
     } catch (e) {
       setError(isApiError(e) && (refusalKeys as readonly string[]).includes(e.code) ? t(refusalText(e.code)) : t('customise.failed'))
     } finally {
+      saving.current = false
       setBusy(false)
     }
   }
