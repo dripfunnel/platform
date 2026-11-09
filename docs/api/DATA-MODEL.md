@@ -2712,7 +2712,9 @@ decide which columns and which tables each caller kind may select at all**. `app
     (`ON DELETE RESTRICT` stays for every other path). Each deleted row writes an outbox job
     (`upload.delete`, carrying only `r2_key`) in the same transaction, which deletes the R2 object
     with retries and backoff, so a failed or interrupted object delete is retried until it succeeds
-    and a rolled-back delete never removes a file.
+    and a rolled-back delete never removes a file. `app_shop` may insert an outbox row of that kind
+    only (a restrictive policy). An upload goes on R2 with no transaction open, between finding its
+    cart and committing its row; a file whose row doesn't commit is deleted at once, or queued.
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
