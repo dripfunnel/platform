@@ -58,7 +58,7 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
       select o.id, o.customer_id, o.email, o.phone, o.currency, o.market_id, o.shipping_address, o.billing_address, o.shipping_option,
         o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes, o.gift_card_id,
         coalesce((select json_agg(json_build_object('id', l.id, 'version_id', l.version_id, 'quantity', l.quantity, 'answers', l.answers, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
-          'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
+          'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id, l.id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o
       where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
       order by (o.customer_id is null) desc, o.updated_at desc
