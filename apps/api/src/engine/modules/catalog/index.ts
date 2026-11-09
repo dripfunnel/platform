@@ -355,6 +355,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     return new Set([...(pricing ? [pricing] : []), ...manual])
   }
 
+  const duplicatedQuestions = async (tx: ScopedSql, id: string, versionIds: readonly string[], owner: string | null): Promise<CleanQuestion[] | null> => {
+    const rows = (await selectProductQuestions(tx, [id])).get(id) ?? []
+    return rows.length === 0 ? null : copiedQuestions(rows, { versionOf: (v) => placeOf(versionIds, v), samePhotoOwner: true, currencies: await typedCurrencies(tx, owner) }).questions
+  }
+
   /** Amounts in the pricing currency or, for the merchant side, a manual one it sells in (fact 51); a supplier types the pricing one only. */
   const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string): Promise<CleanQuestion[]> => {
     const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: await typedCurrencies(tx, sellerId) })
@@ -482,8 +487,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           marketRule: source.market_rule,
         },
         sizeChartId: options.keepSizeChart ? source.size_chart_id : null,
-        // The same questions, versions by place: the copy's are in the source's order (CATALOG E2).
-        questions: copiedQuestions((await selectProductQuestions(tx, [id])).get(id) ?? [], { versionOf: (v) => placeOf(source.versions.map((x) => x.id), v), samePhotoOwner: true, currencies: await typedCurrencies(tx, source.seller_id) }).questions,
+        // The same questions, versions by place: the copy's are in the source's order (CATALOG E2). None: nothing written.
+        questions: await duplicatedQuestions(tx, id, source.versions.map((x) => x.id), source.seller_id),
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
