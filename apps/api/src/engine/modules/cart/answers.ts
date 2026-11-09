@@ -6,9 +6,8 @@ import type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/s
 export type { StoredAnswer } from '#db/scoped/cart'
 export type { ShopChoice, ShopExtraPrice, ShopQuestion } from '#engine/modules/storefront/index'
 
-// A line's answers to its product's questions, checked and priced (PLATFORM-PROMPT §5.4 "Product customisation"; CATALOG
-// facts 49–57), pure: the cart, the modal's quote and placement call the same rules, so the shopper is never shown one
-// price and charged another.
+// A line's answers checked and priced, pure (PLATFORM-PROMPT §5.4): the cart, the quote and placement share these rules,
+// so the shopper is never shown one price and charged another.
 
 export interface AnswerInput {
   questionId: string
@@ -82,11 +81,7 @@ const cleanText = (raw: string, multiline: boolean): string => {
   return multiline ? text.replace(/\r\n?/g, '\n') : text.replace(/[\r\n]+/g, ' ')
 }
 
-/**
- * The answers checked against the line's questions and priced. Only questions shown for the line count: the version is
- * among its versions and its condition's choice is picked; a hidden question's answer is dropped, never refused.
- * `uploadKnown` says whether an id is a file of this cart and question (#1369's); none is known before then.
- */
+/** Only questions shown for the line count (PLATFORM-PROMPT §5.4); a hidden question's answer is dropped, never refused. */
 export const checkAnswers = (
   questions: readonly ShopQuestion[],
   versionId: string,
