@@ -236,3 +236,7 @@ export const selectQuestionWords = async (tx: ScopedSql, storeId: string, ids: r
   `
   return new Map(rows.map((r) => [`${r.entity}:${r.entity_id}:${r.field}`, r.text]))
 }
+
+/** An upload question of a product the shopper can see, with what it accepts; null for any other id (the shop policy decides). */
+export const selectShopUploadQuestion = async (tx: ScopedSql, id: string): Promise<{ id: string; accept: 'image' | 'pdf' | 'image_pdf' } | null> =>
+  (await tx<{ id: string; accept: 'image' | 'pdf' | 'image_pdf' }[]>`select id, accept from product_question where id = ${id} and kind = 'upload'`)[0] ?? null

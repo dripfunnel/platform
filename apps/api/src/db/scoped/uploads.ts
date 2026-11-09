@@ -1,0 +1,41 @@
+import { pgArray, type ScopedSql } from './index'
+
+// Shoppers' uploaded files (migration 0393; DATA-MODEL §7.6): written and removed as the shopper under its own-cart policy,
+// read in system scope only to stream one through a signed link. r2_key is never selected by a request role.
+
+export type UploadMime = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic' | 'application/pdf'
+
+/** Where a cart's file lives: from its ids alone, so a shopper never needs to read the column to queue its deletion. */
+export const uploadKey = (storeId: string, orderId: string, id: string): string => `stores/${storeId}/shopper-uploads/${orderId}/${id}`
+
+export const insertShopperUpload = async (tx: ScopedSql, u: { id: string; storeId: string; orderId: string; questionId: string; mime: UploadMime; bytes: number; checksum: string }): Promise<void> => {
+  await tx`
+    insert into shopper_upload (id, store_id, order_id, question_id, r2_key, mime, bytes, checksum)
+    values (${u.id}, ${u.storeId}, ${u.orderId}, ${u.questionId}, ${uploadKey(u.storeId, u.orderId, u.id)}, ${u.mime}, ${u.bytes}, ${u.checksum})
+  `
+}
+
+/** The cart's files and the question each answers, as the shopper reads them. */
+export const selectCartUploads = (tx: ScopedSql, orderId: string): Promise<{ id: string; question_id: string | null; mime: UploadMime }[]> =>
+  tx<{ id: string; question_id: string | null; mime: UploadMime }[]>`select id, question_id, mime from shopper_upload where order_id = ${orderId}`
+
+/**
+ * Deletes those of these files no line of the cart names any more, as the shopper (its delete policy holds it to its own
+ * cart); answers which went, so the caller queues their objects' deletion in the same transaction.
+ */
+export const releaseCartUploads = async (tx: ScopedSql, orderId: string, ids: readonly string[]): Promise<string[]> => {
+  if (ids.length === 0) return []
+  const rows = await tx<{ id: string }[]>`
+    delete from shopper_upload u where u.order_id = ${orderId} and u.id = any (${pgArray(ids)}::uuid[])
+      and not exists (select 1 from cart_line l where l.order_id = u.order_id and l.answers is not null
+        and jsonb_path_exists(l.answers, '$[*].uploads[*] ? (@ == $id)', jsonb_build_object('id', u.id::text)))
+    returning u.id
+  `
+  return rows.map((r) => r.id)
+}
+
+/** Files of an order's lines, for the merchant side or the line's supplier, read in system scope by the caller's store. */
+export const selectUploadFiles = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]> =>
+  ids.length === 0 ? [] : tx<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]>`
+    select id, order_id, mime, bytes, r2_key from shopper_upload where store_id = ${storeId} and id = any (${pgArray(ids)}::uuid[])
+  `
