@@ -180,9 +180,11 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   }
   const blocked = (kind: 'impersonation') => fields().filter(({ field }) => field.extensions.access?.blockedFor?.includes(kind)).map(({ field }) => field.name).sort()
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
+  // Where the shoppers' money is paid out (USERS-AND-DOMAINS §4.2).
+  const payouts = ['connectGateway', 'connectStripe', 'finishStripeConnect']
   // Staff set a store up with everything else (ACCESS.md §8.1, #1344).
-  it('declares only the user’s sign-in and sessions and the store switch', () => {
-    expect(blocked('impersonation')).toEqual([...signIn, 'switchStore'].sort())
+  it('declares only the user’s sign-in and sessions, the payment gateways and the store switch', () => {
+    expect(blocked('impersonation')).toEqual([...signIn, ...payouts, 'switchStore'].sort())
   })
 
   it('leaves no mutation on the user’s own account open but their name and theme, and the studio frame’s renewal', () => {
@@ -200,6 +202,9 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { regenerateBackupCodes }`,
       `mutation { signOutOtherSessions }`,
       `mutation { switchStore(storeId: "${t.storeA1}") { membershipId } }`,
+      `mutation { connectGateway(provider: "cod") }`,
+      `mutation { connectStripe }`,
+      `mutation { finishStripeConnect(key: "k") }`,
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,

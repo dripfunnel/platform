@@ -94,14 +94,14 @@ export const registerDevelopers = (builder: StoreBuilder) => {
     createApiKey: t.field({
       type: Issued,
       args: { name: t.arg.string({ required: true }), scopes: t.arg.stringList({ required: true }), supplierId: t.arg.id(), expiresInDays: t.arg.int() },
-      extensions: { access: { ...access, audit: apiKeyAudit.created } },
+      extensions: { access: { ...access, audit: apiKeyAudit.created, blockedFor: ['support'] } },
       resolve: async (_, args, ctx) =>
         answered(await service(ctx).create({ name: args.name, scopes: args.scopes, supplierId: args.supplierId ? String(args.supplierId) : null, expiresInDays: args.expiresInDays ?? null })),
     }),
     rotateApiKey: t.field({
       type: Issued,
       args: { id: t.arg.id({ required: true }) },
-      extensions: { access: { ...access, audit: apiKeyAudit.rotated } },
+      extensions: { access: { ...access, audit: apiKeyAudit.rotated, blockedFor: ['support'] } },
       resolve: async (_, args, ctx) => answered(await service(ctx).rotate(String(args.id))),
     }),
     revokeApiKey: t.field({

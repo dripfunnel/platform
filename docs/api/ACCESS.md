@@ -1069,12 +1069,12 @@ Browser → https://<store's portal host>/support/enter?token=…
 - **Never, even elevated**: change the person's password, email, 2-factor or sign-in sessions (a support
   session is not a person, so it can't act as one); invite, remove or change the role of anyone in the store, or
   manage its suppliers and their teams, seats that would outlast the session; allow its own writes or change the
-  store's support access; add, edit or export
+  store's support access; connect, finish or disconnect a payment gateway, where the shoppers' money is paid out
+  (`payments.configure`, USERS-AND-DOMAINS §4.2); add, edit or export
   customers (customer groups share `customers.write`), or export orders (#1340); export the store's data, whose bundle
-  holds the shoppers, or the activity log; manage riders, whose list holds their phones (#838). Everything else the seat may do is open, so support can set a store up for
-  a merchant: payments and the store's card, billing (closing the store included), the AI account, API keys, apps,
-  webhooks, the storefront with its studio frame and preview links, skipping a Home step (decided 2026-11-09
-  by Kshitij on #1344; before, #317, #719 and #1012 refused preview links, skipping, payments, keys and apps).
+  holds the shoppers, or the activity log; manage riders, whose list holds their phones (#838); create or rotate an API key, install an app or save a webhook, rows the database refuses a support session (migrations 0150-0152). Everything else the seat may do is open, so support can set a store up for
+  a merchant: the store's card, billing (closing the store included), the AI account, the storefront with its studio frame and preview links, skipping a Home step (decided 2026-11-09
+  by Kshitij on #1344; before, #317, #719 and #1012 refused preview links, skipping and the card).
 - **A new store whose Owner hasn't accepted** (decided 2026-11-05 on #1293): while the store has no
   active Owner or Manager, a session may be opened on an invited Owner's seat, and it may **write
   without an Allow**, since no one can give one yet, even once the store's domain has connected (#1340). The "never" list still applies. Any other
@@ -1181,7 +1181,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   console offers to return to the open one, or to end it first.
 - **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
   Super admin may end it; only the staff member who started it may extend it.
-- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3), and payment or payout details; in a store, also switching to another store. Everything else in a store is open, so staff can set one up for its merchant: payments and the store's card, billing (closing the store included), the AI account, API keys, apps, webhooks, the store's data export, and the storefront with its studio frame and preview links (decided 2026-11-09 by Kshitij on #1344, reversing #1012's block on the AI account and credentials that outlive the session, and the storefront's; every write is logged as the user with the staff member on whose behalf, LOGGING.md §4). These resolvers
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3), and payment or payout details; in a store, also connecting, finishing or disconnecting a payment gateway, where the shoppers' money is paid out, and switching to another store. Everything else in a store is open, so staff can set one up for its merchant: the store's own card for its plan, billing (closing the store included), the AI account, API keys, apps, webhooks, the store's data export, and the storefront with its studio frame and preview links (decided 2026-11-09 by Kshitij on #1344, reversing #1012's block on the AI account and credentials that outlive the session, and the storefront's; every write is logged as the user with the staff member on whose behalf, LOGGING.md §4). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
@@ -1313,7 +1313,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     user, seat or supplier is no longer active or whose store has closed (`target_gone`), logged
     as above.
   - **The blocked list** is `changeEmail`, `changePassword`, `setSecondFactor`,
-    `regenerateBackupCodes`, `signOutOtherSessions` and `switchStore` (#1344: the rest was opened so staff can set a
+    `regenerateBackupCodes`, `signOutOtherSessions`, `connectGateway`, `connectStripe`, `finishStripeConnect` and
+    `switchStore` (#1344: the rest was opened so staff can set a
     store up). A structural test lists them, and leaves only `updateProfile`, `setTheme` and `renewStudioSession`
     open on the user's own account. A studio frame opened in an impersonation or support session lives with that
     session, not a portal sign-in (migration 0390, AI-STUDIO §8). In the people

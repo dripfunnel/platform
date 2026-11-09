@@ -18,6 +18,7 @@ import { supportSessionMs } from '#saas/support/index'
 import { prepareEmail } from '#saas/email/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { homeAudit } from '#engine/modules/reports/index'
 
 // Card #331 (SAPI 21): a partner support session on the store's side (ACCESS.md §8, §11): the
 // exchange, read-only until the store allows writes, the "never" list, the switch, and isolation.
@@ -212,7 +213,7 @@ describe('read-only until the store allows writes', () => {
     expect(codes.get('changePassword')).toBe('BLOCKED_FOR_SUPPORT')
     expect(codes.get('inviteMember')).toBe('BLOCKED_FOR_SUPPORT')
     // What #1344 opened still waits for an Allow.
-    for (const name of ['chooseTemplate', 'askDesign', 'publishDesign', 'previewLink', 'endPreviewLinks', 'changePlan', 'setPaymentMethod', 'keepProducts', 'cancelStore', 'connectStripe', 'connectStoreAiAccount', 'createApiKey', 'installApp', 'saveWebhook']) expect(codes.get(name), name).toBe('SUPPORT_READ_ONLY')
+    for (const name of ['chooseTemplate', 'askDesign', 'publishDesign', 'previewLink', 'endPreviewLinks', 'changePlan', 'setPaymentMethod', 'keepProducts', 'cancelStore', 'connectStoreAiAccount']) expect(codes.get(name), name).toBe('SUPPORT_READ_ONLY')
   })
 
   it('refuses a real write end to end and the database refuses it too', async () => {
@@ -249,6 +250,11 @@ describe('write elevation', () => {
     const write = (await entries(id)).find((e) => e.action !== 'support_session.viewed' && e.actor_kind === 'support_session' && !e.action.startsWith('support_session.'))
     expect(write).toMatchObject({ actor_kind: 'support_session', actor_id: id, on_behalf_of_id: agents.priya })
     expect((await entries(id)).map((e) => e.action)).toEqual(expect.arrayContaining(['support_session.write_requested', 'support_session.write_allowed']))
+    // Setting the store up: skipping a Home step is the Owner's, logged as the session with its agent (#1344).
+    expect((await gql(`mutation { skipSetupStep(step: shipping, skipped: true) }`, { support: cookie })).code).toBeUndefined()
+    expect((await entries(id)).find((e) => e.action === homeAudit.setupStepSkipped)).toMatchObject({ actor_kind: 'support_session', actor_id: id, on_behalf_of_id: agents.priya })
+    // The database refuses a support session API keys, webhooks and apps (migrations 0150-0152).
+    expect((await gql(`mutation { createApiKey(name: "Feed", scopes: ["catalog.read"]) { id } }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
   })
 
   it('keeps the "never" list refused once allowed: people, its own access, the switch, the person’s account', async () => {

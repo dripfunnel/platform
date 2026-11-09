@@ -32,7 +32,7 @@ anything that already exists.
   (confirm with company sign-in again).
 - **Full access as the user**: the staff member sees and does exactly what that user can,
   **except** these, which stay blocked even while impersonating: changing the user's
-  **password, 2-factor or sign-in methods**, **payment or payout details**, and **ownership**
+  **password, 2-factor or sign-in methods**, **payout details** (in a store, its payment gateways), and **ownership**
   (transferring the store or partner, or changing the Owner). Those controls appear
   **disabled** with "Only Priya can change this".
 - **No consent needed**: it works even if the merchant has turned "Support access" off (that
