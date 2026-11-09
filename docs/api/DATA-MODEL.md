@@ -1470,7 +1470,11 @@ reads `store_id`, `product_id` and `position` of its storefront's store, **never
 position and no sales figure reaches a shopper; partner and platform scope read nothing (§7.11, inside the store).
 
 **Product customisation** (#1367, proposed; built by #1368): the four `product_question*` tables above are children of
-`product` (§7.1), so a supplier's carry its `seller_id` and a merchant's null. The limits are structural: a position
+`product` (§7.1), so a supplier's carry its `seller_id` and a merchant's null. Each row's `store_id` must be its parent's,
+and its `product_id` and `seller_id` are copied by a trigger from its parent, run as the caller (a choice, a version row and
+a question's amount from the question, a choice's amount from the choice; a question from the product), never from input:
+a parent the caller can't read (another supplier's question) finds nothing and refuses the write, so no row can be stamped
+under another owner. The limits are structural: a position
 out of range or taken is refused by the database, so an 11th question or a 51st choice can't be written, whatever the
 caller. A product's questions are saved with the product, at its revision (CATALOG E4), and changing them moves
 `storefront.catalog_version` as any catalogue write does. Deleting a question or a choice deletes its rows (a placed

@@ -1525,6 +1525,9 @@ builds the table must ship:
   `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`, and deleting
   another cart's or store's upload id (`DELETE /shop-api/uploads/{id}`) deletes nothing and answers
   `UPLOAD_NOT_FOUND`, by the `delete` branch's own-cart test, not by engine code alone;
+- a supplier writing a question, choice, amount or version row on another owner's product or question is refused: the
+  owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
+  another owner's row touches nothing;
 - a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
   `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
   by the grant;
