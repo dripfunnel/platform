@@ -64,8 +64,8 @@ Paste §1 to start a design session, then name a flow from §3.
 >    **Products, stock and their orders** (fulfilling their own order lines). A fourth,
 >    read-only orders tier is defined but not offered. The navigation itself differs
 >    between them. **The merchant also chooses how each supplier ships** (decided
->    2026-10-02): **to your warehouse**, so the supplier sees nothing of the shopper and the
->    store delivers, or **to the shopper**, so the supplier ships its own lines and sees the
+>    2026-10-02): **to your warehouse**, so the supplier sees nothing of the shopper but its
+>    own lines' answers to a product's questions (item 39) and the store delivers, or **to the shopper**, so the supplier ships its own lines and sees the
 >    name and delivery address only (ACCESS.md §7.3).
 > 4. **The merchant can edit a vendor's product, and the vendor sees that edit**:
 >    it is one shared record, not a copy. The interface has to say so on both

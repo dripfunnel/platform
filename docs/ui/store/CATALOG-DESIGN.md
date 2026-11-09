@@ -831,7 +831,8 @@ depend on an engine capability whose release is not yet chosen.
 - E2. A vendor editing their own product sees "Your store owner can also edit this product."
 - E3. A vendor edits an already-approved product. Settled 2026-10-02 (ACCESS.md §7.2): it goes
   back to waiting for approval, and off the storefront, **only when the name, a price or the
-  photos changed**; every other edit goes live. The save says which: "Your price, title or
+  photos changed**, a question's charge-setting fields counting as a price (U15); every other
+  edit goes live. The save says which: "Your price, title or
   photo change needs approval" or "Saved — live now".
 - E4. Two people edit the same product. The second save sees "Someone else changed this product
   2 minutes ago", with a choice to review or overwrite. The engine must detect the conflict (a
