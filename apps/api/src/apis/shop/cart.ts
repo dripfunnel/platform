@@ -20,6 +20,7 @@ const words: Record<CartRefusal, string> = {
   GIFT_CARD_INVALID: 'That number doesn’t match a gift card. Check it and try again.',
   NOT_IN_PREVIEW: 'Gift cards can’t be used on a preview of the shop.',
   ANSWERS_INVALID: 'Check your choices: something isn’t answered or can’t be chosen now.',
+  ONE_LINE_PER_VERSION: 'This is already in your cart with other choices. Change them there, or check out first.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {

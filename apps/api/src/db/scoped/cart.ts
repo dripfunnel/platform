@@ -91,14 +91,22 @@ const answersParam = (tx: ScopedSql, answers: readonly StoredAnswer[] | null) =>
  * Adds to the line of this version with these answers (one line, fact 56), or starts it: up to 999. Answers the line's id.
  * A line without answers is today's one line per version.
  */
-export const addCartLine = async (tx: ScopedSql, storeId: string, orderId: string, versionId: string, answers: readonly StoredAnswer[] | null, quantity: number, max: number): Promise<string> => {
-  const [row] = await tx<{ id: string }[]>`
-    insert into cart_line (order_id, store_id, version_id, quantity, answers) values (${orderId}, ${storeId}, ${versionId}, ${quantity}, ${answersParam(tx, answers)})
-    on conflict (order_id, version_id, answers_key) do update set quantity = least(cart_line.quantity + excluded.quantity, ${max})
-    returning id
-  `
-  if (!row) throw new Error('cart: line insert returned no row')
-  return row.id
+export const addCartLine = async (tx: ScopedSql, storeId: string, orderId: string, versionId: string, answers: readonly StoredAnswer[] | null, quantity: number, max: number): Promise<string | 'version_taken'> => {
+  try {
+    const [row] = await tx.savepoint(
+      (sp) => sp<{ id: string }[]>`
+        insert into cart_line (order_id, store_id, version_id, quantity, answers) values (${orderId}, ${storeId}, ${versionId}, ${quantity}, ${answersParam(tx, answers)})
+        on conflict (order_id, version_id, answers_key) do update set quantity = least(cart_line.quantity + excluded.quantity, ${max})
+        returning id
+      `,
+    )
+    if (!row) throw new Error('cart: line insert returned no row')
+    return row.id
+  } catch (error) {
+    // The old key (order_id, version_id) holds until the contract migration (0392's note): one line a version till then.
+    if (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'cart_line_pkey') return 'version_taken'
+    throw error
+  }
 }
 
 /** How many of a line; 0 takes it out. */

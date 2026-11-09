@@ -27,7 +27,7 @@ export type { CartAddress, CartGift } from '#db/scoped/cart'
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
 
-export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES' | 'GIFT_CARD_INVALID' | 'NOT_IN_PREVIEW' | 'ANSWERS_INVALID'
+export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES' | 'GIFT_CARD_INVALID' | 'NOT_IN_PREVIEW' | 'ANSWERS_INVALID' | 'ONE_LINE_PER_VERSION'
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5
@@ -398,6 +398,8 @@ export const createCartService = (deps: CartDeps) => {
         const lineId = gift
           ? await addCartLine(tx, storeId, found.id, id, stored, 1, 1)
           : await addCartLine(tx, storeId, found.id, id, stored, quantity, maxQuantity)
+        // Different answers for a version already in the cart wait for the contract migration (0392's note).
+        if (lineId === 'version_taken') throw new Refused('ONE_LINE_PER_VERSION')
         if (gift) await setCartGift(tx, found.id, lineId, gift)
         await write(tx, found, {})
         const row = await selectCart(tx, storeId, now())
