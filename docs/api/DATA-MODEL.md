@@ -1401,8 +1401,8 @@ translation         (store_id, seller_id NULL, entity ('product'|'version'|'coll
                     -- text it translated, so "changed since translated" (N5) is a comparison;
                     -- seller_id is set by a trigger from the entity; language references
                     -- store_language, whose rows a supplier reads (it translates its own products)
-                    -- #1367 (proposed): entity gains question (field name: its text; description:
-                    -- its help) and question_choice (field name), entity_id the row's id
+                    -- #1367 (proposed): entity gains question (field name: its text; help: its
+                    -- help, ≤ 500 characters) and question_choice (field name), entity_id the row's id
 product_search      (product_id, store_id, language, document tsvector)
                     PRIMARY KEY (product_id, language)
                     -- the storefront's per-language index with main-language fallback

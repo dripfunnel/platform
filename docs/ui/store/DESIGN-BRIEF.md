@@ -280,6 +280,8 @@ line says who it is for and the thing most likely to be missed.
 39. **What a vendor may see of a customer** (settled 2026-10-02, ACCESS.md §7.3): a vendor
     shipping to the store's warehouse sees **nothing**, not even a name; a vendor shipping to
     the shopper sees the name and delivery address, never email or phone. Design 37 with both.
+    Either one sees its own lines' answers to a product's questions, as it makes the item
+    (decided 2026-11-10 on #1367, ACCESS §7.1).
 40. **Customer list and detail**: merchant only. Designed 2026-10-02: add and edit, groups,
     tags, a team-only note, marketing consent, export.
 41. **Refunds, cancellations and returns**: designed 2026-10-02 (`PortalOrders`; ACCESS.md
