@@ -542,8 +542,6 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   /** A product's questions in order (CATALOG facts 49–57). */
   const questions = (productId: string) => inScope(async (tx) => (await selectProductQuestions(tx, [productId])).get(productId) ?? [])
 
-  /** How many questions each of these products asks (U12's product search). */
-
   /** Whether any undeleted product of the store asks questions (OFFERS-DESIGN §3.1). */
   const hasCustomisation = () => inScope((tx) => storeHasQuestions(tx, storeId))
 
