@@ -166,10 +166,11 @@ describe('a customised cart line', () => {
         <EditAnswers line={customised} />
       </Provided>,
     )
-    expect(screen.getByText('Gift wrap')).toBeTruthy()
+    // Loaded with their own chunk, only for a line that has answers.
+    expect(await screen.findByText('Gift wrap')).toBeTruthy()
     expect(screen.getByText('Yes')).toBeTruthy()
     expect(screen.getByText('+$5.00')).toBeTruthy()
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Edit your choices for Organic Cotton Tee' })))
+    await act(async () => void fireEvent.click(await screen.findByRole('button', { name: 'Edit your choices for Organic Cotton Tee' })))
     const modal = await waitFor(() => inside())
     expect(modal.getByRole('heading', { name: 'Change your choices for Mug' })).toBeTruthy()
     expect(modal.getByRole('radio', { name: /Yes/ })).toHaveProperty('checked', true)
@@ -180,7 +181,7 @@ describe('a customised cart line', () => {
     expect(asked.find((a) => a.query.includes('updateCartLineAnswers'))?.variables).toEqual({ lineId: 'line-1', answers: [{ questionId: 'q-wrap', choices: [{ choiceId: 'c-yes', quantity: 1 }] }, { questionId: 'q-note', text: 'Hi' }] })
   })
 
-  it('offers "Check your choices" on a line whose answers no longer fit, and nothing on a plain line', () => {
+  it('offers "Check your choices" on a line whose answers no longer fit, and nothing on a plain line', async () => {
     if (!customised) throw new Error('no line')
     const plain = viewCart(cartOf([line('v-p', 1)]) as never).lines[0]
     if (!plain) throw new Error('no line')
@@ -190,8 +191,8 @@ describe('a customised cart line', () => {
         <EditAnswers line={plain} />
       </Provided>,
     )
+    expect((await screen.findByRole('button')).textContent).toBe('Check your choices')
     expect(screen.getAllByRole('button')).toHaveLength(1)
-    expect(screen.getByRole('button').textContent).toBe('Check your choices')
   })
 })
 
@@ -334,8 +335,8 @@ describe('the modal’s last rules', () => {
   })
 
   it('shows keyboard focus on the file button, whose input is visually hidden', async () => {
-    const { sealedCss } = await import('./styles')
-    expect(sealedCss('customise')).toContain('label[part~=button]:has(input:focus-visible)')
+    const { customiseCss } = await import('./customiseStyles')
+    expect(customiseCss).toContain('label[part~=button]:has(input:focus-visible)')
   })
 })
 

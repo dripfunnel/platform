@@ -9,9 +9,14 @@ import { navigate } from '../platform/browser/router'
 import { useStorefront } from '../platform/store/context'
 import { formatMoney, moneySchema, type Money } from '../pricing/money'
 import { moneyFields } from '../products/summary'
-import { askedFor, answersToSend, type Answer, type ExtraPrice, type Question } from '../products/questions'
+import { askedFor, answersToSend } from '../products/asking'
+import type { Answer, ExtraPrice, Question } from '../products/questions'
 import { focusedElement } from './element'
+import { customiseCss } from './customiseStyles'
+import { addCustomiseWords } from './customiseWords'
 import { Sealed } from './Sealed'
+
+addCustomiseWords()
 
 // The customisation modal (storefront ARCHITECTURE §3.5; CATALOG-DESIGN §3 facts 49–57): a sealed <dialog> in the top layer.
 // Every amount is the Shop API's (`customisationQuote`); nothing here prices anything. Loaded only for a product with questions.
@@ -177,7 +182,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
   }
 
   return (
-    <Sealed part="customise">
+    <Sealed part="customise" css={customiseCss}>
       <dialog
         ref={openDialog}
         part="dialog"

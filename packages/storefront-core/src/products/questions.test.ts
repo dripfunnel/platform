@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { answersToSend, askedFor, decodeQuestions, type Question } from './questions'
+import { answersToSend, askedFor } from './asking'
+import { decodeQuestions, type Question } from './questions'
 
 // Which questions a version asks and what is sent (CATALOG-DESIGN §3 fact 54): versions, a condition, empty answers dropped.
 

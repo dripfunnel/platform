@@ -1,4 +1,4 @@
-import { catalogues, en, type Catalogue, type MessageKey } from './messages'
+import { catalogues, en, laterWords, type Catalogue, type MessageKey } from './messages'
 
 // A theme's own keys (`home.hero.title`) are checked against content/** by the validator, so any string is accepted.
 export type Translate = (key: MessageKey | (string & Record<never, never>), values?: Record<string, string | number>) => string
@@ -45,7 +45,7 @@ export const createI18n = (locale: string, extra: Record<string, Catalogue> = {}
   const t: Translate = (key, values = {}) => {
     const id = key as MessageKey
     const from = chain.find((c) => c[id] !== undefined)
-    const text = formatMessage(from?.[id] ?? en[id] ?? key, locale, values)
+    const text = formatMessage(from?.[id] ?? (en as Catalogue)[id] ?? laterWords[id] ?? key, locale, values)
     if (shown && from && own.includes(from)) shown.add(text, key)
     return text
   }
