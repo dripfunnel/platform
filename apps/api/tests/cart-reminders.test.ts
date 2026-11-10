@@ -157,8 +157,9 @@ beforeAll(async () => {
   scarf = await product(store, 'Scarf', 20000)
   saree = await product(surat, 'Saree', 300000)
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${store}, true, 5000, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)`
-  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live')`
+    values (${store}, true, 5000, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
+  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live') on conflict do nothing`
   const plan = async (name: string, level: number) => {
     const [row] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, ${name}, 'live') returning id`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${row?.id ?? ''}, ${t.partnerA}, 1, 'cart_reminders', ${level})`

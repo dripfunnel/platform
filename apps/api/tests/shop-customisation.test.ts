@@ -52,8 +52,9 @@ beforeAll(async () => {
     (${storeId}, ${ids.product}, ${ids.wrapYes}, null, 'INR', 5000)`
   await db.sql`insert into product_question_amount (store_id, product_id, question_id, currency, amount) values (${storeId}, ${ids.product}, ${ids.message}, 'INR', 100)`
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${storeId}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)`
-  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${storeId}, 'cod', 'live')`
+    values (${storeId}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
+  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${storeId}, 'cod', 'live') on conflict do nothing`
 }, 60_000)
 
 afterAll(async () => {

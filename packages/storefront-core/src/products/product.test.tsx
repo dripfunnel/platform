@@ -70,6 +70,7 @@ const Page = () => {
       <p data-testid="legal">{p.product?.legal.map((l) => `${l.title}=${l.body}`).join('|')}</p>
       <p data-testid="badges">{p.product?.badges.map((b) => b.label).join()}</p>
       <p data-testid="description">{String(p.product?.description)}</p>
+      <p data-testid="chart">{p.product?.sizeChart ? JSON.stringify(p.product.sizeChart) : 'none'}</p>
       {p.options.map((o) =>
         o.values.map((v) => (
           <button key={v.id} type="button" onClick={() => p.choose(o.id, v.id)} data-state={`${v.selected ? 'on' : 'off'}-${v.available ? 'ok' : 'gone'}`}>
@@ -97,6 +98,24 @@ describe('useProduct', () => {
     // The head follows in an effect, which a loaded runner can run after the name shows.
     await waitFor(() => expect(document.title).toBe('Organic Cotton Tee'))
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe('A tee for every day.')
+  })
+
+  it('reads the size chart the Shop API returns, and has none for a product without one or with an empty one (#1326)', async () => {
+    history.replaceState(null, '', '/products/organic-cotton-tee/')
+    const chart = { name: 'Tops & shirts', unit: 'cm', measurements: ['Chest', 'Length'], rows: [{ size: 'S', values: ['86', '68'] }, { size: 'M', values: ['91', '70'] }, { size: '', values: ['1', '1'] }] }
+    const asked = shopAnswering(() => answer({ ...tee, sizeChart: chart }))
+    render(<Provided><Page /></Provided>)
+    await screen.findByText('Organic Cotton Tee')
+    expect(asked[0]?.query).toContain('sizeChart { name unit measurements rows { size values } }')
+    expect(JSON.parse(screen.getByTestId('chart').textContent ?? '')).toEqual({ name: 'Tops & shirts', unit: 'cm', measurements: ['Chest', 'Length'], rows: [{ size: 'S', values: ['86', '68'] }, { size: 'M', values: ['91', '70'] }] })
+    cleanup()
+    for (const sizeChart of [null, { ...chart, rows: [] }, { ...chart, measurements: [] }]) {
+      shopAnswering(() => answer({ ...tee, sizeChart }))
+      render(<Provided><Page /></Provided>)
+      await screen.findByText('Organic Cotton Tee')
+      expect(screen.getByTestId('chart').textContent).toBe('none')
+      cleanup()
+    }
   })
 
   it.each(['<p></p>', '<p><br></p>', '  ', '<script>x()</script>'])('treats the description %j as none, so no empty section and no empty description in the head (#1216)', async (blank) => {

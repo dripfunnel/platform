@@ -24,7 +24,7 @@ const list = <T extends z.ZodType>(item: T) => z.array(item).nullable().optional
 const money = moneySchema.nullable().optional().catch(null)
 const count = z.number().int().nonnegative().nullable().optional()
 
-const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} } ${questionFields}`
+const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } sizeChart { name unit measurements rows { size values } } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} } ${questionFields}`
 export const productQuery = `query Product($slug: String!) { product(slug: $slug) { ${productFields} } store { marketId markets { id countries } } }`
 
 const answerSchema = z.object({
@@ -50,6 +50,7 @@ const answerSchema = z.object({
       versions: list(z.object({ id: text, name: text, choices: list(z.object({ optionId: text, valueId: text })), price: money, compareAt: money, inStock: z.boolean().nullable().optional(), available: z.number().int().nonnegative().nullable().optional() })),
       specs: list(z.object({ name: text, value: text, versionId: text })),
       faqs: list(z.object({ question: text, answer: text })),
+      sizeChart: z.object({ name: text, unit: text, measurements: list(z.string()), rows: list(z.object({ size: text, values: list(z.string()) })) }).nullable().optional(),
       compliance: list(z.object({ region: text, field: text, value: text })),
       returns: text,
       warranty: text,
@@ -67,6 +68,8 @@ type Decoded = NonNullable<Answer['product']>
 
 export type Version = { id: string; name: string | null; choices: Readonly<Record<string, string>>; price: Money | null; compareAt: Money | null; stock: Stock }
 export type ProductOption = { id: string; name: string; values: { id: string; name: string }[] }
+/** A size chart as the merchant wrote it: `unit` is `cm` or `in`; each row holds a value per measurement. */
+export type SizeChart = { name: string | null; unit: string | null; measurements: string[]; rows: { size: string; values: string[] }[] }
 
 /** What the product is, and what that kind tells the shopper (catalogue product kinds, #323). */
 export type ProductKind =
@@ -95,6 +98,8 @@ export type Product = {
   stock: Stock
   specs: { name: string; value: string; versionId: string | null }[]
   faqs: { question: string; answer: string }[]
+  /** Null when the product has none, or one with no sizes or no measurements to show. */
+  sizeChart: SizeChart | null
   /** The details the law of the shopper's market asks for (fibre, origin, care), for core's sealed <LegalNotices>. */
   legal: LegalNotice[]
   returns: string | null
@@ -118,6 +123,13 @@ const legalNotices = (p: Decoded, store: Answer['store'], t: (key: MessageKey) =
     else if (c.region === 'ALL' && !chosen.has(c.field)) chosen.set(c.field, c.value)
   }
   return [...chosen].map(([field, body]) => ({ title: t(legalTitles[field] ?? 'legal.other'), body }))
+}
+
+const sizeChartOf = (p: Decoded): SizeChart | null => {
+  const chart = p.sizeChart
+  const measurements = chart?.measurements ?? []
+  const rows = (chart?.rows ?? []).flatMap((r) => (r.size ? [{ size: r.size, values: r.values ?? [] }] : []))
+  return chart && measurements.length > 0 && rows.length > 0 ? { name: chart.name ?? null, unit: chart.unit ?? null, measurements, rows } : null
 }
 
 const kindOf = (p: Decoded): ProductKind =>
@@ -165,6 +177,7 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     stock: stockSchema.parse({ inStock: p.inStock ?? false, available: null }),
     specs: (p.specs ?? []).flatMap((s) => (s.name && s.value ? [{ name: s.name, value: s.value, versionId: s.versionId ?? null }] : [])),
     faqs: (p.faqs ?? []).flatMap((f) => (f.question && f.answer ? [{ question: f.question, answer: f.answer }] : [])),
+    sizeChart: sizeChartOf(p),
     legal: legalNotices(p, answer.store, t),
     returns: p.returns ?? null,
     warranty: p.warranty ?? null,

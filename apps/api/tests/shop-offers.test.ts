@@ -133,8 +133,9 @@ beforeAll(async () => {
   const s = await product('Scarf', 20000)
   scarf = s.version
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${store}, true, 5000, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)`
-  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live')`
+    values (${store}, true, 5000, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
+  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live') on conflict do nothing`
   const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'owner@jaipur.example', 'Owner', 'active') returning id`
   await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${store}, 'owner', 'active')`
   owner = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))

@@ -10,6 +10,7 @@ import { defaultFeatures } from '#db/scoped/catalogListing'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { createCartService } from '#engine/modules/cart/index'
 import { activityLog } from '#saas/activity/index'
+import { productWithChoices } from './support/catalogue'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -45,7 +46,8 @@ beforeAll(async () => {
   ids.hidden = await version(stores.india, 'hidden', 'hidden', '100', 3)
   ids.theirs = await version(stores.other, 'theirs', 'visible', '100', 3)
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${stores.india}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)`
+    values (${stores.india}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
   // Clothing at 5% GST, prices including tax (India's default, migration 0055).
   await db.sql`update product_version set tax_class_id = (select id from tax_class where store_id = ${stores.india} and name = 'Clothing') where id = ${ids.kurta}`
 }, 60_000)
@@ -54,9 +56,9 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const gql = async (source: string, who: { host?: string; token?: string | null; sql?: postgres.Sql } = {}, variables: Record<string, unknown> = {}) => {
+const gql = async (source: string, who: { host?: string; token?: string | null; sql?: postgres.Sql; language?: string } = {}, variables: Record<string, unknown> = {}) => {
   const host = who.host ?? hostOf.india
-  const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
+  const headers: Record<string, string> = { ...(who.token ? { 'x-shop-cart': who.token } : {}), ...(who.language ? { 'x-shop-language': who.language } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: who.sql ?? db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowNewCart: async () => allow, now: () => new Date() }
@@ -299,5 +301,31 @@ describe('adding to a cart', () => {
     expect(await carts()).toBe(before)
     expect((await service.add(ids.kurta, 1)).ok).toBe(true)
     expect(await carts()).toBe(before + 1)
+  })
+})
+
+describe('a line’s version (#1347)', () => {
+  const linesOf = async (versionIds: string[], language = 'en-US') => {
+    let held: string | null = null
+    for (const id of versionIds) {
+      const added = await gql(`mutation { addToCart(versionId: "${id}", quantity: 1) { cartToken } }`, { token: held })
+      held ??= (added.data?.['addToCart'] as { cartToken: string }).cartToken
+    }
+    return ((await gql('{ cart { lines { versionName } } }', { token: held, language })).data?.['cart'] as { lines: { versionName: string | null }[] }).lines.map((l) => l.versionName)
+  }
+
+  it('names a version by its choices unless it has a name of its own, and a product without options not at all', async () => {
+    const shirt = await productWithChoices(db.sql, stores.india, 'Shirt', ['Size'], [{ choices: ['S'] }, { choices: ['M'] }, { choices: ['L'], name: 'Large, relaxed fit' }])
+    const [kurta] = await productWithChoices(db.sql, stores.india, 'Silk kurta', ['Size', 'Colour'], [{ choices: ['M', 'Red'] }])
+    expect(await linesOf([...shirt, kurta ?? '', ids.kurta])).toEqual(['Size: S', 'Size: M', 'Large, relaxed fit', 'Size: M · Colour: Red', null])
+  })
+
+  it('names the choices in the shopper’s language', async () => {
+    const [scarf] = await productWithChoices(db.sql, stores.india, 'Scarf', ['Length'], [{ choices: ['Long'] }])
+    await db.sql`insert into store_language (store_id, language) values (${stores.india}, 'hi-IN')`
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values
+      (${stores.india}, 'option_name', 'length', 'name', 'hi-IN', 'लंबाई', ${'0'.repeat(32)}), (${stores.india}, 'choice_name', 'long', 'name', 'hi-IN', 'लंबा', ${'0'.repeat(32)})`
+    expect(await linesOf([scarf ?? ''], 'hi-IN')).toEqual(['लंबाई: लंबा'])
+    expect(await linesOf([scarf ?? ''])).toEqual(['Length: Long'])
   })
 })

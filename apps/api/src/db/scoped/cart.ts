@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { pgArray, type ScopedSql } from './index'
+import { translated } from './shop'
 
 // A shopper's cart (migration 0066): an order in state `cart` holding what the shopper chose, read and written as app_shop,
 // whose policies keep it to the shopper's own account or the guest token it presented.
@@ -183,15 +184,27 @@ export const setCartDeliveryWarehouse = async (tx: ScopedSql, storeId: string, i
   await tx`update "order" set delivery_warehouse_id = ${warehouseId} where id = ${id} and store_id = ${storeId} and state = 'cart'`
 }
 
+interface CartVersionRow {
+  id: string
+  product_id: string
+  tax_class_id: string | null
+  has_questions: boolean
+  /** Its choices in the shopper's language, in option order ("Size: M", "Colour: Red"). */
+  choices: string[]
+}
+
 /**
  * Each version's product and tax class, by id, and whether its product asks questions (#1368: one statement, so a product
  * without any costs nothing more); what shoppers may see is decided after, by the catalogue's rules (cartItems).
  */
-export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; product_id: string; tax_class_id: string | null; has_questions: boolean }[]> =>
+export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly string[], language: string): Promise<CartVersionRow[]> =>
   ids.length === 0
     ? Promise.resolve([])
-    : tx<{ id: string; product_id: string; tax_class_id: string | null; has_questions: boolean }[]>`
-        select v.id, v.product_id, v.tax_class_id, exists (select 1 from product_question q where q.product_id = v.product_id) as has_questions
+    : tx<CartVersionRow[]>`
+        select v.id, v.product_id, v.tax_class_id, exists (select 1 from product_question q where q.product_id = v.product_id) as has_questions,
+          coalesce((select json_agg(${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)} || ': ' || ${translated(tx, 'choice_name', tx`lower(ch.name)`, 'name', tx`ch.name`, language)} order by o.position)
+            from product_version_option_value ov join product_option o on o.id = ov.option_id join product_option_value ch on ch.id = ov.value_id
+            where ov.version_id = v.id), '[]'::json) as choices
         from product_version v where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
       `
 

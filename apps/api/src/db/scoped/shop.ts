@@ -5,7 +5,7 @@ import { pgArray, type ScopedSql } from './index'
 // storefront's store and to what shoppers may see, and the role to the public columns.
 
 /** A field in the shopper's language, falling back to the main-language text on the row (CATALOG facts 19–20). */
-const translated = (tx: ScopedSql, entity: string, id: ReturnType<ScopedSql>, field: string, fallback: ReturnType<ScopedSql>, language: string) => tx`
+export const translated = (tx: ScopedSql, entity: string, id: ReturnType<ScopedSql>, field: string, fallback: ReturnType<ScopedSql>, language: string) => tx`
   coalesce((select t.text from translation t where t.entity = ${entity} and t.entity_id = ${id}::text and t.field = ${field} and t.language = ${language}), ${fallback})
 `
 
