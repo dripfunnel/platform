@@ -71,6 +71,9 @@ describe('the questions draft', () => {
     expect(questionProblems([{ ...newQuestion('UPLOAD'), label: 'Photo', versions: [] }], 'INR')).toEqual([expect.objectContaining({ field: 'versions' })])
     expect(questionProblems([{ ...newQuestion('UPLOAD'), label: 'Photo', versions: ['gone'] }], 'INR', ['m', 'l'])).toEqual([expect.objectContaining({ field: 'versionsChanged' })])
     expect(questionProblems([{ ...newQuestion('CHOICE'), label: 'Size', choices: [{ ...newChoice(), label: 'Big', price: newPrice('PER_CHARACTER') }] }], 'INR')).toEqual([expect.objectContaining({ field: 'price' })])
+    const perVersion = { ...newPrice('FIXED'), amount: '10', byVersion: { l: 'abc' } }
+    expect(questionProblems([{ ...newQuestion('TEXT'), label: 'Name', price: perVersion }], 'INR')).toEqual([expect.objectContaining({ field: 'price' })])
+    expect(questionProblems([{ ...newQuestion('TEXT'), label: 'Name', price: { ...perVersion, mode: 'PER_CHARACTER' } }], 'INR')).toEqual([])
   })
 
   it('keeps a condition only on a list above with no condition of its own, and offers only those', () => {

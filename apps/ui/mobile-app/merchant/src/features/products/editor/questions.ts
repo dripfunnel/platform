@@ -160,7 +160,7 @@ const amountOk = (text: string, currency: string) => minorText(text, currency) !
 const priceProblem = (p: PriceDraft, currency: string, kind: QuestionKind): boolean => {
   if (p.mode === 'PERCENT') return !percentOk(p.percent)
   if (p.mode === 'PER_CHARACTER' && kind !== 'TEXT') return true
-  return !amountOk(p.amount, currency) || Object.values(p.byVersion).some((typed) => typed.trim() !== '' && !amountOk(typed, currency))
+  return !amountOk(p.amount, currency) || (p.mode === 'FIXED' && Object.values(p.byVersion).some((typed) => typed.trim() !== '' && !amountOk(typed, currency)))
 }
 
 /** A condition stays only while it names a choice of a list above with no condition of its own (U9). */
