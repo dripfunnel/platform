@@ -38,6 +38,7 @@ export const product = {
   spec: clsx('grid gap-y-0.5 gap-x-0.5 [&_dt]:text-muted [&_dt]:text-[13px] [&_dd]:m-0 [&_dd]:text-ink-soft'),
   specs: clsx('mt-2.5 mr-0 mb-0 ml-0 grid gap-y-2 gap-x-2'),
   stage: clsx('overflow-hidden aspect-[4/5] rounded-card [background:var(--picture-alt)]'),
+  sizeLink: clsx('self-start p-0 border-0 min-h-6 bg-transparent text-ink text-[14px] underline [font-family:inherit] cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
   stock: clsx('m-0 text-ink-soft text-[14px] font-medium'),
   summary: clsx('min-h-7 font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
   thumb: clsx('p-0 border-[2px] border-transparent inline-flex overflow-hidden w-15 h-15 items-center justify-center rounded-[8px] bg-soft text-ink cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
