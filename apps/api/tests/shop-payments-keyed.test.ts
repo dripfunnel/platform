@@ -184,7 +184,14 @@ describe('Connecting by keys', () => {
     ])
     // Another store's merchant sees none of it.
     // Another store's merchant sees none of it: no live flag, no connection, no webhook address.
-    expect(((await merchant('{ gateways { provider live connections { mode webhookUrl } } }', 'other')).data?.['gateways'] as { provider: string; live: boolean; connections: unknown[] }[]).filter((g) => g.provider === 'razorpay').every((g) => !g.live && g.connections.length === 0)).toBe(true)
+    // Only its own default Cash on delivery (migration 0394) is live.
+    expect((await merchant('{ gateways { provider live connections { mode webhookUrl } } }', 'other')).data?.['gateways']).toEqual([
+      { provider: 'razorpay', live: false, connections: [] },
+      { provider: 'cashfree', live: false, connections: [] },
+      { provider: 'phonepe', live: false, connections: [] },
+      { provider: 'cod', live: true, connections: [{ mode: 'live', webhookUrl: null }] },
+      { provider: 'bank_transfer', live: false, connections: [] },
+    ])
     // A support session never pastes keys or disconnects, read or write; nothing changes.
     for (const access of ['read', 'write'] as const) {
       expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: LIVE, keys: { keyId: "rzp_live_zzzzzz", keySecret: "x", webhookSecret: "y" }) }', 'owner', access)).code).toBe('SUPPORT_SESSION')
