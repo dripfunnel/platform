@@ -55,6 +55,8 @@ export const StorefrontPage = () => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
   const [powered, setPowered] = useState<PoweredLine | null>(null)
+  // The publish followed outside the address too, so changing tab or view, or leaving the studio, keeps it (#1229).
+  const [running, setRunning] = useState<string | null>(null)
 
   // Only the newest read lands: a retry answered before a slow first read keeps its answer.
   const latest = useRef(0)
@@ -65,7 +67,11 @@ export const StorefrontPage = () => {
     if (!access.canRead) return
     setView({ kind: 'loading' })
     void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains(), api.loadOverview(), api.loadTemplates(), api.loadMeters().catch(() => null)]).then(
-      ([brand, seo, domains, overview, templates, meters]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo, domains, overview, templates, meters } }),
+      ([brand, seo, domains, overview, templates, meters]) => {
+        if (ask !== latest.current) return
+        setRunning(overview.publishing)
+        setView({ kind: 'ready', reads: { brand, seo, domains, overview, templates, meters } })
+      },
       () => ask === latest.current && setView({ kind: 'error' }),
     )
   }, [forced, access.canRead, api])
@@ -73,13 +79,21 @@ export const StorefrontPage = () => {
 
   const update = useCallback((patch: Partial<Reads>) => setView((v) => (v.kind === 'ready' ? { kind: 'ready', reads: { ...v.reads, ...patch } } : v)), [])
   const onDomains = useCallback((domains: StorefrontDomains) => update({ domains }), [update])
-  const onRun = useCallback((next: string | null) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, run: next ?? undefined }), replace: true }), [navigate])
+  const followed = run ?? running
+  const onRun = useCallback(
+    (next: string | null) => {
+      setRunning(next)
+      void navigate({ to: '/storefront', search: (prev) => ({ ...prev, run: next ?? undefined }), replace: true })
+    },
+    [navigate],
+  )
 
   // A changed design can change the current look, what waits for a publish and this month's use, so they are read again with it.
   const templatesAsk = useRef(0)
   const onOverview = useCallback(
     (overview: StorefrontOverview) => {
       update({ overview })
+      setRunning(overview.publishing)
       const ask = ++templatesAsk.current
       Promise.all([api.loadTemplates(), api.loadMeters().catch(() => null)]).then(
         ([templates, meters]) => ask === templatesAsk.current && update({ templates, meters }),
@@ -207,7 +221,7 @@ export const StorefrontPage = () => {
         onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
         onOverview={onOverview}
         usage={meters?.usage ?? null}
-        run={run ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
+        run={followed ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
         onRun={onRun}
       />
     )
@@ -251,7 +265,7 @@ export const StorefrontPage = () => {
         canUpgrade={canUpgrade}
         powered={powered}
         api={api}
-        run={run ?? null}
+        run={followed}
         onRun={onRun}
         onPublished={refresh}
         onOverview={onOverview}

@@ -135,11 +135,13 @@ const overviewSchema = z.object({
   draft: z.object({ template: z.string(), changedAt: text, previewReady: z.boolean() }).nullable(),
   // The newest finished design or catalogue publish; `error` is the failed check's code (LOGGING's storefront.rolled_back).
   lastPublish: z.object({ state: z.enum(['live', 'failed', 'rolled_back']), error: text, version: z.number().int().nullable(), finishedAt: z.string() }).nullable(),
+  // A design or "Publish now" run still under way, so the page follows it whoever started it and wherever.
+  publishing: z.string().nullable(),
 })
 export type StorefrontOverview = z.infer<typeof overviewSchema>
 
 export const loadOverview = async (): Promise<StorefrontOverview> =>
-  (await query('{ storefront { status template live { number publishedAt template portalOrigin } draft { template changedAt previewReady } lastPublish { state error version finishedAt } } }', z.object({ storefront: overviewSchema }))).storefront
+  (await query('{ storefront { status template live { number publishedAt template portalOrigin } draft { template changedAt previewReady } lastPublish { state error version finishedAt } publishing } }', z.object({ storefront: overviewSchema }))).storefront
 
 const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
 export type StorefrontTemplate = z.infer<typeof templateSchema>

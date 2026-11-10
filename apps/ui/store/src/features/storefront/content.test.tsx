@@ -35,7 +35,7 @@ const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier
 const manager: Acting = { ...owner, role: 'manager', permissions: ['catalog.read', 'storefront.read'] }
 
 const brand: StorefrontBrand = { brandReady: true, shopName: 'Kesari Threads', logoAssetId: 'a-logo', faviconAssetId: null, primaryColour: null, secondaryColour: null, tagline: null, description: null, social: { instagram: null, facebook: null, x: null, youtube: null, tiktok: null, whatsapp: null }, contactEmail: 'hello@kesari.in', contactPhone: null, contactAddress: null, voice: null }
-const overview: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: null, lastPublish: null }
+const overview: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: null, lastPublish: null, publishing: null }
 
 const row = (over: Partial<ContentRow> = {}): ContentRow => ({ id: '11111111-1111-4111-8111-111111111111', title: 'Questions we get asked', path: '/blog/faq', status: 'published', publishAt: '2026-09-14T09:00:00.000Z', author: 'Priya Shah', waitingForPublish: false, updatedAt: '2026-10-09T10:40:00Z', ...over })
 const faq: ContentEntry = {
