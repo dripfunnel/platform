@@ -13,7 +13,7 @@ import { askedFor, answersToSend } from '../products/asking'
 import type { Answer, ExtraPrice, Question } from '../products/questions'
 import { focusedElement } from './element'
 import { customiseCss } from './customiseStyles'
-import { addCustomiseWords } from './customiseWords'
+import { addCustomiseWords } from '../platform/i18n/customiseWords'
 import { Sealed } from './Sealed'
 
 addCustomiseWords()

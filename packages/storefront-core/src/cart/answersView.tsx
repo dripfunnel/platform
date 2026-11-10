@@ -3,9 +3,9 @@
 import { lazy, Suspense, useState } from 'react'
 import { z } from 'zod'
 import { useStorefront } from '../platform/store/context'
-import { formatMoney } from '../pricing/money'
+import { formatMoney, isZero } from '../pricing/money'
 import { decodeQuestions, questionFields, questionsSchema, type Answer, type Question } from '../products/questions'
-import { addCustomiseWords } from '../sealed/customiseWords'
+import { addCustomiseWords } from '../platform/i18n/customiseWords'
 import { answerText } from './answers'
 import type { CartLine } from './cart'
 
@@ -24,7 +24,7 @@ const LineAnswersView = ({ line, className }: { line: CartLine; className?: stri
           <dt>{a.question}</dt>
           <dd>
             {answerText(a, locale, t)}
-            {a.amount && /[1-9]/.test(a.amount.amount) ? <span> {t('customise.extra', { price: formatMoney(a.amount, locale) })}</span> : null}
+            {a.amount && !isZero(a.amount) ? <span> {t('customise.extra', { price: formatMoney(a.amount, locale) })}</span> : null}
           </dd>
         </div>
       ))}
