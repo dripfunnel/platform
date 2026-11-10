@@ -7,6 +7,8 @@ import { usePublishRun } from './usePublishRun'
 import './studio.css'
 
 const words = messages.storefront.studio.publish
+// The studio's own "lost" line speaks of the studio, so this one is the Publish now bar's.
+const lostWords = messages.storefront.publishNow
 
 export interface FirstPublishProps {
   api: StorefrontApi
@@ -32,9 +34,9 @@ export const FirstPublish = ({ api, run, onRun, onDone }: FirstPublishProps) => 
   if (run && lost)
     return (
       <div className="df-studio-refused" role="alert">
-        <span>{messages.storefront.publishNow.lost}</span>
+        <span>{lostWords.lost}</span>
         <button type="button" className="df-button" onClick={checkAgain}>
-          {words.checkAgain}
+          {lostWords.checkAgain}
         </button>
       </div>
     )

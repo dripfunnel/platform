@@ -304,7 +304,7 @@ describe('the overview', () => {
       expect(screen.getByRole('alert').textContent).toContain('Your home page didn’t load.')
     })
 
-    it('keeps following it after "← Storefront" leaves the studio', async () => {
+    it('keeps following one under way when "← Storefront" leaves the studio', async () => {
       api.loadOverview.mockResolvedValue(firstRun)
       studio.loadPublishRun.mockResolvedValue(step('checking'))
       await show({ entry: '/storefront?view=studio&run=r1' })
@@ -734,6 +734,21 @@ describe('the Publish now bar', () => {
     await settle()
     expect(studio.loadPublishRun).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('alert').textContent).toBe(pn.lost)
+  })
+
+  it('keeps following a press after changing tab, though the address no longer holds it', async () => {
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    api.publishNow.mockResolvedValue('r1')
+    studio.loadPublishRun.mockResolvedValue({ id: 'r1', step: 'checking', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pn.button }))
+    await settle()
+    fireEvent.click(screen.getByRole('tab', { name: words.tabs.journal }))
+    await settle()
+    fireEvent.click(screen.getByRole('tab', { name: words.tabs.design }))
+    await settle()
+    expect(screen.getByText(pn.working)).toBeTruthy()
+    expect(api.loadOverview).toHaveBeenCalledTimes(1)
   })
 
   it('follows a publish already under way when the page opens', async () => {
