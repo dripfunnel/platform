@@ -35,6 +35,7 @@ import {
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
 import { selectCartVersions } from '#db/scoped/cart'
+import { textLimits } from '#engine/modules/catalog/index'
 import { selectProductQuestions, selectQuestionWords } from '#db/scoped/questions'
 import { shopQuestionsOf, type ShopQuestion } from './questions'
 import { selectShopOffers } from '#db/scoped/promotions'
@@ -52,6 +53,8 @@ export const maxShopPage = 50
 export interface CartItem {
   product: ShopProductView
   version: ShopVersionView
+  /** What tells this version apart on a cart or order line: its name, else its choices ("Size: M · Colour: Red", #1347). */
+  versionLabel: string | null
   taxClassId: string | null
   soldHere: boolean
   /** Whether its product asks questions, so a line without answers is checked only then (#1368). */
@@ -126,6 +129,13 @@ export interface ShopOfferView {
   /** The visible products and collections a product offer names, by web address; empty for "every product" or a filter. */
   products: string[]
   collections: string[]
+}
+
+/** A version's own name, else its choices (#1347), cut to what an order line holds (migration 0068: 255 characters). */
+const versionLabelOf = (name: string | null, choices: readonly string[]): string | null => {
+  const label = [...(name || choices.join(' · '))]
+  if (label.length === 0) return null
+  return label.length > textLimits.versionName ? `${label.slice(0, textLimits.versionName - 1).join('')}…` : label.join('')
 }
 
 const maxShopOffers = 20
@@ -302,7 +312,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
    */
   const cartItemsIn = async (tx: ScopedSql, versionIds: readonly string[]): Promise<Map<string, CartItem>> => {
     const facts = await pricingIn(tx)
-    const versions = await selectCartVersions(tx, storeId, versionIds)
+    const versions = await selectCartVersions(tx, storeId, versionIds, language)
     if (!facts || versions.length === 0) return new Map()
     const productIds = [...new Set(versions.map((v) => v.product_id))]
     const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
@@ -311,7 +321,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
         const version = product?.versions.find((x) => x.id === v.id)
-        return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
+        return product && version ? [[v.id, { product, version, versionLabel: versionLabelOf(version.name, v.choices), taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
       }),
     )
   }

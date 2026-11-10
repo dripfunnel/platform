@@ -131,7 +131,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       quantity: t.exposeInt('quantity'),
       productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? null }),
       productSlug: t.string({ nullable: true, resolve: (l) => l.item?.product.slug ?? null }),
-      versionName: t.string({ nullable: true, resolve: (l) => l.item?.version.name ?? null }),
+      versionName: t.string({ nullable: true, resolve: (l) => l.item?.versionLabel ?? null }),
       photoUrl: t.string({
         nullable: true,
         resolve: (l, _, ctx) => {
