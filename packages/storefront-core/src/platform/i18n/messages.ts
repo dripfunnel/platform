@@ -163,9 +163,13 @@ export const en = {
   'address.map.liveOnly': 'Pinning on a map works on the live shop, not on a preview.',
   'search.suggest.all': 'See all results for “{query}”',
   'search.suggest.none': 'No products match “{query}”.',
+  'customise.files': '{count, plural, one {# file} other {# files}}',
+  'customise.choiceCount': '{label} × {count}',
+  'customise.answerRow': '{question}: {answer}',
 } as const
 
-export type MessageKey = keyof typeof en
+// The customisation modal's own words come with its lazy chunk (customiseWords.ts); only their type is here.
+export type MessageKey = keyof typeof en | keyof typeof import('./customiseWords').customiseWords
 export type Catalogue = Partial<Record<MessageKey, string>>
 
 /** Catalogues by language; a store's language falls back to its base language, then English. */

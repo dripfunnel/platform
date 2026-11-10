@@ -108,6 +108,8 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       'expo-updates',
       // While using the app, and only when the shopper taps "Use my location" on an address pin.
       ['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }],
+      // Only when a product asks for a photo and the shopper adds one (#1373).
+      ['expo-image-picker', { photosPermission: messages.permissions.photos.replace('{name}', env.APP_NAME), cameraPermission: messages.permissions.camera.replace('{name}', env.APP_NAME), microphonePermission: false }],
       // Stripe's Payment Sheet: Google Pay is switched on (the sheet shows it only where the device and the account allow it); Apple Pay only for a store with a merchant identifier.
       ['@stripe/stripe-react-native', { enableGooglePay: true, ...(env.APPLE_PAY_MERCHANT_ID ? { merchantIdentifier: env.APPLE_PAY_MERCHANT_ID } : {}) }],
       'expo-notifications',

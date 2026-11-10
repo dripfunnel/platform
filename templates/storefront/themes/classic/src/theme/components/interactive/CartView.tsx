@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cx } from '../cx'
-import { CodeField, Image, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
+import { CodeField, EditAnswers, Image, LineAnswers, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
@@ -41,7 +41,7 @@ export const CartView = () => {
                   ? t('shop.cart.codes.alreadyUsed')
                   : t('shop.cart.codes.invalid')
   const problemWords = (line: CartLine) =>
-    line.problem === 'short' && line.available !== null ? t('shop.cart.problems.short', { count: line.available }) : line.problem === 'not_sold_here' ? t('shop.cart.problems.notSoldHere') : line.problem ? t('shop.cart.problems.unavailable') : null
+    line.problem === 'short' && line.available !== null ? t('shop.cart.problems.short', { count: line.available }) : line.problem === 'not_sold_here' ? t('shop.cart.problems.notSoldHere') : line.problem === 'check_answers' ? t('shop.cart.problems.checkAnswers') : line.problem ? t('shop.cart.problems.unavailable') : null
 
   if (page.status === 'loading') {
     return (
@@ -98,6 +98,8 @@ export const CartView = () => {
                   {line.lineTotal ? <Price money={line.lineTotal} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} /> : null}
                 </div>
                 {line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}
+                <LineAnswers line={line} className={styles.version} />
+                <EditAnswers line={line} className={styles.remove} />
                 {line.gift ? <p className={styles.version}>{t('shop.cart.giftFor', { name: line.gift.recipientName, email: line.gift.recipientEmail })}</p> : null}
                 {problemWords(line) ? <p className={styles.problem}>{problemWords(line)}</p> : null}
                 <div className={styles.actions}>

@@ -22,9 +22,13 @@ import { withQuantity } from './stock'
 
 type Update = (change: (draft: Draft) => Draft) => void
 
-const savedWords = (saved: SavedProduct | null, side: 'merchant' | 'supplier', isNew: boolean, name: string): string => {
+// Only the questions' charges changed (the API names them `price`, ACCESS §7.2), so the words say what was changed (CATALOG-DESIGN U15).
+const onlyExtras = (draft: Draft, before: Draft, reviewed: readonly string[]): boolean =>
+  reviewed.length === 1 && reviewed[0] === 'price' && JSON.stringify(draft.versions.map((v) => v.price)) === JSON.stringify(before.versions.map((v) => v.price)) && JSON.stringify(draft.questions) !== JSON.stringify(before.questions)
+
+const savedWords = (saved: SavedProduct | null, side: 'merchant' | 'supplier', isNew: boolean, name: string, extras: boolean): string => {
   if (side === 'supplier') {
-    if (saved?.approval === 'pending') return saved.reviewed && saved.reviewed.length > 0 ? t('products.saved.needsApproval') : t('products.saved.submitted')
+    if (saved?.approval === 'pending') return saved.reviewed && saved.reviewed.length > 0 ? t(extras ? 'products.saved.chargeNeedsApproval' : 'products.saved.needsApproval') : t('products.saved.submitted')
     return t('products.saved.live')
   }
   return isNew ? t('products.saved.added', { name }) : t('products.saved.saved')
@@ -81,7 +85,7 @@ export function useProductForm(client: ApiClient, data: EditorData, onReload: ()
       const kindFailure: SaveFailure | null = out.kindFailed
         ? { code: isApiError(out.kindFailed.error) ? out.kindFailed.error.code : null, message: t('products.kinds.partial', { reason: errorMessage(out.kindFailed.error, 'productKind') }) }
         : null
-      if (!kindFailure) feedback.toast({ message: savedWords(out.saved, access.side, isNew, draft.name.trim()) })
+      if (!kindFailure) feedback.toast({ message: savedWords(out.saved, access.side, isNew, draft.name.trim(), onlyExtras(draft, baseline, out.saved?.reviewed ?? [])) })
       refresh()
       // A new product whose kind's card failed stays here, as the product it now is, so what was typed is not lost.
       if (isNew && !(kindFailure && out.product)) {
@@ -154,5 +158,5 @@ export function useProductForm(client: ApiClient, data: EditorData, onReload: ()
     setAttempted(false)
   }
 
-  return { current, isNew, access, canEdit, canStock, readOnly, draft, update, dirty, levels, saving, failure, shown, kindShown, save, adjust, pickKind, discard, leave: (go: () => void) => setExit(() => go), leaving: exit !== null }
+  return { current, isNew, access, canEdit, canStock, readOnly, draft, update, dirty, levels, saving, failure, attempted, shown, kindShown, save, adjust, pickKind, discard, leave: (go: () => void) => setExit(() => go), leaving: exit !== null }
 }

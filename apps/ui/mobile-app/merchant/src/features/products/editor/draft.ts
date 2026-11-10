@@ -3,6 +3,7 @@ import type { ProductKindView } from '../../../api/productKinds'
 import type { StockLevel } from '../../../api/inventory'
 import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { blankDetails, detailsOf, kindOf, type KindDetails, type ProductKind } from './kindDetails'
+import { questionProblems, questionsDraftOf, questionsInputOf, type QuestionDraft } from './questions'
 
 // A product as the phone's form edits it (FIRST-RELEASE.md §11): text as typed, so a half-typed price is kept, and the versions
 // as combinations of the choices. Whatever the phone doesn't edit travels in `carried` and goes back as it came, because a save
@@ -66,6 +67,9 @@ export type Draft = {
   stock: Record<string, Record<string, string>>
   /** The size chart picked (CATALOG-DESIGN.md R6) and the one the product had when it was read, so a save sends it only if it changed. */
   sizeChart: { id: string | null; loaded: string | null }
+  /** The questions shoppers answer before buying (CATALOG-DESIGN §6 U); sent only once the product has or had some. */
+  questions: QuestionDraft[]
+  hadQuestions: boolean
   carry: ProductCarry
 }
 
@@ -100,6 +104,8 @@ export const blankDraft = (): Draft => ({
   photos: [],
   stock: {},
   sizeChart: { id: null, loaded: null },
+  questions: [],
+  hadQuestions: false,
   carry: { category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, slug: '' },
 })
 
@@ -154,6 +160,11 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
     })),
     stock: Object.fromEntries(product.versions.map((version) => [keyOf(version.choices), Object.fromEntries((levels.get(version.id) ?? []).map((level) => [level.warehouseId, String(level.onHand)]))])),
     sizeChart: { id: product.sizeChartId, loaded: product.sizeChartId },
+    questions: questionsDraftOf(product.questions ?? [], currency, (id) => {
+      const version = product.versions.find((v) => v.id === id)
+      return version ? keyOf(version.choices) : null
+    }),
+    hadQuestions: (product.questions ?? []).length > 0,
     carry: { category: product.category, warrantyText: product.warrantyText, returnsText: product.returnsText, seoTitle: product.seoTitle, seoDescription: product.seoDescription, slug: product.slug },
   }
 }
@@ -207,7 +218,7 @@ export const newVersionCount = (draft: Draft): number => {
 /** The live versions (not "We don't make this"). */
 export const liveVersions = (draft: Draft): DraftVersion[] => draft.versions.filter((version) => !version.removed)
 
-export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'stock' | 'photosBusy'
+export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'stock' | 'photosBusy' | 'questions'
 
 /** What stops a save, in the order the form shows it; the API checks it all again. A free product is asked about, not refused. */
 export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
@@ -231,7 +242,16 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (versionCountOf(draft.options) > maxVersions) problems.push('tooMany')
   if (draft.kind === 'physical' && live.some((version) => Object.values(draft.stock[keyOf(version.choices)] ?? {}).some((text) => quantityOf(text) === 'invalid'))) problems.push('stock')
   if (draft.photos.some((photo) => photo.status === 'uploading')) problems.push('photosBusy')
+  if (questionProblems(draft.questions, currency, questionVersionKeys(draft)).length > 0) problems.push('questions')
   return problems
+}
+
+/** The live versions' keys a question may be limited to, when the product has several (U10). */
+export const questionVersionKeys = (draft: Draft): string[] | null => {
+  const keys = liveVersions(draft)
+    .filter((version) => version.choices.length > 0)
+    .map((version) => keyOf(version.choices))
+  return keys.length > 1 ? keys : null
 }
 
 /** Whether saving would leave the product "Visible" with every version hidden. */
@@ -305,6 +325,8 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       if (photo.versionChoices !== null && at < 0) return []
       return [{ assetId: photo.assetId, ...(photo.alt.trim() ? { alt: photo.alt.trim() } : {}), ...(at >= 0 ? { version: at } : {}) }]
     }),
+    // Left out for a product that never had questions, so its save writes nothing about them (CATALOG-DESIGN U1).
+    ...(draft.hadQuestions || draft.questions.length > 0 ? { questions: questionsInputOf(draft.questions, currency, live.map((version) => keyOf(version.choices))) } : {}),
   }
 }
 

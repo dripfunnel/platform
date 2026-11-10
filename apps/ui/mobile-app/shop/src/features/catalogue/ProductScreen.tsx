@@ -10,6 +10,7 @@ import { WishlistHeart } from '../wishlist/WishlistHeart'
 import { Gallery } from './Gallery'
 import { OptionPicker } from './OptionPicker'
 import { ProductPrice } from './ProductPrice'
+import { CustomiseSheet } from './CustomiseSheet'
 import { ProductSections } from './ProductSections'
 import { choose, initialSelection, missingOptions, versionFor, type Selection } from './options'
 import { Button, OfflineBanner, ScreenHeader, StateMessage, Skeleton } from '../common/ui'
@@ -46,6 +47,7 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
   const [adding, setAdding] = useState(false)
   const [wishRefused, setWishRefused] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<{ kind: 'added' } | { kind: 'refused'; code: string } | null>(null)
+  const [asking, setAsking] = useState(false)
 
   const version = versionFor(product, selection)
   const missing = missingOptions(product, selection)
@@ -64,6 +66,11 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
 
   const add = async () => {
     if (!version || blocked) return
+    // A product with questions asks them first (CATALOG fact 50); one without adds as it always has.
+    if (product.questions.length > 0) {
+      setOutcome(null)
+      return setAsking(true)
+    }
     setAdding(true)
     setOutcome(null)
     try {
@@ -120,6 +127,20 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
         ) : null}
         <ProductSections product={product} versionId={version?.id ?? null} />
       </View>
+      {asking && version ? (
+        <CustomiseSheet
+          product={product}
+          versionId={version.id}
+          quantity={quantity}
+          initial={[]}
+          intent={{ kind: 'add' }}
+          onClose={() => setAsking(false)}
+          onDone={() => {
+            setAsking(false)
+            setOutcome({ kind: 'added' })
+          }}
+        />
+      ) : null}
     </ScrollView>
   )
 }
