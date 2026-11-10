@@ -45,7 +45,8 @@ beforeAll(async () => {
   ids.hidden = await version(stores.india, 'hidden', 'hidden', '100', 3)
   ids.theirs = await version(stores.other, 'theirs', 'visible', '100', 3)
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${stores.india}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)`
+    values (${stores.india}, true, 4900, true, 'Mon–Sat, 10–6', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
   // Clothing at 5% GST, prices including tax (India's default, migration 0055).
   await db.sql`update product_version set tax_class_id = (select id from tax_class where store_id = ${stores.india} and name = 'Clothing') where id = ${ids.kurta}`
 }, 60_000)

@@ -40,8 +40,9 @@ beforeAll(async () => {
   v.card = (await product('gift-card', 'gift_card', { amount: 100000, kind: { gift_card_expiry_months: 12 } })).versionId
   v.kurta = (await product('kurta', 'physical', { amount: 105000, track: true })).versionId
   await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${v.kurta}, w.id, ${store}, 5 from warehouse w where w.store_id = ${store} and w.is_default`
-  await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, currency, area_mode, saved_at, revision) values (${store}, true, 5000, false, 'INR', 'everywhere', now(), 1)`
-  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live')`
+  await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, currency, area_mode, saved_at, revision) values (${store}, true, 5000, false, 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
+  await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live') on conflict do nothing`
 }, 60_000)
 
 afterAll(async () => {

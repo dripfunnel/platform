@@ -50,8 +50,9 @@ beforeAll(async () => {
   await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
     values (${store}, ${t.partnerA}, ${plan}, 1, 'active', 'month', 'INR', 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})`
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${store}, true, 4900, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)`
-  await db.sql`insert into payment_provider_account (store_id, provider, mode, status) values (${store}, 'cod', 'live', 'live')`
+    values (${store}, true, 4900, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
+  await db.sql`insert into payment_provider_account (store_id, provider, mode, status) values (${store}, 'cod', 'live', 'live') on conflict do nothing`
   warehouses.main = (await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${store} and is_default`)[0]?.id ?? ''
   warehouses.north = (await db.sql<{ id: string }[]>`insert into warehouse (store_id, name, latitude, longitude) values (${store}, 'North', ${pins.north[0]}, ${pins.north[1]}) returning id`)[0]?.id ?? ''
   seller = (await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status, shipping_mode) values (${store}, 'Anand Textiles', 'vendor-orders-fulfil', 'active', 'to-shopper') returning id`)[0]?.id ?? ''

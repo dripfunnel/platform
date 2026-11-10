@@ -141,12 +141,13 @@ const options = async (...args: Parameters<typeof quote>) => {
 }
 
 describe('an Indian store', () => {
-  it('starts with nothing saved: Shiprocket is offered on the partner’s account, not connected, and a cart gets no option yet', async () => {
+  it('starts with a saved flat rate of 0 (migration 0394): Shiprocket is offered on the partner’s account, not connected, and a cart delivers free', async () => {
     const s = await settings('india')
-    expect(s).toMatchObject({ revision: 0, savedAt: null, currency: 'INR', freeMode: 'never', areaMode: 'everywhere', pickupAddress: '12 MI Road, Jaipur', labelSizes: ['a6', 'a4'] })
+    expect(s.savedAt).not.toBeNull()
+    expect(s).toMatchObject({ revision: 1, flatRate: true, flatAmount: '0', courierRate: false, pickup: false, currency: 'INR', freeMode: 'never', areaMode: 'everywhere', pickupAddress: '12 MI Road, Jaipur', labelSizes: ['a6', 'a4'] })
     expect(s.couriers).toEqual([{ provider: 'shiprocket', status: 'off', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestResult: null }])
     const v = await versionOf(stores.india, 400)
-    expect(await options(stores.india, { lines: [{ versionId: v, quantity: 1 }] })).toEqual({ deliverable: false, options: [] })
+    expect(await options(stores.india, { lines: [{ versionId: v, quantity: 1 }] })).toEqual({ deliverable: true, options: [['flat', 0n, 'INR', null]] })
   })
 
   it('refuses a save offering nothing, and the courier’s rate with no courier pricing orders', async () => {
@@ -157,8 +158,8 @@ describe('an Indian store', () => {
 
   it('offers a flat rate and collection in person at once, free over ₹999 from the threshold itself', async () => {
     const saved = await save('india', { flatRate: true, flatAmount: '4900', pickup: true, pickupHours: 'Mon–Sat, 10 am – 6 pm', freeMode: 'over', freeThresholdAmount: '99900' })
-    expect(saved.data?.['saveShipping']).toBe(1)
-    expect(await settings('india')).toMatchObject({ revision: 1, savedAt: now.toISOString(), flatRate: true, flatAmount: '4900', pickup: true, pickupHours: 'Mon–Sat, 10 am – 6 pm', freeThresholdAmount: '99900' })
+    expect(saved.data?.['saveShipping']).toBe(2)
+    expect(await settings('india')).toMatchObject({ revision: 2, flatRate: true, flatAmount: '4900', pickup: true, pickupHours: 'Mon–Sat, 10 am – 6 pm', freeThresholdAmount: '99900' })
     const v = await versionOf(stores.india, 400)
     expect(await options(stores.india, { lines: [{ versionId: v, quantity: 1 }], subtotal: { amount: 99899n, currency: 'INR' } })).toEqual({ deliverable: true, options: [['flat', 4900n, 'INR', null], ['pickup', 0n, 'INR', null]] })
     expect(await options(stores.india, { lines: [{ versionId: v, quantity: 1 }], subtotal: { amount: 99900n, currency: 'INR' } })).toEqual({ deliverable: true, options: [['flat', 0n, 'INR', 4900n], ['pickup', 0n, 'INR', null]] })

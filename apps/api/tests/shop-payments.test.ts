@@ -107,7 +107,8 @@ beforeAll(async () => {
   await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${mug}, ${stores.us}, 'USD', 2000)`
   await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${mug}, w.id, ${stores.us}, 5 from warehouse w where w.store_id = ${stores.us} and w.is_default`
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${stores.us}, true, 799, false, null, 'USD', 'everywhere', now(), 1)`
+    values (${stores.us}, true, 799, false, null, 'USD', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
   const person = async (storeId: string, email: string, role: string) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, 'P', 'active') returning id`
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${role}, 'active')`

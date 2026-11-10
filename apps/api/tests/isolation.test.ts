@@ -851,6 +851,7 @@ describe('the backstop itself', () => {
       'staff_store_repo',
       'stock_change',
       'store_billing_status_own_billing',
+      'store_default_checkout',
       'store_default_customer_auth',
       'store_default_market',
       'store_default_tax',
