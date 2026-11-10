@@ -184,6 +184,8 @@ export interface ShopProductQuery {
   pricingCurrency: string
   /** Units of each currency per euro, for sorting by a converted price; null where the cart's can't be converted. */
   perEuro: { pricing: string; currency: string } | null
+  /** The cart currency's rounding and minor digits, the pricing currency's, and the market's adjustment where it applies. */
+  rules: { rounding: 'none' | 'nearest' | 'ends-99'; digits: number; pricingDigits: number; adjustmentBps: number }
   collectionId: string | null
   filterValueIds: readonly string[]
   search: string | null
@@ -220,6 +222,36 @@ const shopSortOf = (tx: ScopedSql, sort: ShopSort, q: ShopProductQuery) => {
     case 'best_selling':
       return { key: tx`coalesce((select r.position from product_rank r where r.store_id = p.store_id and r.product_id = p.id), 2147483647)`, type: 'int', descending: false }
   }
+}
+
+/** A price range in the cart currency's minor units, either end open. */
+export interface ShopPriceRange {
+  min: string | null
+  max: string | null
+}
+
+/** `v`'s price as the shopper sees it, markets/pricing.ts `priceInMarket` in SQL, so a price range matches the cards. */
+const shownPrice = (tx: ScopedSql, q: ShopProductQuery) => {
+  const { rounding, digits, pricingDigits, adjustmentBps } = q.rules
+  const unit = 10 ** digits
+  const step = unit === 1 ? 100 : unit
+  const rounded = (x: ReturnType<ScopedSql>) =>
+    rounding === 'nearest' ? tx`(round(${x} / ${unit}::numeric) * ${unit})` : rounding === 'ends-99' ? tx`(case when ${x} = 0 then 0 else ${x} + mod(${step - 1} - mod(${x}, ${step}), ${step}) end)` : x
+  const converted =
+    q.perEuro && q.currency !== q.pricingCurrency
+      ? rounded(tx`round((select base.amount from version_price base where base.version_id = v.id and base.currency = ${q.pricingCurrency})::numeric * ${q.perEuro.currency}::numeric * ${10 ** digits}::numeric / (${q.perEuro.pricing}::numeric * ${10 ** pricingDigits}::numeric))`)
+      : tx`null::numeric`
+  const own = tx`coalesce((select own.amount from version_price own where own.version_id = v.id and own.currency = ${q.currency})::numeric, ${converted})`
+  return adjustmentBps === 0 ? own : rounded(tx`round(${own} * ${10_000 + adjustmentBps}::numeric / 10000)`)
+}
+
+const withinPrice = (tx: ScopedSql, q: ShopProductQuery, range: ShopPriceRange) => {
+  const price = shownPrice(tx, q)
+  return tx`exists (
+    select 1 from product_version v where v.product_id = p.id
+      and ${range.min === null ? tx`true` : tx`${price} >= ${range.min}::numeric`}
+      and ${range.max === null ? tx`true` : tx`${price} <= ${range.max}::numeric`}
+  )`
 }
 
 /** Products the market sells: not left out of it, and some of its countries allowed by the product's own rule (fact 42). */
@@ -262,8 +294,11 @@ export interface ShopProductListRow {
   sort_key: string
 }
 
-/** One page of the query's products in the sort's order; a filter's values are alternatives, filters all apply (CATALOG H4). */
-export const selectShopProducts = (tx: ScopedSql, storeId: string, q: ShopProductQuery, sort: ShopSort, window: ShopSortWindow): Promise<ShopProductListRow[]> => {
+/**
+ * One page of the query's products in the sort's order; a filter's values are alternatives, filters all apply (CATALOG H4),
+ * and a price range keeps a product with any version priced inside it.
+ */
+export const selectShopProducts = (tx: ScopedSql, storeId: string, q: ShopProductQuery, sort: ShopSort, window: ShopSortWindow, price: ShopPriceRange): Promise<ShopProductListRow[]> => {
   const order = shopSortOf(tx, sort, q)
   const backwards = window.before !== null && window.after === null
   const beyond = (key: { value: string; id: string }, forward: boolean) =>
@@ -286,6 +321,7 @@ export const selectShopProducts = (tx: ScopedSql, storeId: string, q: ShopProduc
                   )
               )`
         }
+        and ${price.min === null && price.max === null ? tx`true` : withinPrice(tx, q, price)}
     )
     select id, sort_value::text as sort_key from listed
     where ${window.after ? beyond(window.after, true) : tx`true`} and ${window.before ? beyond(window.before, false) : tx`true`}
@@ -314,6 +350,16 @@ export const selectShopFacets = (tx: ScopedSql, storeId: string, q: ShopProductQ
     order by f.position
     limit 200
   `
+
+/** The lowest and highest price shown among the query's products, before any filter choice or price range; null with none priced. */
+export const selectShopPriceBounds = async (tx: ScopedSql, storeId: string, q: ShopProductQuery): Promise<{ min: string; max: string } | null> => {
+  const [row] = await tx<{ min: string | null; max: string | null }[]>`
+    with listed as (select p.id from product p where ${matching(tx, storeId, q)})
+    select min(price)::bigint::text as min, max(price)::bigint::text as max
+    from (select ${shownPrice(tx, q)} as price from product_version v join listed l on l.id = v.product_id) prices
+  `
+  return row && row.min !== null && row.max !== null ? { min: row.min, max: row.max } : null
+}
 
 export const selectShopProductId = async (tx: ScopedSql, storeId: string, language: string, slug: string): Promise<string | null> =>
   (

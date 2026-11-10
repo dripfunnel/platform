@@ -143,6 +143,22 @@ describe('products', () => {
     expect(slugs((await list('(collection: "nowhere")')).listing)).toEqual([])
   })
 
+  it('narrows by a price range, either end open, matching any version at the price shown, and answers the listing’s bounds', async () => {
+    const bounded = async (args: string, headers: Record<string, string> = {}) => {
+      const result = await gql(`{ products${args} { nodes { slug } priceBounds { min { amount currency } max { amount currency } } } }`, headers)
+      const page = result.data?.['products'] as { nodes: { slug: string }[]; priceBounds: unknown } | undefined
+      return { slugs: page?.nodes.map((n) => n.slug), bounds: page?.priceBounds, code: result.code }
+    }
+    expect(await bounded('(minPrice: "100000")')).toEqual({ slugs: ['kurta', 'dress'], bounds: { min: { amount: '99900', currency: 'INR' }, max: { amount: '299900', currency: 'INR' } }, code: undefined })
+    expect((await bounded('(maxPrice: "100000")')).slugs).toEqual(['kurta'])
+    expect((await bounded('(minPrice: "150000", maxPrice: "200000")')).slugs).toEqual([])
+    expect((await bounded('(minPrice: "149900", maxPrice: "149900")')).slugs).toEqual(['kurta'])
+    // In dollars at 1.08 / 90 rounded up to 99: kurta's cheaper version 11.99, though unrounded it is 11.988.
+    const usd = { 'x-shop-market': ids.usa, 'x-shop-currency': 'USD' }
+    expect(await bounded('(minPrice: "1199", maxPrice: "1199")', usd)).toEqual({ slugs: ['kurta'], bounds: { min: { amount: '999', currency: 'USD' }, max: { amount: '3599', currency: 'USD' } }, code: undefined })
+    for (const bad of ['(minPrice: "abc")', '(minPrice: "-1")', '(minPrice: "200000", maxPrice: "100000")', '(maxPrice: "99999999999999999")']) expect((await bounded(bad)).code).toBe('INVALID_INPUT')
+  })
+
   it('narrows by filter choices and counts each value before the choice', async () => {
     const { listing } = await list(`(filters: ["${ids.cotton}"])`)
     expect(slugs(listing)).toEqual(['kurta'])
