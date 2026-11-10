@@ -150,7 +150,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   page loads, the listing keeps the facets it last had for the same collection or search, so a theme's filters stay on
   screen and only the products reload. 24 products a
   page, and `fetchMore` appends the next in place; `useLoadOnScroll` calls it as an element after the grid nears the screen,
-  and stops at a page that failed until the theme's retry. `priceBounds` gives a price filter its ends, kept like the facets while
+  and stops at a page that failed until the theme's retry. The starting themes load on scroll only, with no "Load more" button;
+  keyboard users scroll with the arrow keys, Page Down or Space (decided 2026-11-10, Kshitij, #1385). `priceBounds` gives a price filter its ends, kept like the facets while
   a new choice loads, and `<PriceRange>` (`ui/headless`) draws it. Search, a missing collection and a missing product are `noindex`.
 - **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
   before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
