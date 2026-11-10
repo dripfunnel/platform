@@ -161,7 +161,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   (`ui/headless`) draws a "Size chart" link and, once chosen, the table in a modal `<dialog>` (`showModal()`: top layer, focus
   trapped, Escape closes, focus returns to the link, a click on the backdrop closes). Core draws and styles the `<dialog>` since a
   theme may write none and style no `::backdrop` (§3.4): the theme gives only the link a `className`, and the modal takes its look
-  from the shared `--df-sealed-font`, `-color`, `-muted`, `-surface` and `-radius` the theme already sets. Its code and styles are
+  from the shared `--df-sealed-font`, `-color`, `-muted`, `-surface`, `-radius` and `-backdrop` the theme already sets. Its code and styles are
   in their own chunk, fetched on the first click (`import()`, as `<PriceRange>`), so no page pays for it in its budget (§9); only
   the link is in built HTML. Its words are core's (`sizeChart.*`); the unit shows as "Measurements are in centimetres/inches" and
   nothing for another value. The starting themes place it under the options. Not built:

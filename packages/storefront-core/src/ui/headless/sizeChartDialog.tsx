@@ -11,7 +11,7 @@ import type { SizeChart as Chart } from '../../products/product'
 const d = 'dialog[data-df-size-chart]'
 const css = `${d}{box-sizing:border-box;width:calc(100% - 32px);max-width:560px;max-height:calc(100% - 48px);margin:auto;padding:22px;border:0;border-radius:calc(var(--df-sealed-radius,8px) * 2);background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);font-family:var(--df-sealed-font,inherit)}
 ${d}[open]{display:flex;flex-direction:column;gap:14px}
-${d}::backdrop{background:rgb(0 0 0 / 45%)}
+${d}::backdrop{background:var(--df-sealed-backdrop,rgba(0,0,0,.45))}
 ${d} [data-head]{display:flex;align-items:center;justify-content:space-between;gap:12px}
 ${d} h2{margin:0;font-size:22px;line-height:1.15}
 ${d} button{min-height:44px;padding:0 16px;border:1px solid currentColor;border-radius:var(--df-sealed-radius,8px);background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
