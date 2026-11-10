@@ -1,15 +1,15 @@
 import { Link, useStorefront, type Listing } from '@dripfunnel/storefront-core/theme'
-import { FilterPanel, ListingBar, LoadMore } from './interactive/Filters'
+import { FilterPanel, ListingBar, MoreOnScroll } from './interactive/Filters'
 import { Retry } from './interactive/Retry'
 import { Notice } from './Notice'
 import { GridPlaceholder, ProductGrid } from './ProductCard'
 import { shop as styles } from './styles/shop'
 
-/** A collection's or a search's products: filters, sort, the grid and its states, and "Load more". */
+/** A collection's or a search's products: filters, sort, the grid and its states, and more loading on scroll. */
 export const ListingResults = ({ listing }: { listing: Listing }) => {
   const { t } = useStorefront()
   return (
-    <div className={listing.facets.length ? styles.listingFiltered : styles.listing}>
+    <div className={listing.facets.length || listing.priceBounds ? styles.listingFiltered : styles.listing}>
       <FilterPanel listing={listing} />
       <div className={styles.results}>
         {listing.status === 'ready' ? (
@@ -35,7 +35,7 @@ export const ListingResults = ({ listing }: { listing: Listing }) => {
           )
         ) : null}
         {listing.status === 'ready' ? <ProductGrid products={listing.items} /> : null}
-        <LoadMore listing={listing} />
+        <MoreOnScroll listing={listing} />
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import type { Money } from '#core/money'
 import type { Page } from '#core/paging'
 import type { ProductRequest, ShopChoice, ShopExtraPrice, ShopFacetRow, ShopKindView, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopQuestion, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
 import { shopOf, type ShopContext } from './access'
@@ -67,12 +68,17 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
   const Facet = builder.objectRef<ShopFacetRow>('ShopFacet').implement({
     fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), values: t.field({ type: [FacetValue], resolve: (f) => f.values }) }),
   })
+  const PriceBounds = builder.objectRef<{ min: Money; max: Money }>('ShopPriceBounds').implement({
+    fields: (t) => ({ min: t.field({ type: MoneyType, resolve: (b) => b.min }), max: t.field({ type: MoneyType, resolve: (b) => b.max }) }),
+  })
   const ProductPage = builder.objectRef<Page<ShopProductView> & { request: ProductRequest }>('ShopProductPage').implement({
     fields: (t) => ({
       nodes: t.field({ type: [Summary], resolve: (p) => p.nodes }),
       pageInfo: t.field({ type: pageInfo, resolve: (p) => p.pageInfo }),
       // Counted before the filter choices narrow the list, so every value can be chosen (CATALOG H).
       facets: t.field({ type: [Facet], resolve: (p, _, ctx) => catalogOf(ctx).facets(p.request) }),
+      // Like the facets, before the filter choices and the price range; null when nothing listed has a price here.
+      priceBounds: t.field({ type: PriceBounds, nullable: true, resolve: (p, _, ctx) => catalogOf(ctx).priceBounds(p.request) }),
     }),
   })
   const OptionValue = builder.objectRef<{ id: string; name: string }>('ShopOptionValue').implement({ fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }) })
@@ -266,10 +272,10 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
   builder.queryFields((t) => ({
     products: t.field({
       type: ProductPage,
-      args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string(), collection: t.arg.string(), filters: t.arg.idList(), search: t.arg.string(), sort: t.arg({ type: SortType }) },
+      args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string(), collection: t.arg.string(), filters: t.arg.idList(), search: t.arg.string(), sort: t.arg({ type: SortType }), minPrice: t.arg.string(), maxPrice: t.arg.string() },
       extensions: { access },
       resolve: (_, args, ctx) =>
-        listed(ctx, { first: args.first, after: args.after, before: args.before, collection: args.collection, filters: args.filters?.map(String), search: args.search, sort: args.sort ? sorts[args.sort] : null }),
+        listed(ctx, { first: args.first, after: args.after, before: args.before, collection: args.collection, filters: args.filters?.map(String), search: args.search, sort: args.sort ? sorts[args.sort] : null, minPrice: args.minPrice, maxPrice: args.maxPrice }),
     }),
     // The storefront's search box: products matching the words, in the shopper's language or the main one.
     search: t.field({

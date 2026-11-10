@@ -59,7 +59,7 @@ type Query {
   orderHistory(after: String, first: Int): ShopOrderSummaryPage
   paymentOptions: [ShopPaymentOption!]
   product(slug: String!): ShopProduct
-  products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
+  products(after: String, before: String, collection: String, filters: [ID!], first: Int, maxPrice: String, minPrice: String, search: String, sort: ShopProductSort): ShopProductPage
   search(after: String, before: String, first: Int, query: String!): ShopProductPage
   shopAsset(id: ID!): Image
   signInOptions: ShopSignInOptions
@@ -615,6 +615,11 @@ type ShopPlacedOrder {
   total: ShopMoney
 }
 
+type ShopPriceBounds {
+  max: ShopMoney
+  min: ShopMoney
+}
+
 type ShopProduct {
   badges: [ShopBadge!]
   compareAt: ShopMoney
@@ -655,6 +660,7 @@ type ShopProductPage {
   facets: [ShopFacet!]
   nodes: [ShopProductSummary!]
   pageInfo: PageInfo
+  priceBounds: ShopPriceBounds
 }
 
 enum ShopProductSort {
