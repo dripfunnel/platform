@@ -54,7 +54,7 @@ beforeAll(async () => {
   const surat = await product(stores.surat, 'gift-card', 'gift_card', 100000)
   ids.suratCard = surat.productId
   ids.suratAmount = surat.versionId
-  await db.sql`insert into payment_provider_account (store_id, provider, status, bank_details) values (${stores.kesari}, 'bank_transfer', 'live', 'HDFC 1'), (${stores.kesari}, 'cod', 'live', null)`
+  await db.sql`insert into payment_provider_account (store_id, provider, status, bank_details) values (${stores.kesari}, 'bank_transfer', 'live', 'HDFC 1'), (${stores.kesari}, 'cod', 'live', null) on conflict do nothing`
   await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1First}`
   const person = async (storeId: string, email: string, role: string, sellerId: string | null = null) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, 'P', 'active') returning id`

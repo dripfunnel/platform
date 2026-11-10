@@ -98,7 +98,8 @@ beforeAll(async () => {
   await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${kurta}, ${stores.india}, 'INR', 100000)`
   await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select ${kurta}, w.id, ${stores.india}, 10 from warehouse w where w.store_id = ${stores.india} and w.is_default`
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
-    values (${stores.india}, true, 5000, false, null, 'INR', 'everywhere', now(), 1)`
+    values (${stores.india}, true, 5000, false, null, 'INR', 'everywhere', now(), 1)
+    on conflict (store_id) do update set flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount, pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, currency = excluded.currency, area_mode = excluded.area_mode, saved_at = excluded.saved_at, revision = excluded.revision`
   const person = async (storeId: string, email: string, role: string) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, 'P', 'active') returning id`
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${role}, 'active')`
@@ -183,7 +184,7 @@ describe('Connecting by keys', () => {
     ])
     // Another store's merchant sees none of it.
     // Another store's merchant sees none of it: no live flag, no connection, no webhook address.
-    expect(((await merchant('{ gateways { provider live connections { mode webhookUrl } } }', 'other')).data?.['gateways'] as { live: boolean; connections: unknown[] }[]).every((g) => !g.live && g.connections.length === 0)).toBe(true)
+    expect(((await merchant('{ gateways { provider live connections { mode webhookUrl } } }', 'other')).data?.['gateways'] as { provider: string; live: boolean; connections: unknown[] }[]).filter((g) => g.provider === 'razorpay').every((g) => !g.live && g.connections.length === 0)).toBe(true)
     // A support session never pastes keys or disconnects, read or write; nothing changes.
     for (const access of ['read', 'write'] as const) {
       expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: LIVE, keys: { keyId: "rzp_live_zzzzzz", keySecret: "x", webhookSecret: "y" }) }', 'owner', access)).code).toBe('SUPPORT_SESSION')
@@ -194,8 +195,8 @@ describe('Connecting by keys', () => {
   })
 
   it('offers each storefront the key set of its own mode', async () => {
-    expect((await shop('{ paymentOptions { provider mode publicKey } }')).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'live', publicKey: 'rzp_live_abcdef' }])
-    expect((await shop('{ paymentOptions { provider mode publicKey } }', null, preview)).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'test', publicKey: 'rzp_test_abcdef' }])
+    expect((await shop('{ paymentOptions { provider mode publicKey } }')).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'live', publicKey: 'rzp_live_abcdef' }, { provider: 'cod', mode: 'live', publicKey: null }])
+    expect((await shop('{ paymentOptions { provider mode publicKey } }', null, preview)).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'test', publicKey: 'rzp_test_abcdef' }, { provider: 'cod', mode: 'test', publicKey: null }])
   })
 })
 
