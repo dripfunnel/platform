@@ -38,7 +38,7 @@ const none = { instagram: null, facebook: null, x: null, youtube: null, tiktok: 
 const brand: StorefrontBrand = { brandReady: true, shopName: 'Kesari Threads', logoAssetId: 'a-logo', faviconAssetId: null, primaryColour: null, secondaryColour: null, tagline: null, description: null, social: none, contactEmail: 'hello@kesari.in', contactPhone: null, contactAddress: null, voice: null }
 const seo: StorefrontSeo = { title: 'Kesari Threads', description: null, shareImageAssetId: null }
 const domains: StorefrontDomains = { customDomainAllowed: true, domains: [{ id: null, host: 'kesari.shops.example.com', kind: 'free', status: 'live', primary: true, checkedAt: null, records: [] }] }
-const overview: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: null, lastPublish: null }
+const overview: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: null, lastPublish: null, publishing: null }
 
 const account = (over: Partial<StoreAiAccount> = {}): StoreAiAccount => ({ provider: 'anthropic', keyPrefix: 'sk-ant-api03-Qx', status: 'ok', lastTestedAt: '2026-10-11T10:44:00Z', useWhenPlanUsed: false, connectedBy: 'Farhan Ali', authType: 'api_key', accountLabel: null, ...over })
 const signedIn = (over: Partial<StoreAiAccount> = {}) => account({ provider: 'openai', keyPrefix: '', authType: 'oauth', accountLabel: 'ada@example.com', ...over })

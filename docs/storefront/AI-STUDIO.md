@@ -285,7 +285,8 @@ before, and reads the result when `askDesign` answers.
    `storefront.repo_push_taken`. "Publish everything before" takes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
-   workflow fetches through a 15-minute link. Nothing is pushed yet.
+   workflow fetches through a 15-minute link. Nothing is pushed yet. Step 2 ends before Publish answers, so the run is
+   then its own job: leaving or closing the studio never stops it, and the portal follows it (`storefront.publishing`, #1229).
 4. **Once the new build is live**, the published tree is pushed to the repo's `main` as **one
    squashed commit with a platform-written message** ("Publish version 12", with the build id)
    through the GitHub App (LIVE-SHOP §4 step 9). No merchant text, no per-change commit and no

@@ -5,6 +5,7 @@ import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { LiveFrame, liveDevices, type LiveDevice } from './LiveFrame'
 import { canFrameLive, discardRefusal, rolledBackNotice } from './overviewView'
+import { FirstPublish } from './FirstPublish'
 import { PublishNowBar } from './PublishNowBar'
 import type { StorefrontApi } from './storefrontApi'
 
@@ -84,6 +85,7 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
         </p>
       )}
       {overview.live && catalogue && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
+      {!overview.live && <FirstPublish api={api} run={run} onRun={onRun} onDone={onPublished} />}
       {overview.status === 'unpublished_changes' && (
         <div className="df-sf-draft">
           <p>

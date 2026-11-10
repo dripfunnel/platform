@@ -1,7 +1,7 @@
 import type { ActivityEntry } from '#auth/activity'
 import { selectMessage } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { lockStorefront, monthStart, pressesInFlight, selectCatalogueState, selectDraftCommits, selectLastPublish, selectPublishRun, selectVersionByNumber, type LastPublishRow, type PublishRunView } from '#db/scoped/publishing'
+import { lockStorefront, monthStart, pressesInFlight, selectCatalogueState, selectDraftCommits, selectLastPublish, selectPublishRun, selectRunningPublish, selectVersionByNumber, type LastPublishRow, type PublishRunView } from '#db/scoped/publishing'
 import { selectDesignUsage, selectRecentRuns, type RecentRequestRow } from '#db/scoped/design'
 import { usedThisPeriod } from '#db/scoped/storeAccount'
 import { UNLIMITED } from '#db/scoped/planKeys'
@@ -107,6 +107,9 @@ export const createPublishingService = (deps: DesignerDeps) => {
   /** The Overview's rolled-back notice (FIRST-RELEASE §14): the newest finished publish of the design or the catalogue. */
   const lastPublish = (): Promise<LastPublishRow | null> => withScope(sql, context, (tx) => selectLastPublish(tx, storeId))
 
+  /** The design or "Publish now" run still under way, if any: its id, for `publishRun`. */
+  const runningPublish = (): Promise<string | null> => withScope(sql, context, (tx) => selectRunningPublish(tx, storeId))
+
   /**
    * "Go back to this" (SAAS §9.2; AI-STUDIO §5): the pointer moves to the version's kept build, using no build minutes,
    * and the draft is reset to it, all in the studio's turn so no change lands in between.
@@ -177,6 +180,6 @@ export const createPublishingService = (deps: DesignerDeps) => {
     })
   }
 
-  return { publishDesign, publishEverythingBefore, publishRun, lastPublish, goBackTo, publishNow, catalogue, usage }
+  return { publishDesign, publishEverythingBefore, publishRun, lastPublish, runningPublish, goBackTo, publishNow, catalogue, usage }
 }
 

@@ -54,9 +54,9 @@ const live: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free
 
 // A build from before #680, whose pages refuse every frame.
 const live12 = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }
-const sameAsLive: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: live12, draft: null, lastPublish: null }
-const withDraft: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: live12, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null }
-const notStarted: StorefrontOverview = { status: 'not_started', template: null, live: null, draft: null, lastPublish: null }
+const sameAsLive: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: live12, draft: null, lastPublish: null, publishing: null }
+const withDraft: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: live12, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null, publishing: null }
+const notStarted: StorefrontOverview = { status: 'not_started', template: null, live: null, draft: null, lastPublish: null, publishing: null }
 const template = (key: string, name: string, current = false): StorefrontTemplate => ({ key, name, tag: 'Tag', description: `${name} look`, demoUrl: `https://${key}.demo.example.com`, current })
 const templates = [template('baseline', 'Start from scratch'), template('linen', 'Linen', true), template('bloom', 'Bloom'), { ...template('market', 'Market'), demoUrl: 'http://market.demo.example.com' }]
 
@@ -271,11 +271,47 @@ describe('the overview', () => {
   })
 
   it('says "Not published yet" before the first publish, with nothing to view', async () => {
-    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: { template: 'linen', changedAt: null, previewReady: false }, lastPublish: null })
+    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: { template: 'linen', changedAt: null, previewReady: false }, lastPublish: null, publishing: null })
     await show()
     expect(screen.getByText(o.notLive)).toBeTruthy()
     expect(screen.queryByRole('link', { name: o.viewLive })).toBeNull()
     expect(screen.getByRole('heading', { name: o.notPublishedTitle })).toBeTruthy()
+  })
+
+  describe('a first publish followed outside the studio (#1229)', () => {
+    const sp = words.studio.publish
+    const firstRun = { status: 'not_published' as const, template: 'linen', live: null, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null, publishing: 'r1' }
+    const step = (s: 'checking' | 'live' | 'failed', checks: { name: string; passed: boolean; words: string | null }[] = []) => ({ id: 'r1', step: s, version: s === 'live' ? 1 : null, repairAttempts: 0, checks, bisectMessageId: null })
+
+    it('shows the studio’s steps, then "Version 1 is live"', async () => {
+      api.loadOverview.mockResolvedValueOnce(firstRun).mockResolvedValue({ ...sameAsLive, live: { ...live12, number: 1 } })
+      studio.loadPublishRun.mockResolvedValueOnce(step('checking')).mockResolvedValue(step('live'))
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      await show()
+      expect(screen.getByText(sp.steps.checking)).toBeTruthy()
+      await act(async () => void vi.advanceTimersByTime(2_000))
+      await settle()
+      expect(screen.getByText(fill(sp.live, { number: '1' }))).toBeTruthy()
+      expect(screen.queryByText(sp.steps.checking)).toBeNull()
+      vi.useRealTimers()
+    })
+
+    it('says why a refused first publish wasn’t published', async () => {
+      api.loadOverview.mockResolvedValueOnce(firstRun).mockResolvedValue({ ...firstRun, publishing: null })
+      studio.loadPublishRun.mockResolvedValue(step('failed', [{ name: 'home', passed: false, words: 'Your home page didn’t load.' }]))
+      await show()
+      expect(screen.getByRole('alert').textContent).toContain(fill(sp.refusedTitle, { number: '1' }))
+      expect(screen.getByRole('alert').textContent).toContain('Your home page didn’t load.')
+    })
+
+    it('keeps following one under way when "← Storefront" leaves the studio', async () => {
+      api.loadOverview.mockResolvedValue(firstRun)
+      studio.loadPublishRun.mockResolvedValue(step('checking'))
+      await show({ entry: '/storefront?view=studio&run=r1' })
+      fireEvent.click(screen.getByRole('button', { name: words.studio.back }))
+      await settle()
+      expect(screen.getByText(sp.steps.checking)).toBeTruthy()
+    })
   })
 
   it('discards unpublished changes only after asking, and reads the design again', async () => {
@@ -330,7 +366,7 @@ describe('the overview', () => {
   })
 
   it('shows a Manager "No storefront yet" before anything is live', async () => {
-    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null, lastPublish: null })
+    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null, lastPublish: null, publishing: null })
     await show({ acting: manager })
     expect(screen.getByRole('heading', { name: words.design.noSiteTitle })).toBeTruthy()
     expect(screen.queryByRole('link', { name: o.viewLive })).toBeNull()
@@ -362,14 +398,14 @@ describe('the overview', () => {
   })
 
   it('reads a site being made again until it is ready', async () => {
-    api.loadOverview.mockResolvedValueOnce({ status: 'creating', template: 'linen', live: null, draft: null, lastPublish: null }).mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null, lastPublish: null })
+    api.loadOverview.mockResolvedValueOnce({ status: 'creating', template: 'linen', live: null, draft: null, lastPublish: null, publishing: null }).mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null, lastPublish: null, publishing: null })
     await show()
     expect(api.loadOverview.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(screen.getByRole('heading', { name: o.notPublishedTitle })).toBeTruthy()
   })
 
   it('shows "Setting up your storefront…" while it is made', async () => {
-    api.loadOverview.mockResolvedValue({ status: 'creating', template: 'linen', live: null, draft: null, lastPublish: null })
+    api.loadOverview.mockResolvedValue({ status: 'creating', template: 'linen', live: null, draft: null, lastPublish: null, publishing: null })
     await show()
     expect(screen.getByRole('heading', { name: o.creatingTitle })).toBeTruthy()
     expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
@@ -490,7 +526,7 @@ describe('the overview’s rolled-back notice', () => {
 
 describe('the template gallery', () => {
   it('comes first for the Owner and starts the site with the template picked, without asking about words', async () => {
-    api.loadOverview.mockResolvedValueOnce(notStarted).mockResolvedValue({ status: 'creating', template: 'bloom', live: null, draft: null, lastPublish: null })
+    api.loadOverview.mockResolvedValueOnce(notStarted).mockResolvedValue({ status: 'creating', template: 'bloom', live: null, draft: null, lastPublish: null, publishing: null })
     api.chooseTemplate.mockResolvedValue('creating')
     await show()
     expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
@@ -578,7 +614,7 @@ describe('the template gallery', () => {
   })
 
   it('offers the templates again when the site couldn’t be made', async () => {
-    api.loadOverview.mockResolvedValue({ status: 'create_failed', template: 'linen', live: null, draft: null, lastPublish: null })
+    api.loadOverview.mockResolvedValue({ status: 'create_failed', template: 'linen', live: null, draft: null, lastPublish: null, publishing: null })
     await show()
     expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
     expect(screen.getByRole('alert').textContent).toBe(g.failed)
@@ -698,6 +734,30 @@ describe('the Publish now bar', () => {
     await settle()
     expect(studio.loadPublishRun).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('alert').textContent).toBe(pn.lost)
+  })
+
+  it('keeps following a press after changing tab, though the address no longer holds it', async () => {
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    api.publishNow.mockResolvedValue('r1')
+    studio.loadPublishRun.mockResolvedValue({ id: 'r1', step: 'checking', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pn.button }))
+    await settle()
+    fireEvent.click(screen.getByRole('tab', { name: words.tabs.journal }))
+    await settle()
+    fireEvent.click(screen.getByRole('tab', { name: words.tabs.design }))
+    await settle()
+    expect(screen.getByText(pn.working)).toBeTruthy()
+    expect(api.loadOverview).toHaveBeenCalledTimes(1)
+  })
+
+  it('follows a publish already under way when the page opens', async () => {
+    api.loadOverview.mockResolvedValue({ ...sameAsLive, publishing: 'r1' })
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    studio.loadPublishRun.mockResolvedValue({ id: 'r1', step: 'checking', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null })
+    await show()
+    expect(screen.getByText(pn.working)).toBeTruthy()
+    expect(studio.loadPublishRun).toHaveBeenCalledWith('r1')
   })
 
   it('isn’t there while nothing waits', async () => {
