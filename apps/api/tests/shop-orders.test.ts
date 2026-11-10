@@ -310,4 +310,13 @@ describe('a placed line’s version (#1347)', () => {
     const placed = (await place(await readyCart(1, medium ?? ''), 'cod')).data?.['placeOrder'] as { orderId: string }
     expect(await db.sql`select version_name from order_line where order_id = ${placed.orderId}`).toEqual([{ version_name: 'Size: M' }])
   })
+
+  it('cuts choices longer than an order line holds, and still places the order', async () => {
+    const long = (word: string) => word.padEnd(60, 'x')
+    const [version] = await productWithChoices(db.sql, stores.india, 'Long shirt', [long('Size'), long('Colour'), long('Fit')], [{ choices: [long('M'), long('Red'), long('Slim')] }])
+    const placed = (await place(await readyCart(1, version ?? ''), 'cod')).data?.['placeOrder'] as { orderId: string } | null
+    const [line] = await db.sql<{ version_name: string }[]>`select version_name from order_line where order_id = ${placed?.orderId ?? ''}`
+    expect([...(line?.version_name ?? '')]).toHaveLength(255)
+    expect(line?.version_name).toMatch(new RegExp(`^${long('Size')}: ${long('M')} · .*…$`))
+  })
 })
