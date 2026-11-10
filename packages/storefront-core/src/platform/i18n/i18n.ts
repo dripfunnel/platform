@@ -1,4 +1,5 @@
-import { catalogues, en, laterWords, type Catalogue, type MessageKey } from './messages'
+import { laterWords } from './later'
+import { catalogues, en, type Catalogue, type MessageKey } from './messages'
 
 // A theme's own keys (`home.hero.title`) are checked against content/** by the validator, so any string is accepted.
 export type Translate = (key: MessageKey | (string & Record<never, never>), values?: Record<string, string | number>) => string

@@ -168,12 +168,9 @@ export const en = {
   'customise.answerRow': '{question}: {answer}',
 } as const
 
-// The customisation modal's own words come with its lazy chunk (sealed/customiseWords.ts); only their type is here.
-export type MessageKey = keyof typeof en | keyof typeof import('../../sealed/customiseWords').customiseWords
+// The customisation modal's own words come with its lazy chunk (customiseWords.ts); only their type is here.
+export type MessageKey = keyof typeof en | keyof typeof import('./customiseWords').customiseWords
 export type Catalogue = Partial<Record<MessageKey, string>>
-
-/** English for words a lazily loaded part brings with it, added when that part loads. */
-export const laterWords: Partial<Record<MessageKey, string>> = {}
 
 /** Catalogues by language; a store's language falls back to its base language, then English. */
 export const catalogues: Record<string, Catalogue> = { en }
