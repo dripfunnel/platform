@@ -22,7 +22,8 @@ const formatter = (locale: string, currency: string) => {
   return f
 }
 
-const fractionDigits = (currency: string): number => formatter('en', currency).resolvedOptions().maximumFractionDigits ?? 2
+/** A currency's minor digits as Intl knows them: INR 2, JPY 0. */
+export const fractionDigits = (currency: string): number => formatter('en', currency).resolvedOptions().maximumFractionDigits ?? 2
 
 /** The amount as a major-unit decimal string ("19.99", JPY "1200"), exact past 2^53 minor units. */
 export const toDecimal = ({ amount, currency }: Money): string => {

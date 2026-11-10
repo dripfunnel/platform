@@ -5,7 +5,7 @@ import { later, Provided, shopAnswering, type Asked } from '../../test/shop'
 import { navigate } from '../platform/browser/router'
 import { useCollection } from '../collections/collections'
 import { useSearch } from '../search/search'
-import { listingState, pageSize, useProducts } from './listing'
+import { listingState, pageSize, useLoadOnScroll, useProducts } from './listing'
 
 afterEach(() => {
   cleanup()
@@ -34,6 +34,9 @@ const Collection = () => {
       <p data-testid="facets">{c.facets.flatMap((f) => f.values.map((v) => `${v.name}:${v.selected ? 'on' : 'off'}`)).join()}</p>
       <button type="button" onClick={() => c.toggle('linen')}>linen</button>
       <button type="button" onClick={() => c.setSort('price-low')}>cheap</button>
+      <button type="button" onClick={() => c.setPriceRange({ min: '500', max: null })}>over5</button>
+      <button type="button" onClick={c.clear}>clear</button>
+      <p data-testid="bounds">{c.priceBounds ? `${c.priceBounds.min.amount}-${c.priceBounds.max.amount}` : 'none'}</p>
       <button type="button" onClick={c.fetchMore} disabled={!c.hasMore}>
         more
       </button>
@@ -54,7 +57,7 @@ describe('useCollection', () => {
     await screen.findByText('Linen')
     await screen.findByText(/Shirt 1/)
     const listing = asked.find((a) => a.query.startsWith('query Listing'))
-    expect(listing?.variables).toEqual({ collection: 'linen', search: null, filters: ['cotton'], sort: 'PRICE_HIGH', first: pageSize, after: 'c9', before: null })
+    expect(listing?.variables).toEqual({ collection: 'linen', search: null, filters: ['cotton'], sort: 'PRICE_HIGH', first: pageSize, after: 'c9', before: null, minPrice: null, maxPrice: null })
     expect(screen.getByText(/Shirt 1/).textContent).toContain('from in New')
     expect(screen.getByText(/Shirt 2/).textContent).toContain('out')
     expect(screen.getByTestId('chips').textContent).toBe('Cotton')
@@ -75,6 +78,19 @@ describe('useCollection', () => {
     await waitFor(() => expect(asked.filter((a) => a.query.startsWith('query Listing')).at(-1)?.variables).toMatchObject({ filters: ['linen'], sort: 'PRICE_LOW', after: null }))
     act(() => history.back())
     await waitFor(() => expect(location.search).toBe('?filter=linen'))
+  })
+
+  it('puts a price range in the address, asks the Shop API for it, shows the bounds, and clear drops it with the filters', async () => {
+    history.replaceState(null, '', '/collections/linen/?filter=linen&after=c9')
+    const bounded = () => ({ data: { products: { ...page([1], null).data.products, priceBounds: { min: { amount: '1000', currency: 'USD' }, max: { amount: '9000', currency: 'USD' } } } } })
+    const asked = shopAnswering(collectionAnswer(bounded))
+    render(<Provided><Collection /></Provided>)
+    await waitFor(() => expect(screen.getByTestId('bounds').textContent).toBe('1000-9000'))
+    act(() => screen.getByText('over5').click())
+    expect(location.search).toBe('?filter=linen&price=500--USD')
+    await waitFor(() => expect(asked.filter((a) => a.query.startsWith('query Listing')).at(-1)?.variables).toMatchObject({ minPrice: '500', maxPrice: null, after: null }))
+    act(() => screen.getByText('clear').click())
+    expect(location.search).toBe('')
   })
 
   it('keeps the filters while the next filter loads', async () => {
@@ -113,7 +129,7 @@ describe('useCollection', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
     expect(screen.getByText('more').hasAttribute('disabled')).toBe(true)
     expect(location.search).toBe('')
-    expect(asked.filter((a) => a.query.startsWith('query Listing'))).toHaveLength(2)
+    expect(asked.filter((a) => a.query.startsWith('query Listing')).map((a) => a.variables['withFacets'])).toEqual([undefined, false])
   })
 
   it('drops a late answer to an earlier filter', async () => {
@@ -179,10 +195,49 @@ describe('useSearch', () => {
   })
 })
 
+describe('useLoadOnScroll', () => {
+  const Scrolled = ({ listing }: { listing: Parameters<typeof useLoadOnScroll>[0] }) => <div ref={useLoadOnScroll(listing)} />
+  const observing = () => {
+    const seen: ((entries: { isIntersecting: boolean }[]) => void)[] = []
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+        seen.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+    })
+    return (isIntersecting: boolean) => act(() => seen.forEach((c) => c([{ isIntersecting }])))
+  }
+
+  it('loads the next page as its element nears the screen, and not while one loads, after a failure or at the end', () => {
+    const near = observing()
+    const fetchMore = vi.fn()
+    const base = { fetchMore, hasMore: true, loadingMore: false, moreFailed: false }
+    const { rerender } = render(<Scrolled listing={base} />)
+    expect(fetchMore).not.toHaveBeenCalled()
+    near(true)
+    expect(fetchMore).toHaveBeenCalledTimes(1)
+    rerender(<Scrolled listing={{ ...base, loadingMore: true }} />)
+    rerender(<Scrolled listing={{ ...base, moreFailed: true }} />)
+    rerender(<Scrolled listing={{ ...base, hasMore: false }} />)
+    expect(fetchMore).toHaveBeenCalledTimes(1)
+    rerender(<Scrolled listing={base} />)
+    expect(fetchMore).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('listingState', () => {
   it('keeps only well-formed filters, a known sort and one cursor', () => {
-    const state = listingState(new URLSearchParams('filter=b&filter=a&filter=a&filter=<x>&sort=cheapest&after=c1&before=c0'))
-    expect(state).toEqual({ filters: ['a', 'b'], sort: 'featured', after: 'c1', before: null })
+    const state = listingState(new URLSearchParams('filter=b&filter=a&filter=a&filter=<x>&sort=cheapest&after=c1&before=c0'), 'INR')
+    expect(state).toEqual({ filters: ['a', 'b'], sort: 'featured', after: 'c1', before: null, price: { min: null, max: null } })
+  })
+
+  it('reads a price range in the shopper’s currency, either end open, and drops a malformed, reversed or other-currency one', () => {
+    const price = (value: string) => listingState(new URLSearchParams({ price: value }), 'INR').price
+    expect(price('50000-100000-INR')).toEqual({ min: '50000', max: '100000' })
+    expect(price('50000--INR')).toEqual({ min: '50000', max: null })
+    expect(price('-100000-INR')).toEqual({ min: null, max: '100000' })
+    for (const bad of ['50000-100000-USD', '50000-100000', '100000-50000-INR', '5.5-9-INR', '1-2-INR-x']) expect(price(bad)).toEqual({ min: null, max: null })
   })
 })
 

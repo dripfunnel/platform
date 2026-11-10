@@ -32,7 +32,7 @@ export const recordedQueries = {
   Product: `query Product($slug: String!) { product(slug: $slug) { ${product} } }`,
   Store: 'query Store { store { marketId markets { id countries } } }',
   Collections: `query Collections($first: Int, $after: String) { collections(first: $first, after: $after) { nodes { ${collection} } pageInfo { endCursor hasNextPage } } }`,
-  Listing: `query Listing($collection: String, $sort: ShopProductSort, $first: Int, $after: String) { products(collection: $collection, sort: $sort, first: $first, after: $after) { nodes { ${summary} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } } }`,
+  Listing: `query Listing($collection: String, $sort: ShopProductSort, $first: Int, $after: String) { products(collection: $collection, sort: $sort, first: $first, after: $after) { nodes { ${summary} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } priceBounds { min { ${money} } max { ${money} } } } }`,
   Slugs: 'query Slugs($after: String) { products(sort: NEWEST, first: 50, after: $after) { nodes { slug } pageInfo { endCursor hasNextPage } } }',
   Menu: 'query Menu { menu { id label kind collectionSlug url children { id label kind collectionSlug url } } }',
   Offers: 'query Offers { offers { id name description endsAt appliesTo products collections } }',
