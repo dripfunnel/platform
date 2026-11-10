@@ -1349,6 +1349,13 @@ decides whether to tighten them)*:
 publish.** Timing budgets vary run to run: they are measured three times at publish and the
 median counts.
 
+**The page weight exception (decided 2026-11-10, Kshitij Raj, on #1395).** The page weight budget is 1,200 KB, not 1 MB,
+as a deliberate, temporary exception to the rule that a gate is never loosened to let a change through (AGENTS.md
+"Storefronts"). Baseline's pages reached 1,027 KB after the price filter (#1385) and the customisation modal (#1384),
+which blocked every deploy of `dev`. Most of every page's weight is code core never uses (zod's locales and
+JSON-schema code, 452,889 bytes), measured on #1396. **#1396 (Gaurav Kunal) brings pages back under 1 MB and reverts
+the budget to 1,024 KB**; until then, a store's pages up to 1,200 KB pass at publish. No other budget is loosened.
+
 *Decided on #483:* the publish gate's JavaScript budget counts the theme's own chunks, as the fast gate does, and
 reports core's runtime beside it (about 170 KB gzipped today, so counting it would refuse every store, the baseline
 theme included); the CSS, page-weight and timing budgets count the whole page. Core's runtime joins the count once it
