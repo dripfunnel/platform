@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.12.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      'A listing can filter by price and load on scroll (#1385): `useListing` adds `priceBounds`, `priceRange` and `setPriceRange`, `<PriceRange>` draws the price filter, and `useLoadOnScroll` loads the next page as the end of the grid nears the screen. A theme that uses none of them keeps today\'s behaviour.',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.11.0',
     kind: 'minor',
     security: false,
