@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-11-09 (#1369: uploads built, `UPLOAD_IN_USE`, §5.4). Before: 2026-11-09 (#1368: product customisation built, the webhooks' payload unchanged, §5.4). Before: 2026-11-09 (#1367: product customisation, how the engine prices and checks a line's answers, §5.4). Before: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-11-11 (#1347: a cart or order line names its version by its choices when it has no name, §5.4). Before: 2026-11-09 (#1369: uploads built, `UPLOAD_IN_USE`, §5.4). Before: 2026-11-09 (#1368: product customisation built, the webhooks' payload unchanged, §5.4). Before: 2026-11-09 (#1367: product customisation, how the engine prices and checks a line's answers, §5.4). Before: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -413,7 +413,9 @@ Design each module's responsibilities, tables, public API, events and invariants
   2026-10-05 on #284): the order is accepted when placed, so it reserves then, after the same
   re-check; cancelling it releases the stock, and so does a bank transfer left unpaid for **3
   days**, a system cancellation logged with the system as actor (LOGGING §3); "Mark as paid"
-  (Owner and Manager, ACCESS §5.1) doesn't re-check stock the order already holds.
+  (Owner and Manager, ACCESS §5.1) doesn't re-check stock the order already holds. A cart or
+  order line names its version by the version's own name, else by its choices in the shop's
+  language, "Size: M · Colour: Red" (decided 2026-11-09 on #1347).
 - **Product customisation** (decided 2026-11-09 on #1367; the rules are CATALOG-DESIGN §3
   facts 49–57, the tables DATA-MODEL §7.3 and §7.6; names *(proposed)*). A product's questions
   are answered when its version goes in the cart, and the engine prices and checks the answers

@@ -223,7 +223,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         productId: v.product_id,
         sellerId: v.seller_id,
         name: l.item.product.name,
-        versionName: l.item.version.name,
+        versionName: l.item.versionLabel,
         sku: l.item.version.sku,
         hsCode: v.hs_code,
         taxClassId: l.item.taxClassId,

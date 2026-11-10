@@ -11,6 +11,7 @@ import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { createCheckout, releaseUnpaidOrders } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
+import { productWithChoices } from './support/catalogue'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -75,9 +76,9 @@ const merchant = async (source: string, who: keyof typeof cookies, as: { support
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-/** A guest's cart of this many kurtas, ready to pay with the flat delivery rate. */
-const readyCart = async (quantity: number) => {
-  const token = ((await shop(`mutation { addToCart(versionId: "${kurta}", quantity: ${quantity}) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
+/** A guest's cart of this many of a version (kurtas unless named), ready to pay with the flat delivery rate. */
+const readyCart = async (quantity: number, versionId = kurta) => {
+  const token = ((await shop(`mutation { addToCart(versionId: "${versionId}", quantity: ${quantity}) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
   await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
   await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", latitude: 18.5204, longitude: 73.8567 }) { cart { id } } }', token)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
@@ -300,5 +301,13 @@ describe('holding stock and placing safely', () => {
     await expect(withScope(db.sql, support, (tx) => tx`delete from payment_provider_account where store_id = ${stores.india}`)).rejects.toThrow(/permission denied/)
     expect((await withScope(db.sql, support, (tx) => tx`update payment_provider_account set status = 'off' where store_id = ${stores.india}`)).count).toBe(0)
     expect(await db.sql`select 1 from payment_provider_account where id = ${row?.id ?? ''}`).toHaveLength(1)
+  })
+})
+
+describe('a placed line’s version (#1347)', () => {
+  it('keeps the version’s choices on the order line', async () => {
+    const [medium] = await productWithChoices(db.sql, stores.india, 'Shirt', ['Size'], [{ choices: ['M'] }])
+    const placed = (await place(await readyCart(1, medium ?? ''), 'cod')).data?.['placeOrder'] as { orderId: string }
+    expect(await db.sql`select version_name from order_line where order_id = ${placed.orderId}`).toEqual([{ version_name: 'Size: M' }])
   })
 })

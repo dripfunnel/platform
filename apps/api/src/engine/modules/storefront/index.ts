@@ -52,6 +52,8 @@ export const maxShopPage = 50
 export interface CartItem {
   product: ShopProductView
   version: ShopVersionView
+  /** What tells this version apart on a cart or order line: its name, else its choices ("Size: M · Colour: Red", #1347). */
+  versionLabel: string | null
   taxClassId: string | null
   soldHere: boolean
   /** Whether its product asks questions, so a line without answers is checked only then (#1368). */
@@ -302,7 +304,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
    */
   const cartItemsIn = async (tx: ScopedSql, versionIds: readonly string[]): Promise<Map<string, CartItem>> => {
     const facts = await pricingIn(tx)
-    const versions = await selectCartVersions(tx, storeId, versionIds)
+    const versions = await selectCartVersions(tx, storeId, versionIds, language)
     if (!facts || versions.length === 0) return new Map()
     const productIds = [...new Set(versions.map((v) => v.product_id))]
     const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
@@ -311,7 +313,8 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
         const version = product?.versions.find((x) => x.id === v.id)
-        return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
+        const versionLabel = version?.name || v.choices.join(' · ') || null
+        return product && version ? [[v.id, { product, version, versionLabel, taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
       }),
     )
   }

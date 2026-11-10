@@ -194,7 +194,7 @@ export const cartLinesNow = async (
     return {
       ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }),
       name: item?.product.name ?? null,
-      versionName: item?.version.name ?? null,
+      versionName: item?.versionLabel ?? null,
       outOfStock: !item || !item.soldHere || (!item.version.inStock && !item.version.continueSelling),
     }
   })
