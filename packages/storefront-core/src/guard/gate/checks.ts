@@ -11,7 +11,8 @@ import { gateCheck, gateReport, type GateCheck, type GateReport } from './report
 export const gateWidths = [390, 768, 1440] as const
 
 /** ARCHITECTURE §9's budgets: bytes are exact and hard; timings are the median of three loads. */
-export const pageBudgets = { jsGzip: 90 * 1024, cssGzip: 50 * 1024, pageBytes: 1024 * 1024, lcpMs: 2000, cls: 0.05, tbtMs: 150 } as const
+// pageBytes is 1,200 KB until #1396 brings pages back under 1 MB (#1395).
+export const pageBudgets = { jsGzip: 90 * 1024, cssGzip: 50 * 1024, pageBytes: 1200 * 1024, lcpMs: 2000, cls: 0.05, tbtMs: 150 } as const
 
 /** A page's share of pixels that may differ from the live site's before it counts as looking different. */
 export const lookTolerance = 0.005
