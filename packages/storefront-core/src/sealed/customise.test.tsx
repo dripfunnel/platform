@@ -77,6 +77,12 @@ describe('the customisation modal', () => {
     await waitFor(() => expect(modal.getByText('$33.00')).toBeTruthy())
     await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
     expect(modal.getByText('Answer this question.')).toBeTruthy()
+    // The problem is on the control itself, described by the words under the question.
+    const note = modal.getByRole('textbox', { name: 'Note' })
+    expect(note.getAttribute('aria-invalid')).toBe('true')
+    const about = (note.getRootNode() as ShadowRoot).getElementById(note.getAttribute('aria-describedby') ?? '')
+    expect(about?.textContent).toContain('Answer this question.')
+    expect(note.closest('fieldset')?.hasAttribute('aria-invalid')).toBe(false)
     expect(asked.some((a) => a.query.includes('addToCart'))).toBe(false)
     await act(async () => void fireEvent.change(modal.getByRole('textbox', { name: 'Note' }), { target: { value: '<b>Asha</b>' } }))
     await waitFor(() => expect(asked.filter((a) => a.query.includes('customisationQuote')).at(-1)?.variables['answers']).toHaveLength(2))
@@ -160,10 +166,11 @@ describe('a customised cart line', () => {
         <EditAnswers line={customised} />
       </Provided>,
     )
-    expect(screen.getByText('Gift wrap')).toBeTruthy()
+    // Loaded with their own chunk, only for a line that has answers.
+    expect(await screen.findByText('Gift wrap')).toBeTruthy()
     expect(screen.getByText('Yes')).toBeTruthy()
     expect(screen.getByText('+$5.00')).toBeTruthy()
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Edit your choices for Organic Cotton Tee' })))
+    await act(async () => void fireEvent.click(await screen.findByRole('button', { name: 'Edit your choices for Organic Cotton Tee' })))
     const modal = await waitFor(() => inside())
     expect(modal.getByRole('heading', { name: 'Change your choices for Mug' })).toBeTruthy()
     expect(modal.getByRole('radio', { name: /Yes/ })).toHaveProperty('checked', true)
@@ -174,7 +181,7 @@ describe('a customised cart line', () => {
     expect(asked.find((a) => a.query.includes('updateCartLineAnswers'))?.variables).toEqual({ lineId: 'line-1', answers: [{ questionId: 'q-wrap', choices: [{ choiceId: 'c-yes', quantity: 1 }] }, { questionId: 'q-note', text: 'Hi' }] })
   })
 
-  it('offers "Check your choices" on a line whose answers no longer fit, and nothing on a plain line', () => {
+  it('offers "Check your choices" on a line whose answers no longer fit, and nothing on a plain line', async () => {
     if (!customised) throw new Error('no line')
     const plain = viewCart(cartOf([line('v-p', 1)]) as never).lines[0]
     if (!plain) throw new Error('no line')
@@ -184,14 +191,14 @@ describe('a customised cart line', () => {
         <EditAnswers line={plain} />
       </Provided>,
     )
+    expect((await screen.findByRole('button')).textContent).toBe('Check your choices')
     expect(screen.getAllByRole('button')).toHaveLength(1)
-    expect(screen.getByRole('button').textContent).toBe('Check your choices')
   })
 })
 
 describe('the modal’s rules and refusals', () => {
   it('counts a text answer’s characters, shows an upload’s refusal plainly, and removes it', async () => {
-    rememberQuestions({ id: 'p4', name: 'Frame', versionIds: ['v-u'], questions: [{ ...base, id: 'q-t', kind: 'TEXT', label: 'Caption', maxLength: 30 }, { ...base, id: 'q-u', kind: 'UPLOAD', label: 'Your photo' }] })
+    rememberQuestions({ id: 'p4', name: 'Frame', versionIds: ['v-u'], questions: [{ ...base, id: 'q-t', kind: 'TEXT', label: 'Caption', maxLength: 30, price: { mode: 'FIXED', per: 'ITEM', percentBps: null, amount: moneySchema.parse(usd(300)) } }, { ...base, id: 'q-u', kind: 'UPLOAD', label: 'Your photo' }] })
     shopAnswering(() => quote(4000))
     class Refusing {
       upload = { onprogress: null }
@@ -214,7 +221,7 @@ describe('the modal’s rules and refusals', () => {
     await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
     const modal = await waitFor(() => inside())
     await act(async () => void fireEvent.change(modal.getByRole('textbox', { name: 'Caption' }), { target: { value: 'Asha’s 30th' } }))
-    expect(modal.getByText(/11 of 30 characters/)).toBeTruthy()
+    expect(modal.getByText('11 of 30 characters · +$3.00')).toBeTruthy()
     const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
     await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'big.jpg', { type: 'image/jpeg' })] } }))
     expect(await modal.findByText('That file is over 10 MB. Choose a smaller one.')).toBeTruthy()
@@ -328,8 +335,8 @@ describe('the modal’s last rules', () => {
   })
 
   it('shows keyboard focus on the file button, whose input is visually hidden', async () => {
-    const { sealedCss } = await import('./styles')
-    expect(sealedCss('customise')).toContain('label[part~=button]:has(input:focus-visible)')
+    const { customiseCss } = await import('./customiseStyles')
+    expect(customiseCss).toContain('label[part~=button]:has(input:focus-visible)')
   })
 })
 

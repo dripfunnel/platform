@@ -53,44 +53,32 @@ const useOnePress = (onDone: Props['onDone']) => {
   return [press, busy] as const
 }
 
-export const AddToCart = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
-  const cart = useCart()
+/** One button: a product with questions asks them first (CATALOG fact 50), one without does `act` as it always has. */
+const CartButton = ({ action, act, intent, versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props & { action: string; act: (versionId: string) => Promise<boolean>; intent: CustomiseIntent }) => {
   const [press, busy] = useOnePress(onDone)
   const [asking, setAsking] = useState<Asking | null>(null)
   const click = () => {
     if (!versionId) return
-    // A product with questions asks them first (CATALOG fact 50); one without adds as it always has.
     const questions = questionsForVersion(versionId)
     if (questions) setAsking(questions)
-    else press(() => cart.add(versionId, quantity, gift ?? undefined))
+    else press(() => act(versionId))
   }
   return (
     <>
-      <button type="button" className={className} data-df-action="add-to-cart" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={click}>
+      <button type="button" className={className} data-df-action={action} aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={click}>
         {children}
       </button>
-      <Ask asking={asking} versionId={versionId} quantity={quantity} gift={gift} intent={{ kind: 'add' }} onClose={(done) => (setAsking(null), done && onDone?.(true))} />
+      <Ask asking={asking} versionId={versionId} quantity={quantity} gift={gift} intent={intent} onClose={(done) => (setAsking(null), done && onDone?.(true))} />
     </>
   )
 }
 
-/** Adds the version, then opens checkout. */
-export const BuyNow = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
+export const AddToCart = (props: Props) => {
   const cart = useCart()
-  const [press, busy] = useOnePress(onDone)
-  const [asking, setAsking] = useState<Asking | null>(null)
-  const click = () => {
-    if (!versionId) return
-    const questions = questionsForVersion(versionId)
-    if (questions) setAsking(questions)
-    else press(() => cart.buyNow(versionId, quantity, gift ?? undefined))
-  }
-  return (
-    <>
-      <button type="button" className={className} data-df-action="buy-now" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={click}>
-        {children}
-      </button>
-      <Ask asking={asking} versionId={versionId} quantity={quantity} gift={gift} intent={{ kind: 'buy' }} onClose={(done) => (setAsking(null), done && onDone?.(true))} />
-    </>
-  )
+  return <CartButton {...props} action="add-to-cart" intent={{ kind: 'add' }} act={(id) => cart.add(id, props.quantity ?? 1, props.gift ?? undefined)} />
+}
+
+export const BuyNow = (props: Props) => {
+  const cart = useCart()
+  return <CartButton {...props} action="buy-now" intent={{ kind: 'buy' }} act={(id) => cart.buyNow(id, props.quantity ?? 1, props.gift ?? undefined)} />
 }

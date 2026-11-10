@@ -31,14 +31,14 @@ export const defineSealed = () => {
   )
 }
 
-/** The closed root core renders a sealed component into, with its locked styles; never handed to a theme. */
-export const sealedRoot = (host: HTMLElement, part: SealedPart): ShadowRoot => {
+/** The closed root core renders a sealed component into, with its locked styles (and `css`, a lazily loaded part's own); never handed to a theme. */
+export const sealedRoot = (host: HTMLElement, part: SealedPart, css = ''): ShadowRoot => {
   const root = roots.get(host) ?? attach(host)
   if (root.adoptedStyleSheets.length === 0) {
     let sheet = sheets.get(part)
     if (!sheet) {
       sheet = new CSSStyleSheet()
-      sheet.replaceSync(sealedCss(part))
+      sheet.replaceSync(sealedCss(part) + css)
       sheets.set(part, sheet)
     }
     root.adoptedStyleSheets = [sheet]

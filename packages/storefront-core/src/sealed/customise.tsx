@@ -9,9 +9,14 @@ import { navigate } from '../platform/browser/router'
 import { useStorefront } from '../platform/store/context'
 import { formatMoney, moneySchema, type Money } from '../pricing/money'
 import { moneyFields } from '../products/summary'
-import { askedFor, answersToSend, type Answer, type ExtraPrice, type Question } from '../products/questions'
+import { askedFor, answersToSend } from '../products/asking'
+import type { Answer, ExtraPrice, Question } from '../products/questions'
 import { focusedElement } from './element'
+import { customiseCss } from './customiseStyles'
+import { addCustomiseWords } from './customiseWords'
 import { Sealed } from './Sealed'
+
+addCustomiseWords()
 
 // The customisation modal (storefront ARCHITECTURE §3.5; CATALOG-DESIGN §3 facts 49–57): a sealed <dialog> in the top layer.
 // Every amount is the Shop API's (`customisationQuote`); nothing here prices anything. Loaded only for a product with questions.
@@ -177,7 +182,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
   }
 
   return (
-    <Sealed part="customise">
+    <Sealed part="customise" css={customiseCss}>
       <dialog
         ref={openDialog}
         part="dialog"
@@ -203,8 +208,10 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
             const problem = problemOf(q)
             const describedBy = `${titleId}-${q.id}-about`
             const a = answerOf(q.id)
+            // On each control, where assistive tech reads it; a fieldset takes no aria-invalid (WCAG 2.2, 3.3.1).
+            const invalid = { 'aria-invalid': problem ? true : undefined, 'aria-describedby': describedBy }
             return (
-              <fieldset key={q.id} part="question" aria-describedby={describedBy} aria-invalid={problem ? true : undefined}>
+              <fieldset key={q.id} part="question" aria-describedby={describedBy}>
                 <legend part="label">
                   {q.label} <span part="rule">({t(q.required || q.minPicks > 0 ? 'customise.required' : 'customise.optional')})</span>
                 </legend>
@@ -222,7 +229,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                 {/* An optional pick-one list offers "None": a radio can't be unticked (fact 53). */}
                 {q.kind === 'CHOICE' && q.maxPicks === 1 && !q.required && q.minPicks === 0 && (
                   <label part="choice">
-                    <input type="radio" name={q.id} checked={!(a?.choices ?? []).some((x) => x.quantity > 0)} onChange={() => set(q.id, { choices: [] })} />
+                    <input type="radio" name={q.id} {...invalid} checked={!(a?.choices ?? []).some((x) => x.quantity > 0)} onChange={() => set(q.id, { choices: [] })} />
                     <span>{t('customise.none')}</span>
                   </label>
                 )}
@@ -237,7 +244,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                     }
                     return (
                       <label key={c.id} part="choice" aria-disabled={unavailable || undefined}>
-                        <input type={one ? 'radio' : 'checkbox'} name={q.id} checked={picked > 0} disabled={unavailable} onChange={(e) => pick(e.target.checked ? 1 : 0)} />
+                        <input type={one ? 'radio' : 'checkbox'} name={q.id} {...invalid} checked={picked > 0} disabled={unavailable} onChange={(e) => pick(e.target.checked ? 1 : 0)} />
                         {c.photoUrl && <img part="photo" src={c.photoUrl} alt="" width={40} height={40} />}
                         <span>{c.label}</span>
                         {!one && c.maxQuantity > 1 && picked > 0 && (
@@ -250,13 +257,14 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                 {q.kind === 'TEXT' && (
                   <>
                     {q.multiline ? (
-                      <textarea aria-label={q.label} maxLength={q.maxLength} placeholder={q.example ?? undefined} value={a?.text ?? ''} rows={3} onChange={(e) => set(q.id, { text: e.target.value })} />
+                      <textarea aria-label={q.label} {...invalid} maxLength={q.maxLength} placeholder={q.example ?? undefined} value={a?.text ?? ''} rows={3} onChange={(e) => set(q.id, { text: e.target.value })} />
                     ) : (
-                      <input type="text" aria-label={q.label} maxLength={q.maxLength} placeholder={q.example ?? undefined} value={a?.text ?? ''} onChange={(e) => set(q.id, { text: e.target.value })} />
+                      <input type="text" aria-label={q.label} {...invalid} maxLength={q.maxLength} placeholder={q.example ?? undefined} value={a?.text ?? ''} onChange={(e) => set(q.id, { text: e.target.value })} />
                     )}
                     <span part="hint">
-                      {t('customise.characters', { count: [...(a?.text ?? '')].length, max: q.maxLength })}
-                      {q.price ? ` · ${extraText(q.price) ?? ''}` : ''}
+                      {q.price && extraText(q.price)
+                        ? t('customise.charactersWithExtra', { count: [...(a?.text ?? '')].length, max: q.maxLength, extra: extraText(q.price) ?? '' })
+                        : t('customise.characters', { count: [...(a?.text ?? '')].length, max: q.maxLength })}
                     </span>
                   </>
                 )}
@@ -286,6 +294,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                         {t(q.accept === 'IMAGE' ? 'customise.addPhoto' : 'customise.addFile')}
                         <input
                           type="file"
+                          {...invalid}
                           accept={acceptOf(q)}
                           style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
                           onChange={(e) => {
