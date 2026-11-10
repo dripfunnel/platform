@@ -1,5 +1,16 @@
 # @dripfunnel/storefront-core
 
+## 0.13.0
+
+### Minor Changes
+
+- b836701: Products can ask the shopper questions before buying (#1372). `AddToCart` and `BuyNow` open a sealed customisation modal, a `<dialog>` in the top layer, for a product with questions: every question type, its rules and conditions, uploads with progress, and a live total from the Shop API. A product without questions adds as before, and the modal's code loads only when needed. Cart lines carry their answers, and the new `<LineAnswers>` and `<EditAnswers>` show them and reopen the modal filled in. The order summary at review lists them. See the 0.13.0 upgrade note.
+- 0f14549: The page weight budget the gate checks at publish is 1,200 KB on a phone for now, up from 1,024 KB, so pages that the price filter and the customisation modal pushed just over 1 MB pass again (#1395). Every page that passed still passes; #1396 brings pages back under 1 MB and the budget back to 1,024 KB.
+
+### Patch Changes
+
+- 816c7df: `<PriceRange>` loads in its own chunk, fetched by the first page that shows it, so pages without a listing no longer download it and stay inside the 1 MB page budget. Its props are unchanged; built HTML has no slider until it loads, and a chunk that fails to arrive leaves the filter out rather than breaking the page.
+
 ## 0.12.0
 
 ### Minor Changes
