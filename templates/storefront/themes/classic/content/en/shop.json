@@ -23,7 +23,8 @@
       "priceHigh": "Price, high to low",
       "name": "Name"
     },
-    "more": "Load more",
+    "price": "Price",
+    "loadingMore": "Loading more products…",
     "moreFailed": "More products didn't load. Try again.",
     "empty": "No products match these filters",
     "emptyLead": "Remove a filter or clear them all to see more.",

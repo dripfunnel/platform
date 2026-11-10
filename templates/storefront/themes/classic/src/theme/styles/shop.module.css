@@ -650,3 +650,83 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.priceRange {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.priceTrack {
+  height: 28px;
+  margin: 0 9px;
+  cursor: pointer;
+}
+
+.priceRail {
+  position: absolute;
+  top: 12px;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.priceFill {
+  top: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.priceTick {
+  top: 22px;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.priceThumb {
+  top: 5px;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: grab;
+}
+
+.priceThumb:focus-visible,
+.priceSelect:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.priceEnds {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.priceSelect {
+  min-width: 0;
+  min-height: 40px;
+  flex: 1;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.priceTo {
+  flex: none;
+}

@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { isUuid } from '#core/ids'
+import { maxAmount, minorDigits, type Money } from '#core/money'
 import { pageWindow, pageWith, type Page, type PageRequest } from '#core/paging'
 import { decodeValueCursor, encodeCursor, encodeValueCursor } from '#core/cursor'
 import type { TenantContext } from '#core/tenancy'
@@ -14,6 +15,7 @@ import {
   selectShopListed,
   selectShopMarket,
   selectShopMenu,
+  selectShopPriceBounds,
   selectShopPricing,
   selectShopProductExtras,
   selectShopProductId,
@@ -71,6 +73,9 @@ export interface ProductRequest extends PageRequest {
   filters?: readonly string[] | null | undefined
   search?: string | null | undefined
   sort?: ShopSort | null | undefined
+  /** In the cart currency's minor units; either end may be left open. */
+  minPrice?: string | null | undefined
+  maxPrice?: string | null | undefined
 }
 
 /** A product page: the product, its sections by Settings › Catalogue, and whether this market sells it here and now. */
@@ -107,6 +112,7 @@ const valueFits = (sort: ShopSort, value: string): boolean => {
 
 const maxSearch = 100
 const maxFilters = 50
+const minorUnits = /^\d{1,16}$/
 // A collection's own order (CatCollections "Sort"); best selling is the hourly ranking (DATA-MODEL §7.3).
 const collectionSort: Record<ShopCollectionRow['sort'], ShopSort> = { manual: 'collection', newest: 'newest', price_asc: 'price_low', price_desc: 'price_high', best_selling: 'best_selling' }
 
@@ -184,7 +190,13 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     const perEuroOf = (c: string) => (c === 'EUR' ? '1' : (pricing.perEuro.get(c) ?? null))
     const [pricingRate, currencyRate] = [perEuroOf(pricing.pricingCurrency), perEuroOf(currency)]
     const perEuro = currency === pricing.pricingCurrency ? { pricing: '1', currency: '1' } : convertible && pricingRate && currencyRate ? { pricing: pricingRate, currency: currencyRate } : null
-    const query: Omit<ShopProductQuery, 'collectionId' | 'filterValueIds' | 'search'> = { language, market, currency, convertible, pricingCurrency: pricing.pricingCurrency, perEuro }
+    const rules = {
+      rounding: pricing.currencies.find((c) => c.currency === currency)?.rounding ?? 'none',
+      digits: minorDigits(currency),
+      pricingDigits: minorDigits(pricing.pricingCurrency),
+      adjustmentBps: market.currency === currency ? market.price_adjustment_bps : 0,
+    }
+    const query: Omit<ShopProductQuery, 'collectionId' | 'filterValueIds' | 'search'> = { language, market, currency, convertible, pricingCurrency: pricing.pricingCurrency, perEuro, rules }
     return { pricing, market, query }
   }
 
@@ -201,8 +213,11 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     const search = request.search?.trim() || null
     const filters = [...new Set((request.filters ?? []).map((f) => f.toLowerCase()))]
     if ((search?.length ?? 0) > maxSearch || filters.length > maxFilters || !filters.every(isUuid)) return null
+    const price = { min: request.minPrice ?? null, max: request.maxPrice ?? null }
+    if ([price.min, price.max].some((end) => end !== null && (!minorUnits.test(end) || BigInt(end) > maxAmount))) return null
+    if (price.min !== null && price.max !== null && BigInt(price.min) > BigInt(price.max)) return null
     const found = request.collection ? await selectShopCollection(tx, storeId, language, request.collection.trim().toLowerCase()) : null
-    return { search, filters, collection: request.collection ? found : null, missingCollection: Boolean(request.collection) && !found }
+    return { search, filters, price, collection: request.collection ? found : null, missingCollection: Boolean(request.collection) && !found }
   }
 
   /** A page of products, at most 50, by a collection, filter choices and words; a collection lists in its own order. */
@@ -221,7 +236,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       if ((request.after && !after) || (request.before && !before) || (after && !valueFits(sort, after.value)) || (before && !valueFits(sort, before.value))) return { ok: false, reason: 'INVALID_CURSOR' }
       const sortWindow = { limit: window.window.limit, after, before }
       const query: ShopProductQuery = { ...facts.query, collectionId: clean.collection?.id ?? null, filterValueIds: clean.filters, search: clean.search }
-      const rows = await selectShopProducts(tx, storeId, query, sort, sortWindow)
+      const rows = await selectShopProducts(tx, storeId, query, sort, sortWindow, clean.price)
       const page = pageWith(rows, sortWindow, (r) => encodeValueCursor({ sort, value: r.sort_key, id: r.id }))
       return { ok: true, value: { nodes: await viewsOf(tx, page.nodes.map((r) => r.id), facts), pageInfo: page.pageInfo } }
     })
@@ -233,6 +248,16 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       const facts = await pricingIn(tx)
       if (!clean || !facts || clean.missingCollection) return []
       return selectShopFacets(tx, storeId, { ...facts.query, collectionId: clean.collection?.id ?? null, filterValueIds: [], search: clean.search })
+    })
+
+  /** The listing's lowest and highest price, before filter choices and a price range, for a price slider's ends. */
+  const priceBounds = (request: ProductRequest): Promise<{ min: Money; max: Money } | null> =>
+    inScope(async (tx) => {
+      const clean = await cleanRequest(tx, request)
+      const facts = await pricingIn(tx)
+      if (!clean || !facts || clean.missingCollection) return null
+      const bounds = await selectShopPriceBounds(tx, storeId, { ...facts.query, collectionId: clean.collection?.id ?? null, filterValueIds: [], search: clean.search })
+      return bounds ? { min: { amount: BigInt(bounds.min), currency }, max: { amount: BigInt(bounds.max), currency } } : null
     })
 
   /** By its web address in the shopper's language or the main one; null for one shoppers can't see. */
@@ -331,5 +356,5 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     }))
   }
 
-  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds, offers, questions, questionsIn }
+  return { store, menu, collections, collection, asset, products, facets, priceBounds, product, cartItems, cartItemsIn, productsByIds, offers, questions, questionsIn }
 }
