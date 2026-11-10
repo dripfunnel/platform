@@ -91,6 +91,13 @@ const list = async (args: string, headers: Record<string, string> = {}) => {
   return { listing: result.data?.['products'] as Listing | undefined, code: result.code }
 }
 const slugs = (l: Listing | undefined) => l?.nodes.map((n) => n.slug)
+const bounded = async (args: string, headers: Record<string, string> = {}, on = host) => {
+  const result = await gql(`{ products${args} { nodes { slug price { amount } } priceBounds { min { amount currency } max { amount currency } } } }`, headers, {}, on)
+  const page = result.data?.['products'] as { nodes: { slug: string; price: { amount: string } | null }[]; priceBounds: unknown } | undefined
+  return { slugs: page?.nodes.map((n) => n.slug), prices: page?.nodes.map((n) => n.price?.amount), bounds: page?.priceBounds, code: result.code }
+}
+// A function: ids.usa is set in beforeAll.
+const inUsd = () => ({ 'x-shop-market': ids.usa, 'x-shop-currency': 'USD' })
 
 describe('products', () => {
   it('lists the market’s products newest first, leaving out what it doesn’t sell and what shoppers can’t see', async () => {
@@ -144,19 +151,33 @@ describe('products', () => {
   })
 
   it('narrows by a price range, either end open, matching any version at the price shown, and answers the listing’s bounds', async () => {
-    const bounded = async (args: string, headers: Record<string, string> = {}) => {
-      const result = await gql(`{ products${args} { nodes { slug } priceBounds { min { amount currency } max { amount currency } } } }`, headers)
-      const page = result.data?.['products'] as { nodes: { slug: string }[]; priceBounds: unknown } | undefined
-      return { slugs: page?.nodes.map((n) => n.slug), bounds: page?.priceBounds, code: result.code }
-    }
-    expect(await bounded('(minPrice: "100000")')).toEqual({ slugs: ['kurta', 'dress'], bounds: { min: { amount: '99900', currency: 'INR' }, max: { amount: '299900', currency: 'INR' } }, code: undefined })
+    // The bounds leave out the hidden kurta (₹1.00) and the shirt this market doesn't sell (₹799.00).
+    expect(await bounded('(minPrice: "100000")')).toMatchObject({ slugs: ['kurta', 'dress'], bounds: { min: { amount: '99900', currency: 'INR' }, max: { amount: '299900', currency: 'INR' } }, code: undefined })
     expect((await bounded('(maxPrice: "100000")')).slugs).toEqual(['kurta'])
     expect((await bounded('(minPrice: "150000", maxPrice: "200000")')).slugs).toEqual([])
     expect((await bounded('(minPrice: "149900", maxPrice: "149900")')).slugs).toEqual(['kurta'])
     // In dollars at 1.08 / 90 rounded up to 99: kurta's cheaper version 11.99, though unrounded it is 11.988.
-    const usd = { 'x-shop-market': ids.usa, 'x-shop-currency': 'USD' }
-    expect(await bounded('(minPrice: "1199", maxPrice: "1199")', usd)).toEqual({ slugs: ['kurta'], bounds: { min: { amount: '999', currency: 'USD' }, max: { amount: '3599', currency: 'USD' } }, code: undefined })
+    expect(await bounded('(minPrice: "1199", maxPrice: "1199")', inUsd())).toMatchObject({ slugs: ['kurta'], bounds: { min: { amount: '999', currency: 'USD' }, max: { amount: '3599', currency: 'USD' } }, code: undefined })
     for (const bad of ['(minPrice: "abc")', '(minPrice: "-1")', '(minPrice: "200000", maxPrice: "100000")', '(maxPrice: "99999999999999999")']) expect((await bounded(bad)).code).toBe('INVALID_INPUT')
+  })
+
+  it('matches the price shown after a market’s adjustment and under nearest rounding, as the cards show it', async () => {
+    await db.sql`update market set price_adjustment_bps = 1000 where store_id = ${t.storeA1} and is_primary`
+    try {
+      // +10%: kurta’s ₹999.00 shows as ₹1,098.90, dress’s ₹2,999.00 as ₹3,298.90.
+      expect(await bounded('(minPrice: "109890", maxPrice: "109890")')).toMatchObject({ slugs: ['kurta'], prices: ['109890'], bounds: { min: { amount: '109890' }, max: { amount: '329890' } } })
+      expect((await bounded('(maxPrice: "109889")')).slugs).toEqual([])
+    } finally {
+      await db.sql`update market set price_adjustment_bps = 0 where store_id = ${t.storeA1} and is_primary`
+    }
+    await db.sql`update store_currency set rounding = 'nearest' where store_id = ${t.storeA1} and currency = 'USD'`
+    try {
+      // At 1.08 / 90 to the nearest dollar: shirt $10, kurta $12, dress $36.
+      expect(await bounded('(minPrice: "1200", maxPrice: "1200")', inUsd())).toMatchObject({ slugs: ['kurta'], prices: ['1200'], bounds: { min: { amount: '1000' }, max: { amount: '3600' } } })
+      expect((await bounded('(minPrice: "1199", maxPrice: "1199")', inUsd())).slugs).toEqual([])
+    } finally {
+      await db.sql`update store_currency set rounding = 'ends-99' where store_id = ${t.storeA1} and currency = 'USD'`
+    }
   })
 
   it('narrows by filter choices and counts each value before the choice', async () => {
@@ -284,6 +305,11 @@ describe('limits and isolation', () => {
     expect(page.data?.['products']).toEqual({ nodes: [], facets: [] })
     expect(((await gql('{ products(collection: "summer") { nodes { slug } } }', {}, {}, theirs)).data?.['products'] as { nodes: unknown[] }).nodes).toEqual([])
     expect((await gql('{ store { marketId currency } }', { 'x-shop-market': ids.usa }, {}, theirs)).data?.['store']).toEqual({ marketId: null, currency: 'INR' })
+    // A range around this store's kurta finds nothing there, and the bounds are of that store's own prices (₹1.00 and up, never ₹999.00).
+    const theirPrices = await bounded('(minPrice: "99900", maxPrice: "299900")', {}, theirs)
+    expect(theirPrices.slugs).toEqual([])
+    const ends = theirPrices.bounds as { min: { amount: string }; max: { amount: string } }
+    expect([ends.min.amount, BigInt(ends.max.amount) < 99900n]).toEqual(['100', true])
   })
 })
 
