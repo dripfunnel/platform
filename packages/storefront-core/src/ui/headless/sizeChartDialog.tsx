@@ -9,14 +9,15 @@ import type { SizeChart as Chart } from '../../products/product'
 // A theme may style no ::backdrop or <dialog> (guard), so core styles the modal once per page with an adopted sheet, as sealed/element.ts does,
 // from the shared sealed tokens a theme already sets (ARCHITECTURE §3.5).
 const d = 'dialog[data-df-size-chart]'
-const css = `${d}{width:calc(100% - 32px);max-width:560px;max-height:calc(100% - 48px);margin:auto;padding:22px;border:0;border-radius:calc(var(--df-sealed-radius,8px) * 2);background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);font-family:var(--df-sealed-font,inherit)}
+const css = `${d}{box-sizing:border-box;width:calc(100% - 32px);max-width:560px;max-height:calc(100% - 48px);margin:auto;padding:22px;border:0;border-radius:calc(var(--df-sealed-radius,8px) * 2);background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);font-family:var(--df-sealed-font,inherit)}
 ${d}[open]{display:flex;flex-direction:column;gap:14px}
 ${d}::backdrop{background:rgb(0 0 0 / 45%)}
 ${d} [data-head]{display:flex;align-items:center;justify-content:space-between;gap:12px}
 ${d} h2{margin:0;font-size:22px;line-height:1.15}
 ${d} button{min-height:44px;padding:0 16px;border:1px solid currentColor;border-radius:var(--df-sealed-radius,8px);background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
 ${d} button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
-${d} [data-scroll]{overflow-x:auto}
+${d} [data-scroll]{min-height:0;overflow:auto}
+${d} [data-scroll]:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 ${d} table{width:100%;border-collapse:collapse;font-size:14px}
 ${d} caption{padding:0 8px 8px;text-align:left;color:var(--df-sealed-muted,currentColor)}
 ${d} th,${d} td{padding:10px 8px;border-bottom:1px solid var(--df-sealed-muted,currentColor);text-align:left}
@@ -61,7 +62,7 @@ export const SizeChartDialog = ({ chart, onClose }: SizeChartDialogProps) => {
           {t('sizeChart.close')}
         </button>
       </div>
-      <div data-scroll="">
+      <div data-scroll="" role="region" aria-labelledby={titleId} tabIndex={0}>
         <table>
           {chart.name ? <caption>{chart.name}</caption> : null}
           <thead>
