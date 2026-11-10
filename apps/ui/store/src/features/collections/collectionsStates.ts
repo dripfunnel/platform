@@ -77,14 +77,14 @@ export const sampleReads: EditorReads = {
     const s = sampleCollections.find((c) => c.id === id)
     return s ? { ...s, slug: id.replace(/^c-/, ''), description: '', imageAssetId: null, sort: 'newest', seoTitle: null, seoDescription: null, revision: 1 } : null
   },
-  members: async () => sampleProducts.slice(0, 2).map(({ id, name }) => ({ id, name })),
+  members: async () => sampleProducts.slice(0, 2).map(({ id, name }) => ({ id, name, imageAssetId: null })),
   preview: async ({ rules, match }) => {
     const wanted = rules.flatMap((r) => (r.valueId ? [r.valueId] : []))
     const groups = sampleFilters.map((f) => f.values.map((v) => v.id).filter((v) => wanted.includes(v))).filter((g) => g.length > 0)
     const hit = sampleProducts.filter((p) => (match === 'any' ? wanted.some((v) => p.values.includes(v)) : groups.length > 0 && groups.every((g) => g.some((v) => p.values.includes(v)))))
-    return { count: hit.length, products: hit.map(({ id, name }) => ({ id, name })) }
+    return { count: hit.length, products: hit.map(({ id, name }) => ({ id, name, imageAssetId: null })) }
   },
-  search: async (q) => sampleProducts.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).map(({ id, name, visible, approval }) => ({ id, name, visible, approval })),
+  search: async (q) => sampleProducts.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).map(({ id, name, visible, approval }) => ({ id, name, visible, approval, photoUrl: null })),
 }
 
 const sampleCharts: SizeChart[] = harness

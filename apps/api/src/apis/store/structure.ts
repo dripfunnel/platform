@@ -106,8 +106,8 @@ export const registerStructure = (builder: StoreBuilder) => {
       max: t.string({ nullable: true, resolve: (r) => (typeof r.args['max'] === 'string' ? r.args['max'] : null) }),
     }),
   })
-  const MemberType = builder.objectRef<{ id: string; name: string; source: string }>('CollectionMember').implement({
-    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), source: t.exposeString('source') }),
+  const MemberType = builder.objectRef<{ id: string; name: string; image_asset_id: string | null; source: string }>('CollectionMember').implement({
+    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), imageAssetId: t.exposeID('image_asset_id', { nullable: true }), source: t.exposeString('source') }),
   })
   type CollectionView = NonNullable<Awaited<ReturnType<ReturnType<typeof service>['collection']>>>
   const CollectionType = builder.objectRef<CollectionView>('Collection').implement({
@@ -133,7 +133,7 @@ export const registerStructure = (builder: StoreBuilder) => {
       rules: t.field({ type: [Rule], resolve: (c) => c.rules }),
     }),
   })
-  const MemberPage = builder.objectRef<{ nodes: { id: string; name: string; source: string }[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('CollectionMemberPage').implement({
+  const MemberPage = builder.objectRef<{ nodes: { id: string; name: string; image_asset_id: string | null; source: string }[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('CollectionMemberPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [MemberType], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
   const MenuItem = builder.objectRef<{ id: string; parent_id: string | null; label: string; kind: string; collection_id: string | null; url: string | null }>('MenuItem').implement({
@@ -187,10 +187,10 @@ export const registerStructure = (builder: StoreBuilder) => {
   })
 
   const read = { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } as const
-  const MemberLite = builder.objectRef<{ id: string; name: string }>('CollectionPreviewProduct').implement({
-    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }),
+  const MemberLite = builder.objectRef<{ id: string; name: string; imageAssetId: string | null }>('CollectionPreviewProduct').implement({
+    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), imageAssetId: t.exposeID('imageAssetId', { nullable: true }) }),
   })
-  const PreviewType = builder.objectRef<{ count: number; products: { id: string; name: string }[] }>('CollectionPreview').implement({
+  const PreviewType = builder.objectRef<{ count: number; products: { id: string; name: string; imageAssetId: string | null }[] }>('CollectionPreview').implement({
     fields: (t) => ({ count: t.exposeInt('count'), products: t.field({ type: [MemberLite], resolve: (p) => p.products }) }),
   })
   const write = { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none' } as const
