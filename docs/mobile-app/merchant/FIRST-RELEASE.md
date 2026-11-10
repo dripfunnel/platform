@@ -4,7 +4,7 @@ What the merchant mobile app's first release contains. The framework is in
 [REACT-NATIVE.md](REACT-NATIVE.md); builds and store accounts are in
 [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: decided, not built.**
+**Status: decided, and being built:** what each card built, product customisation (#1374) among them, is listed in [ARCHITECTURE.md](ARCHITECTURE.md) §5.
 
 Last updated: 2026-11-10 (#1374: built; reordering, currencies and choice photos on the phone, §2). Before: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
 
