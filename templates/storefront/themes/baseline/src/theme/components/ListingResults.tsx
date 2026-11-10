@@ -5,7 +5,7 @@ import { Notice } from './Notice'
 import { GridPlaceholder, ProductGrid } from './ProductCard'
 import { shop as styles } from './styles/shop'
 
-/** A collection's or a search's products: filters, sort, the grid and its states, and "Load more". */
+/** A collection's or a search's products: filters, sort, the grid and its states, and more loading on scroll. */
 export const ListingResults = ({ listing }: { listing: Listing }) => {
   const { t } = useStorefront()
   return (
