@@ -62,5 +62,6 @@ export const recordedShopClient = (answers: readonly RecordedAnswer[]): ShopClie
     if (!parsed.success) throw new ShopApiError('BAD_RESPONSE', 'A recorded answer has an unexpected shape.')
     return parsed.data as z.infer<S>
   }
-  return { request, query }
+  // A prerendered page uploads nothing.
+  return { request, query, endpoint: '/shop-api', headers: () => ({}) }
 }

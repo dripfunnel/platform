@@ -2,16 +2,24 @@ import { z } from 'zod'
 import { ApiError, decode, isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { addressInput, type AddressInput, type Pin } from './account'
 import type { Price } from './catalogue'
+import type { Answer } from './customisation'
 import { operation, type Operation } from './operation'
 
 // The cart and checkout of the Shop API (apps/api schema/shop.graphql). Every price, tax, delivery charge and refusal is the
 // engine's: this file reads them and sends the shopper's choices, and computes nothing.
 
-export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short'
+export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short' | 'check_answers'
+
+/** A customised line's answer as the engine priced it (#1373). */
+export type LineAnswer = { questionId: string; question: string; kind: 'CHOICE' | 'TEXT' | 'UPLOAD'; text: string | null; amount: Price | null; choices: { choiceId: string; label: string; quantity: number }[]; uploadIds: string[] }
 export type CodeState = 'APPLIED' | 'NOT_ELIGIBLE' | 'DOESNT_COMBINE' | 'INVALID' | 'EXPIRED' | 'USED_UP' | 'ALREADY_USED' | 'SIGN_IN_REQUIRED'
 
 export type CartLine = {
+  /** The line's own id, which Edit names. */
+  lineId: string | null
   versionId: string
+  /** Its answers to the product's questions; empty on most lines. */
+  answers: LineAnswer[]
   productSlug: string | null
   name: string
   versionName: string | null
@@ -85,7 +93,7 @@ const moneyFields = '{ amount currency }'
 const cartFields = `email phone needsShipping currency checkoutStep readyToPay problems
   subtotal ${moneyFields} discount ${moneyFields} shipping ${moneyFields} total ${moneyFields} tax { amount ${moneyFields} pricesIncludeTax }
   codes { code state } discounts { name amount ${moneyFields} }
-  lines { versionId productSlug productName versionName photoUrl quantity available unitPrice ${moneyFields} lineTotal ${moneyFields} problem }
+  lines { id versionId productSlug productName versionName photoUrl quantity available unitPrice ${moneyFields} lineTotal ${moneyFields} problem answers { questionId question kind text amount ${moneyFields} choices { choiceId label quantity } uploads { id } } }
   shippingAddress { name line1 line2 city region postalCode country phone latitude longitude }
   shippingOption shippingOptions { id service amount ${moneyFields} minDays maxDays hours }`
 
@@ -106,6 +114,11 @@ const cartSchema = z.object({
   lines: z
     .array(
       z.object({
+        id: text,
+        answers: z
+          .array(z.object({ questionId: text, question: text, kind: text, text, amount: money, choices: z.array(z.object({ choiceId: text, label: text, quantity: z.number().nullable().optional() })).nullable().optional(), uploads: z.array(z.object({ id: text })).nullable().optional() }))
+          .nullable()
+          .optional(),
         versionId: z.string().nullable().optional(),
         productSlug: text,
         productName: text,
@@ -125,7 +138,7 @@ const cartSchema = z.object({
   shippingOptions: z.array(z.object({ id: text, service: text, amount: money, minDays: z.number().nullable().optional(), maxDays: z.number().nullable().optional(), hours: text })).nullable().optional(),
 })
 
-const lineProblems: readonly string[] = ['unavailable', 'not_sold_here', 'not_priced', 'short']
+const lineProblems: readonly string[] = ['unavailable', 'not_sold_here', 'not_priced', 'short', 'check_answers']
 const codeStates: readonly string[] = ['APPLIED', 'NOT_ELIGIBLE', 'DOESNT_COMBINE', 'INVALID', 'EXPIRED', 'USED_UP', 'ALREADY_USED', 'SIGN_IN_REQUIRED']
 
 const cartOf = (raw: z.infer<typeof cartSchema>): Cart => ({
@@ -146,6 +159,11 @@ const cartOf = (raw: z.infer<typeof cartSchema>): Cart => ({
     l.versionId
       ? [
           {
+            lineId: l.id ?? null,
+            answers: (l.answers ?? []).flatMap((a): LineAnswer[] => {
+              const kind = (['CHOICE', 'TEXT', 'UPLOAD'] as const).find((k) => k === a.kind)
+              return a.questionId && a.question && kind ? [{ questionId: a.questionId, question: a.question, kind, text: a.text ?? null, amount: priceOf(a.amount), choices: (a.choices ?? []).flatMap((c) => (c.choiceId && c.label ? [{ choiceId: c.choiceId, label: c.label, quantity: c.quantity ?? 1 }] : [])), uploadIds: (a.uploads ?? []).flatMap((u) => (u.id ? [u.id] : [])) }] : []
+            }),
             versionId: l.versionId,
             productSlug: l.productSlug ?? null,
             name: l.productName ?? '',
@@ -200,6 +218,9 @@ const change = async (client: ApiClient, field: string, signature: string, varia
   const answer = decode(changeSchema(field), await client.request<unknown>(`mutation${signature} { ${field}(${Object.keys(variables).map((k) => `${k}: $${k}`).join(', ')}) { cart { ${cartFields} } cartToken } }`, variables))[field]
   return { cart: answer?.cart ? cartOf(answer.cart) : null, cartToken: answer?.cartToken ?? null }
 }
+
+/** Edit on a customised line (#1373): its answers replaced, the cart answered repriced, a line with the same answers merged. */
+export const updateAnswers = (client: ApiClient, lineId: string, answers: readonly Answer[]) => change(client, 'updateCartLineAnswers', '($lineId: ID!, $answers: [ShopAnswerInput!]!)', { lineId, answers })
 
 /** A quantity of 0 takes the line out. */
 export const setQuantity = (client: ApiClient, versionId: string, quantity: number) => change(client, 'setCartQuantity', '($versionId: ID!, $quantity: Int!)', { versionId, quantity })

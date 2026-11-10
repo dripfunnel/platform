@@ -163,6 +163,19 @@ describe('A supplier’s order', () => {
     for (const field of ['total', 'subtotal', 'email', 'phone', 'paymentState', 'unitPrice', 'amount', 'customerId']) expect(query).not.toContain(field)
   })
 
+  it('shows a to-store part its own lines’ answers and files, and asks for no amount', async () => {
+    const answers = [
+      { question: 'Name to engrave', kind: 'TEXT', text: 'Priya', per: 'LINE', choices: [], files: [] },
+      { question: 'Your photo', kind: 'UPLOAD', text: null, per: null, choices: [], files: [{ id: 'f1', mime: 'application/pdf', url: 'https://files.example/f1?sig=a' }] },
+    ]
+    const { renderer, calls } = await showOrder({ value: order({ parts: [part('to-store', [line('l1', 'Mara Linen Shirt', 1, { answers })])] }) })
+    for (const text of ['Name to engrave', 'Priya', 'Your photo', 'Download PDF 1']) expect(hasText(renderer, text)).toBe(true)
+    expect(hasText(renderer, '₹')).toBe(false)
+    const query = asked(calls, 'order(id')[0]?.query ?? ''
+    expect(query).toContain('answers { question kind text per choices')
+    expect(query).not.toContain('amount')
+  })
+
   it('shows a to-shopper part the name and delivery address the API sent, and says the supplier ships it', async () => {
     const { renderer } = await showOrder({ value: toShopper() })
 

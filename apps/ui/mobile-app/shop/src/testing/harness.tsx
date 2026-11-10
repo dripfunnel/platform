@@ -26,6 +26,7 @@ export const fakeShop = (answer: Answer, { signedIn = false }: { signedIn?: bool
     sessions,
     keptOrders,
     signedIn,
+    uploadHeaders: () => ({}),
     keepOrderToken: (orderId) => {
       keptOrders.push(orderId)
       return Promise.resolve()

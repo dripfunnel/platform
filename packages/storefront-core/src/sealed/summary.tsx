@@ -1,6 +1,7 @@
 'use client'
 
-import type { Cart } from '../cart/cart'
+import { answerText } from '../cart/answers'
+import type { Cart, LineAnswer } from '../cart/cart'
 import type { Order } from '../orders/order'
 import type { Translate } from '../platform/i18n/i18n'
 import { resized } from '../platform/media/media'
@@ -9,7 +10,11 @@ import { formatMoney, isZero, type Money } from '../pricing/money'
 import { Sealed } from './Sealed'
 
 // The order summary (storefront ARCHITECTURE §2.1 `sealed`, §3.3): every amount as the engine answered it, worded by core,
-// and a note while a change awaits its answer. Parts: panel, lines, line, photo, name, version, rows, row, saving, total, note.
+// and a note while a change awaits its answer. Parts: panel, lines, line, photo, name, version (also each answer of a
+// customised line, #1372), rows, row, saving, total, note.
+
+/** A customised line's answers at review, one row each (#1372), worded as the cart line words them. */
+const answerRows = (answers: readonly LineAnswer[], locale: string, t: Translate): string[] => answers.map((a) => t('customise.answerRow', { question: a.question, answer: answerText(a, locale, t) }))
 
 export type OrderSummaryProps = {
   locale: string
@@ -26,7 +31,7 @@ export type OrderSummaryProps = {
 )
 
 type Figures = {
-  lines: { key: string; photo: string | null; name: string; quantity: number; versionName: string | null; lineTotal: Money | null }[] | null
+  lines: { key: string; photo: string | null; name: string; quantity: number; versionName: string | null; lineTotal: Money | null; answers: string[] }[] | null
   subtotal: Money
   discounts: { name: string; amount: Money }[]
   delivery: Money | 'later' | 'next' | null
@@ -39,13 +44,14 @@ type Figures = {
 }
 
 const figuresOf = (props: OrderSummaryProps): Figures => {
+  const { locale, t } = props
   if ('order' in props) {
     const o = props.order
-    const lines = o.lines.map((l, i) => ({ key: String(i), photo: null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal }))
+    const lines = o.lines.map((l, i) => ({ key: String(i), photo: null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal, answers: [] as string[] }))
     return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, giftCard: o.giftCard ? { applied: o.giftCard, last4: null, rest: null } : null, estimated: false, pending: false }
   }
   const { cart, at } = props
-  const lines = at === 'checkout' ? cart.lines.map((l) => ({ key: l.versionId, photo: l.photo?.url ?? null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal })) : null
+  const lines = at === 'checkout' ? cart.lines.map((l) => ({ key: l.versionId, photo: l.photo?.url ?? null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal, answers: answerRows(l.answers, locale, t) })) : null
   const delivery = cart.shipping ?? (cart.needsShipping ? (at === 'cart' ? 'later' : 'next') : null)
   return { lines, subtotal: cart.subtotal, discounts: cart.discounts, delivery, tax: cart.tax, total: cart.total, giftCard: cart.giftCard ? { applied: cart.giftCard.applied, last4: cart.giftCard.last4, rest: cart.amountDue } : null, estimated: at === 'cart', pending: cart.pending }
 }
@@ -67,6 +73,11 @@ export const OrderSummary = (props: OrderSummaryProps) => {
                 <span>
                   <span part="name">{t('summary.quantity', { name: l.name, quantity: l.quantity })}</span>
                   {l.versionName ? <span part="version"> {l.versionName}</span> : null}
+                  {l.answers.map((row) => (
+                    <span key={row} part="version">
+                      {row}
+                    </span>
+                  ))}
                 </span>
                 <span>{l.lineTotal ? money(l.lineTotal) : null}</span>
               </li>

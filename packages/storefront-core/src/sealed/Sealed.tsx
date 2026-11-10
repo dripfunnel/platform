@@ -15,16 +15,18 @@ type SealedProps = {
   shown?: boolean
   /** Holds the banner's height in the page, since the banner itself sits in the top layer. */
   reserve?: boolean
+  /** A lazily loaded part's own rules, after the locked ones. */
+  css?: string
   children?: ReactNode
 }
 
 /** Renders `children` in a closed shadow root only core holds; a theme reaches the host and its ::part names, nothing else (ARCHITECTURE §3.5). */
-export const Sealed = ({ part, className, shown = true, reserve = false, children }: SealedProps) => {
+export const Sealed = ({ part, className, shown = true, reserve = false, css, children }: SealedProps) => {
   const host = useRef<HTMLElement>(null)
   const [root, setRoot] = useState<ShadowRoot | null>(null)
   useLayoutEffect(() => {
-    if (host.current) setRoot(sealedRoot(host.current, part))
-  }, [part])
+    if (host.current) setRoot(sealedRoot(host.current, part, css))
+  }, [part, css])
   useEffect(() => (root && shown && host.current ? watchVisibility(host.current, part) : undefined), [root, shown, part])
   useEffect(() => {
     const el = host.current

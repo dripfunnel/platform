@@ -14,6 +14,7 @@ export const minimumSize: Record<SealedPart, { width: number; height: number }> 
   breadcrumbs: { width: 40, height: 12 },
   summary: { width: 160, height: 48 },
   payment: { width: 200, height: 24 },
+  customise: { width: 280, height: 160 },
 }
 
 /** Below this, a part or the text in it counts as transparent. */
@@ -34,8 +35,8 @@ const alphaOf = (color: string): number => {
   return raw.trim().endsWith('%') ? value / 100 : value
 }
 
-/** A banner's box is its popover in the top layer; any other component's is its host. */
-const boxOf = (host: HTMLElement, root: ShadowRoot): HTMLElement => root.querySelector<HTMLElement>('[popover]') ?? host
+/** A banner's box is its popover, the modal's its open dialog, both in the top layer; any other component's is its host. */
+const boxOf = (host: HTMLElement, root: ShadowRoot): HTMLElement => root.querySelector<HTMLElement>('[popover]') ?? root.querySelector<HTMLElement>('dialog[open]') ?? host
 
 const scrolls = (style: CSSStyleDeclaration) => /auto|scroll/.test(`${style.overflowX} ${style.overflowY}`)
 

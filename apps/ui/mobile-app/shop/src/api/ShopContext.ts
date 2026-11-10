@@ -7,6 +7,8 @@ export type OrderAccess = { client: ApiClient; headers: Record<string, string> }
 export type Shop = {
   host: string
   client: ApiClient
+  /** The headers a request beside the GraphQL API carries (a shopper's uploads, #1373): the cart and session tokens, the market. */
+  uploadHeaders: () => Record<string, string>
   /** Keeps the cart token `addToCart` answers, so every later call carries it. */
   saveCartToken: (token: string) => Promise<void>
   /** Whether a customer's session token is held. The API still decides whether it is any good. */

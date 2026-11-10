@@ -8,8 +8,8 @@ const locked = `
 slot{display:contents}
 `
 
-const muted = 'color:var(--df-sealed-muted,currentColor)'
-const button = `[part~=button]{min-height:44px;min-width:44px;padding:0 16px;font:inherit;font-size:max(14px,var(--df-sealed-size,1em))!important;border:1px solid currentColor;border-radius:var(--df-sealed-radius,8px);background:transparent;color:inherit;cursor:pointer}`
+export const muted = 'color:var(--df-sealed-muted,currentColor)'
+export const button = `[part~=button]{min-height:44px;min-width:44px;padding:0 16px;font:inherit;font-size:max(14px,var(--df-sealed-size,1em))!important;border:1px solid currentColor;border-radius:var(--df-sealed-radius,8px);background:transparent;color:inherit;cursor:pointer}`
 const banner = (edge: 'top' | 'bottom') =>
   `[popover]{position:fixed!important;${edge === 'top' ? 'inset:0 0 auto 0!important' : 'inset:auto 0 12px 0!important'};display:block!important;margin:0 auto!important;max-height:none!important;overflow:visible!important;box-sizing:border-box;border:0}`
 
@@ -59,6 +59,8 @@ ${button}`,
 [part~=field]:empty{display:none}
 [part~=status]{${muted}}
 ${button}`,
+  // The modal's own rules come with its lazy chunk (customise.tsx), so pages that never open it don't carry them.
+  customise: ':host{display:contents!important}',
 }
 
 export const sealedCss = (part: SealedPart): string => locked + parts[part]

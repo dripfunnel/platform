@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { storeHost } from '@dripfunnel/mobile-shared/brand'
+import { marketHeaders } from '../features/markets/choice'
 import { useMarkets } from '../features/markets/MarketsContext'
 import { unregisterThisPhone } from '../push/push'
 import { dropPendingWishlist, takePendingWishlist } from '../session/pendingWishlist'
@@ -37,6 +38,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       host,
       client,
       signedIn,
+      uploadHeaders: () => ({ ...shopHeaders(tokens), ...marketHeaders(choice) }),
       saveCartToken: async (token) => {
         tokens.cart = token
         await saveCartToken(host, token)
