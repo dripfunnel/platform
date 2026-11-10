@@ -51,7 +51,7 @@ import { cleanQuestions, copiedQuestions, extrasPriceChanged, foreignIds, questi
 import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
 import { isUuid } from '#core/ids'
 
-export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
+export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, textLimits, type ProductInput } from './rules'
 export { maxChoices, maxQuestions, type QuestionInput, type QuestionRefusal } from './questions'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'

@@ -35,7 +35,7 @@ import {
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
 import { selectCartVersions } from '#db/scoped/cart'
-import { textLimits } from '#engine/modules/catalog/rules'
+import { textLimits } from '#engine/modules/catalog/index'
 import { selectProductQuestions, selectQuestionWords } from '#db/scoped/questions'
 import { shopQuestionsOf, type ShopQuestion } from './questions'
 import { selectShopOffers } from '#db/scoped/promotions'
