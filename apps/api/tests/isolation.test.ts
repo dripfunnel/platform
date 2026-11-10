@@ -357,6 +357,7 @@ describe('the backstop itself', () => {
       'asset', 'product_photo', 'product_video',
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
+      'product_question', 'product_question_choice', 'product_question_amount', 'product_question_version', 'shopper_upload',
       'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement', 'api_key', 'api_usage', 'webhook_endpoint', 'webhook_delivery', 'app', 'app_grant',
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'storefront_template', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
@@ -773,7 +774,10 @@ describe('the backstop itself', () => {
       // and the labels it booked for its own parts (0130).
       'order_document', 'order_for_supplier', 'order_line', 'order_line_for_supplier', 'order_part', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
-      'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
+      'product_market_rule', 'product_option', 'product_option_value', 'product_photo',
+      // Its own products' questions, choices, amounts and version limits (#1368, 0391).
+      'product_question', 'product_question_amount', 'product_question_choice', 'product_question_version',
+      'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video',
       // Its own refunds and returned lines, the returns holding them without the store's note, and its ledger (0072).
       'refund', 'refund_line', 'return_for_supplier', 'return_line', 'seller', 'size_chart', 'stock_level', 'stock_movement',
@@ -784,7 +788,8 @@ describe('the backstop itself', () => {
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE') order by 1`)).toEqual([
       'activity_log', 'asset', 'catalog_export', 'catalog_import', 'external_connection', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
-      'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
+      'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo',
+      'product_question', 'product_question_amount', 'product_question_choice', 'product_question_version', 'product_related',
       'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
       'translation', 'version_price', 'warehouse',
     ])
@@ -839,6 +844,7 @@ describe('the backstop itself', () => {
       'set_store_vendor_approval',
       'shop_delivering_warehouse',
       'shop_stock',
+      'shopper_upload_deleted',
       'spend_partner_reauth',
       'staff_begin_repo',
       'staff_start_row',

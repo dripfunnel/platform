@@ -168,6 +168,8 @@ export const offerSchema = z
     totalUsesLimit: z.number().int().min(1).max(100_000_000).nullable(),
     perCustomerLimit: z.number().int().min(1).max(1000).nullable(),
     combines: combinesSchema,
+    // "Include customisation extras" (OFFERS-DESIGN §3.1): left out is on for a new offer and unchanged on an edit.
+    includeCustomisation: z.boolean().optional(),
     conditions: z.array(conditionSchema).max(maxConditions),
     action: actionSchema,
   })

@@ -32,7 +32,7 @@ import { queueStoreEvent } from '#db/scoped/storeEvents'
 import { recoverCarts } from '#engine/modules/cartReminders/index'
 import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/promotions'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
-import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
+import { createCartService, snapshotOf, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
 import { deliverOrder } from '#engine/modules/deliveries/index'
 import { lockUsableGiftCard, redeemGiftCard, setCartGiftCard } from '#db/scoped/giftCards'
@@ -198,6 +198,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
 
   const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean, deliveringAt: string | null): Promise<SnapshotLine[]> => {
     const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
+    // By cart line: two lines of one version (different answers) are held one after the other.
     const heldAt = new Map<string, string | null>()
     // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4); in
     // version order, so two orders holding the same versions never wait on each other.
@@ -209,14 +210,14 @@ export const createCheckout = (deps: CheckoutDeps) => {
       const held = await reserveLine(tx, storeId, v.id, l.quantity, at === null && v.continue_selling, at)
       if (!held && at !== null) throw new Refused('NOT_READY', ['SHIPPING_UNAVAILABLE'])
       if (!held) throw new Refused('OUT_OF_STOCK')
-      heldAt.set(v.id, held.warehouseId)
+      heldAt.set(l.lineId ?? v.id, held.warehouseId)
     }
     const lines: SnapshotLine[] = []
     for (const l of cart.lines) {
       const v = versions.get(l.versionId)
       if (!v || !l.item || !l.unitPrice || !l.lineTotal) throw new Refused('NOT_READY')
-      const reservedWarehouseId = heldAt.get(v.id) ?? null
-      const tax = cart.tax?.lines.find((t) => t.id === l.versionId)
+      const reservedWarehouseId = heldAt.get(l.lineId ?? v.id) ?? null
+      const tax = cart.tax?.lines.find((t) => t.id === (l.lineId ?? l.versionId))
       lines.push({
         versionId: v.id,
         productId: v.product_id,
@@ -235,6 +236,9 @@ export const createCheckout = (deps: CheckoutDeps) => {
         weightGrams: v.weight_grams,
         reservedWarehouseId,
         gift: l.gift,
+        answers: l.answers.length > 0 ? snapshotOf(l.answers) : null,
+        unitExtrasAmount: l.unitExtras,
+        lineExtrasAmount: l.lineExtras,
       })
     }
     return lines

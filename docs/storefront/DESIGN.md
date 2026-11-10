@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-09 (#1367: the customisation modal among the sealed components, *proposed*). Before: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
@@ -68,7 +68,8 @@ Enforced by the walls of ARCHITECTURE §3.3–§3.5, not by this document alone:
   the Shop API. Placeholder images and copy never ship to live.
 - **Sealed components** (ARCHITECTURE §3.5): the price with its tax label, the payment
   element, legal and compliance notices, the consent banner, the preview banner, the brand's
-  "Powered by" line, breadcrumbs and the order summary at review. The AI places and styles
+  "Powered by" line, breadcrumbs, the order summary at review and the customisation modal
+  (#1367, *proposed*, opened by Add to cart on a product with questions). The AI places and styles
   them, through their class, core's `--df-*` custom properties and their `::part` names
   (ARCHITECTURE §3.5); it doesn't remove, cover or reword them.
 - **SEO and accessibility plumbing**: the `<head>`, structured data, canonical and hreflang,

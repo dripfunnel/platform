@@ -68,7 +68,7 @@ const saveButton = (name: RegExp | string = /^Save$/) => screen.getByRole('butto
 const dialog = () => screen.getByRole('dialog')
 
 beforeEach(() => {
-  api.loadOfferFacts.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} })
+  api.loadOfferFacts.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {}, hasCustomisation: false })
   api.loadOffer.mockResolvedValue(welcome)
   api.loadProductNames.mockResolvedValue(new Map())
   api.loadCustomerNames.mockResolvedValue(new Map())
@@ -163,7 +163,7 @@ describe('a new offer', () => {
   })
 
   it('stops the product picker at the most one offer can name', async () => {
-    const draft = { ...(await import('./offerDraft')).blankDraft('products', null, { facts: { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }, now: new Date(), ship: 'delivery', season: null }), productIds: Array.from({ length: 250 }, (_, i) => `x${i}`) }
+    const draft = { ...(await import('./offerDraft')).blankDraft('products', null, { facts: { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {}, hasCustomisation: false }, now: new Date(), ship: 'delivery', season: null }), productIds: Array.from({ length: 250 }, (_, i) => `x${i}`) }
     sessionStorage.setItem('df-draft:offer:s1:new', JSON.stringify({ revision: null, draft }))
     await show(owner, '/offers/new?type=products')
     fireEvent.click(screen.getByRole('button', { name: words.chooseProducts }))

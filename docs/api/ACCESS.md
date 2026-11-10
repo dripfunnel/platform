@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-09 (#1367: product customisation: a supplier's questions and its lines' answers, an extra's price sends an approved product back, answers and uploads hidden from support, the isolation rows, §7.1, §7.2, §8, §11.1). Before: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -43,10 +43,10 @@ Last updated: 2026-11-09 (#1344: staff impersonating and a support session that 
 | **Audit rows are written in the same transaction as the change**, append-only | Logs; a best-effort async write | A privileged change without its audit row can't commit. |
 | **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
 | **Suppliers manage their own team** (decided 2026-09-28): the merchant sets the supplier's access level; Supplier admins manage its users' team roles within it | The merchant manages every supplier user | The merchant decides what a supplier may do, not who works there ([DATA-MODEL.md](DATA-MODEL.md) §4.2). |
-| **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
+| **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper but its own lines' answers to a product's questions, §7.1) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
 | **Each supplier refunds its own items; the store can override; the override goes to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
 | **2-factor is optional for everyone, Owners included, and off by default** in the people pool (decided 2026-10-29 on #1008, reversing 2026-10-02's "required for Owners"): authenticator app or SMS, ten single-use backup codes, turned on and off in My profile (§2, §4). "Require 2-factor for the whole team" (§14.4) is not built | Required for Owners; required for everyone; nobody | The prototype still shows the Owner as required (its `enrol` view and the Owner wording in My profile); the docs win here (designs/INCOMPLETE-FEATURES.md). |
-| **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those three fields change what the shopper is sold. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
+| **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02); a question's charge-setting fields count as a price (decided 2026-11-09 by Gaurav on #1367, §7.2) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those fields change what the shopper is sold and pays. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
 | **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-02 on #186's review with the prototype's modal, replacing the morning's "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
 
 ---
@@ -890,6 +890,14 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   are the merchant's own, as a gift card is the store's liability. The engine refuses any other
   kind from a vendor (`SUPPLIER_FIELD`), and `product_supplier_physical` refuses the row; a
   download's file, key pool and kind details are Store API fields of scope `store` only.
+- **Questions the shopper answers** (decided 2026-11-09 on #1367; CATALOG-DESIGN §3 facts 49–57): a
+  vendor writes questions on its own products like any other product field, under §7.2's rule, where
+  an extra's price counts as a price, and never on the merchant's or another vendor's. It sees the answers and uploads of **its own lines only**, whatever its
+  shipping mode, since it makes the item: through `order_line_for_supplier` and a file link the
+  engine mints after checking the line is its own (DATA-MODEL §7.11). Text answers and uploads are
+  shopper details (CATALOG-DESIGN fact 57), but they are also what the item is made from, so a
+  `to-store` supplier gets its own lines' answers too: the **one exception to §7.3** (decided
+  2026-11-09 by Gaurav on #1367). It gets nothing else of the customer: no name, email, phone or address.
 
 ### 7.2 Approval is a per-store setting
 
@@ -904,7 +912,16 @@ stock totals (PLATFORM-PROMPT §2 item 5).
 - **Editing an approved product** (decided 2026-10-02): it goes back to `pending`, and is
   **hidden from the storefront until approved**, only when the vendor changed its **name, a
   price (the product's or a version's) or its photo set**. Any other edit goes live at the
-  next publish. The engine compares the three against the approved values on save; the
+  next publish. **An extra's price is a price** (decided here on #1367, so a vendor can't add a
+  charge the merchant hasn't seen): a change to anything that sets what a question charges
+  sends the product back: adding, changing or removing the price of a question or a choice
+  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance and maximum picks, a choice's
+  maximum quantity, per item or once per line, and a per-character question's maximum length;
+  and, on a question that charges (its own price or a priced choice), making it required, its
+  minimum picks, its condition and its versions, which decide which shoppers pay it. Any other
+  change to its questions (text, order, availability, an unpriced question's rules) goes
+  live. The engine compares the name, prices, photos and those charge-setting fields against
+  the approved values on save; the
   portal says which change needs approval. Accepted with the decision: a vendor can take its
   own product off sale by editing one of those fields, which the Owner sees in the queue and
   the activity log.
@@ -937,10 +954,11 @@ first platform's constructed view.
   scoped layer filters it.
 - **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4),
   **by the part's stored mode**: a **`to-store`** part shows the supplier **nothing** of the
-  customer, not even a name; the order shows "For <store>". A **`to-shopper`** part shows
+  customer, not even a name, except its own lines' answers to a product's questions (§7.1); the order shows "For <store>". A **`to-shopper`** part shows
   **name and delivery address, never email or phone**. The merchant's order view says which
   mode each part is in. The isolation matrix includes a supplier switched from `to-store` to
-  `to-shopper` still seeing nothing on the orders placed before the switch.
+  `to-shopper` still seeing nothing of the customer, beyond its own lines' answers, on the orders
+  placed before the switch.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
@@ -1038,7 +1056,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   customers and orders read `•••••` (`apis/store/shopperDetails.ts`) wherever the Store API returns them:
   orders, customers, abandoned carts, wishlists, issued gift cards, Home, own delivery, and in the activity
   log an order note, a shopper's own label, and the label, changes and reason of an entry about a shopper's
-  record (customer, address, cart, wishlist), though LOGGING.md §4.1 keeps them out already. A support session's search by a shopper's name, email or phone finds nothing, and its
+  record (customer, address, cart, wishlist), though LOGGING.md §4.1 keeps them out already. A cart or order
+  line's text answers read `•••••` too, and its uploaded files have no link (#1367; choice names are the
+  merchant's words and show). A support session's search by a shopper's name, email or phone finds nothing, and its
   activity log search finds nothing at all; an order number still finds its order. Every order action is open to it whenever it may make changes.
 - **Time-limited**: 90 minutes, **extendable once by 30** by its own agent, as staff impersonation (§8.1)
   (decided 2026-11-06 on #1328, replacing 30 minutes with no extension, #337). The agent extends from the
@@ -1429,14 +1449,16 @@ builds the table must ship:
   lines, refunds and ledger entries, and seeing nothing of the other's, counts and search
   included (DATA-MODEL §7.1, §7.11);
 - a supplier's view of orders and returns: a `to-store` supplier's search and count by a
-  shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
+  shopper's email return nothing, and it reads no name, email, phone or address, only its own
+  lines' answers and their file links (§7.1); a `to-shopper` supplier sees the name and shipping address
   of its own parts and no total; `app_supplier` selecting from `"order"` or `"return"`
   directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
-  lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
-  before the switch; a `to-store` supplier never reads the store's onward shipment of its
+  lists; a supplier switched `to-store → to-shopper` still sees nothing of the customer, beyond
+  its own lines' answers, on orders placed before the switch; a `to-store` supplier never reads the store's onward shipment of its
   lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
   zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
-  its own lines' unit and line amounts with the currency and never a discount, tax or total
+  its own lines' unit and line amounts (once-per-line extras included) and answers with the
+  currency and never a discount, tax or total
   (§7.3; DATA-MODEL §7.6, §7.11);
 - a supplier reading its own refunds never receives `by_user_id`, an override's `note`, a
   return's `note` or a ledger entry's `note` (DATA-MODEL §7.6, §5.3);
@@ -1492,6 +1514,39 @@ builds the table must ship:
   with another customer's id, or with `state <> 'cart'`, is refused (DATA-MODEL §5.3, §7.11);
 - the AI metering view returns partner A's stores to partner A and none of partner B's, every
   store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).
+
+**Rows added with product customisation (#1367)**, for #1368 and #1369 (DATA-MODEL §7.3, §7.6, §7.11):
+
+- two suppliers in one store, each reading and writing the questions, choices, amounts and version
+  limits of its own products only; a supplier writing a question on the merchant's product, or
+  copying questions from or to a product it doesn't own (`copyProductQuestions`), gets "not found";
+  store B's product as either end of a copy in store A is "not found";
+- a shopper reads the questions of a visible product only, never a hidden, deleted or another store's
+  product's, and their translations by the same rule;
+- a shopper writes `answers` only on its own cart's lines, never `answers_key`, and a price sent
+  anywhere in an answer changes nothing: the engine prices the line;
+- a shopper uploads only to its own cart, reads only its own cart's `shopper_upload` rows and never
+  `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`, and deleting
+  another cart's or store's upload id (`DELETE /shop-api/uploads/{id}`) deletes nothing and answers
+  `UPLOAD_NOT_FOUND`, by the `delete` branch's own-cart test, not by engine code alone;
+- a supplier writing a question, choice, amount or version row on another owner's product or question is refused: the
+  owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
+  another owner's row touches nothing;
+- an `upload.delete` job naming another store's key, or a file a `shopper_upload` row still names,
+  deletes nothing; `app_shop` inserting any outbox row is refused by the grant, a deleted upload's
+  job coming from its row by trigger;
+- a supplier writing a choice, an amount or a version limit under a question it doesn't own gets not
+  found, and one it writes under its own question carries that question's owner, whatever it sent;
+- a supplier gets a link only to a file its own line's answers name, of that line's order and store: an upload id
+  of another order or store, even sent beside its own line, gets no link;
+- a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
+  `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
+  by the grant;
+- a partner support session, before and after elevation, reads every text answer as `•••••` and gets
+  no file link, on orders and abandoned carts alike; a partner or platform query on any of these
+  tables returns nothing;
+- `promotion.include_customisation` is read and written by the merchant side only, as the rest of
+  an offer.
 
 ### 11.2 Structural tests
 

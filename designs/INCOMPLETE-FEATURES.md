@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-09 (#1367: a supplier sees its own lines' answers, the vendors note). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -242,7 +242,7 @@ All five were done on 2026-10-02 — see §4.
 
 ## 4. Designed on 2026-10-02
 
-Decisions taken (#13): suppliers see nothing of the customer — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA was required for Owners, optional for everyone else (reversed 2026-10-29, #1008: optional for everyone, Owners included) · a removed supplier's products are hidden, still marked as theirs (Products has no draft status). Trial is 10 days. DripFunnel's own prices show in the store's currency.
+Decisions taken (#13): suppliers see nothing of the customer (since #1367, but their own lines' answers to a product's questions, ACCESS §7.1) — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA was required for Owners, optional for everyone else (reversed 2026-10-29, #1008: optional for everyone, Owners included) · a removed supplier's products are hidden, still marked as theirs (Products has no draft status). Trial is 10 days. DripFunnel's own prices show in the store's currency.
 
 Now designed in the Store prototype:
 - **Cross-cutting:** upgrade prompt keeps the plan key and guesses from the label otherwise; plan names corrected everywhere (Growth / Growth Pro / Partner); 10-day trial; prices in USD / EUR / INR; Pricing links, rows and FAQ fixed, plus a currency picker; read-only enforced in Import, A+ and Catalogue settings; Store dark mode (Dark mode toggle in the controls, or My profile › Appearance).

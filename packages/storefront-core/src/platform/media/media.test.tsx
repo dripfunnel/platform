@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Provided, store } from '../../../test/shop'
 import { createShopClient } from '../api/client'
 import { StorefrontProvider, type RenderMode } from '../store/context'
@@ -39,6 +39,18 @@ describe('Image', () => {
     expect(live).toContain('width="1200" height="1500"')
     expect(live).toContain('loading="lazy"')
     expect(html('preview', <Image image={photo} alt="Front" ratio={1} />)).toContain('src="https://shop.example/shop-api/assets/a"')
+  })
+
+  it('shows the original under `next dev`, which has no Cloudflare to resize it', () => {
+    if (!photo) throw new Error('no photo')
+    vi.stubEnv('NODE_ENV', 'development')
+    try {
+      const dev = html('live', <Image image={photo} alt="Front" ratio={1} />)
+      expect(dev).toContain('src="https://shop.example/shop-api/assets/a"')
+      expect(dev).not.toContain('cdn-cgi')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it("loads eagerly only the picture core chose as the page's main one", () => {

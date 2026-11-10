@@ -558,6 +558,13 @@ type ConvertedAmount {
   currency: String
 }
 
+type CopiedQuestions {
+  droppedAmounts: Int
+  droppedPhotos: Int
+  droppedVersionLimits: Int
+  product: SavedProduct
+}
+
 input CourierOptionsInput {
   labelSize: String!
   pickupMode: String!
@@ -781,6 +788,22 @@ type DownloadFile {
   id: ID
   mime: String
   url: String
+}
+
+type ExtraPrice {
+  amounts: [QuestionAmount!]
+  mode: String
+  per: String
+  percentBps: Int
+  versionAmounts: [QuestionVersionAmounts!]
+}
+
+input ExtraPriceInput {
+  amounts: [QuestionAmountInput!]
+  mode: String!
+  per: String!
+  percentBps: Int
+  versionAmounts: [QuestionVersionAmountInput!]
 }
 
 type Facet {
@@ -1141,6 +1164,7 @@ type Mutation {
   connectShopify(shop: String!): String
   connectStoreAiAccount(key: String!, provider: String!): Boolean
   connectStripe: String
+  copyProductQuestions(fromProductId: ID!, revision: Int!, toProductId: ID!): CopiedQuestions
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
   createGroup(description: String, name: String!): ID
@@ -1354,6 +1378,7 @@ type Offer {
   enabled: Boolean
   endsAt: String
   id: ID
+  includeCustomisation: Boolean
   internalName: String
   name: String
   perCustomerLimit: Int
@@ -1511,6 +1536,7 @@ input OfferInput {
   description: String
   enabled: Boolean!
   endsAt: String
+  includeCustomisation: Boolean
   internalName: String
   name: String!
   perCustomerLimit: Int
@@ -1677,6 +1703,7 @@ enum OrderFilter {
 
 type OrderLine {
   amount: Money
+  answers: [OrderLineAnswer!]
   discount: Money
   fulfilledQuantity: Int
   id: ID
@@ -1692,6 +1719,29 @@ type OrderLine {
   unitPrice: Money
   versionId: ID
   versionName: String
+}
+
+type OrderLineAnswer {
+  amount: Money
+  choices: [OrderLineAnswerChoice!]
+  files: [OrderLineAnswerFile!]
+  kind: String
+  per: String
+  question: String
+  text: String
+}
+
+type OrderLineAnswerChoice {
+  free: Int
+  label: String
+  quantity: Int
+}
+
+type OrderLineAnswerFile {
+  bytes: Int
+  id: ID
+  mime: String
+  url: String
 }
 
 type OrderPage {
@@ -1898,6 +1948,7 @@ type Product {
   pricing(marketId: ID): [VersionPricing!]
   pricingCurrency: String
   productType: String
+  questions: [ProductQuestion!]
   readiness: [MarketReadiness!]
   returnsText: String
   revision: Int
@@ -1974,6 +2025,7 @@ input ProductInput {
   options: [ProductOptionInput!]!
   photos: [ProductPhotoInput!]
   productType: String
+  questions: [ProductQuestionInput!]
   returnsText: String
   seoDescription: String
   seoTitle: String
@@ -2078,6 +2130,74 @@ input ProductPhotoInput {
   version: Int
 }
 
+type ProductQuestion {
+  accept: String
+  choices: [ProductQuestionChoice!]
+  example: String
+  freePicks: Int
+  help: String
+  id: ID
+  kind: String
+  label: String
+  maxFiles: Int
+  maxLength: Int
+  maxPicks: Int
+  minPicks: Int
+  multiline: Boolean
+  price: ExtraPrice
+  required: Boolean
+  shownIf: ProductQuestionCondition
+  versionIds: [ID!]
+}
+
+type ProductQuestionChoice {
+  available: Boolean
+  id: ID
+  label: String
+  maxQuantity: Int
+  photoAssetId: ID
+  price: ExtraPrice
+}
+
+input ProductQuestionChoiceInput {
+  available: Boolean
+  id: ID
+  label: String!
+  maxQuantity: Int
+  photoAssetId: String
+  price: ExtraPriceInput
+}
+
+type ProductQuestionCondition {
+  choiceId: ID
+  questionId: ID
+}
+
+input ProductQuestionConditionInput {
+  choice: Int!
+  question: Int!
+}
+
+input ProductQuestionInput {
+  accept: String
+  choices: [ProductQuestionChoiceInput!]
+  example: String
+  freePicks: Int
+  help: String
+  id: ID
+  kind: String!
+  label: String!
+  maxFiles: Int
+  maxLength: Int
+  maxPicks: Int
+  minPicks: Int
+  multiline: Boolean
+  price: ExtraPriceInput
+  required: Boolean
+  shownIf: ProductQuestionConditionInput
+  versions: [Int!]
+}
+
 type ProductSpec {
   filterValueId: ID
   name: String
@@ -2118,6 +2238,7 @@ type ProductSummary {
   name: String
   photoUrl: String
   productType: String
+  questionCount: Int
   readiness: [MarketReadiness!]
   slug: String
   stock: Int
@@ -2274,6 +2395,7 @@ type Query {
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
   giftCards(after: String, before: String, first: Int, productId: ID!): IssuedGiftCardPage
+  hasCustomisation: Boolean
   health: String
   home: StoreHome
   installableApp(id: ID!): InstallableApp
@@ -2369,6 +2491,26 @@ type Query {
   wishlistShopperCounts: WishlistShopperCounts
   wishlistShoppers(after: String, before: String, first: Int, search: String, tab: String): WishlistShopperPage
   wishlistSummary(days: Int): WishlistSummary
+}
+
+type QuestionAmount {
+  amount: String
+  currency: String
+}
+
+input QuestionAmountInput {
+  amount: String!
+  currency: String!
+}
+
+input QuestionVersionAmountInput {
+  amounts: [QuestionAmountInput!]!
+  version: Int!
+}
+
+type QuestionVersionAmounts {
+  amounts: [QuestionAmount!]
+  versionId: ID
 }
 
 type ReferenceRate {

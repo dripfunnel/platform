@@ -7,8 +7,8 @@ import { blankAction, blankCondition, blankDraft, seasonCode, convertedMinor, co
 // kind of offer sends, and what stops it saving.
 
 const words = messages.offers.editor.errors
-const india: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
-const multi: StoreFacts = { timeZone: 'America/New_York', country: 'US', main: 'USD', others: ['EUR', 'JPY'], perEuro: { USD: 1.1, EUR: 1, JPY: 160 } }
+const india: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {}, hasCustomisation: false }
+const multi: StoreFacts = { timeZone: 'America/New_York', country: 'US', main: 'USD', others: ['EUR', 'JPY'], perEuro: { USD: 1.1, EUR: 1, JPY: 160 }, hasCustomisation: false }
 const ctx = (facts: StoreFacts) => ({ facts, now: new Date('2026-10-10T06:30:00.000Z'), ship: 'delivery', season: { name: 'Diwali', on: new Date('2026-11-08T00:00:00.000Z') } })
 const base: Offer = { id: 'o1', name: 'Offer', internalName: null, description: null, trigger: 'automatic', code: null, status: 'off', enabled: false, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: { product: false, order: false, shipping: false }, conditions: [], action: blankAction({ operation: 'free_shipping' }), revision: 1 }
 
@@ -294,5 +294,21 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...bxgy, buyIds: ['p1'], getSame: false }, multi)).toEqual({ get: words.get })
     expect(errorsOf({ ...bxgy, buyIds: ['p1'], buyQuantity: '100' }, multi)).toEqual({ value: 'Use whole numbers from 1 to 99.' })
     expect(errorsOf({ ...bxgy, buyIds: ['p1'], getPercent: '0' }, multi)).toEqual({ value: words.percent })
+  })
+})
+
+describe('Include customisation extras (OFFERS §3.1, #1367)', () => {
+  it('is on for a new offer, sent with every kind that takes money off goods, never with free shipping', () => {
+    expect(blankDraft('products', null, ctx(india)).includeCustomisation).toBe(true)
+    const off = { ...blankDraft('order', null, ctx(india)), code: 'OFF10', includeCustomisation: false }
+    expect(inputOf(off, india, true)).toMatchObject({ includeCustomisation: false })
+    expect(inputOf({ ...blankDraft('bxgy', null, ctx(india)), buyIds: ['p1'] }, india, true)).toMatchObject({ includeCustomisation: true })
+    expect(inputOf(blankDraft('shipping', null, ctx(india)), india, true)).not.toHaveProperty('includeCustomisation')
+  })
+
+  it('reads an offer’s stored switch, on where an older offer has none', () => {
+    const order: Offer = { ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 10 }) }
+    expect(draftOf({ ...order, includeCustomisation: false }, india).includeCustomisation).toBe(false)
+    expect(draftOf(order, india).includeCustomisation).toBe(true)
   })
 })

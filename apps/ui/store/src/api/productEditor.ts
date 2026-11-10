@@ -31,6 +31,33 @@ const versionSchema = z.object({
   continueSelling: z.boolean().nullable(),
 })
 
+const extraPriceSchema = z.object({
+  mode: z.string(),
+  per: z.string(),
+  percentBps: z.number().int().nullable(),
+  amounts: z.array(z.object({ currency: z.string(), amount: z.string() })),
+  versionAmounts: z.array(z.object({ versionId: z.string(), amounts: z.array(z.object({ currency: z.string(), amount: z.string() })) })),
+})
+const questionSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  label: z.string(),
+  help: z.string().nullable(),
+  required: z.boolean(),
+  minPicks: z.number().int().nullable(),
+  maxPicks: z.number().int().nullable(),
+  freePicks: z.number().int().nullable(),
+  maxLength: z.number().int().nullable(),
+  multiline: z.boolean().nullable(),
+  example: z.string().nullable(),
+  accept: z.string().nullable(),
+  maxFiles: z.number().int().nullable(),
+  price: extraPriceSchema.nullable(),
+  shownIf: z.object({ questionId: z.string(), choiceId: z.string() }).nullable(),
+  versionIds: z.array(z.string()).nullable(),
+  choices: z.array(z.object({ id: z.string(), label: z.string(), photoAssetId: z.string().nullable(), available: z.boolean(), maxQuantity: z.number().int(), price: extraPriceSchema.nullable() })),
+})
+
 const productSchema = z.object({
   id: z.string(),
   revision: z.number().int(),
@@ -61,6 +88,8 @@ const productSchema = z.object({
   }),
   filterValues: z.array(z.object({ valueId: z.string(), versionId: z.string().nullable() })),
   sizeChartId: z.string().nullable(),
+  // The questions shoppers answer before buying (#1368; CATALOG §6 U).
+  questions: z.array(questionSchema),
   // Null for a supplier, which reads no market.
   readiness: z.array(z.object({ marketId: z.string(), marketName: z.string(), ready: z.boolean(), missing: z.array(z.string()) })).nullable(),
 })
@@ -74,6 +103,9 @@ const productFields = `id revision name description productType visible approval
   versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock continueSelling }
   listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds related { id name } badgeIds compliance { region field value } ageRestricted hazardous }
   filterValues { valueId versionId } sizeChartId
+  questions { id kind label help required minPicks maxPicks freePicks maxLength multiline example accept maxFiles versionIds shownIf { questionId choiceId }
+    price { mode per percentBps amounts { currency amount } versionAmounts { versionId amounts { currency amount } } }
+    choices { id label photoAssetId available maxQuantity price { mode per percentBps amounts { currency amount } versionAmounts { versionId amounts { currency amount } } } } }
   readiness { marketId marketName ready missing }`
 
 /** The product, or null for one that isn't here (or isn't the caller's, which looks the same). */
@@ -162,6 +194,8 @@ export interface ProductInput {
   }
   filterValues?: { valueId: string; version?: number }[]
   sizeChartId?: string | null
+  /** Left out keeps the product's questions; [] removes them (CATALOG U14). */
+  questions?: unknown[]
 }
 
 const savedSchema = z.object({ id: z.string(), revision: z.number().int(), approval: z.string().nullable() })
@@ -256,3 +290,26 @@ export const loadStoreCurrencies = async (): Promise<{ code: string; mode: 'auto
 /** The store's active markets, for each one's price. */
 export const loadMarkets = async (): Promise<{ id: string; name: string; currency: string }[]> =>
   (await loadAllMarkets()).filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency }))
+
+const copiedSchema = z.object({ product: z.object({ id: z.string(), revision: z.number().int() }), droppedAmounts: z.number().int(), droppedVersionLimits: z.number().int(), droppedPhotos: z.number().int() })
+export type CopiedQuestions = z.infer<typeof copiedSchema>
+
+/** "Copy questions from another product" (CATALOG U12): replaces this product's, at its revision; says what couldn't come. */
+export const copyProductQuestions = async (fromProductId: string, toProductId: string, revision: number): Promise<CopiedQuestions> =>
+  (
+    await query(
+      'mutation C($from: ID!, $to: ID!, $revision: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $revision) { product { id revision } droppedAmounts droppedVersionLimits droppedPhotos } }',
+      z.object({ copyProductQuestions: copiedSchema }),
+      { from: fromProductId, to: toProductId, revision },
+    )
+  ).copyProductQuestions
+
+/** Products the person can see that ask questions, filtered by the API, by a search, with how many (U12's product search). */
+export const searchProductsWithQuestions = async (search: string): Promise<{ id: string; name: string; questionCount: number }[]> =>
+  (
+    await query(
+      'query S($search: String) { products(filter: "with_questions", search: $search, first: 50) { nodes { id name questionCount } } }',
+      z.object({ products: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), questionCount: z.number().int() })) }) }),
+      { search: search.trim() || null },
+    )
+  ).products.nodes

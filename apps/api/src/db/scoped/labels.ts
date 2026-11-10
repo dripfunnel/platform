@@ -51,11 +51,14 @@ export interface BookingLineRow {
   sku: string | null
   hs_code: string | null
   unit_amount: string
+  /** The line's once-per-line customisation extras and its quantity, so a label declares them per unit (#1368). */
+  line_extras_amount: string
+  quantity: number
   weight_grams: number | null
 }
 
 export const selectBookingLines = (tx: ScopedSql, orderId: string): Promise<BookingLineRow[]> =>
-  tx<BookingLineRow[]>`select id, name, sku, hs_code, unit_amount::text as unit_amount, weight_grams from order_line where order_id = ${orderId}`
+  tx<BookingLineRow[]>`select id, name, sku, hs_code, unit_amount::text as unit_amount, line_extras_amount::text as line_extras_amount, quantity, weight_grams from order_line where order_id = ${orderId}`
 
 /** The label file and the document naming it, the label's supplier owning both so it reads its own (DATA-MODEL §7.6). */
 export const insertLabel = async (

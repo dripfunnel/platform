@@ -27,6 +27,9 @@ export interface CartGift {
   sendOn: string | null
 }
 
+/** A line's answer as kept (DATA-MODEL §7.6): ids only, never a price, ordered by question then choice id. */
+export type StoredAnswer = { question: string; choices: { choice: string; quantity: number }[] } | { question: string; text: string } | { question: string; uploads: string[] }
+
 export interface CartRow {
   id: string
   customer_id: string | null
@@ -44,7 +47,8 @@ export interface CartRow {
   promotion_codes: string[]
   /** The gift card the engine put on it (migration 0172); never the shopper's to write. */
   gift_card_id: string | null
-  lines: { version_id: string; quantity: number; gift: CartGift | null }[]
+  /** `id` names a line in the Shop API; `answers` are its answers to the product's questions, null on most (migration 0392). */
+  lines: { id: string; version_id: string; quantity: number; gift: CartGift | null; answers: StoredAnswer[] | null }[]
 }
 
 /** The shopper's open cart: the guest token's when one was presented, else the account's latest. */
@@ -53,8 +57,8 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
     await tx<CartRow[]>`
       select o.id, o.customer_id, o.email, o.phone, o.currency, o.market_id, o.shipping_address, o.billing_address, o.shipping_option,
         o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes, o.gift_card_id,
-        coalesce((select json_agg(json_build_object('version_id', l.version_id, 'quantity', l.quantity, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
-          'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
+        coalesce((select json_agg(json_build_object('id', l.id, 'version_id', l.version_id, 'quantity', l.quantity, 'answers', l.answers, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
+          'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id, l.id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o
       where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
       order by (o.customer_id is null) desc, o.updated_at desc
@@ -81,23 +85,62 @@ export const insertCart = async (tx: ScopedSql, storeId: string, c: { customerId
   return row.id
 }
 
-/** How many of this version the cart holds; 0 takes the line out. */
-export const setCartLine = async (tx: ScopedSql, storeId: string, orderId: string, versionId: string, quantity: number): Promise<void> => {
-  if (quantity === 0) {
-    await tx`delete from cart_line where order_id = ${orderId} and version_id = ${versionId}`
-    return
+const answersParam = (tx: ScopedSql, answers: readonly StoredAnswer[] | null) => (answers && answers.length > 0 ? tx.json(answers as unknown as postgres.JSONValue) : null)
+
+/**
+ * Adds to the line of this version with these answers (one line, fact 56), or starts it: up to 999. Answers the line's id.
+ * A line without answers is today's one line per version.
+ */
+export const addCartLine = async (tx: ScopedSql, storeId: string, orderId: string, versionId: string, answers: readonly StoredAnswer[] | null, quantity: number, max: number): Promise<string | 'version_taken'> => {
+  try {
+    const [row] = await tx.savepoint(
+      (sp) => sp<{ id: string }[]>`
+        insert into cart_line (order_id, store_id, version_id, quantity, answers) values (${orderId}, ${storeId}, ${versionId}, ${quantity}, ${answersParam(tx, answers)})
+        on conflict (order_id, version_id, answers_key) do update set quantity = least(cart_line.quantity + excluded.quantity, ${max})
+        returning id
+      `,
+    )
+    if (!row) throw new Error('cart: line insert returned no row')
+    return row.id
+  } catch (error) {
+    // The old key (order_id, version_id) holds until the contract migration (0392's note): one line a version till then.
+    if (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'cart_line_pkey') return 'version_taken'
+    throw error
   }
-  await tx`
-    insert into cart_line (order_id, store_id, version_id, quantity) values (${orderId}, ${storeId}, ${versionId}, ${quantity})
-    on conflict (order_id, version_id) do update set quantity = excluded.quantity
+}
+
+/** How many of a line; 0 takes it out. */
+export const setCartLineQuantity = async (tx: ScopedSql, orderId: string, lineId: string, quantity: number): Promise<void> => {
+  if (quantity === 0) await tx`delete from cart_line where order_id = ${orderId} and id = ${lineId}`
+  else await tx`update cart_line set quantity = ${quantity} where order_id = ${orderId} and id = ${lineId}`
+}
+
+/**
+ * A line's answers changed (Edit): when another line of the version already has these answers, the two become one, their
+ * quantities summed up to `max`. Answers the line that holds them now.
+ */
+export const setCartLineAnswers = async (tx: ScopedSql, orderId: string, lineId: string, answers: readonly StoredAnswer[] | null, max: number): Promise<string | null> => {
+  const [line] = await tx<{ version_id: string; quantity: number }[]>`select version_id, quantity from cart_line where order_id = ${orderId} and id = ${lineId} for update`
+  if (!line) return null
+  const json = answersParam(tx, answers)
+  const [twin] = await tx<{ id: string }[]>`
+    select id from cart_line where order_id = ${orderId} and version_id = ${line.version_id} and id <> ${lineId}
+      and answers_key = case when ${json}::jsonb is null then '' else encode(sha256(convert_to((${json}::jsonb)::text, 'UTF8')), 'hex') end
   `
+  if (!twin) {
+    await tx`update cart_line set answers = ${json} where id = ${lineId}`
+    return lineId
+  }
+  await tx`delete from cart_line where id = ${lineId}`
+  await tx`update cart_line set quantity = least(quantity + ${line.quantity}, ${max}) where id = ${twin.id}`
+  return twin.id
 }
 
 /** A gift card line's recipient and day, as the shopper chose them last. */
-export const setCartGift = async (tx: ScopedSql, orderId: string, versionId: string, g: CartGift): Promise<void> => {
+export const setCartGift = async (tx: ScopedSql, orderId: string, lineId: string, g: CartGift): Promise<void> => {
   await tx`
     update cart_line set gift_recipient_name = ${g.recipientName}, gift_recipient_email = ${g.recipientEmail}, gift_message = ${g.message}, gift_send_on = ${g.sendOn}::date
-    where order_id = ${orderId} and version_id = ${versionId}
+    where order_id = ${orderId} and id = ${lineId}
   `
 }
 
@@ -140,11 +183,17 @@ export const setCartDeliveryWarehouse = async (tx: ScopedSql, storeId: string, i
   await tx`update "order" set delivery_warehouse_id = ${warehouseId} where id = ${id} and store_id = ${storeId} and state = 'cart'`
 }
 
-/** Each version's product and tax class, by id; what shoppers may see is decided after, by the catalogue's rules (cartItems). */
-export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; product_id: string; tax_class_id: string | null }[]> =>
+/**
+ * Each version's product and tax class, by id, and whether its product asks questions (#1368: one statement, so a product
+ * without any costs nothing more); what shoppers may see is decided after, by the catalogue's rules (cartItems).
+ */
+export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; product_id: string; tax_class_id: string | null; has_questions: boolean }[]> =>
   ids.length === 0
     ? Promise.resolve([])
-    : tx<{ id: string; product_id: string; tax_class_id: string | null }[]>`select id, product_id, tax_class_id from product_version where store_id = ${storeId} and id = any (${pgArray(ids)}::uuid[])`
+    : tx<{ id: string; product_id: string; tax_class_id: string | null; has_questions: boolean }[]>`
+        select v.id, v.product_id, v.tax_class_id, exists (select 1 from product_question q where q.product_id = v.product_id) as has_questions
+        from product_version v where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
+      `
 
 /**
  * Carts past their expiry, a batch at a time, lines with them: nobody can open one again (the cron's sweep). One reminded
@@ -156,6 +205,8 @@ export const deleteExpiredCarts = async (tx: ScopedSql, now: Date, limit: number
       delete from "order" where id in (
         select o.id from "order" o where o.state = 'cart' and o.cart_expires_at < ${now}
           and not exists (select 1 from cart_reminder r where r.order_id = o.id and r.sent_at > ${new Date(now.getTime() - unsubscribeLinkMs)})
+          -- A cart holding shoppers' files waits: they're kept with no automatic deletion (rule 30 of #1367, DATA-MODEL §7.6).
+          and not exists (select 1 from shopper_upload u where u.order_id = o.id)
         order by o.cart_expires_at limit ${limit})
     `
   ).count
