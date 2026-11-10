@@ -1,7 +1,7 @@
-import { laterWords } from '../platform/i18n/messages'
+import { laterWords } from './later'
 
 // The customisation modal's and a customised cart line's English (ARCHITECTURE §3.5), loaded with their chunks so pages without them don't carry it;
-// a store's catalogue may still word each key (platform/i18n/i18n.ts).
+// a store's catalogue may still word each key (i18n.ts).
 export const customiseWords = {
   'customise.extra': '+{price}',
   'customise.answers': 'Your choices',
