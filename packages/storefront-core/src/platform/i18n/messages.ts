@@ -158,61 +158,17 @@ export const en = {
   'address.map.liveOnly': 'Pinning on a map works on the live shop, not on a preview.',
   'search.suggest.all': 'See all results for “{query}”',
   'search.suggest.none': 'No products match “{query}”.',
-  'customise.title': 'Before you add {name}',
-  'customise.editTitle': 'Change your choices for {name}',
-  'customise.required': 'Required',
-  'customise.optional': 'Optional',
-  'customise.none': 'None',
-  'customise.pickUpTo': 'Pick up to {count}',
-  'customise.pickAtLeast': 'Pick at least {count}',
-  'customise.free': '{count, plural, one {The first one is free} other {The first # are free}}',
-  'customise.unavailable': 'Not available',
-  'customise.extra': '+{price}',
-  'customise.extraPercent': '+{percent}%',
-  'customise.extraPerCharacter': '{price} a character',
-  'customise.characters': '{count} of {max} characters',
-  'customise.charactersWithExtra': '{count} of {max} characters · {extra}',
-  'customise.quantity': 'How many {name}',
-  'customise.addFile': 'Add a file',
-  'customise.addPhoto': 'Add a photo',
-  'customise.uploading': 'Uploading… {percent}%',
-  'customise.file': 'File {number}',
-  'customise.remove': 'Remove {name}',
-  'customise.total': 'Total',
-  'customise.totalWorking': 'Working out the total…',
-  'customise.add': 'Add to cart',
-  'customise.buy': 'Buy now',
-  'customise.save': 'Save changes',
-  'customise.cancel': 'Cancel',
-  'customise.answers': 'Your choices',
-  'customise.edit': 'Edit',
-  'customise.editNamed': 'Edit your choices for {name}',
-  'customise.check': 'Check your choices',
   'customise.files': '{count, plural, one {# file} other {# files}}',
-  'customise.failed': 'We couldn’t add it. Try again.',
-  'customise.editFailed': 'We couldn’t open your choices. Try again, or remove this item and add it again.',
   'customise.choiceCount': '{label} × {count}',
   'customise.answerRow': '{question}: {answer}',
-  'customise.problem.REQUIRED': 'Answer this question.',
-  'customise.problem.TOO_FEW_PICKS': 'Pick a few more.',
-  'customise.problem.TOO_MANY_PICKS': 'That’s more than this takes.',
-  'customise.problem.QUANTITY_TOO_HIGH': 'That’s more of this than you can pick.',
-  'customise.problem.CHOICE_UNAVAILABLE': 'This isn’t available right now.',
-  'customise.problem.TEXT_TOO_LONG': 'That’s too long.',
-  'customise.problem.TOO_MANY_FILES': 'That’s more files than this takes.',
-  'customise.problem.UPLOAD_NOT_FOUND': 'Add that file again.',
-  'customise.problem.other': 'This changed. Close this and open it again.',
-  'customise.refused.FILE_TYPE': 'That file isn’t one this question takes.',
-  'customise.refused.FILE_TOO_LARGE': 'That file is over 10 MB. Choose a smaller one.',
-  'customise.refused.TOO_MANY_UPLOADS': 'Your cart already holds 50 files. Remove one to add another.',
-  'customise.refused.RATE_LIMITED': 'Too many files at once. Wait a minute and try again.',
-  'customise.refused.UPLOAD_IN_USE': 'That file is part of an item in your cart. Edit that item to remove it.',
-  'customise.refused.ONE_LINE_PER_VERSION': 'Your cart already has this with other choices. Edit that item in your cart instead.',
-  'customise.refused.other': 'That didn’t work. Try again.',
 } as const
 
-export type MessageKey = keyof typeof en
+// The customisation modal's own words come with its lazy chunk (sealed/customiseWords.ts); only their type is here.
+export type MessageKey = keyof typeof en | keyof typeof import('../../sealed/customiseWords').customiseWords
 export type Catalogue = Partial<Record<MessageKey, string>>
+
+/** English for words a lazily loaded part brings with it, added when that part loads. */
+export const laterWords: Partial<Record<MessageKey, string>> = {}
 
 /** Catalogues by language; a store's language falls back to its base language, then English. */
 export const catalogues: Record<string, Catalogue> = { en }

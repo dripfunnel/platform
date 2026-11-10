@@ -372,8 +372,10 @@ export type CartPage = {
 /** The shopper's cart and what can be done to it (ARCHITECTURE §2.1 `cart`); nothing here prices anything. */
 export const useCart = (): CartPage => {
   const { store, snapshot, cart } = useCartState()
-  const add = async (versionId: string, quantity = 1, gift?: GiftRecipient) =>
-    (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null }, changeSchema, { versionId, quantity, kind: 'add' })) !== null
+  const send = async (versionId: string, quantity: number, gift: GiftRecipient | undefined, answers?: readonly Answer[]) =>
+    (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, quantity, kind: 'add' })) !== null
+  const add = (versionId: string, quantity = 1, gift?: GiftRecipient) => send(versionId, quantity, gift)
+  const codeOf = (done: boolean) => (done ? null : (store.get().error ?? 'UNKNOWN'))
   const setQuantity = async (versionId: string, quantity: number) => (await store.change(quantityMutation, { versionId, quantity }, changeSchema, { versionId, quantity, kind: 'set' })) !== null
   return {
     status: snapshot.status,
@@ -394,8 +396,8 @@ export const useCart = (): CartPage => {
       if (added) navigate('/checkout/')
       return added
     },
-    addWithAnswers: async (versionId, quantity, answers, gift) => ((await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, quantity, kind: 'add' })) !== null ? null : (store.get().error ?? 'UNKNOWN')),
-    editAnswers: async (lineId, answers) => ((await store.change(answersMutation, { lineId, answers }, changeSchema)) !== null ? null : (store.get().error ?? 'UNKNOWN')),
+    addWithAnswers: async (versionId, quantity, answers, gift) => codeOf(await send(versionId, quantity, gift, answers)),
+    editAnswers: async (lineId, answers) => codeOf((await store.change(answersMutation, { lineId, answers }, changeSchema)) !== null),
     retry: () => void store.reload(),
   }
 }
