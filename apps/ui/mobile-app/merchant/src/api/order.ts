@@ -6,6 +6,19 @@ import { loadPlaces } from './settingsWarehouse'
 // One order and what its screen does to it (FIRST-RELEASE.md §6, PortalOrders detail; apps/api src/apis/store/orders.ts, payments.ts). Every
 // figure is the API's; the app works none out. A supplier's own part is read by api/supplier.ts (#506), which asks for no money.
 
+// A customised line's answers as placed (#1368; DATA-MODEL §7.6): a support session reads no text and no file link. A supplier asks for no amount.
+export const answerSchema = z.object({
+  question: z.string(),
+  kind: z.string(),
+  text: z.string().nullable(),
+  per: z.string().nullable(),
+  amount: moneySchema.optional(),
+  choices: z.array(z.object({ label: z.string(), quantity: z.number().int(), free: z.number().int() })),
+  files: z.array(z.object({ id: z.string(), mime: z.string(), url: z.string().nullable() })),
+})
+export type LineAnswer = z.infer<typeof answerSchema>
+export const answerFields = (withAmount: boolean) => `answers { question kind text per ${withAmount ? 'amount { amount currency } ' : ''}choices { label quantity free } files { id mime url } }`
+
 const lineSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -17,6 +30,7 @@ const lineSchema = z.object({
   fulfilledQuantity: z.number().int(),
   returnedQuantity: z.number().int(),
   sentToStoreQuantity: z.number().int(),
+  answers: z.array(answerSchema).nullish(),
 })
 export type OrderLine = z.infer<typeof lineSchema>
 
@@ -123,7 +137,7 @@ const quantities = '{ lineId quantity }'
 const money = '{ amount currency }'
 const orderFields = `id number state placedAt customerName
   shippingAddress { name line1 line2 city region postalCode country }
-  parts { id supplierId supplierName shippingMode state lines { id name versionName quantity unitPrice ${money} amount ${money} total ${money} fulfilledQuantity returnedQuantity sentToStoreQuantity } }
+  parts { id supplierId supplierName shippingMode state lines { id name versionName quantity unitPrice ${money} amount ${money} total ${money} fulfilledQuantity returnedQuantity sentToStoreQuantity ${answerFields(true)} } }
   history { id action at actorName note }
   shipments { id kind supplierId warehouseName courierName trackingNumber trackingUrl shippedAt pickupRequestedAt lines ${quantities} }
   returns { id number state reason startedAt lines ${quantities} }

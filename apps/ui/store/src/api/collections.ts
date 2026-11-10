@@ -76,7 +76,7 @@ export const loadCollection = async (id: string): Promise<Collection | null> =>
     )
   ).collection
 
-const memberSchema = z.object({ id: z.string(), name: z.string() })
+const memberSchema = z.object({ id: z.string(), name: z.string(), imageAssetId: z.string().nullable() })
 export type Member = z.infer<typeof memberSchema>
 
 /** A hand-picked collection's products in its order, every page. */
@@ -85,21 +85,21 @@ export const loadMembers = (id: string): Promise<Member[]> =>
     async (after) =>
       (
         await query(
-          'query M($id: ID!, $after: String) { collectionProducts(id: $id, first: 50, after: $after) { nodes { id name } pageInfo { hasNextPage endCursor } } }',
+          'query M($id: ID!, $after: String) { collectionProducts(id: $id, first: 50, after: $after) { nodes { id name imageAssetId } pageInfo { hasNextPage endCursor } } }',
           z.object({ collectionProducts: z.object({ nodes: z.array(memberSchema), pageInfo: pageInfoSchema }) }),
           { id, after },
         )
       ).collectionProducts,
   )
 
-const pickSchema = z.object({ id: z.string(), name: z.string(), visible: z.boolean(), approval: z.string().nullable() })
+const pickSchema = z.object({ id: z.string(), name: z.string(), visible: z.boolean(), approval: z.string().nullable(), photoUrl: z.string().nullable() })
 export type Pickable = z.infer<typeof pickSchema>
 
 /** "Search products to add": the first thirty by name, or the first thirty of all when nothing is typed. */
 export const searchPickable = async (search: string): Promise<Pickable[]> =>
   (
     await query(
-      'query P($search: String) { products(filter: "all", search: $search, sort: "name", first: 30) { nodes { id name visible approval } } }',
+      'query P($search: String) { products(filter: "all", search: $search, sort: "name", first: 30) { nodes { id name visible approval photoUrl } } }',
       z.object({ products: z.object({ nodes: z.array(pickSchema) }) }),
       { search },
     )
@@ -123,7 +123,7 @@ export type Preview = z.infer<typeof previewSchema>
 export const previewCollection = async (draft: { match: 'all' | 'any'; rules: RuleInput[]; parentId: string | null; inheritParent: boolean }): Promise<Preview> =>
   (
     await query(
-      'query P($m: String, $r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(match: $m, rules: $r, parentId: $p, inheritParent: $i) { count products { id name } } }',
+      'query P($m: String, $r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(match: $m, rules: $r, parentId: $p, inheritParent: $i) { count products { id name imageAssetId } } }',
       z.object({ collectionPreview: previewSchema }),
       { m: draft.match, r: draft.rules, p: draft.parentId, i: draft.inheritParent },
     )

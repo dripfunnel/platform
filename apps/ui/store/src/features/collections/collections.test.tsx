@@ -202,6 +202,36 @@ describe('a collection being made or changed', () => {
     expect(api.loadCollections).toHaveBeenCalledTimes(2)
   })
 
+  it('shows each previewed product’s image in its tile, and the striped box where it has none', async () => {
+    const fetch = serveAssets()
+    api.previewCollection.mockResolvedValue({ count: 2, products: [{ id: 'p1', name: 'Mara Linen Shirt', imageAssetId: 'a1' }, { id: 'p2', name: 'Linen Kurta', imageAssetId: null }] })
+    await show(owner, '/collections?edit=new')
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    await settle(350)
+    const tile = (name: string) => screen.getByText(name).closest('li') as HTMLElement
+    expect(tile('Mara Linen Shirt').querySelector('img')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledWith('/api/assets/a1', expect.anything())
+    expect(tile('Linen Kurta').querySelector('img')).toBeNull()
+    expect(tile('Linen Kurta').querySelector('span[aria-hidden="true"]')).toBeTruthy()
+  })
+
+  it('shows the picked products’ images too, whether read from the collection or found by search', async () => {
+    const fetch = serveAssets()
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men' }))
+    api.loadMembers.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt', imageAssetId: 'a1' }, { id: 'p3', name: 'Plain Tee', imageAssetId: null }])
+    api.searchPickable.mockResolvedValue([{ id: 'p2', name: 'Indigo Kurta', visible: true, approval: null, photoUrl: '/api/assets/a2' }])
+    await show(owner, '/collections?edit=c2')
+    await settle(350)
+    const tile = (name: string) => screen.getByText(name, { selector: 'strong' }).closest('li') as HTMLElement
+    expect(tile('Mara Linen Shirt').querySelector('img')).toBeTruthy()
+    expect(tile('Plain Tee').querySelector('img')).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: /Indigo Kurta/ }))
+    await settle()
+    expect(tile('Indigo Kurta').querySelector('img')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledWith('/api/assets/a1', expect.anything())
+    expect(fetch).toHaveBeenCalledWith('/api/assets/a2', expect.anything())
+  })
+
   it('offers how it fills as one radio group, native inputs sharing a name, so the arrow keys move between them', async () => {
     await show(owner, '/collections?edit=new')
     const group = screen.getByRole('radiogroup', { name: e.fill })

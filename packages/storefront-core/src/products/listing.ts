@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { z } from 'zod'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
 import { navigate, useLocation } from '../platform/browser/router'
 import { useShopData, type Loaded } from '../platform/render/data'
 import { useStorefront } from '../platform/store/context'
+import { moneySchema, type Money } from '../pricing/money'
 import { cardsSchema, summaryFields, type ProductCard } from './summary'
 
 // A collection's or a search's products (ARCHITECTURE §2.1 `collections`, `search`; DESIGN §6): which products match
@@ -34,13 +35,19 @@ const listingSchema = z.object({
         .array(z.object({ id: text, name: text, values: z.array(z.object({ id: text, name: text, count: z.number().int().nullable().optional() })).nullable().optional() }))
         .nullable()
         .optional(),
+      priceBounds: z.object({ min: moneySchema, max: moneySchema }).nullable().optional(),
     })
     .nullable(),
 })
 
-export const listingQuery = `query Listing($collection: String, $search: String, $filters: [ID!], $sort: ShopProductSort, $first: Int, $after: String, $before: String) { products(collection: $collection, search: $search, filters: $filters, sort: $sort, first: $first, after: $after, before: $before) { nodes { ${summaryFields} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } } }`
+export const listingQuery = `query Listing($collection: String, $search: String, $filters: [ID!], $sort: ShopProductSort, $first: Int, $after: String, $before: String, $minPrice: String, $maxPrice: String, $withFacets: Boolean = true) { products(collection: $collection, search: $search, filters: $filters, sort: $sort, first: $first, after: $after, before: $before, minPrice: $minPrice, maxPrice: $maxPrice) { nodes { ${summaryFields} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets @include(if: $withFacets) { id name values { id name count } } priceBounds @include(if: $withFacets) { min { amount currency } max { amount currency } } } }`
 
-type Page = { items: ProductCard[]; facets: { id: string; name: string; values: { id: string; name: string; count: number }[] }[]; end: string | null; start: string | null; hasMore: boolean; hasPrevious: boolean }
+/** The listing's lowest and highest price, before its filters and price range. */
+export type PriceBounds = { min: Money; max: Money }
+/** A chosen price range in minor units, either end open. */
+export type PriceChoice = { min: string | null; max: string | null }
+
+type Page = { items: ProductCard[]; facets: { id: string; name: string; values: { id: string; name: string; count: number }[] }[]; priceBounds: PriceBounds | null; end: string | null; start: string | null; hasMore: boolean; hasPrevious: boolean }
 
 const loadPage = async (client: ShopClient, variables: Record<string, unknown>): Promise<Page> => {
   const { products } = await client.query(listingQuery, listingSchema, variables)
@@ -50,6 +57,7 @@ const loadPage = async (client: ShopClient, variables: Record<string, unknown>):
     facets: (products.facets ?? []).flatMap((f) =>
       f.id && f.name ? [{ id: f.id, name: f.name, values: (f.values ?? []).flatMap((v) => (v.id && v.name ? [{ id: v.id, name: v.name, count: v.count ?? 0 }] : [])) }] : [],
     ),
+    priceBounds: products.priceBounds ?? null,
     end: products.pageInfo?.endCursor ?? null,
     start: products.pageInfo?.startCursor ?? null,
     hasMore: products.pageInfo?.hasNextPage ?? false,
@@ -60,13 +68,26 @@ const loadPage = async (client: ShopClient, variables: Record<string, unknown>):
 const cursor = (value: string | null) => (value && value.length <= 512 ? value : null)
 const valueId = /^[A-Za-z0-9_-]{1,64}$/
 const maxFilters = 50
+const priceEnd = /^\d{1,16}$/
 
-/** What the address asks for: chosen filter values, the sort and the page's cursor. */
-export const listingState = (query: URLSearchParams) => {
+const noRange: PriceChoice = { min: null, max: null }
+
+/** `price=min-max-CUR` in that currency's minor units, either end empty; in another currency, or anything else, no range. */
+const priceOf = (value: string | null, currency: string): PriceChoice => {
+  const [min = '', max = '', written, ...rest] = (value ?? '').split('-')
+  const range = { min: min || null, max: max || null }
+  const fits = (end: string | null) => end === null || priceEnd.test(end)
+  const usable = written === currency && rest.length === 0 && fits(range.min) && fits(range.max) && !(range.min !== null && range.max !== null && BigInt(range.min) > BigInt(range.max))
+  return usable ? range : noRange
+}
+
+/** What the address asks for: chosen filter values, the price range in the shopper's currency, the sort and the page's cursor. */
+export const listingState = (query: URLSearchParams, currency: string) => {
   const sort = query.get('sort')
   return {
     filters: [...new Set(query.getAll('filter').filter((v) => valueId.test(v)))].slice(0, maxFilters).sort(),
     sort: sortKeys.find((k) => k === sort) ?? 'featured',
+    price: priceOf(query.get('price'), currency),
     after: cursor(query.get('after')),
     before: cursor(query.get('after') ? null : query.get('before')),
   }
@@ -80,6 +101,11 @@ export type Listing = {
   retry: () => void
   items: ProductCard[]
   facets: Facet[]
+  /** The listing's lowest and highest price, for a price slider's ends; null while loading or with nothing priced. */
+  priceBounds: PriceBounds | null
+  priceRange: PriceChoice
+  /** Back to the first page with this range; null ends are open. */
+  setPriceRange: (range: PriceChoice) => void
   /** The chosen filter values with their names, for chips. */
   selected: { id: string; name: string }[]
   toggle: (valueId: string) => void
@@ -105,9 +131,9 @@ const withQuery = (path: string, query: URLSearchParams) => {
 }
 
 export const useListing = ({ collection = null, search = null }: ListingInput, ready = true): Listing => {
-  const { client } = useStorefront()
+  const { client, store } = useStorefront()
   const { path, query } = useLocation()
-  const state = useMemo(() => listingState(query), [query])
+  const state = useMemo(() => listingState(query, store.currency), [query, store.currency])
   const variables = useMemo(
     () => ({
       collection,
@@ -117,6 +143,8 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
       first: pageSize,
       after: state.after,
       before: state.before,
+      minPrice: state.price.min,
+      maxPrice: state.price.max,
     }),
     [collection, search, state],
   )
@@ -141,7 +169,8 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     if (!first.data || !hasMore || extra?.loading || !end) return
     const mine = (asked.current += 1)
     setMore((m) => ({ ...m, key, loading: true, failed: false }))
-    loadPage(client, { ...variables, after: end, before: null }).then(
+    // The first page's facets and price bounds hold for every page after it.
+    loadPage(client, { ...variables, after: end, before: null, withFacets: false }).then(
       (page) => {
         if (mine === asked.current) setMore((m) => ({ key, items: [...m.items, ...page.items], end: page.end, hasMore: page.hasMore, loading: false, failed: false }))
       },
@@ -159,7 +188,7 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     navigate(withQuery(path, next))
   }
   // While another filter or sort loads, the last facets of this collection or search stay, so the filters don't vanish.
-  const [last, setLast] = useState<{ scope: string; facets: Page['facets'] } | null>(null)
+  const [last, setLast] = useState<{ scope: string; facets: Page['facets']; priceBounds: PriceBounds | null } | null>(null)
   useEffect(() => {
     if (first.data) setLast(first.data)
   }, [first.data])
@@ -184,6 +213,9 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     retry: first.retry,
     items: [...(first.data?.items ?? []), ...(extra?.items ?? [])],
     facets,
+    priceBounds: current?.scope === scope ? current.priceBounds : null,
+    priceRange: state.price,
+    setPriceRange: ({ min, max }) => go((q) => (min === null && max === null ? q.delete('price') : q.set('price', `${min ?? ''}-${max ?? ''}-${store.currency}`))),
     selected: state.filters.flatMap((id) => {
       const name = names.get(id)
       return name ? [{ id, name }] : []
@@ -194,7 +226,11 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
         q.delete('filter')
         for (const v of values.includes(id) ? values.filter((x) => x !== id) : [...values, id]) q.append('filter', v)
       }),
-    clear: () => go((q) => q.delete('filter')),
+    clear: () =>
+      go((q) => {
+        q.delete('filter')
+        q.delete('price')
+      }),
     sort: state.sort,
     sorts: sortKeys,
     setSort: (sort) => go((q) => (sort === 'featured' ? q.delete('sort') : q.set('sort', sort))),
@@ -206,6 +242,35 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     previousHref: first.data?.hasPrevious && first.data.start ? page('before', first.data.start) : null,
     canonical: withQuery(path, canonicalQuery),
   }
+}
+
+/** How far below the screen the next page starts loading, so it is usually there before the shopper reaches it. */
+const aheadPx = 800
+const ahead = `0px 0px ${aheadPx}px 0px`
+
+/**
+ * Infinite scroll: a ref for an element after the grid; the next page loads as it nears the screen, and again after
+ * each page while it stays near. A failed page stops it, so the theme shows its retry, which calls `fetchMore`.
+ */
+export const useLoadOnScroll = (listing: Pick<Listing, 'fetchMore' | 'hasMore' | 'loadingMore' | 'moreFailed'>): RefObject<HTMLDivElement | null> => {
+  const ref = useRef<HTMLDivElement>(null)
+  const [near, setNear] = useState(false)
+  const fetchMore = useRef(listing.fetchMore)
+  fetchMore.current = listing.fetchMore
+  useEffect(() => {
+    const element = ref.current
+    if (!element || typeof IntersectionObserver !== 'function') return
+    const observer = new IntersectionObserver(([entry]) => setNear(entry?.isIntersecting ?? false), { rootMargin: ahead })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const { hasMore, loadingMore, moreFailed } = listing
+  useEffect(() => {
+    // Measured again: a page just appended may have pushed it away before the observer says so.
+    const still = (ref.current?.getBoundingClientRect().top ?? Infinity) < innerHeight + aheadPx
+    if (near && still && hasMore && !loadingMore && !moreFailed) fetchMore.current()
+  }, [near, hasMore, loadingMore, moreFailed])
+  return ref
 }
 
 /** `useProducts`' orders: a listing's, and `best-selling`, units sold over the last 90 days as the platform ranks them hourly. */

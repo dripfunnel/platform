@@ -191,17 +191,17 @@ describe.skipIf(!chrome)('the baseline theme in preview mode', () => {
     }
   })
 
-  it('keeps filters, sort and pages in the address and loads more in place', async () => {
+  it('keeps filters, sort and pages in the address and loads more in place as the end of the grid nears', async () => {
     const state = { closed: false, asked: [] as Request[] }
     const context = await previewHost(state)
     try {
       const page = await context.newPage()
       await page.goto(`${origin}/collections/all/`)
       await page.getByRole('heading', { level: 1, name: 'All products' }).waitFor()
-      await expect.poll(() => page.locator('main article').count()).toBe(4)
-      await page.getByRole('button', { name: 'Load more' }).click()
+      // Four a page, and the grid's end is on screen, so the second page loads with no click.
       await expect.poll(() => page.locator('main article').count()).toBe(7)
       expect(page.url()).toBe(`${origin}/collections/all/`)
+      expect(state.asked.filter((r) => r.query.startsWith('query Listing')).map((r) => r.variables['withFacets'])).toEqual([undefined, false])
       await page.getByRole('checkbox', { name: /^Linen/ }).check()
       await expect.poll(() => page.url()).toBe(`${origin}/collections/all/?filter=linen`)
       await expect.poll(() => page.locator('main article').count()).toBe(2)
@@ -229,8 +229,9 @@ describe.skipIf(!chrome)('the baseline theme in preview mode', () => {
       const page = await context.newPage()
       await page.goto(`${origin}/collections/cotton-edit/`)
       await page.getByRole('heading', { level: 1, name: 'Cotton Edit' }).waitFor()
+      await expect.poll(() => page.locator('main article').count()).toBe(7)
       state.closed = true
-      await page.getByRole('button', { name: 'Load more' }).or(page.getByRole('checkbox', { name: /^Linen/ })).first().click()
+      await page.getByRole('checkbox', { name: /^Linen/ }).check()
       await page.getByRole('heading', { level: 1, name: 'This preview has closed' }).waitFor()
       const body = await page.evaluate(() => document.body.innerText)
       expect(body).toContain('Open it again from your link or from the portal.')

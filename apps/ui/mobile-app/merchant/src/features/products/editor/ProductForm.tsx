@@ -20,6 +20,7 @@ import { GiftCardCard } from './GiftCardCard'
 import { KindCard } from './KindCard'
 import { PhotosCard } from './PhotosCard'
 import { PriceCard } from './PriceCard'
+import { QuestionsCard } from './QuestionsCard'
 import { ReadinessCard } from './ReadinessCard'
 import { ReviewCard } from './ReviewCard'
 import { ServiceCard } from './ServiceCard'
@@ -28,7 +29,7 @@ import { SizeChartCard } from './SizeChartCard'
 import { StockCard } from './StockCard'
 import { VersionsCard } from './VersionsCard'
 import { bannersOf } from './editorBanners'
-import { versionsMade, type DraftVersion } from './draft'
+import { liveVersions, versionKey, versionsMade, type DraftVersion } from './draft'
 import type { EditorData } from './loadEditor'
 import { useDownloadFile } from './useDownloadFile'
 import { usePhotos } from './usePhotos'
@@ -102,6 +103,21 @@ export function ProductForm({ client, data, onReload }: Props) {
           {!giftCard ? <ChoicesCard draft={draft} update={update} disabled={disabled} invalid={form.shown.includes('options') || form.shown.includes('versions')} /> : null}
           {made && !giftCard ? (
             <VersionsCard draft={draft} update={update} currency={data.currency} disabled={disabled} canHideProduct={form.access.storeFields} problems={form.shown} stock={stock} onAdjust={setAdjusting} />
+          ) : null}
+          {!giftCard ? (
+            <QuestionsCard
+              client={client}
+              draft={draft}
+              update={update}
+              disabled={disabled}
+              currency={data.currency}
+              versions={liveVersions(draft)
+                .filter((version) => version.choices.length > 0)
+                .map((version) => ({ key: versionKey(version.choices), label: version.choices.join(' / ') }))}
+              attempted={form.attempted}
+              approval={form.access.side === 'supplier' && data.approvalRequired}
+              copy={current && form.canEdit ? { productId: current.id, revision: current.revision, dirty: form.dirty, onCopied: onReload } : null}
+            />
           ) : null}
           {stock && made ? <StockCard draft={draft} update={update} stock={stock} client={client} productId={current?.id ?? null} simple={false} onAdjust={setAdjusting} /> : null}
           {data.sizeCharts !== null && physical ? <SizeChartCard draft={draft} update={update} charts={data.sizeCharts} disabled={disabled} /> : null}

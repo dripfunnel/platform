@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { decode, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { operation, type Operation, type Page } from './operation'
+import { questionFields, questionsOf, questionsSchema, type Question } from './customisation'
 
 // The catalogue reads and the add-to-cart write of the Shop API (apps/api schema/shop.graphql). Every price, stock figure and
 // availability is the API's: nothing here adds, rounds or compares an amount except to tell whether two are the same.
@@ -71,6 +72,8 @@ export type Product = {
   sizeChart: SizeChart | null
   story: StoryModule[]
   pricesIncludeTax: boolean
+  /** What the shopper is asked before buying (#1373); empty for a product without questions, which adds as before. */
+  questions: Question[]
 }
 
 const money = z.object({ amount: z.string(), currency: z.string() }).nullable()
@@ -224,6 +227,7 @@ const productSchema = z.object({
     .object({ name: text, unit: text, measurements: list(z.string()), rows: list(z.object({ size: z.string(), values: list(z.string()) })), fitNotes: text, modelInfo: text })
     .nullable(),
   story: list(storySchema),
+  questions: questionsSchema,
 })
 
 const storyPhotoFields = 'alt image { url }'
@@ -231,7 +235,7 @@ const storyPhotoFields = 'alt image { url }'
 export const productOperation = (slug: string): Operation<Product | null> =>
   operation(
     `product:${slug}`,
-    `query($slug: String!) { store { pricesIncludeTax } product(slug: $slug) { id slug name description inStock price ${m} compareAt ${m} maxPrice ${m} badges { label tone } highlights options { id name values { id name } } versions { id name inStock available price ${m} compareAt ${m} choices { optionId valueId } } photos { alt versionId image { url } } video { url file { url } } specs { name value versionId } faqs { question answer } returns warranty sizeChart { name unit measurements rows { size values } fitNotes modelInfo } story { id kind title body photo { ${storyPhotoFields} } photos { ${storyPhotoFields} } items { title text photo { ${storyPhotoFields} } } block { title body photo { ${storyPhotoFields} } } } } }`,
+    `query($slug: String!) { store { pricesIncludeTax } product(slug: $slug) { id slug name description inStock price ${m} compareAt ${m} maxPrice ${m} badges { label tone } highlights options { id name values { id name } } versions { id name inStock available price ${m} compareAt ${m} choices { optionId valueId } } photos { alt versionId image { url } } video { url file { url } } specs { name value versionId } faqs { question answer } returns warranty sizeChart { name unit measurements rows { size values } fitNotes modelInfo } story { id kind title body photo { ${storyPhotoFields} } photos { ${storyPhotoFields} } items { title text photo { ${storyPhotoFields} } } block { title body photo { ${storyPhotoFields} } } } ${questionFields} } }`,
     { slug },
     (data) => {
       const answer = decode(z.object({ store: z.object({ pricesIncludeTax: z.boolean().nullable() }).nullable(), product: productSchema.nullable() }), data)
@@ -266,6 +270,7 @@ export const productOperation = (slug: string): Operation<Product | null> =>
           items: s.items.map((item) => ({ title: item.title, text: item.text, photoUrl: item.photo?.image?.url ?? null })),
         })),
         pricesIncludeTax: answer.store?.pricesIncludeTax ?? false,
+        questions: questionsOf(p.questions),
       }
     },
   )

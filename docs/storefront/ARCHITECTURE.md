@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-11-10 (#1395: the page weight budget is 1,200 KB until #1396, §9). Before: 2026-11-10 (#1391: `<PriceRange>` loads in its own chunk, §2.1). Before: 2026-11-10 (#1372: the customisation modal built, `<LineAnswers>` and `<EditAnswers>`, §3.5). Before: 2026-11-10 (#1385: a listing's price range, `<PriceRange>` and `useLoadOnScroll`, §2.1). Before: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -143,12 +143,18 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
   them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
   one if that fails. The preview and the studio get no answers and load as before.
-- **The address is the state**: `filter` (each chosen facet value's id, repeated), `sort` (`featured`, `newest`,
+- **The address is the state**: `filter` (each chosen facet value's id, repeated), `price` (`min-max-CUR` in that currency's minor units, either end
+  empty, and none in another currency; the Shop API's `minPrice` and `maxPrice`), `sort` (`featured`, `newest`,
   `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
   characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. While that
   page loads, the listing keeps the facets it last had for the same collection or search, so a theme's filters stay on
   screen and only the products reload. 24 products a
-  page, and `fetchMore` appends the next in place. Search, a missing collection and a missing product are `noindex`.
+  page, and `fetchMore` appends the next in place; `useLoadOnScroll` calls it as an element after the grid nears the screen,
+  and stops at a page that failed until the theme's retry. The starting themes load on scroll only, with no "Load more" button;
+  keyboard users scroll with the arrow keys, Page Down or Space (decided 2026-11-10, Kshitij, #1385). `priceBounds` gives a price filter its ends, kept like the facets while
+  a new choice loads, and `<PriceRange>` (`ui/headless`) draws it, from its own chunk, fetched by the first page that shows it
+  (`import()`, #1391), so no other page pays for it in its budget (§9): built HTML has no slider until it loads, which the
+  no-JS check doesn't ask for since filtering needs JavaScript, and a chunk that fails to arrive leaves the filter out. Search, a missing collection and a missing product are `noindex`.
 - **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
   before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
   first photo is the page's main picture.
@@ -379,7 +385,7 @@ Classic, "Start from scratch" and, until #1218, Market live in this repo as comp
   the CSS. `market` stays on CSS Modules until #1218 deletes it. Both remain valid starting themes: a store made
   from them stays on CSS Modules, and core builds them unchanged.
 - *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype was changed to match on #770, after the publish gate's layout-shift check failed with them above the story),
-  collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
+  collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, a price range slider, more products loading on scroll), the
   product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal
   details, accordions, related products), the policies, About, Contact and 404, each with its loading, empty, missing and
   failed states. The header draws the merchant's menu, and the footer the store's tagline, contact and social links.
@@ -751,53 +757,62 @@ their own cards.
     holds its session, AI-STUDIO §8).
   - `./testing` checks presence in a page's HTML (`pageProblems`) and visibility in a rendered
     page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
-- **The customisation modal** (decided 2026-11-09 on #1367; *proposed*, built by #1372): the
+- **The customisation modal** (decided 2026-11-09 on #1367; built on #1372, part `customise`): the
   questions a product asks before it goes in the cart (CATALOG-DESIGN §3 facts 49–57), a sealed
-  component because it is commerce. #1372 adds it to AGENTS.md's sealed list when it builds it.
-  - **When it opens**: `<AddToCart>`, `<BuyNow>` and quick add from a product grid, for a product
-    whose `useProduct().questions` isn't empty; confirming adds the line (`useCart().add` with
-    `answers`), and from Buy now goes on to checkout. A product without questions adds as today,
-    and the modal's code is loaded (`import()`) only when a product has questions, so no other
-    page pays for it in its budget (§9).
+  component because it is commerce, in AGENTS.md's sealed list. Built on #1372: `AddToCart` and `BuyNow` know a product's
+  questions from `useProduct` by version; there is no quick add in core or the shipped themes yet, so a theme's own add from a
+  grid is refused `REQUIRED` for a product with a required question. Cart lines show answers with `<LineAnswers>` and
+  `<EditAnswers>` ("Check your choices" on a line that no longer fits); the order summary at review lists them.
+  - **When it opens**: `<AddToCart>` and `<BuyNow>`, for a product whose `useProduct().questions`
+    isn't empty (core remembers them by version, as the buttons hold only a version id); confirming
+    adds the line (`useCart().addWithAnswers`, which answers null once added or the refusal's code),
+    and from Buy now goes on to checkout. A product without questions adds as today, and the modal's
+    code is loaded (`import()`) only when a product has questions, so no other page pays for it in
+    its budget (§9).
   - **The host**: `<df-sealed>` as the others, opened as a modal `<dialog>` (`showModal()`), so it
     sits in the **top layer**, which no `z-index` covers, traps focus, closes on Escape and
     returns focus to the button that opened it. Full width at the bottom on a phone, centred
     from 640 px. Its words are core's, in the shopper's language, around the merchant's own
     question texts; a theme can't reword, hide or reorder anything inside.
-  - **Parts** (`::part`): `dialog`, `header`, `title`, `close`, `question`, `label`, `help`,
-    `required`, `choice`, `choice-photo`, `choice-price`, `unavailable`, `quantity`, `text`,
-    `counter`, `upload`, `file`, `progress`, `problem`, `total`, `confirm`.
+  - **Parts** (`::part`): `dialog`, `form`, `title`, `question`, `label`, `hint`, `rule`,
+    `problem`, `choice`, `photo`, `extra`, `files`, `error`, `total`, `actions`, `button` and
+    `primary` (the confirm button).
   - **Custom properties**: the shared `--df-sealed-font`, `--df-sealed-color`,
     `--df-sealed-muted`, `--df-sealed-surface`, `--df-sealed-radius` and `--df-sealed-size`, plus
-    `--df-customise-accent` (a picked choice and the confirm button) and
-    `--df-customise-backdrop` (the `::backdrop`).
-  - **Minimum size** (`minimumSize`): 280×160 px; the self-check runs each time it opens.
+    `--df-sealed-accent` and `--df-sealed-on-accent` (the confirm button), `--df-sealed-error`
+    (problems and refusals), `--df-sealed-focus` (the focus ring) and `--df-sealed-backdrop`
+    (the `::backdrop`).
+  - **Minimum size** (`minimumSize`): 280×160 px, measured on the open dialog; the self-check runs
+    each time it opens.
   - **What it renders**: the questions in the merchant's order, each with its text, help and
-    "Required"; a choice list as radio buttons when its maximum is 1, else checkboxes with a
-    stepper on a choice that has a quantity, an unavailable choice greyed out with "Not
-    available" and not selectable, and "First 2 free" where a list has an allowance; text as one
-    line or a paragraph, with its example and a "12 / 100" counter; an upload's picker with each
-    file's progress, Retry and Remove (through the Shop API's upload, PLATFORM-PROMPT §5.4). A
-    question appears only while its condition's choice is picked and for the chosen version; a
-    hidden one's answer is dropped. An extra's price shows beside what carries it ("+ ₹30",
-    "+ 10%", "₹2 a character") as the Shop API gives it.
-  - **The total is the engine's**: each change asks the Shop API's `customisationQuote` (after a
-    short pause in typing), and the total and the confirm button ("Add to cart · ₹1,250", "Buy
-    now · ₹1,250") show its answer; while one is pending they say "Updating the total…", and
-    nothing is worked out in the browser. The quote's `problems` show beside their questions;
-    confirm is disabled while any remains, and a refusal on confirm (`ANSWERS_INVALID`) shows its
-    problems the same way.
-  - **States**: a failed quote says "We couldn't work out the total. Try again" with confirm
-    disabled; offline, confirm is disabled with the reason; a failed upload keeps the others.
-  - **Edit on the cart line**: `useCart()` lines carry `id`, `answers` (each question's label,
-    the choices with their quantities, the text, how many files and of which kind (no file name is kept), and what the answer
-    adds) and the problem `check_answers`; `useCart().editLine(lineId)` reopens the modal filled
-    in, and "Save changes" calls `updateCartLineAnswers`, the quantity unchanged (equal answers
-    merge into one line). The theme renders a line's answers from that data and places core's
-    headless `<EditLine line>` (`data-df-action="edit-line"`), which a `check_answers` line
-    labels "Check your choices"; the contract test (§3.2) adds a cart with a customised line,
-    whose answers and Edit must show. The sealed `<OrderSummary>` lists a line's answers under
-    it, in a new part `answers`.
+    "Required" or "Optional"; a choice list as radio buttons when its maximum is 1 (with "None"
+    first when it is optional, as a radio can't be unticked), else checkboxes with a number field
+    on a choice that has a quantity; an unavailable choice, or one whose extra isn't sold in the
+    cart's currency, greyed with "Not available" and not selectable; "Pick up to", "Pick at least"
+    and "The first 2 are free" where they apply; text as one line or a paragraph, with its example
+    and a "12 of 100 characters" counter; an upload's picker with each file's progress and Remove
+    (through the Shop API's upload, PLATFORM-PROMPT §5.4; a refused file says why, and Remove then
+    choosing again is the retry). A question appears only while its condition's choice is picked
+    and for the chosen version; a hidden one's answer is dropped. An extra's price shows beside what
+    carries it ("+$3.00", "+10%", "$0.50 a character") as the Shop API gives it.
+  - **The total is the engine's**: each change asks the Shop API's `customisationQuote` a moment
+    after the last change, the newest answer winning, and the total shows its answer ("Working out
+    the total…" until one comes); nothing is worked out in the browser. Confirm asks a fresh quote
+    of exactly the answers on screen and decides on it: its `problems` show under their questions
+    (announced) and nothing is added; a quote that can't be had, or a refusal, says so plainly
+    ("We couldn't add it. Try again.", "Your cart already has this with other choices. Edit that item
+    in your cart instead."). A file removed while still uploading is never kept, and files the modal
+    uploaded are taken back on Cancel or Escape.
+  - **Edit on the cart line**: `useCart()` lines carry `lineId`, `slug`, `answers` (each question's
+    label, the choices with their quantities, the text, the files' ids and kinds (no file name is
+    kept), and what the answer adds) and the problem `check_answers`. The theme places core's
+    `<LineAnswers line>` (the answers, worded by core) and `<EditAnswers line>`
+    (`data-df-action="edit-answers"`), which reads the product's questions, reopens the modal filled
+    in and saves with `useCart().editAnswers(lineId, answers)` (`updateCartLineAnswers`; equal answers
+    merge into one line); on a `check_answers` line it reads "Check your choices", and if the
+    questions can't be read it says so. The sealed `<OrderSummary>` lists a line's answers under it,
+    one per `version` row. The contract test (§3.2) doesn't yet build a customised line: a card of
+    its own.
 - **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
   consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
@@ -1328,11 +1343,18 @@ decides whether to tighten them)*:
 | JavaScript on first load, gzipped | ≤ 90 KB (checkout excluded) | |
 | CSS, gzipped | ≤ 50 KB | |
 | The main image at phone width | ≤ 200 KB | |
-| Page weight on phones | ≤ 1 MB (video capped separately) | |
+| Page weight on phones | ≤ 1,200 KB for now (#1395, to unblock the dev deploy; back to 1 MB on #1396); video capped separately | |
 
 **Byte budgets are exact and repeatable, so they are hard gates in the fast gate and at
 publish.** Timing budgets vary run to run: they are measured three times at publish and the
 median counts.
+
+**The page weight exception (decided 2026-11-10, Kshitij Raj, on #1395).** The page weight budget is 1,200 KB, not 1 MB,
+as a deliberate, temporary exception to the rule that a gate is never loosened to let a change through (AGENTS.md
+"Storefronts"). Baseline's pages reached 1,027 KB after the price filter (#1385) and the customisation modal (#1384),
+which blocked every deploy of `dev`. Most of every page's weight is code core never uses (zod's locales and
+JSON-schema code, 452,889 bytes), measured on #1396. **#1396 (Gaurav Kunal) brings pages back under 1 MB and reverts
+the budget to 1,024 KB**; until then, a store's pages up to 1,200 KB pass at publish. No other budget is loosened.
 
 *Decided on #483:* the publish gate's JavaScript budget counts the theme's own chunks, as the fast gate does, and
 reports core's runtime beside it (about 170 KB gzipped today, so counting it would refuse every store, the baseline

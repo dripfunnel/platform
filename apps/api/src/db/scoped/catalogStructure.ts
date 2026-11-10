@@ -204,6 +204,7 @@ export interface CollectionRow {
 export interface MemberRow {
   id: string
   name: string
+  image_asset_id: string | null
   source: 'manual' | 'rule'
   position: number
 }
@@ -215,7 +216,9 @@ export interface MemberRow {
 export const selectCollectionProducts = (tx: ScopedSql, storeId: string, collectionId: string, window: PageWindow): Promise<MemberRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<MemberRow[]>`
-    select p.id, p.name, cp.source, cp.position from collection_product cp join product p on p.id = cp.product_id
+    select p.id, p.name, cp.source, cp.position,
+      (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as image_asset_id
+    from collection_product cp join product p on p.id = cp.product_id
     join collection c on c.id = cp.collection_id and c.store_id = ${storeId} and c.deleted_at is null
     where cp.collection_id = ${collectionId} and p.deleted_at is null
       and ${window.after ? tx`(-cp.position, p.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
@@ -445,15 +448,17 @@ export const selectRulePreview = async (
   storeId: string,
   draft: { match: 'all' | 'any'; rules: readonly RuleRow[]; parentId: string | null; inheritParent: boolean },
   limit: number,
-): Promise<{ count: number; products: { id: string; name: string }[] }> => {
+): Promise<{ count: number; products: { id: string; name: string; imageAssetId: string | null }[] }> => {
   const joined = matchSql(tx, draft.match, draft.rules)
   const inParent = draft.inheritParent && draft.parentId ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${draft.parentId} and pp.product_id = p.id)` : tx``
-  const [row] = await tx<{ count: number; products: { id: string; name: string }[] }[]>`
+  const [row] = await tx<{ count: number; products: { id: string; name: string; imageAssetId: string | null }[] }[]>`
     with matched as (
       select p.id, p.name, p.created_at from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
     )
     select (select count(*)::int from matched) as count,
-      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name)) from (select id, name from matched order by created_at desc, id desc limit ${limit}) m), '[]'::json) as products
+      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name, 'imageAssetId', m.image_asset_id))
+        from (select p.id, p.name, (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as image_asset_id
+          from matched p order by p.created_at desc, p.id desc limit ${limit}) m), '[]'::json) as products
   `
   return row ?? { count: 0, products: [] }
 }

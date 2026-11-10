@@ -1,7 +1,22 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
+import { questionsForVersion } from '../products/questions'
+import type { CustomiseIntent } from '../sealed/customise'
 import { useCart, type GiftRecipient } from './cart'
+
+// The modal's code is fetched only when a product with questions is bought (storefront ARCHITECTURE §3.5, §9).
+const CustomiseModal = lazy(() => import('../sealed/customise').then((m) => ({ default: m.CustomiseModal })))
+
+type Asking = NonNullable<ReturnType<typeof questionsForVersion>>
+
+/** The modal for a product that asks questions, while it's open; nothing for one that doesn't. */
+const Ask = ({ asking, versionId, quantity, gift, intent, onClose }: { asking: Asking | null; versionId: string | null; quantity: number; gift: GiftRecipient | null | undefined; intent: CustomiseIntent; onClose: (done: boolean) => void }) =>
+  asking && versionId ? (
+    <Suspense fallback={null}>
+      <CustomiseModal product={asking} versionId={versionId} quantity={quantity} initial={[]} intent={intent} gift={gift} onClose={onClose} />
+    </Suspense>
+  ) : null
 
 // Add to cart and Buy now (storefront ARCHITECTURE §3.2 "add-to-cart that uses useCart"): the theme words and styles them;
 // core does what they do, and marks them so the checkout smoke test (§4.2) finds them in any theme.
@@ -38,23 +53,32 @@ const useOnePress = (onDone: Props['onDone']) => {
   return [press, busy] as const
 }
 
-export const AddToCart = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
-  const cart = useCart()
+/** One button: a product with questions asks them first (CATALOG fact 50), one without does `act` as it always has. */
+const CartButton = ({ action, act, intent, versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props & { action: string; act: (versionId: string) => Promise<boolean>; intent: CustomiseIntent }) => {
   const [press, busy] = useOnePress(onDone)
+  const [asking, setAsking] = useState<Asking | null>(null)
+  const click = () => {
+    if (!versionId) return
+    const questions = questionsForVersion(versionId)
+    if (questions) setAsking(questions)
+    else press(() => act(versionId))
+  }
   return (
-    <button type="button" className={className} data-df-action="add-to-cart" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={() => (versionId ? press(() => cart.add(versionId, quantity, gift ?? undefined)) : undefined)}>
-      {children}
-    </button>
+    <>
+      <button type="button" className={className} data-df-action={action} aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={click}>
+        {children}
+      </button>
+      <Ask asking={asking} versionId={versionId} quantity={quantity} gift={gift} intent={intent} onClose={(done) => (setAsking(null), done && onDone?.(true))} />
+    </>
   )
 }
 
-/** Adds the version, then opens checkout. */
-export const BuyNow = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
+export const AddToCart = (props: Props) => {
   const cart = useCart()
-  const [press, busy] = useOnePress(onDone)
-  return (
-    <button type="button" className={className} data-df-action="buy-now" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={() => (versionId ? press(() => cart.buyNow(versionId, quantity, gift ?? undefined)) : undefined)}>
-      {children}
-    </button>
-  )
+  return <CartButton {...props} action="add-to-cart" intent={{ kind: 'add' }} act={(id) => cart.add(id, props.quantity ?? 1, props.gift ?? undefined)} />
+}
+
+export const BuyNow = (props: Props) => {
+  const cart = useCart()
+  return <CartButton {...props} action="buy-now" intent={{ kind: 'buy' }} act={(id) => cart.buyNow(id, props.quantity ?? 1, props.gift ?? undefined)} />
 }

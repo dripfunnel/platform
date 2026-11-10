@@ -21,7 +21,10 @@ export const maxRecordedAnswers = 4 + sorts.length + 2 * maxRecordedCollections 
 
 const money = 'amount currency'
 const summary = `id name slug productType inStock price { ${money} } compareAt { ${money} } maxPrice { ${money} } photo { alt image { url } } badges { label tone }`
-const product = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${money} } compareAt { ${money} } maxPrice { ${money} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${money} } compareAt { ${money} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summary} }`
+const extra = `mode per percentBps amount { ${money} }`
+// The customisation modal's questions (#1372): what core's product question asks (storefront-core products/questions.ts).
+const questions = `questions { id kind label help required minPicks maxPicks freePicks maxLength multiline example accept maxFiles versionIds shownIf { questionId choiceId } price { ${extra} } choices { id label available maxQuantity photo { url } price { ${extra} } } }`
+const product = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${money} } compareAt { ${money} } maxPrice { ${money} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${money} } compareAt { ${money} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summary} } ${questions}`
 const collection = 'id name slug description seoTitle seoDescription image { url }'
 
 /** What is asked; core's Product question also reads `store`, asked once here and added to each product's answer. */
@@ -29,7 +32,7 @@ export const recordedQueries = {
   Product: `query Product($slug: String!) { product(slug: $slug) { ${product} } }`,
   Store: 'query Store { store { marketId markets { id countries } } }',
   Collections: `query Collections($first: Int, $after: String) { collections(first: $first, after: $after) { nodes { ${collection} } pageInfo { endCursor hasNextPage } } }`,
-  Listing: `query Listing($collection: String, $sort: ShopProductSort, $first: Int, $after: String) { products(collection: $collection, sort: $sort, first: $first, after: $after) { nodes { ${summary} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } } }`,
+  Listing: `query Listing($collection: String, $sort: ShopProductSort, $first: Int, $after: String) { products(collection: $collection, sort: $sort, first: $first, after: $after) { nodes { ${summary} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } priceBounds { min { ${money} } max { ${money} } } } }`,
   Slugs: 'query Slugs($after: String) { products(sort: NEWEST, first: 50, after: $after) { nodes { slug } pageInfo { endCursor hasNextPage } } }',
   Menu: 'query Menu { menu { id label kind collectionSlug url children { id label kind collectionSlug url } } }',
   Offers: 'query Offers { offers { id name description endsAt appliesTo products collections } }',

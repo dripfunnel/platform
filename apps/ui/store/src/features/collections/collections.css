@@ -560,9 +560,12 @@
   border-radius: var(--df-radius);
 }
 
-.df-coll-tiles li > span {
+.df-coll-tiles li > span,
+.df-coll-tiles li > img {
   display: block;
+  width: 100%;
   aspect-ratio: 1;
+  object-fit: cover;
 }
 
 .df-coll-tiles strong {

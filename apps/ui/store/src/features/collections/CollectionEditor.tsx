@@ -6,6 +6,7 @@ import { deleteCollection, loadCollection, loadMembers, previewCollection, saveC
 import { loadMenu } from '../../api/menu'
 import { uploadPhoto, type Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import { ImageField } from '../common/ImageField'
 import { RadioCards } from '../common/RadioCards'
 import '../common/switch.css'
@@ -20,6 +21,7 @@ const refusalOf = (error: unknown): string => (isApiError(error) ? ((messages.co
 type Loaded = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { kind: 'ready'; slug: string | null; inMenu: boolean | null }
 type PreviewView = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; preview: Preview }
 type Search = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; rows: Pickable[] }
+type Tile = { id: string; name: string; image: string | null }
 
 /** What the editor reads: the API, or the ?state= harness's samples. */
 export interface EditorReads {
@@ -88,7 +90,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
   const nameRef = useRef<HTMLInputElement>(null)
   const [loaded, setLoaded] = useState<Loaded>(isNew ? { kind: 'ready', slug: null, inMenu: false } : { kind: 'loading' })
   const [draft, setDraft] = useState<CollectionDraft>(() => (isNew ? { ...blankDraft(facets), ...(suggested ? { name: suggested, kind: 'manual' as const } : {}) } : blankDraft(facets)))
-  const [names, setNames] = useState<Record<string, string>>({})
+  const [picked, setPicked] = useState<Record<string, Tile>>({})
   const [tried, setTried] = useState(false)
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -110,7 +112,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
         if (!c) return setLoaded({ kind: 'missing' })
         const [members, menu] = await Promise.all([c.kind === 'manual' ? reads.members(c.id) : Promise.resolve([]), loadMenu().catch(() => undefined)])
         if (!live) return
-        setNames(Object.fromEntries(members.map((m) => [m.id, m.name])))
+        setPicked(Object.fromEntries(members.map((m) => [m.id, { id: m.id, name: m.name, image: m.imageAssetId ? `/api/assets/${m.imageAssetId}` : null }])))
         setDraft(draftOf(c, facets, members.map((m) => m.id)))
         setLoaded({ kind: 'ready', slug: c.slug, inMenu: menu === undefined ? null : (menu?.items ?? []).some((i) => i.collectionId === c.id) })
       },
@@ -157,7 +159,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
           (rows) => {
             if (!live) return
             setSearch({ kind: 'ready', rows })
-            setNames((n) => ({ ...n, ...Object.fromEntries(rows.map((r) => [r.id, r.name])) }))
+            setPicked((n) => ({ ...n, ...Object.fromEntries(rows.map((r) => [r.id, { id: r.id, name: r.name, image: r.photoUrl }])) }))
           },
           () => live && setSearch({ kind: 'failed' }),
         ),
@@ -190,7 +192,12 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
   const parent = collections.find((c) => c.id === draft.parentId) ?? null
   const slug = loaded.slug ?? (slugOf(draft.name) || words.slugPlaceholder)
   const count = draft.kind === 'manual' ? draft.productIds.length : preview.kind === 'ready' ? preview.preview.count : null
-  const shown = draft.kind === 'manual' ? draft.productIds.slice(0, 6).map((p) => ({ id: p, name: names[p] ?? '' })) : preview.kind === 'ready' ? preview.preview.products : []
+  const shown: Tile[] =
+    draft.kind === 'manual'
+      ? draft.productIds.slice(0, 6).map((p) => picked[p] ?? { id: p, name: '', image: null })
+      : preview.kind === 'ready'
+        ? preview.preview.products.map((p) => ({ id: p.id, name: p.name, image: p.imageAssetId ? `/api/assets/${p.imageAssetId}` : null }))
+        : []
 
   const held = collections.find((c) => c.id === draft.id)?.products ?? count ?? 0
 
@@ -423,7 +430,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
           <ul className="df-coll-tiles">
             {shown.map((p) => (
               <li key={p.id}>
-                <span aria-hidden="true" />
+                {p.image ? <AssetImage url={p.image} alt="" className="df-coll-tile-image" placeholder="" /> : <span aria-hidden="true" />}
                 <strong>{p.name}</strong>
               </li>
             ))}

@@ -4,9 +4,9 @@ What the merchant mobile app's first release contains. The framework is in
 [REACT-NATIVE.md](REACT-NATIVE.md); builds and store accounts are in
 [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: decided, not built.**
+**Status: decided, and being built:** what each card built, product customisation (#1374) among them, is listed in [ARCHITECTURE.md](ARCHITECTURE.md) §5.
 
-Last updated: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
+Last updated: 2026-11-10 (#1374: built; reordering, currencies and choice photos on the phone, §2). Before: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
 
 ---
 
@@ -38,8 +38,9 @@ Everything in store/FIRST-RELEASE.md §3–§17 is in the app except Billing. Th
   uploads open through the Store API's signed link; the product editor has the collapsed "Ask
   the shopper before they buy" section with every type, rule, price, limit and Copy
   (CATALOG-DESIGN part U), laid out by [DESIGN.md](DESIGN.md): each question a stacked card,
-  its form full screen, reordered by dragging or with Move up and Move down. A product with no
-  questions looks as today.
+  its form full screen, reordered with Move up and Move down (decided on #1374: no dragging, as the
+  app's other lists). Amounts are typed in the pricing currency, other currencies' go back as they
+  came, and a choice's photo is added on the web portal (#1374). A product with no questions looks as today.
 
 ---
 
