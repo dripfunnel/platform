@@ -463,6 +463,27 @@ describe('collections', () => {
     expect((await preview('owner', [], 'some')).code).toBe('INVALID_INPUT')
   })
 
+  it('shows each previewed and picked product’s main photo, none when it has none, and never another store’s', async () => {
+    const photo = async (storeId: string) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const [front, back, other] = [await photo(t.storeA1), await photo(t.storeA1), await photo(t.storeB1)]
+    const phone = await product('owner', 'Samsung phone', { photos: [{ assetId: front }, { assetId: back }] })
+    const bare = await product('owner', 'Samsung case')
+    const preview = 'query P($r: [CollectionRuleInput!]!) { collectionPreview(rules: $r) { products { id imageAssetId } } }'
+    const rules = [{ kind: 'name_contains', text: 'samsung' }]
+    const shown = (await gql(preview, 'owner', { r: rules })).data?.['collectionPreview'] as { products: { id: string; imageAssetId: string | null }[] }
+    expect(shown.products).toEqual([{ id: bare.id, imageAssetId: null }, { id: phone.id, imageAssetId: front }])
+    const picked = await save({ name: 'Picked Samsung', kind: 'manual', productIds: [phone.id, bare.id] })
+    const nodes = ((await gql('query C($id: ID!) { collectionProducts(id: $id, first: 50) { nodes { id imageAssetId } } }', 'owner', { id: picked.saved?.id })).data?.['collectionProducts'] as { nodes: { id: string; imageAssetId: string | null }[] }).nodes
+    expect(nodes).toEqual([{ id: phone.id, imageAssetId: front }, { id: bare.id, imageAssetId: null }])
+    // Another store previews its own products only, and cannot attach store A's photo to one.
+    expect((await gql(preview, 'bOwner', { r: rules })).data?.['collectionPreview']).toEqual({ products: [] })
+    await db.sql`update plan_entitlement set amount = 10000 where partner_id = ${t.partnerB} and key = 'products'`
+    const mine = await product('bOwner', 'Samsung watch', { photos: [{ assetId: other }] })
+    expect(((await gql(preview, 'bOwner', { r: rules })).data?.['collectionPreview'] as typeof shown).products).toEqual([{ id: mine.id, imageAssetId: other }])
+    expect((await product('bOwner', 'Samsung stolen', { photos: [{ assetId: front }] })).code).toBeDefined()
+  })
+
   it('previews only the caller’s store, and agrees with the recompute on grouped values and a parent', async () => {
     const all = await facets('owner')
     const weave = all.find((f) => f.name === 'Weave')

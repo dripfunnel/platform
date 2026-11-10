@@ -404,6 +404,7 @@ input CollectionInput {
 
 type CollectionMember {
   id: ID
+  imageAssetId: ID
   name: String
   source: String
 }
@@ -425,6 +426,7 @@ type CollectionPreview {
 
 type CollectionPreviewProduct {
   id: ID
+  imageAssetId: ID
   name: String
 }
 
