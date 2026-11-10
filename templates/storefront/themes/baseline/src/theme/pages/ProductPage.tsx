@@ -1,4 +1,4 @@
-import { Breadcrumbs, LegalNotices, Link, Price, RichText, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Breadcrumbs, LegalNotices, Link, Price, RichText, SizeChart, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { BuyButtons } from '../components/interactive/BuyButtons'
 import { Gallery } from '../components/interactive/Gallery'
 import { Options } from '../components/interactive/Options'
@@ -57,6 +57,7 @@ export const ProductPage = () => {
               </p>
             ) : null}
             <Options page={page} />
+            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />
             <p className={styles.stock} role="status">
               {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
             </p>

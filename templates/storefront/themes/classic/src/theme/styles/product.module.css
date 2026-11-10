@@ -418,3 +418,21 @@
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+.sizeLink {
+  align-self: flex-start;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sizeLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
