@@ -87,7 +87,7 @@ describe('useCollection', () => {
     render(<Provided><Collection /></Provided>)
     await waitFor(() => expect(screen.getByTestId('bounds').textContent).toBe('1000-9000'))
     act(() => screen.getByText('over5').click())
-    expect(location.search).toBe('?filter=linen&price=500-')
+    expect(location.search).toBe('?filter=linen&price=500--USD')
     await waitFor(() => expect(asked.filter((a) => a.query.startsWith('query Listing')).at(-1)?.variables).toMatchObject({ minPrice: '500', maxPrice: null, after: null }))
     act(() => screen.getByText('clear').click())
     expect(location.search).toBe('')
@@ -228,16 +228,16 @@ describe('useLoadOnScroll', () => {
 
 describe('listingState', () => {
   it('keeps only well-formed filters, a known sort and one cursor', () => {
-    const state = listingState(new URLSearchParams('filter=b&filter=a&filter=a&filter=<x>&sort=cheapest&after=c1&before=c0'))
+    const state = listingState(new URLSearchParams('filter=b&filter=a&filter=a&filter=<x>&sort=cheapest&after=c1&before=c0'), 'INR')
     expect(state).toEqual({ filters: ['a', 'b'], sort: 'featured', after: 'c1', before: null, price: { min: null, max: null } })
   })
 
-  it('reads a price range in minor units, either end open, and drops a malformed or reversed one', () => {
-    const price = (value: string) => listingState(new URLSearchParams({ price: value })).price
-    expect(price('50000-100000')).toEqual({ min: '50000', max: '100000' })
-    expect(price('50000-')).toEqual({ min: '50000', max: null })
-    expect(price('-100000')).toEqual({ min: null, max: '100000' })
-    for (const bad of ['100000-50000', '5.5-9', '1-2-3']) expect(price(bad)).toEqual({ min: null, max: null })
+  it('reads a price range in the shopper’s currency, either end open, and drops a malformed, reversed or other-currency one', () => {
+    const price = (value: string) => listingState(new URLSearchParams({ price: value }), 'INR').price
+    expect(price('50000-100000-INR')).toEqual({ min: '50000', max: '100000' })
+    expect(price('50000--INR')).toEqual({ min: '50000', max: null })
+    expect(price('-100000-INR')).toEqual({ min: null, max: '100000' })
+    for (const bad of ['50000-100000-USD', '50000-100000', '100000-50000-INR', '5.5-9-INR', '1-2-INR-x']) expect(price(bad)).toEqual({ min: null, max: null })
   })
 })
 

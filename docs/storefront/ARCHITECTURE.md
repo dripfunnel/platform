@@ -143,8 +143,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
   them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
   one if that fails. The preview and the studio get no answers and load as before.
-- **The address is the state**: `filter` (each chosen facet value's id, repeated), `price` (`min-max` in minor units, either side
-  empty; the Shop API's `minPrice` and `maxPrice`), `sort` (`featured`, `newest`,
+- **The address is the state**: `filter` (each chosen facet value's id, repeated), `price` (`min-max-CUR` in that currency's minor units, either end
+  empty, and none in another currency; the Shop API's `minPrice` and `maxPrice`), `sort` (`featured`, `newest`,
   `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
   characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. While that
   page loads, the listing keeps the facets it last had for the same collection or search, so a theme's filters stay on

@@ -70,22 +70,24 @@ const valueId = /^[A-Za-z0-9_-]{1,64}$/
 const maxFilters = 50
 const priceEnd = /^\d{1,16}$/
 
-/** `price=min-max` in minor units, either side empty; anything else is no range. */
-const priceOf = (value: string | null): PriceChoice => {
-  const [min = '', max = '', ...rest] = (value ?? '').split('-')
+const noRange: PriceChoice = { min: null, max: null }
+
+/** `price=min-max-CUR` in that currency's minor units, either end empty; in another currency, or anything else, no range. */
+const priceOf = (value: string | null, currency: string): PriceChoice => {
+  const [min = '', max = '', written, ...rest] = (value ?? '').split('-')
   const range = { min: min || null, max: max || null }
   const fits = (end: string | null) => end === null || priceEnd.test(end)
-  const usable = rest.length === 0 && fits(range.min) && fits(range.max) && !(range.min !== null && range.max !== null && BigInt(range.min) > BigInt(range.max))
-  return usable ? range : { min: null, max: null }
+  const usable = written === currency && rest.length === 0 && fits(range.min) && fits(range.max) && !(range.min !== null && range.max !== null && BigInt(range.min) > BigInt(range.max))
+  return usable ? range : noRange
 }
 
-/** What the address asks for: chosen filter values, the price range, the sort and the page's cursor. */
-export const listingState = (query: URLSearchParams) => {
+/** What the address asks for: chosen filter values, the price range in the shopper's currency, the sort and the page's cursor. */
+export const listingState = (query: URLSearchParams, currency: string) => {
   const sort = query.get('sort')
   return {
     filters: [...new Set(query.getAll('filter').filter((v) => valueId.test(v)))].slice(0, maxFilters).sort(),
     sort: sortKeys.find((k) => k === sort) ?? 'featured',
-    price: priceOf(query.get('price')),
+    price: priceOf(query.get('price'), currency),
     after: cursor(query.get('after')),
     before: cursor(query.get('after') ? null : query.get('before')),
   }
@@ -129,9 +131,9 @@ const withQuery = (path: string, query: URLSearchParams) => {
 }
 
 export const useListing = ({ collection = null, search = null }: ListingInput, ready = true): Listing => {
-  const { client } = useStorefront()
+  const { client, store } = useStorefront()
   const { path, query } = useLocation()
-  const state = useMemo(() => listingState(query), [query])
+  const state = useMemo(() => listingState(query, store.currency), [query, store.currency])
   const variables = useMemo(
     () => ({
       collection,
@@ -213,7 +215,7 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     facets,
     priceBounds: current?.scope === scope ? current.priceBounds : null,
     priceRange: state.price,
-    setPriceRange: ({ min, max }) => go((q) => (min === null && max === null ? q.delete('price') : q.set('price', `${min ?? ''}-${max ?? ''}`))),
+    setPriceRange: ({ min, max }) => go((q) => (min === null && max === null ? q.delete('price') : q.set('price', `${min ?? ''}-${max ?? ''}-${store.currency}`))),
     selected: state.filters.flatMap((id) => {
       const name = names.get(id)
       return name ? [{ id, name }] : []
