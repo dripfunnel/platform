@@ -244,6 +244,42 @@ describe('the modal’s rules and refusals', () => {
     expect(asked.some((a) => a.query.includes('addToCart'))).toBe(false)
   })
 
+  it('says a problem no question on screen can show, rather than nothing, and adds nothing', async () => {
+    rememberQuestions({ id: 'p6', name: 'Plate', versionIds: ['v-l'], questions: [{ ...base, id: 'q-l', kind: 'TEXT', label: 'Initials' }] })
+    const asked = shopAnswering((a) => (a.query.includes('customisationQuote') ? quote(2000, [{ questionId: null as unknown as string, reason: 'CHOICE_UNAVAILABLE' }]) : { data: { addToCart: { cartToken: 't', cart: cartOf([line('v-l', 1)]) } } }))
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-l">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
+    expect(await modal.findByText('This isn’t available right now.')).toBeTruthy()
+    expect(asked.some((a) => a.query.includes('addToCart'))).toBe(false)
+  })
+
+  it('shows why when the cart refuses the answers (ANSWERS_INVALID), from a fresh quote', async () => {
+    rememberQuestions({ id: 'p7', name: 'Cup', versionIds: ['v-c'], questions: [{ ...base, id: 'q-c', kind: 'TEXT', label: 'Name' }] })
+    let refused = false
+    shopAnswering((a) => {
+      if (a.query.includes('customisationQuote')) return refused ? quote(2000, [{ questionId: 'gone', reason: 'TEXT_TOO_LONG' }]) : quote(2000)
+      refused = true
+      return { errors: [{ message: 'no', extensions: { code: 'ANSWERS_INVALID' } }] }
+    })
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-c">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    await modal.findByText('$20.00')
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
+    expect(await modal.findByText('That’s too long.')).toBeTruthy()
+    expect(modal.queryByText('We couldn’t add it. Try again.')).toBeNull()
+  })
+
   it('says when Edit can’t read the product’s questions, rather than open nothing', async () => {
     const line = viewCart(cartOf([{ ...line_('v-e', 1), id: 'line-e', answers: [{ questionId: 'q', question: 'Name', kind: 'TEXT', text: 'Asha', per: 'ITEM', amount: usd(0), choices: [], uploads: [] }] } as ReturnType<typeof line_>]) as never).lines[0]
     if (!line) throw new Error('no line')
