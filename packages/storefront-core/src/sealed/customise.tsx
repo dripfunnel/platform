@@ -110,6 +110,12 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
 
   const problemOf = (q: Question) => (showProblems ? quote?.problems.find((p) => p.questionId === q.id) : undefined)
   const problemText = (p: AnswerProblem) => t(problemKeys.includes(p.reason) ? `customise.problem.${p.reason}` : 'customise.problem.other')
+  // A problem no question on screen can show (none named, or no longer asked) is said at the foot, never silently.
+  const looseProblem = (problems: readonly AnswerProblem[]) => {
+    const shown = new Set(askedFor(product.questions, versionId, answers).map((q) => q.id))
+    const loose = problems.find((p) => !p.questionId || !shown.has(p.questionId))
+    return loose ? problemText(loose) : null
+  }
   const extraText = (price: ExtraPrice | null) => {
     if (!price) return null
     if (price.mode === 'PERCENT') return price.percentBps === null ? null : t('customise.extraPercent', { percent: price.percentBps / 100 })
@@ -168,10 +174,18 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
     setQuote(fresh)
     if (!fresh || fresh.problems.length > 0) {
       setBusy(false)
-      if (!fresh) setError(t('customise.failed'))
+      setError(fresh ? looseProblem(fresh.problems) : t('customise.failed'))
       return
     }
     const refused = intent.kind === 'edit' ? await cart.editAnswers(intent.lineId, sent) : await cart.addWithAnswers(versionId, quantity, sent, gift ?? undefined)
+    if (refused === 'ANSWERS_INVALID') {
+      // The cart judged the answers again: a fresh quote shows why under each question, or here when none can show it.
+      const again = await askQuote(sent).catch(() => null)
+      setQuote(again)
+      setBusy(false)
+      setError(again?.problems.length ? looseProblem(again.problems) : t('customise.problem.other'))
+      return
+    }
     setBusy(false)
     if (refused) {
       setError(t(refusalKeys.includes(refused) ? `customise.refused.${refused}` : 'customise.failed'))
