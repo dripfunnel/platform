@@ -153,7 +153,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   and stops at a page that failed until the theme's retry. The starting themes load on scroll only, with no "Load more" button;
   keyboard users scroll with the arrow keys, Page Down or Space (decided 2026-11-10, Kshitij, #1385). `priceBounds` gives a price filter its ends, kept like the facets while
   a new choice loads, and `<PriceRange>` (`ui/headless`) draws it, from its own chunk, fetched by the first page that shows it
-  (#1391): built HTML has no slider until it loads, and a chunk that fails to arrive leaves the filter out. Search, a missing collection and a missing product are `noindex`.
+  (`import()`, #1391), so no other page pays for it in its budget (§9): built HTML has no slider until it loads, which the
+  no-JS check doesn't ask for since filtering needs JavaScript, and a chunk that fails to arrive leaves the filter out. Search, a missing collection and a missing product are `noindex`.
 - **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
   before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
   first photo is the page's main picture.
