@@ -1,4 +1,5 @@
 import { pgArray, type ScopedSql } from './index'
+import { storeHasAllower } from './supportSessions'
 
 // The store's catalogue imports as jobs (migrations/0059; FIRST-RELEASE §13): uploaded, checked, confirmed, run a
 // chunk at a time in the importer's own scope. Row security keeps a supplier to its own imports.
@@ -209,3 +210,7 @@ export const selectImporterSeat = async (tx: ScopedSql, storeId: string, userId:
       where m.user_id = ${userId} and m.store_id = ${storeId} and m.seller_id is not distinct from ${sellerId}
     `
   )[0] ?? null
+
+/** Whether the store has an active Owner or Manager, so support may no longer act as its invited Owner (ACCESS §8). */
+export const selectStoreHasAllower = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
+  (await tx<{ has: boolean }[]>`select ${storeHasAllower(tx)} as has from store s where s.id = ${storeId}`)[0]?.has ?? false

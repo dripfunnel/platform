@@ -485,7 +485,10 @@ describe('a supplier’s import', () => {
       return { ...c, standing: { ...c.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'impersonation', impersonationId: crypto.randomUUID(), staffId: crypto.randomUUID(), userId: people.owner } } } } }
     }
     const through = { person: (c: StoreContext) => c, support: (c: StoreContext) => asSupport(c, 'write'), impersonation: asImpersonation }
-    const reset = async () => db.sql`update membership set status = 'active', role_key = 'owner' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+    const reset = async () => {
+      await db.sql`update membership set status = 'active', role_key = 'owner' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+      await db.sql`update membership set role_key = 'staff' where user_id = ${people.staff} and store_id = ${t.storeA1}`
+    }
     // Started and confirmed as the Owner's seat; `before` changes the seat by the time the run reads it.
     const run = async (via: keyof typeof through, handle: string, before: () => Promise<unknown> = async () => {}) => {
       const started = await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: `handle,name,price\n${handle},${handle},1\n` }, t.storeA1, through[via])
@@ -499,6 +502,10 @@ describe('a supplier’s import', () => {
     }
     const invited = async () => db.sql`update membership set status = 'invited' where user_id = ${people.owner} and store_id = ${t.storeA1}`
     const invitedManager = async () => db.sql`update membership set status = 'invited', role_key = 'manager' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+    const invitedWithManager = async () => {
+      await invited()
+      await db.sql`update membership set role_key = 'manager' where user_id = ${people.staff} and store_id = ${t.storeA1}`
+    }
     const stopped = { state: 'failed', created: 0, problems: [{ code: 'NOT_ALLOWED' }] }
     try {
       expect(await run('support', 'support-write')).toMatchObject({ state: 'done', created: 1 })
@@ -508,6 +515,9 @@ describe('a supplier’s import', () => {
       expect(await run('person', 'person-invited', invited)).toMatchObject(stopped)
       expect(await run('impersonation', 'staff-invited-manager', invitedManager)).toMatchObject(stopped)
       expect(await run('support', 'support-invited-manager', invitedManager)).toMatchObject(stopped)
+      // Once an active Manager could give an Allow, support stops acting as the invited Owner; staff don't need one (§8.1).
+      expect(await run('support', 'support-invited-allower', invitedWithManager)).toMatchObject(stopped)
+      expect(await run('impersonation', 'staff-invited-allower', invitedWithManager)).toMatchObject({ state: 'done', created: 1 })
     } finally {
       await reset()
     }
