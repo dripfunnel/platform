@@ -63,6 +63,7 @@ the missing backend.
   - ~~no create, edit, groups, tags or notes;~~
   - ~~no export;~~
   - ~~no consent information.~~
+- The order's Payment totals draw "Includes {tax}" as its own row above Total (:356). The built portal puts inclusive tax beside the label instead, "Total (Inclusive of ₹26.14 tax)", and keeps a "Tax" row above Total only where tax is added (#1412). The prototype is not redrawn.
 - ~~**Returns and cancellations across suppliers:** the brief leaves these undesigned on purpose. They still need a decision.~~
 
 ### Offers and Offer editor
