@@ -188,7 +188,11 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   `localStorage` (`df-store-acting`) as a convenience only. Built on #291: the shell reads `me`,
   `myStores`, `storeState` and `navBadges` once before any screen, in one request since #1111
   (`readShell`; a refused badge count only draws no badge); no acting store, or one no longer held,
-  opens the chooser at `/stores`, which refuses none, opens one and lists several.
+  opens the chooser at `/stores`, which refuses none, opens one and lists several. A person with none
+  who signed in from an invitation link (`next=/join?token=…`, a person removed and invited again)
+  follows it and joins instead of being refused (#1356); any other `next` still shows "You don't
+  belong to a store here". A Google sign-in that then needs two-step set-up comes back without
+  `next`, so it still ends at the refusal until the API carries it.
 - **Partner look, built on #291**: the primary colour paints the header and side bar
   (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
   text), the pair the brand's publish checks (SAAS §3.3). The font and corners become
