@@ -29,7 +29,8 @@ describe('Price', () => {
   it('always shows the tax label, and a compare-at price only when it is higher', () => {
     const html = renderToStaticMarkup(<Price money={money('2800', 'USD')} compareAt={money('3500', 'USD')} includesTax={false} locale="en-US" t={t} />)
     expect(html).toContain('$28.00')
-    expect(html).toContain('Was $35.00')
+    expect(html).toContain('<s part="was">$35.00</s>')
+    expect(html).not.toContain('Was')
     expect(html).toContain('+ tax')
     expect(html).toContain('data-df-sealed="price"')
     const lower = renderToStaticMarkup(<Price money={money('2800', 'INR')} compareAt={money('2000', 'INR')} includesTax locale="en-IN" t={t} />)
