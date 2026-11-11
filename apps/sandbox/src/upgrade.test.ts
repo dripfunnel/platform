@@ -30,6 +30,26 @@ const notes: UpgradeNote[] = [
   { version: '1.2.0', kind: 'minor', security: false, notes: 'Not reached.', codemods: [{ kind: 'replace', paths: ['src/theme/**/*.tsx'], find: 'Shell', replace: 'Frame' }] },
 ]
 
+// The template's own files of core 1.0.0 and of 1.1.0 as the Worker sends them (#1416), and the repo's generated ones.
+const skeleton10 = [
+  { path: 'src/app/page.tsx', content: 'export default function Page() {\n  return null\n}\n' },
+  { path: 'src/app/old.ts', content: 'export const old = true\n' },
+  { path: 'AGENTS.md', content: '# A store repo\n' },
+  { path: 'next.config.ts', content: 'export default {}\n' },
+]
+const skeleton11 = [
+  { path: 'src/app/page.tsx', content: "export default function Page() {\n  return '1.1'\n}\n" },
+  { path: 'src/app/theme-media/route.dev.ts', content: 'export const GET = () => new Response(null)\n' },
+  { path: 'AGENTS.md', content: '# A store repo\n\n## Adding an image\n' },
+  { path: 'next.config.ts', content: 'export default {}\n' },
+  { path: 'src/app/old.ts', content: null },
+]
+const generated = [
+  { path: 'store.config.ts', content: "export const storeKey = 'pk_test'\n" },
+  { path: '.env.development', content: 'SHOP_API_PROXY=https://northstar.my-shop.dev\n' },
+  { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' },
+]
+
 let root: string
 let base: string
 let close: () => Promise<void>
@@ -38,7 +58,7 @@ let template: { path: string; content: string }[]
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'sandbox-upgrade-'))
   await buildRuntime(join(root, 'runtime'))
-  const server = sandboxServer({ slots: 6, workRoot: join(root, 'work'), runtimeDir: join(root, 'runtime'), notes })
+  const server = sandboxServer({ slots: 7, workRoot: join(root, 'work'), runtimeDir: join(root, 'runtime'), notes })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   close = () => new Promise((resolve) => server.close(() => resolve()))
@@ -67,10 +87,11 @@ let upgraded: { commit: string; bundle: ArrayBuffer }
 
 describe('the upgrade bot’s commit', () => {
   it('pins the new core and applies only the codemods of the releases it crosses, as one commit on the live one', async () => {
-    await call('PUT', '/slots/live/draft', { files: template, message: 'Start from the baseline template' })
+    await call('PUT', '/slots/live/draft', { files: [...template, ...skeleton10, ...generated], message: 'Start from the baseline template' })
     live = await exportBundle('live')
     const before = await head('live')
-    const result = await call('POST', '/slots/live/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Upgrade storefront-core to 1.1.0', baseline: null })
+    // The same template files on both cores: only the codemods' files and package.json change, as before #1416.
+    const result = await call('POST', '/slots/live/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Upgrade storefront-core to 1.1.0', baseline: null, skeleton: skeleton10 })
     expect(result.status).toBe(200)
     const commit = result.body['commit'] as string
     expect(commit).not.toBe(before)
@@ -84,31 +105,62 @@ describe('the upgrade bot’s commit', () => {
     upgraded = { commit, bundle: await exportBundle('live') }
   })
 
-  it('refuses a request outside its shape, and a baseline file outside the theme', async () => {
-    expect((await call('POST', '/slots/live/upgrade', { from: '1.0', to: '1.1.0', message: 'm', baseline: null })).status).toBe(400)
-    expect((await call('POST', '/slots/live/upgrade', { from: '1.0.0', to: '1.1.0', message: 'm', baseline: [{ path: '.github/workflows/build.yml', content: 'on: push' }] })).status).toBe(400)
-    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.0.9', message: 'm', baseline: null })).status).toBe(400)
-    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.1.0', message: 'm', baseline: null })).status).toBe(400)
+  it('writes the new core’s template files and removes the one it dropped, never the theme or the generated files', async () => {
+    await loadBundle('skeleton', live)
+    const themeBefore = await theme('skeleton')
+    const result = await call('POST', '/slots/skeleton/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Upgrade storefront-core to 1.1.0', baseline: null, skeleton: skeleton11 })
+    expect(result.status).toBe(200)
+    const files = result.body['files'] as { path: string; content: string | null }[]
+    expect(files.map((f) => f.path)).toEqual(['src/theme/pages/HomePage.tsx', 'src/app/page.tsx', 'src/app/theme-media/route.dev.ts', 'AGENTS.md', 'src/app/old.ts', 'package.json'])
+    for (const f of skeleton11) {
+      if (f.content === null) await expect(repoFile('skeleton', f.path)).rejects.toThrow()
+      else expect(await repoFile('skeleton', f.path)).toBe(f.content)
+    }
+    for (const f of generated) expect(await repoFile('skeleton', f.path)).toBe(f.content)
+    const themeAfter = await theme('skeleton')
+    expect([...themeAfter.keys()]).toEqual([...themeBefore.keys()])
+    expect([...themeAfter].filter(([path, content]) => themeBefore.get(path) !== content).map(([path]) => path)).toEqual(['src/theme/pages/HomePage.tsx'])
+    expect(JSON.parse(await repoFile('skeleton', 'package.json'))).toEqual({ name: 'sf-store', dependencies: { '@dripfunnel/storefront-core': '1.1.0' } })
+  })
+
+  it('refuses a request outside its shape, a baseline file outside the theme, and a template file it never writes', async () => {
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.0', to: '1.1.0', message: 'm', baseline: null, skeleton: [] })).status).toBe(400)
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.0.0', to: '1.1.0', message: 'm', baseline: [{ path: '.github/workflows/build.yml', content: 'on: push' }], skeleton: [] })).status).toBe(400)
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.0.9', message: 'm', baseline: null, skeleton: [] })).status).toBe(400)
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.1.0', message: 'm', baseline: null, skeleton: [] })).status).toBe(400)
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null })).status).toBe(400)
+    const before = await head('live')
+    const never = ['src/theme/pages/HomePage.tsx', 'src/theme/manifest.ts', 'src/theme/media/hero.png', 'content/en/pages.json', 'routes.json', 'package.json', 'store.config.ts', '.env.development', '.github/workflows/build.yml', '.GitHub/workflows/x.yml', '../outside.ts']
+    for (const path of never) expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null, skeleton: [{ path, content: 'x' }] })).status, path).toBe(400)
+    expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null, skeleton: [{ path: 'store.config.ts', content: null }] })).status).toBe(400)
+    expect(await head('live')).toBe(before)
   })
 
   it('leaves the working copy as it was when package.json can’t be read, so nothing rides along with the next commit', async () => {
     await call('PUT', '/slots/broken/draft', { files: [...template.filter((f) => f.path !== 'package.json'), { path: 'package.json', content: '{ not json' }], message: 'A broken package.json' })
     const before = await head('broken')
-    expect((await call('POST', '/slots/broken/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Upgrade', baseline: null })).status).toBe(500)
+    expect((await call('POST', '/slots/broken/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Upgrade', baseline: null, skeleton: skeleton11 })).status).toBe(500)
+    await expect(repoFile('broken', 'AGENTS.md')).rejects.toThrow()
     expect(await head('broken')).toBe(before)
     expect((await theme('broken')).get('src/theme/pages/HomePage.tsx')).toContain("label={t('pages.home.more')}")
   })
 
-  it('writes the baseline theme with the store’s own words over its own theme', async () => {
+  it('writes the baseline theme with the store’s own words over its own theme, and the new core’s template files', async () => {
     await loadBundle('fallback', live)
     const baseline = template.filter((f) => f.path !== 'package.json' && f.path !== 'src/theme/pages/AboutPage.tsx').map((f) => (f.path === 'content/en/pages.json' ? { path: f.path, content: f.content.replace('Made slowly, worn for years', 'Baseline words') } : f))
-    const result = await call('POST', '/slots/fallback/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Serve the baseline theme on storefront-core 1.1.0', baseline })
+    const result = await call('POST', '/slots/fallback/upgrade', { from: '1.0.0', to: '1.1.0', message: 'Serve the baseline theme on storefront-core 1.1.0', baseline, skeleton: skeleton11 })
     expect(result.status).toBe(200)
     const after = await theme('fallback')
     expect(after.has('src/theme/pages/AboutPage.tsx')).toBe(false)
     expect(after.get('content/en/pages.json')).toContain('Made slowly, worn for years')
     expect(result.body['notes']).toEqual([])
-    expect((result.body['files'] as { path: string; content: string | null }[]).find((f) => f.path === 'src/theme/pages/AboutPage.tsx')).toEqual({ path: 'src/theme/pages/AboutPage.tsx', content: null })
+    const files = result.body['files'] as { path: string; content: string | null }[]
+    expect(files.find((f) => f.path === 'src/theme/pages/AboutPage.tsx')).toEqual({ path: 'src/theme/pages/AboutPage.tsx', content: null })
+    expect(files.filter((f) => !f.path.startsWith('src/theme/') && !f.path.startsWith('content/')).map((f) => f.path)).toEqual(['src/app/page.tsx', 'src/app/theme-media/route.dev.ts', 'AGENTS.md', 'src/app/old.ts', 'package.json'])
+    expect(await repoFile('fallback', 'src/app/theme-media/route.dev.ts')).toContain('GET')
+    await expect(repoFile('fallback', 'src/app/old.ts')).rejects.toThrow()
+    for (const f of generated) expect(await repoFile('fallback', f.path)).toBe(f.content)
+    expect(JSON.parse(await repoFile('fallback', 'package.json'))).toEqual({ name: 'sf-store', dependencies: { '@dripfunnel/storefront-core': '1.1.0' } })
   })
 })
 

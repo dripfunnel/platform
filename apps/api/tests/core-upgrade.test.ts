@@ -8,7 +8,7 @@ import { recordCoreRelease } from '#db/scoped/coreReleases'
 import { enrolStores, insertRollout, startStores } from '#db/scoped/coreRollouts'
 import { createGitHubApp, storeRepos } from '#integrations/github/index'
 import { localGitHub } from '#integrations/local/github'
-import { pushUpgrade, runStoreUpgrade, type MigrateInput, type Prepared, type PrepareInput, type UpgradeDeps, type UpgradeSteps } from '#saas/fleet/index'
+import { pinCrashedUpgrade, pushUpgrade, runStoreUpgrade, type MigrateInput, type Prepared, type PrepareInput, type UpgradeDeps, type UpgradeSteps } from '#saas/fleet/index'
 import { prepareEmail } from '#saas/email/index'
 import { digestOf, runPublish, startPublish, upgradeBundle, upgradeFiles, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
@@ -219,6 +219,21 @@ describe('a patch or minor upgrade', () => {
     expect(await db.sql`select 1 from outbox where kind = 'storefront.upgrade_push' and store_id = ${t.storeA2}`).toHaveLength(0)
   })
 
+  it('leaves the store on its core when the new core’s skeleton.json is missing (#1416)', async () => {
+    const before = await live(t.storeA2)
+    const p = await rolloutOf('1.1.0', t.storeA2)
+    const missing = async (): Promise<Prepared> => {
+      throw new Error('templates/1.1.0/skeleton.json is missing')
+    }
+    await expect(runStoreUpgrade(upgradeDeps(missing), p, steps(t.storeA2))).rejects.toThrow('skeleton.json is missing')
+    // The Workflow's step failed past its retries: the store is pinned at once (core-upgrade.ts).
+    expect(await pinCrashedUpgrade({ sql: db.sql, now: () => new Date() }, p)).toBe('pinned')
+    expect(await rowOf(p.upgradeId)).toMatchObject({ state: 'pinned', error: 'upgrade_crashed', publish_run_id: null })
+    expect(await live(t.storeA2)).toBe(before)
+    expect((await db.sql<{ core_version: string }[]>`select core_version from store where id = ${t.storeA2}`)[0]?.core_version).toBe('1.0.0')
+    expect(await db.sql`select 1 from outbox where kind = 'storefront.upgrade_push' and store_id = ${t.storeA2}`).toHaveLength(0)
+  })
+
   it('waits while the merchant’s studio is open, and pins the store only once the wait runs out', async () => {
     const p = await rolloutOf('1.1.0', t.storeA1)
     const opened = sandbox(['busy', 'commit'])
@@ -406,18 +421,25 @@ describe('the push once live', () => {
       { path: 'package.json', content: '{"dependencies":{"@dripfunnel/storefront-core":"1.0.0"}}' },
       { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' },
       { path: 'src/theme/pages/OldPage.tsx', content: 'export const OldPage = () => null' },
+      { path: 'src/app/old.ts', content: 'export const old = true\n' },
+      { path: 'AGENTS.md', content: '# A store repo\n' },
     ])
     const head = await repos.commit('sf-u1u1u1u1u1', { tree, parent: first, message: 'Start', at: new Date() })
     await repos.advance('sf-u1u1u1u1u1', head)
     await db.sql`update storefront set repo_state = 'ready', repo_head = ${head} where store_id = ${t.storeA1}`
     const c = commit(9999)
     await putText(drafts, upgradeBundle(t.storeA1, c), 'bundle')
-    await putText(drafts, upgradeFiles(t.storeA1, c), JSON.stringify({ files: [{ path: 'package.json', content: '{"dependencies":{"@dripfunnel/storefront-core":"1.1.0"}}' }, { path: 'src/theme/pages/OldPage.tsx', content: null }] }))
+    // The template files of the new core ride along (#1416): AGENTS.md changed, a new route, a dropped file removed.
+    const skeleton = [{ path: 'AGENTS.md', content: '# A store repo\n\n## Adding an image\n' }, { path: 'src/app/theme-media/route.dev.ts', content: 'export const GET = () => null\n' }, { path: 'src/app/old.ts', content: null }]
+    await putText(drafts, upgradeFiles(t.storeA1, c), JSON.stringify({ files: [{ path: 'package.json', content: '{"dependencies":{"@dripfunnel/storefront-core":"1.1.0"}}' }, { path: 'src/theme/pages/OldPage.tsx', content: null }, ...skeleton] }))
     const pushed = await pushUpgrade({ sql: db.sql, repos, drafts, now: () => new Date() }, { storeId: t.storeA1, commit: c, version: '1.1.0', key: 'upgrade:test' })
     expect(pushed.ok).toBe(true)
     const paths = await repos.paths('sf-u1u1u1u1u1', await repos.treeOf('sf-u1u1u1u1u1', (await repos.head('sf-u1u1u1u1u1')) ?? ''))
     expect(paths).toContain('package.json')
     expect(paths).not.toContain('src/theme/pages/OldPage.tsx')
+    expect(paths).toContain('AGENTS.md')
+    expect(paths).toContain('src/app/theme-media/route.dev.ts')
+    expect(paths).not.toContain('src/app/old.ts')
     expect(paths).toContain('.github/workflows/build.yml')
     expect(drafts.keys(`upgrades/${t.storeA1}/`)).toEqual([])
     expect(await pushUpgrade({ sql: db.sql, repos, drafts, now: () => new Date() }, { storeId: t.storeA1, commit: commit(9998), version: '1.1.0', key: 'upgrade:none' })).toEqual({ ok: false, code: 'NO_FILES' })

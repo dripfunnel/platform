@@ -22,7 +22,7 @@ const reason = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('publish'), version: z.number().int().positive(), buildId: z.guid() }),
   // The merchant chose another template: its whole theme (with their own words if they kept them).
   z.strictObject({ kind: z.literal('template'), template: z.string().regex(/^[a-z0-9-]{1,40}$/) }),
-  // The upgrade bot: the new pin and the codemods' edits, anywhere but the locked workflow.
+  // The upgrade bot: the new pin, the codemods' edits and the skeleton, anywhere but the locked workflow.
   z.strictObject({ kind: z.literal('upgrade'), coreVersion: z.string().regex(coreVersionPattern) }),
 ])
 export type PushReason = z.infer<typeof reason>

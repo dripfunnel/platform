@@ -16,6 +16,13 @@ export const isThemePath = (path: string): boolean => themePaths.some((p) => p.t
 /** The locked workflow's folder (LIVE-SHOP.md §3 step 4): written once, with the repo, and never pushed to. */
 export const isLockedPath = (path: string): boolean => path.toLowerCase().startsWith('.github/')
 
+// A copy of the sandbox's: an upgrade never writes the theme, the generated files, package.json beyond core's pin (written
+// on its own) or the locked workflow (storefront ARCHITECTURE §2.2, §7.1).
+const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$/i
+
+/** A template file an upgrade refreshes from the skeleton of the core it upgrades to (#1416). */
+export const isRefreshedPath = (path: string): boolean => isRepoPath(path) && !notRefreshed.test(path)
+
 /** Plain relative names, so no `..`, absolute or empty segment reaches outside the repo. */
 export const isRepoPath = (path: string): boolean => path.length <= 512 && path.split('/').every((s) => /^[A-Za-z0-9_.-]{1,100}$/.test(s) && s !== '.' && s !== '..')
 /** A storefront-core version: `1.2.3`, or `0.0.0-dev.6` from the dev release. */

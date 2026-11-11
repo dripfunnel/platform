@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { inlineHashes, studioCsp, studioFramePage } from '@dripfunnel/storefront-core'
 import { compareVersions, coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
-import { isRepoPath, isThemePath } from './paths'
+import { isRepoPath, isRefreshedPath, isThemePath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
 
 // The sandbox's operations (storefront AI-STUDIO §2 "Container"): only the store's Durable Object talks to it, over the
@@ -30,6 +30,7 @@ const upgradeSchema = z
     to: semver,
     message: z.string().min(1).max(2000),
     baseline: z.array(z.strictObject({ path: z.string().refine(isThemePath), content: z.string().max(1024 * 1024) })).max(500).nullable(),
+    skeleton: z.array(z.strictObject({ path: z.string().refine(isRefreshedPath), content: z.string().max(1024 * 1024).nullable() })).max(1000),
   })
   .refine((u) => compareVersions(u.to, u.from) > 0 || (u.baseline !== null && compareVersions(u.to, u.from) === 0), 'to must be newer than from')
 const rebaseSchema = z.strictObject({ onto: z.string().regex(/^[0-9a-f]{40}$/), context: z.unknown() })
