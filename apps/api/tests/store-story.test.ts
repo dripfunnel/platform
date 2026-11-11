@@ -8,6 +8,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { mp4Of } from './support/video'
 
 // Card #293 (SAPI 3, part 5): A+ content, drafts published apart from the page (CATALOG Q9), brand
 // stories the merchant shares (Q5), and a supplier's story naming only what the supplier reads.
@@ -30,10 +31,21 @@ const subscribe = async (storeId: string, partnerId: string, planId: string) => 
     values (${storeId}, ${partnerId}, ${planId}, 1, 'active', 'month', 'INR', 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})`
 }
 
+// The ASSETS bucket, in memory: a video's bytes are a real 10-second MP4, which a product video's check reads (#1401).
+const bucket = new Map<string, Uint8Array>()
+const r2 = {
+  put: async (key: string, value: Uint8Array) => void bucket.set(key, value),
+  get: async (key: string) => {
+    const value = bucket.get(key)
+    return value ? { body: new Response(value.slice()).body as ReadableStream } : null
+  },
+}
+
 let files = 0
 const upload = async (storeId: string, sellerId: string | null, kind: 'image' | 'video' = 'image') => {
   files += 1
   const key = `stores/${storeId}/assets/00000000-0000-4000-8000-${String(files).padStart(12, '0')}.${kind === 'image' ? 'png' : 'mp4'}`
+  if (kind === 'video') bucket.set(key, mp4Of(10))
   return (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${key}, ${kind}, ${kind === 'image' ? 'image/png' : 'video/mp4'}, 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
 }
 
@@ -76,7 +88,7 @@ const gql = async (source: string, who: Who, variables: Record<string, unknown> 
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now, files: r2 }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -233,6 +245,7 @@ describe('A+ content: owners', () => {
 
 describe('Files a story shows', () => {
   it('stay their owner’s when a photo or video of another owner’s product names them', async () => {
+    await db.sql`insert into store_feature (store_id, key, enabled, updated_at) values (${t.storeA1}, 'video', true, ${now}) on conflict (store_id, key) do update set enabled = true`
     const theirs = await product('supplier', 'Anand lamp')
     const photo = await upload(t.storeA1, t.sellerA1First)
     const video = await upload(t.storeA1, t.sellerA1First, 'video')
