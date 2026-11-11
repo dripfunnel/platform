@@ -435,11 +435,14 @@ Run `pnpm check` first: the store repo's `AGENTS.md` says so, and it runs the bu
    anything, and images pushed before #1415 are copied only when a later push still holds them.
 
 A design Publish takes a push that went live after its draft started into the draft first, so it never overwrites it
-(AI-STUDIO §6 step 2; #1211).
+(AI-STUDIO §6 step 2; #1211). While a push is still going live (its `repo` run queued or under way, or its
+`storefront.repo_push` still in the outbox), a design Publish and "Publish everything before" are refused with
+`PUSH_GOING_LIVE` and change nothing, so the take never misses it (#1411).
 
-*Not covered yet:* a push that goes live after that take, while the design publish is still building, is still replaced
-by it; and an upgrade the bot prepared before a push went live builds its older source (§8), as it does after a go back.
-Each is its own card.
+*Not covered yet:* a push that arrives after Publish, while the design builds, queues behind it, goes live after it
+(taking the design off the live site), and the design's "Publish version N" then lands on `main` over it; and an
+upgrade the bot prepared before a push went live builds its older source (§8), as it does after a go back. Each is its
+own card.
 
 ---
 

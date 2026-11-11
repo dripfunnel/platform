@@ -282,7 +282,9 @@ before, and reads the result when `askDesign` answers.
    taken for a store served the baseline, a draft with no base, or a live commit already in the draft (after "Publish
    everything before"), whose base then moves to it. The gate refusing the take, or a base commit or live source that
    can't be read, stops Publish with `CHANGE_REFUSED` and changes nothing; a take is recorded as
-   `storefront.repo_push_taken`. "Publish everything before" takes nothing.
+   `storefront.repo_push_taken`. "Publish everything before" takes nothing. While a push isn't live yet (its `repo` run
+   queued or under way, or still in the outbox), Publish and "Publish everything before" are refused with
+   `PUSH_GOING_LIVE` before the studio is asked anything, so nothing changes and no press is used (LIVE-SHOP §4; #1411).
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet. Step 2 ends before Publish answers, so the run is

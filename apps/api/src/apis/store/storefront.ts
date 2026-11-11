@@ -37,6 +37,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   NOT_BISECTED: 'That change isn’t the one a refused publish named.',
   ALREADY_LIVE: 'That version is already live.',
   PUBLISH_RUNNING: 'Wait for the publish in progress to finish.',
+  PUSH_GOING_LIVE: 'A change pushed to your site’s code is still going live. Publish again once it’s live.',
   BUILD_GONE: 'That version can’t be restored any more.',
   NOTHING_LIVE: 'Publish your design first.',
   NOTHING_WAITING: 'Your live site is already up to date.',
