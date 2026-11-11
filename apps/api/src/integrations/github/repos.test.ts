@@ -73,7 +73,8 @@ describe('themeMedia', () => {
     expect(gh.fetched).not.toContain('src/theme/media/i100.png')
   })
 
-  it('takes images up to 20 MB in all and skips any that would pass it', async () => {
+  // Decoding 20 MB of real base64 takes seconds on a CI runner, past vitest's 5 s default.
+  it('takes images up to 20 MB in all and skips any that would pass it', { timeout: 30_000 }, async () => {
     const gh = github([...Array.from({ length: 10 }, (_, i) => image(`big${i}.png`, 2 * mb)), image('one-more.png', 1)])
     const images = await gh.read()
     expect(images.map((i) => i.name)).toEqual(Array.from({ length: 10 }, (_, i) => `big${i}`))
