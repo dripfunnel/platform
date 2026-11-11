@@ -55,6 +55,7 @@ export type DesignRefusal =
         | 'NOT_BISECTED'
         | 'ALREADY_LIVE'
         | 'PUBLISH_RUNNING'
+        | 'PUSH_GOING_LIVE'
         | 'BUILD_GONE'
         | 'NOTHING_LIVE'
         | 'NOTHING_WAITING'

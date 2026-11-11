@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { recordGate } from '#db/scoped/builds'
 import { withSystemScope } from '#db/scoped/index'
 import { rebaseDraft } from '#db/scoped/studio'
@@ -137,6 +137,16 @@ const workflow = (bad: ReadonlySet<string>): PublishSteps => ({
 
 const publish = async (who: Who = 'owner') => (await w.gql(who, 'mutation { publishDesign }')) as { data: { publishDesign: string } | null; code: string | undefined }
 const pushedMessages = () => github.history(repo).map((c) => c.message)
+const runCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n
+/** A push's `repo` run not live yet, as `handleRepoPush` starts it, gone again when the test ends. */
+const pendingRepoRun = async (state: 'queued' | 'building') => {
+  const [run] = await db.sql<{ id: string }[]>`
+    insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, started_at)
+    values (${t.storeA1}, 'repo', ${state}, ${'e'.repeat(40)}, 'baseline', ${core}, 'system', ${state === 'building' ? new Date() : null}) returning id`
+  const id = run?.id ?? ''
+  onTestFinished(async () => void (await db.sql`delete from publish_run where id = ${id}`))
+  return id
+}
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -245,6 +255,13 @@ describe('publishing from the studio', () => {
     const [refused] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.publish_refused'`
     expect(refused?.changes).toEqual([expect.objectContaining({ field: 'error', after: 'bisected' }), expect.objectContaining({ field: 'check', after: 'axe' })])
     expect((await w.gql('owner', 'mutation P($m: ID!) { publishBefore(messageId: $m) }', { m: good.message.id })).code).toBe('NOT_BISECTED')
+    // "Publish everything before" waits for a push still going live too (#1411).
+    const queued = await pendingRepoRun('queued')
+    const runsThen = await runCount()
+    expect((await w.gql('owner', 'mutation P($m: ID!) { publishBefore(messageId: $m) }', { m: broken.message.id })).code).toBe('PUSH_GOING_LIVE')
+    expect(await runCount()).toBe(runsThen)
+    expect(await head()).toBe(brokenCommit)
+    await db.sql`delete from publish_run where id = ${queued}`
     const before = (await w.gql('owner', 'mutation P($m: ID!) { publishBefore(messageId: $m) }', { m: broken.message.id })).data?.['publishBefore'] as string
     expect((await db.sql<{ commit: string }[]>`select commit from publish_run where id = ${before}`)[0]?.commit).toBe(goodCommit)
     expect(await runPublish(deps(), { runId: before, storeId: t.storeA1 }, workflow(new Set([brokenCommit])))).toBe('live')
@@ -324,6 +341,42 @@ describe('publishing from the studio', () => {
       await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
       await db.sql`update design_version set state = 'kept' where store_id = ${t.storeA1} and state = 'live'`
       await db.sql`update design_version set state = 'live' where id = ${liveVersion?.id ?? ''}`
+    })
+  })
+
+  describe('a push still going live at Publish (#1411)', () => {
+    /** Publish is refused and changes nothing: no run (so no press), the draft, the live site and main as they were. */
+    const refusedUnchanged = async () => {
+      const before = [await head(), await liveBuild(), await runCount(), pushedMessages().length]
+      expect(before[0]).not.toBeNull()
+      expect((await publish()).code).toBe('PUSH_GOING_LIVE')
+      expect([await head(), await liveBuild(), await runCount(), pushedMessages().length]).toEqual(before)
+    }
+
+    it('refuses Publish while the push’s run is queued', async () => {
+      await pendingRepoRun('queued')
+      await refusedUnchanged()
+    })
+
+    it('refuses Publish while the push’s run is building', async () => {
+      await pendingRepoRun('building')
+      await refusedUnchanged()
+    })
+
+    it('refuses Publish while the push still waits in the outbox', async () => {
+      await db.sql`
+        insert into outbox (kind, idempotency_key, payload, partner_id, store_id)
+        select 'storefront.repo_push', ${`storefront.repo_push:1411:${t.storeA1}`}, '{}'::jsonb, partner_id, id from store where id = ${t.storeA1}`
+      // Delivered, so the next test's Publish sees no push pending.
+      onTestFinished(async () => void (await db.sql`update outbox set delivered_at = now() where store_id = ${t.storeA1} and kind = 'storefront.repo_push'`))
+      await refusedUnchanged()
+    })
+
+    it('publishes as before once no push is pending', async () => {
+      const runId = (await publish()).data?.publishDesign ?? ''
+      expect(runId).not.toBe('')
+      expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
+      expect(github.files(repo)?.get('content/en/pages.json')).toContain('Kept in the draft.')
     })
   })
 
