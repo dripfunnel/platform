@@ -139,10 +139,10 @@ const publish = async (who: Who = 'owner') => (await w.gql(who, 'mutation { publ
 const pushedMessages = () => github.history(repo).map((c) => c.message)
 const runCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n
 /** A push's `repo` run not live yet, as `handleRepoPush` starts it, gone again when the test ends. */
-const pendingRepoRun = async (state: 'queued' | 'building', storeId = t.storeA1) => {
+const pendingRepoRun = async (state: 'queued' | 'building' | 'checking' | 'deploying', storeId = t.storeA1) => {
   const [run] = await db.sql<{ id: string }[]>`
     insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, started_at)
-    values (${storeId}, 'repo', ${state}, ${'e'.repeat(40)}, 'baseline', ${core}, 'system', ${state === 'building' ? new Date() : null}) returning id`
+    values (${storeId}, 'repo', ${state}, ${'e'.repeat(40)}, 'baseline', ${core}, 'system', ${state === 'queued' ? null : new Date()}) returning id`
   const id = run?.id ?? ''
   onTestFinished(async () => void (await db.sql`delete from publish_run where id = ${id}`))
   return id
@@ -360,13 +360,8 @@ describe('publishing from the studio', () => {
       expect([await head(), await liveBuild(), await runCount(), pushedMessages().length]).toEqual(before)
     }
 
-    it('refuses Publish while the push’s run is queued', async () => {
-      await pendingRepoRun('queued')
-      await refusedUnchanged()
-    })
-
-    it('refuses Publish while the push’s run is building', async () => {
-      await pendingRepoRun('building')
+    it.each(['queued', 'building', 'checking', 'deploying'] as const)('refuses Publish while the push’s run is %s', async (state) => {
+      await pendingRepoRun(state)
       await refusedUnchanged()
     })
 
