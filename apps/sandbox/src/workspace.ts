@@ -7,7 +7,7 @@ import { WarmGate, type GateProblem, type Lane, type ThemeImages } from './gate/
 import { imageThemeFiles } from './gate/media'
 import { laneOf } from './gate/lanes'
 import { gitIn, type Git } from './git'
-import { isRepoPath, isThemePath } from './paths'
+import { isRepoPath, isRefreshedPath, isThemePath } from './paths'
 
 /** One file the model's diff writes, or removes when `content` is null (storefront AI-STUDIO §4 step 2). */
 export type FileChange = { path: string; content: string | null }
@@ -28,7 +28,8 @@ export type Loaded = { head: string; bundle: ClientBundle | null; problems: Gate
 /** The upgrade bot's commit: every file it wrote or removed, package.json included, and the notes it applied. */
 export type Upgraded = { commit: string; files: FileChange[]; notes: Pick<UpgradeNote, 'version' | 'kind' | 'notes'>[] }
 
-export type UpgradeInput = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null }
+/** `skeleton`: core `to`'s template files, and as null those only `from`'s had (storefront ARCHITECTURE §7.1). */
+export type UpgradeInput = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null; skeleton: FileChange[] }
 
 export class NotLoaded extends Error {
   override name = 'NotLoaded'
@@ -188,15 +189,16 @@ export class Workspace {
 
   /**
    * The upgrade bot's commit on the loaded live commit (storefront ARCHITECTURE §7.1): core pinned to `to`, with the
-   * codemods of every release after `from` applied, or the baseline theme with the store's own words and tokens. No gate
-   * runs here: the publish's full gate judges the commit.
+   * codemods of every release after `from` applied, or the baseline theme with the store's own words and tokens, and the
+   * template files of `to`. No gate runs here: the publish's full gate judges the commit.
    */
   async upgrade(input: UpgradeInput, notes: readonly UpgradeNote[]): Promise<Upgraded> {
     const theme = await this.theme()
     const applied = input.baseline ? [] : notesBetween(input.from, input.to, notes)
     const next = input.baseline ? baselineWithOwn(new Map(input.baseline.map((f) => [f.path, f.content])), theme) : applyCodemods(theme, applied.flatMap((n) => n.codemods))
     if (![...next.keys()].every(isThemePath)) throw new Error('An upgrade wrote outside the theme.')
-    const changes = changesBetween(theme, next)
+    if (!input.skeleton.every((f) => isRefreshedPath(f.path))) throw new Error('An upgrade wrote a file it never refreshes.')
+    const changes = [...changesBetween(theme, next), ...(await this.skeletonChanges(input.skeleton))]
     const pkg = pinCore(await readFile(join(this.repo, 'package.json'), 'utf8'), input.to)
     try {
       for (const f of changes) {
@@ -212,6 +214,12 @@ export class Workspace {
       throw error
     }
     return { commit: await this.head(), files: [...changes, { path: 'package.json', content: pkg }], notes: applied.map(({ version, kind, notes: words }) => ({ version, kind, notes: words })) }
+  }
+
+  /** The skeleton files that differ from the working copy's; removing one it doesn't have changes nothing. */
+  private async skeletonChanges(skeleton: readonly FileChange[]): Promise<FileChange[]> {
+    const current = await Promise.all(skeleton.map((f) => readFile(join(this.repo, f.path), 'utf8').catch(() => null)))
+    return skeleton.filter((f, i) => f.content !== current[i])
   }
 
   /** The bundle a rebase moves the draft onto, kept beside the working copy until the rebase reads it. */

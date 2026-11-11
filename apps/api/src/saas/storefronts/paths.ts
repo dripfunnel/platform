@@ -19,6 +19,13 @@ export const isLockedPath = (path: string): boolean => path.toLowerCase().starts
 // A plain name, or a Next.js dynamic segment such as the template's theme-media/[name] (#1420).
 const repoSegment = /^(?:[A-Za-z0-9_.-]{1,100}|\[(?:\.\.\.)?[A-Za-z0-9_-]{1,64}\]|\[\[\.\.\.[A-Za-z0-9_-]{1,64}\]\])$/
 
+// A copy of the sandbox's: an upgrade never writes the theme, the generated files, package.json beyond core's pin (written
+// on its own), the locked workflow, or git's and the install's own folders (storefront ARCHITECTURE §2.2, §7.1).
+const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$|(?:^|\/)(?:\.git|node_modules)(?:\/|$)/i
+
+/** A template file an upgrade refreshes from the skeleton of the core it upgrades to (#1416). */
+export const isRefreshedPath = (path: string): boolean => isRepoPath(path) && !notRefreshed.test(path)
+
 /** Plain relative names, so no `..`, absolute or empty segment reaches outside the repo. */
 export const isRepoPath = (path: string): boolean => path.length <= 512 && path.split('/').every((s) => repoSegment.test(s) && s !== '.' && s !== '..')
 /** A storefront-core version: `1.2.3`, or `0.0.0-dev.6` from the dev release. */

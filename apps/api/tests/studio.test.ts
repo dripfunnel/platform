@@ -137,7 +137,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   sites = fakeSites()
   drafts = memoryDrafts()
-  await putText(sites, `templates/${core}/skeleton.json`, JSON.stringify({ files: [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }] }))
+  for (const version of [core, '0.5.0']) await putText(sites, `templates/${version}/skeleton.json`, JSON.stringify({ files: [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }] }))
   await putText(sites, `templates/${core}/themes/baseline/source.json`, JSON.stringify({ files: template }))
   await db.sql`delete from ai_run`
   await db.sql`delete from design_draft`
@@ -483,6 +483,15 @@ describe('GitHub', () => {
 describe('the upgrade bot’s commit (storefront ARCHITECTURE §7.1, #485)', () => {
   const liveBuild = '0b8e4a52-5d7c-4c1e-9f3a-6f1d2e3c4b5a'
   const filesOf = (commit: string) => JSON.parse(new TextDecoder().decode(drafts.objects.get(upgradeFiles(t.storeA2, commit))?.bytes)) as { files: { path: string; content: string | null }[] }
+  const generated = [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }, { path: 'store.config.ts', content: "export const storeKey = 'pk'\n" }, { path: '.env.development', content: 'SHOP_API_PROXY=https://x.my-shop.dev\n' }]
+
+  // Each core's own template files (#1416): 0.5.0 changes AGENTS.md, adds a route, drops src/app/old.ts and changes the
+  // workflow, which an upgrade never writes.
+  beforeEach(async () => {
+    const skeleton = (files: { path: string; content: string }[], workflow: string) => JSON.stringify({ files: [...generated.map((f) => (f.path === '.github/workflows/build.yml' ? { ...f, content: workflow } : f)), { path: 'src/theme/manifest.ts', content: 'export {}\n' }, ...files] })
+    await putText(sites, `templates/${core}/skeleton.json`, skeleton([{ path: 'AGENTS.md', content: '# Store\n' }, { path: 'src/app/old.ts', content: 'export const old = true\n' }], 'on: workflow_dispatch\n'))
+    await putText(sites, 'templates/0.5.0/skeleton.json', skeleton([{ path: 'AGENTS.md', content: '# Store\n\n## Adding an image\n' }, { path: 'src/app/theme-media/route.dev.ts', content: 'export const GET = () => null\n' }], 'on: [workflow_dispatch]\n'))
+  })
 
   /** A draft whose bundle stands as the live build's source too, as after a design publish. */
   const seedLive = async () => {
@@ -499,14 +508,34 @@ describe('the upgrade bot’s commit (storefront ARCHITECTURE §7.1, #485)', () 
     const saved = await seedLive()
     const versions: string[] = []
     const { runner: bot } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), (await sandboxProcess().then((h) => (processes.push(h), h)))) })
+    const logged = vi.spyOn(console, 'log')
     const answer = await bot.prepareUpgrade({ from: core, to: '0.5.0', sourceBuildId: liveBuild, baseline: false })
     expect(answer.outcome).toBe('prepared')
     if (answer.outcome !== 'prepared') return
     expect(versions).toEqual(['0.5.0'])
     expect(drafts.objects.has(upgradeBundle(t.storeA2, answer.commit))).toBe(true)
-    expect(JSON.parse(filesOf(answer.commit).files.find((f) => f.path === 'package.json')?.content ?? '{}')).toMatchObject({ dependencies: { '@dripfunnel/storefront-core': '0.5.0' } })
+    const files = filesOf(answer.commit).files
+    expect(JSON.parse(files.find((f) => f.path === 'package.json')?.content ?? '{}')).toMatchObject({ dependencies: { '@dripfunnel/storefront-core': '0.5.0' } })
+    // The new core's template files, and never the theme, the generated files or the workflow (#1416).
+    const skeleton = files.filter((f) => !f.path.startsWith('src/theme/') && !f.path.startsWith('content/') && f.path !== 'routes.json' && f.path !== 'package.json')
+    expect(skeleton).toEqual([{ path: 'AGENTS.md', content: '# Store\n\n## Adding an image\n' }, { path: 'src/app/theme-media/route.dev.ts', content: 'export const GET = () => null\n' }, { path: 'src/app/old.ts', content: null }])
+    expect(files.some((f) => f.path === 'src/theme/manifest.ts')).toBe(false)
+    const line = logged.mock.calls.map(([text]) => String(text)).find((text) => text.includes('core_upgrade_skeleton'))
+    logged.mockRestore()
+    expect(JSON.parse(line ?? '{}')).toEqual({ event: 'core_upgrade_skeleton', api: 'system', storeId: t.storeA2, code: '0.5.0', paths: ['AGENTS.md', 'src/app/theme-media/route.dev.ts', 'src/app/old.ts'] })
     expect(drafts.objects.get(draftBundle(t.storeA2))?.bytes).toBe(saved)
     expect(bot.loaded).toBe(false)
+  })
+
+  it('fails, keeping nothing and starting no sandbox, when the new core’s skeleton.json is missing', async () => {
+    await seedLive()
+    await sites.delete(['templates/0.5.0/skeleton.json'])
+    const versions: string[] = []
+    const { runner: bot, released } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), await sandboxProcess().then((h) => (processes.push(h), h))) })
+    await expect(bot.prepareUpgrade({ from: core, to: '0.5.0', sourceBuildId: liveBuild, baseline: false })).rejects.toThrow('templates/0.5.0/skeleton.json is missing')
+    expect(versions).toEqual([])
+    expect(released).toEqual([])
+    expect([...drafts.objects.keys()].filter((k) => k.startsWith(`upgrades/${t.storeA2}/`))).toEqual([])
   })
 
   it('answers busy while the merchant’s studio is open', async () => {
