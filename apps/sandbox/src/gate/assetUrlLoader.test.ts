@@ -14,6 +14,11 @@ describe('the template’s asset-url-loader', () => {
     expect(assetUrlLoader('.a { background: url( "m_hero01" ); }')).toBe('.a { background: url("/shop-api/assets/m_hero01"); }')
   })
 
+  it('reads url() in any case, as CSS does', () => {
+    expect(assetUrlLoader('.a { background: URL(m_hero01); }')).toBe('.a { background: url(/shop-api/assets/m_hero01); }')
+    expect(assetUrlLoader('.a { background: Url(media/hero.png); }')).toBe('.a { background: url(/theme-media/hero.png); }')
+  })
+
   it('maps a theme image, quoted or not, to the theme-media route', () => {
     expect(assetUrlLoader('.a { background: url(media/haldi-home.webp); }')).toBe('.a { background: url(/theme-media/haldi-home.webp); }')
     expect(assetUrlLoader(".a { background: url('media/hero.jpeg'); }")).toBe(".a { background: url('/theme-media/hero.jpeg'); }")
