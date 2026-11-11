@@ -26,7 +26,7 @@ const answered = <T>(result: { ok: true; value: T } | { ok: false; reason: Shopi
 
 const access = { api: 'store', scope: 'store-seller', permission: 'catalog.import', target: 'none' } as const
 
-/** A support session never connects a shop or reads one with the merchant's token (ACCESS §8), as it never starts an import. */
+/** A support session never connects a shop or reads one with the merchant’s token (ACCESS §8). */
 const service = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const caller = actingCaller(ctx)

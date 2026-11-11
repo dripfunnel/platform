@@ -39,11 +39,14 @@ const subscribe = async (storeId: string, partnerId: string) => {
 
 const sellerOf: Partial<Record<Who, () => string>> = { supplier: () => t.sellerA1First, otherSupplier: () => t.sellerA1Second }
 
-/** Acting as `who`'s person through a read-only support session (ACCESS §8), at the resolver itself. */
+/** Acting as `who`'s person through a support session (ACCESS §8), read-only unless `access` says write, at the resolver itself. */
 const asSupport = (context: StoreContext, access: 'read' | 'write' = 'read'): StoreContext => {
   if (context.standing.kind !== 'acting') return context
   const { caller } = context.standing
-  return { ...context, standing: { ...context.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access } } } } }
+  const sessionId = crypto.randomUUID()
+  const agentId = crypto.randomUUID()
+  const support = { sessionId, agent: { id: agentId, name: 'Priya' }, partnerName: 'Partner A', actingAs: 'Olivia', access, expiresAt: new Date(now.getTime() + 3_600_000), extendable: true, writeRequest: null }
+  return { ...context, standing: { ...context.standing, caller: { ...caller, support, context: { ...caller.context, caller: { kind: 'support', supportSessionId: sessionId, partnerUserId: agentId, access } } } } }
 }
 
 const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1, through: (c: StoreContext) => StoreContext = (c) => c) => {
@@ -470,13 +473,54 @@ describe('a supplier’s import', () => {
     } finally {
       await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1Second}`
     }
-    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
+    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asSupport)).code).toBe('SUPPORT_READ_ONLY')
     const { id } = await upload('owner', 'handle,name,price\nsupport-try,Support try,1\n')
-    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
-    // With write access too: the run checks a person's seat each chunk, so a support session isn't let start one it can't finish.
-    const asWriteSupport = (c: StoreContext) => asSupport(c, 'write')
-    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asWriteSupport)).code).toBe('FORBIDDEN')
-    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asWriteSupport)).code).toBe('FORBIDDEN')
+    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asSupport)).code).toBe('SUPPORT_READ_ONLY')
+  })
+
+  it('runs for a support session that may write, and for staff or support acting as a new store’s invited Owner (ACCESS §8, §8.1)', async () => {
+    const asImpersonation = (c: StoreContext): StoreContext => {
+      if (c.standing.kind !== 'acting') return c
+      const { caller } = c.standing
+      return { ...c, standing: { ...c.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'impersonation', impersonationId: crypto.randomUUID(), staffId: crypto.randomUUID(), userId: people.owner } } } } }
+    }
+    const through = { person: (c: StoreContext) => c, support: (c: StoreContext) => asSupport(c, 'write'), impersonation: asImpersonation }
+    const reset = async () => {
+      await db.sql`update membership set status = 'active', role_key = 'owner' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+      await db.sql`update membership set role_key = 'staff' where user_id = ${people.staff} and store_id = ${t.storeA1}`
+    }
+    // Started and confirmed as the Owner's seat; `before` changes the seat by the time the run reads it.
+    const run = async (via: keyof typeof through, handle: string, before: () => Promise<unknown> = async () => {}) => {
+      const started = await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: `handle,name,price\n${handle},${handle},1\n` }, t.storeA1, through[via])
+      await relay()
+      const id = started.data?.['startCatalogImport'] as string
+      expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, through[via])).code).toBeUndefined()
+      await before()
+      await relay()
+      await reset()
+      return (await db.sql<{ state: string; created: number; problems: { code: string }[] }[]>`select state, created, problems from catalog_import where id = ${id}`)[0]
+    }
+    const invited = async () => db.sql`update membership set status = 'invited' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+    const invitedManager = async () => db.sql`update membership set status = 'invited', role_key = 'manager' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+    const invitedWithManager = async () => {
+      await invited()
+      await db.sql`update membership set role_key = 'manager' where user_id = ${people.staff} and store_id = ${t.storeA1}`
+    }
+    const stopped = { state: 'failed', created: 0, problems: [{ code: 'NOT_ALLOWED' }] }
+    try {
+      expect(await run('support', 'support-write')).toMatchObject({ state: 'done', created: 1 })
+      expect(await run('impersonation', 'staff-invited', invited)).toMatchObject({ state: 'done', created: 1 })
+      expect(await run('support', 'support-invited', invited)).toMatchObject({ state: 'done', created: 1 })
+      // Only an invited Owner, and only for someone acting as it: the person's own invited seat, or an invited Manager's, stops.
+      expect(await run('person', 'person-invited', invited)).toMatchObject(stopped)
+      expect(await run('impersonation', 'staff-invited-manager', invitedManager)).toMatchObject(stopped)
+      expect(await run('support', 'support-invited-manager', invitedManager)).toMatchObject(stopped)
+      // Once an active Manager could give an Allow, support stops acting as the invited Owner; staff don't need one (§8.1).
+      expect(await run('support', 'support-invited-allower', invitedWithManager)).toMatchObject(stopped)
+      expect(await run('impersonation', 'staff-invited-allower', invitedWithManager)).toMatchObject({ state: 'done', created: 1 })
+    } finally {
+      await reset()
+    }
   })
 
   it('stops a run whose importer can’t import any more, making nothing after', async () => {
