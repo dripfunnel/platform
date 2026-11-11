@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { lockedWorkflowFile } from '#integrations/github/oidc'
-import { coreVersionPattern, isRepoPath, isThemePath } from './paths'
+import { coreVersionPattern, isRefreshedPath, isRepoPath, isThemePath } from './paths'
 
 // Where the Worker reads the templates (storefront ARCHITECTURE §2.3): the release workflow writes each core version's
 // skeleton, themes and prebuilt preview bundles under `templates/{core}/` in the sites bucket, then points
@@ -44,14 +44,28 @@ export const currentCore = async (bucket: SitesBucket): Promise<string> => (awai
 
 export type RepoFiles = z.infer<typeof sourceSchema>['files']
 
-/** The skeleton (everything but the theme, the locked workflow included) and the template's theme. */
-export const templateFiles = async (bucket: SitesBucket, core: string, template: string): Promise<{ skeleton: RepoFiles; theme: RepoFiles }> => {
+/** Everything but the theme, the locked workflow and package.json included. */
+const skeletonOf = async (bucket: SitesBucket, core: string): Promise<RepoFiles> => {
   const skeleton = (await readJson(bucket, `templates/${core}/skeleton.json`, sourceSchema)).files
-  const theme = (await readJson(bucket, `${templateRoot(core, template)}source.json`, sourceSchema)).files
   const paths = new Set(skeleton.map((f) => f.path))
   if (!paths.has(lockedWorkflowFile) || !paths.has('package.json') || skeleton.some((f) => isThemePath(f.path))) throw new TemplateMissing('the skeleton lacks its workflow or package.json, or carries a theme')
+  return skeleton
+}
+
+/** The skeleton and the template's theme. */
+export const templateFiles = async (bucket: SitesBucket, core: string, template: string): Promise<{ skeleton: RepoFiles; theme: RepoFiles }> => {
+  const skeleton = await skeletonOf(bucket, core)
+  const theme = (await readJson(bucket, `${templateRoot(core, template)}source.json`, sourceSchema)).files
   if (theme.length === 0 || !theme.every((f) => isThemePath(f.path))) throw new TemplateMissing(`the ${template} theme writes outside ARCHITECTURE §3.4's paths`)
   return { skeleton, theme }
+}
+
+/** An upgrade's template files (ARCHITECTURE §7.1): `to`'s skeleton, and as null the files only `from`'s had. */
+export const skeletonRefresh = async (bucket: SitesBucket, from: string, to: string): Promise<{ path: string; content: string | null }[]> => {
+  const next = (await skeletonOf(bucket, to)).filter((f) => isRefreshedPath(f.path))
+  const kept = new Set(next.map((f) => f.path))
+  const dropped = from === to ? [] : (await skeletonOf(bucket, from)).filter((f) => isRefreshedPath(f.path) && !kept.has(f.path))
+  return [...next, ...dropped.map((f) => ({ path: f.path, content: null }))]
 }
 
 export const previewManifest = async (bucket: SitesBucket, core: string, template: string) =>

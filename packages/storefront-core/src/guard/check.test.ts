@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { jpeg, png } from '../../test/images'
 import { runCheck } from './check'
 import { fileNear } from './program'
 import type { GuardContext, ThemeFile } from './rules'
@@ -41,6 +42,19 @@ describe('pnpm check', () => {
     expect(code).toBe(0)
     expect(lines[0]).toBe('The theme passes the validator.')
     expect(lines.at(-1)).toMatch(/^Checked when you push, not here: that the content\/ folders are exactly the store's languages; /)
+  })
+
+  it('reads an image on disk as its bytes, and refuses one whose bytes are another type (#1405)', async () => {
+    const withImage = (bytes: Uint8Array) =>
+      repoWith((r) => {
+        mkdirSync(join(r, 'src/theme/media'), { recursive: true })
+        writeFileSync(join(r, 'src/theme/media/haldi-home.png'), bytes)
+        git(r, 'add', '-A')
+      })
+    expect((await runCheck(withImage(png(640, 480)))).code).toBe(0)
+    const { code, lines } = await runCheck(withImage(jpeg()))
+    expect(code).toBe(1)
+    expect(lines[0]).toMatch(/^src\/theme\/media\/haldi-home\.png {2}files\/media-type-mismatch {2}/)
   })
 
   it('refuses words typed in JSX, naming the file, line and rule', async () => {

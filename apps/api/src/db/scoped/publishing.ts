@@ -552,6 +552,23 @@ export const selectLastPublish = async (tx: ScopedSql, storeId: string): Promise
       order by greatest(r.finished_at, a.finished_at) desc, r.created_at desc limit 1`
   )[0] ?? null
 
+/** `storefront.publishing`: the store's design or "Publish now" run still queued or under way, so a page opened fresh follows it. */
+export const selectRunningPublish = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (
+    await tx<{ id: string }[]>`
+      select id from publish_run
+      where store_id = ${storeId} and attempt_of is null and kind in ('design', 'manual') and state in ('queued', 'building', 'checking', 'deploying')
+      order by created_at desc limit 1`
+  )[0]?.id ?? null
+
+/** Whether a push to the store repo's `main` is still going live: its `repo` run not live yet, or still in the outbox (#1411). */
+export const pushGoingLive = async (tx: ScopedSql, storeId: string, pushKind: string): Promise<boolean> =>
+  (
+    await tx<{ pending: boolean }[]>`
+      select exists (select 1 from publish_run where store_id = ${storeId} and kind = 'repo' and state in ('queued', 'building', 'checking', 'deploying'))
+        or exists (select 1 from outbox where store_id = ${storeId} and kind = ${pushKind} and delivered_at is null and failed_at is null) as pending`
+  )[0]?.pending ?? false
+
 export const selectVersionByNumber = async (tx: ScopedSql, storeId: string, number: number): Promise<{ id: string } | null> =>
   (await tx<{ id: string }[]>`select id from design_version where store_id = ${storeId} and number = ${number}`)[0] ?? null
 

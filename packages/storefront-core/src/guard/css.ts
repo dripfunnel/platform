@@ -11,6 +11,9 @@ export const maxThemeZIndex = 99
  */
 type Kind = { kind: 'module' } | { kind: 'entry' } | { kind: 'class'; own: string }
 
+/** How CSS names a theme image: `url(media/haldi-home.webp)` (#1405). */
+const themeMediaPrefix = 'media/'
+
 const atRules: Record<Kind['kind'], ReadonlySet<string>> = {
   module: new Set(['media', 'supports', 'container', 'keyframes']),
   entry: new Set(['theme', 'keyframes']),
@@ -159,7 +162,7 @@ const unreadable = "This CSS can't be read: write each rule out on its own, with
  * The CSS rules of ARCHITECTURE §3.4 over one stylesheet. A CSS Module's selectors start with its own class; the theme's
  * Tailwind entry holds only `@theme` tokens and `@keyframes`; a class's CSS names only its own element.
  */
-const check = (text: string, context: GuardContext, storeData: boolean, kind: Kind, report: (line: number, rule: RuleId, message: string) => void) => {
+const check = (text: string, context: GuardContext, storeData: boolean, kind: Kind, report: (line: number, rule: RuleId, message: string) => void, images: ReadonlySet<string> = new Set()) => {
   const at = (node: CssNode | null, rule: RuleId, message: string) => report(node?.loc?.start.line ?? 1, rule, message)
   // Without the store's data (a local check, #974) a url() is held only to a media id's shape; the build checks the id.
   const media = storeData ? new Set(context.mediaIds) : { has: (value: string) => mediaIdPattern.test(value) }
@@ -235,7 +238,10 @@ const check = (text: string, context: GuardContext, storeData: boolean, kind: Ki
         break
       case 'Url':
         if (kind.kind === 'class') at(node, 'css/url-not-media', "A class may not hold url(); draw a store picture with core's <MerchantImage>, or put its url(<media id>) in a CSS Module.")
-        else if (!media.has(node.value)) at(node, 'css/url-not-media', `url() may name only one of the store's media ids, not "${node.value}".`)
+        else if (node.value.startsWith(themeMediaPrefix)) {
+          const image = node.value.slice(themeMediaPrefix.length)
+          if (!images.has(image)) at(node, 'css/media-not-found', `url(${node.value}) names no image in src/theme/media/; add "${image}" there, or name one that is.`)
+        } else if (!media.has(node.value)) at(node, 'css/url-not-media', `url() may name only one of the store's media ids or media/<an image in src/theme/media/>, not "${node.value}".`)
         break
       case 'Function':
         if (!functions.has(plain(node.name))) at(node, 'css/function-not-allowed', `${node.name}() isn't allowed in a theme's CSS.`)
@@ -263,9 +269,9 @@ const check = (text: string, context: GuardContext, storeData: boolean, kind: Ki
 const coreSelector = "Theme CSS may not name core's classes or df- elements, or select by class or id attribute; style core's parts through their documented properties and ::part."
 
 /** The CSS Module rules of ARCHITECTURE §3.4 for one file, or the theme's Tailwind entry's when `entry` is set. */
-export const checkCss = (file: string, text: string, context: GuardContext, storeData = true, entry = false): Problem[] => {
+export const checkCss = (file: string, text: string, context: GuardContext, storeData = true, entry = false, images: ReadonlySet<string> = new Set()): Problem[] => {
   const problems: Problem[] = []
-  check(text, context, storeData, entry ? { kind: 'entry' } : { kind: 'module' }, (line, rule, message) => problems.push(problem(file, line, rule, message)))
+  check(text, context, storeData, entry ? { kind: 'entry' } : { kind: 'module' }, (line, rule, message) => problems.push(problem(file, line, rule, message)), images)
   return problems
 }
 

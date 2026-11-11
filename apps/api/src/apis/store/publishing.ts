@@ -86,6 +86,8 @@ export const registerPublishing = (builder: StoreBuilder, storefront: ReturnType
   builder.objectFields(storefront.Storefront, (t) => ({
     // The newest finished design or catalogue publish (not a page render); null before the first.
     lastPublish: t.field({ type: LastPublish, nullable: true, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).lastPublish() }),
+    // The design or "Publish now" run still under way, for `publishRun`; null when none is.
+    publishing: t.id({ nullable: true, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).runningPublish() }),
     catalogue: t.field({ type: Catalogue, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).catalogue() }),
     usage: t.field({ type: Usage, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).usage() }),
   }))

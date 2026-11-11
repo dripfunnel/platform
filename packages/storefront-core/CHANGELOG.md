@@ -1,5 +1,16 @@
 # @dripfunnel/storefront-core
 
+## 0.14.0
+
+### Minor Changes
+
+- 3b116b4: A product's saved size chart now shows on its page (#1326). `useProduct().product.sizeChart` carries the chart the Shop API returns (name, unit, measurements and a row of values per size), or null when the product has none. The new `<SizeChart>` (`ui/headless`) draws a "Size chart" link and, once chosen, the table in a modal `<dialog>` that closes on Escape and returns focus to the link. Core styles the modal from the `--df-sealed-*` tokens and loads it on the first click; the theme styles only the link. The starting themes place it under the options.
+- 93ef5bc: A store repo's theme may hold its own images (#1405): PNG, JPEG and WebP in `src/theme/media/`, at most 2 MB each, 100 images and 20 MB in all, which don't count toward the code caps. The validator reads each image's type from its bytes and checks its structure, and refuses with its own rule a wrong name, an SVG or video, a type its name doesn't say, a damaged file, a side over 10,000 px and each cap.
+  
+  `ThemeImage` (from `./theme`) draws one by its file name, `<ThemeImage src="haldi-home.webp" alt={t('…')} ratio={1.5} />`, and CSS names one as `url(media/haldi-home.webp)`; the validator refuses a name with no image (`jsx/theme-image-not-found`, `css/media-not-found`). Whatever boots the theme gives the addresses through `ThemeMediaProvider`. `pnpm check` reads images from disk. A live page's `img-src` now allows the asset host, where a stylesheet's images are.
+  
+  The AI studio can't add, change or remove these images. Every addition is optional; no theme has to change.
+
 ## 0.13.0
 
 ### Minor Changes

@@ -100,3 +100,38 @@ describe('storefront.lastPublish', () => {
     for (const who of ['staff', 'supplier'] as const) expect(await lastPublish(who)).toBe('FORBIDDEN')
   })
 })
+
+// Card #1229: `storefront.publishing`, the run a Storefront page opened fresh follows until it ends.
+describe('storefront.publishing', () => {
+  const publishing = async (who: Who) => {
+    const read = await w.gql(who, '{ storefront { publishing } }')
+    return read.code ?? (read.data?.['storefront'] as { publishing: unknown }).publishing
+  }
+  const under = async (kind: string, state: string, storeId = t.storeA1): Promise<string> => {
+    const [row] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, created_at, render)
+      values (${storeId}, ${kind}, ${state}, ${'c'.repeat(40)}, 'linen', '1.0.0', 'system', ${at()}, ${kind === 'page' ? db.sql.json({ pages: ['/'], drop: [] }) : null})
+      returning id`
+    return row?.id ?? ''
+  }
+
+  it('answers a design or Publish now run under way, never a page render, and null once it ends', async () => {
+    expect(await publishing('owner')).toBeNull()
+    const page = await under('page', 'building')
+    expect(await publishing('owner')).toBeNull()
+    await db.sql`update publish_run set state = 'live', finished_at = ${at()} where id = ${page}`
+    const design = await under('design', 'checking')
+    for (const who of ['owner', 'manager'] as const) expect(await publishing(who)).toBe(design)
+    const pressed = await under('manual', 'queued')
+    expect(await publishing('owner')).toBe(pressed)
+    await db.sql`update publish_run set state = 'live', finished_at = ${at()} where id in (${design}, ${pressed})`
+    expect(await publishing('owner')).toBeNull()
+  })
+
+  it('never answers another store’s run, and Staff and suppliers are refused', async () => {
+    const other = await under('design', 'building', t.storeB1)
+    expect(await publishing('owner')).toBeNull()
+    expect(await publishing('bOwner')).toBe(other)
+    for (const who of ['staff', 'supplier'] as const) expect(await publishing(who)).toBe('FORBIDDEN')
+  })
+})

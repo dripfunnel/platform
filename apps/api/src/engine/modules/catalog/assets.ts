@@ -2,8 +2,8 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
-import { deleteAsset, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { deleteAsset, hasLibraryChecksum, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
+import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 
 // Catalogue files (DATA-MODEL §7.3 `asset`; FIRST-RELEASE §19 `uploadAsset`): checked by their bytes,
 // stored under the store's own R2 prefix, owned by the uploader's scope until a product links them.
@@ -170,4 +170,49 @@ export const createAssetService = (deps: AssetDeps) => {
   }
 
   return { upload, uploadImage, uploadDownload, open, library, rename, remove }
+}
+
+export interface RepoImageCopy {
+  storeId: string
+  partnerId: string
+  /** The image's file name without its extension, which names the copy. */
+  name: string
+  bytes: Uint8Array<ArrayBuffer>
+  commit: string
+}
+
+/**
+ * A pushed theme image becomes a Storefront › Assets image of the merchant's, created by the system (#1415; AI-STUDIO §8),
+ * unless the store already has its bytes there. Not an image (the guard passed it, so never expected): `refused`.
+ */
+export const copyRepoImage = async (deps: { sql: postgres.Sql; activity: ActivityLog; store: AssetStore }, image: RepoImageCopy): Promise<'copied' | 'present' | 'refused'> => {
+  const checked = checkMedia(image.bytes)
+  if (!checked.ok || checked.type.kind !== 'image') return 'refused'
+  const { type } = checked
+  const checksum = hex(await crypto.subtle.digest('SHA-256', image.bytes))
+  return withSystemScope(deps.sql, async (tx) => {
+    if (await hasLibraryChecksum(tx, image.storeId, checksum)) return 'present'
+    const key = `stores/${image.storeId}/assets/${crypto.randomUUID()}.${type.ext}`
+    const made = await insertAsset(tx, { storeId: image.storeId, sellerId: null, key, kind: 'image', mime: type.mime, bytes: image.bytes.byteLength, width: type.width, height: type.height, checksum, createdBy: null, name: image.name })
+    await deps.activity.record(tx, {
+      category: 'system',
+      action: assetsAudit.uploaded,
+      result: 'success',
+      actorKind: 'job',
+      actorId: 'publish-storefront',
+      actorLabel: 'Publishing',
+      partnerId: image.partnerId,
+      storeId: image.storeId,
+      target: { type: 'file', id: made, label: type.mime },
+      changes: [{ field: 'commit', before: null, after: image.commit }],
+      reason: 'repo_push',
+      api: 'system',
+      requestId: null,
+      ip: null,
+      userAgent: null,
+      visibility: 'store',
+    })
+    await deps.store.put(key, image.bytes, { httpMetadata: { contentType: type.mime } })
+    return 'copied'
+  })
 }

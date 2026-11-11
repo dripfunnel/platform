@@ -46,8 +46,8 @@ export type Loaded = z.infer<typeof loadedSchema>
 export type PreviewFiles = z.infer<typeof previewSchema>
 type Prechecked = z.infer<typeof precheckedSchema>
 export type Upgraded = z.infer<typeof upgradedSchema>
-/** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files. */
-export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null }
+/** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files, and `to`'s skeleton. */
+export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null; skeleton: { path: string; content: string | null }[] }
 
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */
 export type SandboxFetch = (request: Request) => Promise<Response>

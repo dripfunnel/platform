@@ -26,6 +26,14 @@ describe('the price and its tax label', () => {
     expect(lines({ price: inr('149900'), compareAt: inr('199900'), from: true, pricesIncludeTax: true })).toEqual([t('product.from', { price: '₹1,499.00' }), '₹1,999.00', t('product.tax.included')])
   })
 
+  it('read the compare-at price to a screen reader with no "Was" in front of it', () => {
+    let tree!: ReturnType<typeof create>
+    act(() => {
+      tree = create(<ProductPrice price={inr('149900')} compareAt={inr('199900')} from={false} pricesIncludeTax />)
+    })
+    expect(tree.root.findAll((node) => node.props.accessibilityLabel === `₹1,499.00, ₹1,999.00, ${t('product.tax.included')}`).length).toBeGreaterThan(0)
+  })
+
   it('show no compare-at price when it is the same as the price', () => {
     expect(lines({ price: inr('149900'), compareAt: inr('149900'), from: false, pricesIncludeTax: true })).toEqual(['₹1,499.00', t('product.tax.included')])
   })

@@ -20,7 +20,7 @@ export const Price = ({ money, compareAt, includesTax, locale, t, className }: P
   <Sealed part="price" className={className}>
     <span className="price">
       <span part="amount">{formatMoney(money, locale)}</span>
-      {compareAt && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s part="was">{t('price.was', { price: formatMoney(compareAt, locale) })}</s> : null}{' '}
+      {compareAt && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s part="was">{formatMoney(compareAt, locale)}</s> : null}{' '}
       <span part="tax">{t(includesTax ? 'price.inclTax' : 'price.plusTax')}</span>
     </span>
   </Sealed>

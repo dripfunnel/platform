@@ -65,7 +65,9 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const site = join(out, 'site')
   await rm(site, { recursive: true, force: true })
   await rm(join(out, 'edge'), { recursive: true, force: true })
-  const client = await bundle(input.repo, site, s.origin)
+  // Where the built pages load assets/ from (pages.ts pageDocument), whole, so hydration names the images as the HTML does.
+  const imageBase = `${s.assetBase ?? `${s.origin}/`}assets/`
+  const client = await bundle(input.repo, site, s.origin, imageBase)
   if (!client.ok) return failed(client.problems.map((p) => `${p.file ?? 'The theme'}: ${p.message}`))
   // The fast gate's page is the studio's; the live site's pages are written below.
   await rm(join(site, 'index.html'))
@@ -73,7 +75,7 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const assets = { entry: client.bundle.entry, css: client.bundle.files.filter((f) => f.path.endsWith('.css')).map((f) => f.path) }
 
   // esbuild refusing the theme's files is the theme's fault; anything else is the image's, and stops the step instead.
-  const server = await serverTheme(input.repo, join(work, 'server')).catch((error: unknown) => {
+  const server = await serverTheme(input.repo, join(work, 'server'), imageBase).catch((error: unknown) => {
     if (error instanceof Error && Array.isArray((error as { errors?: unknown }).errors)) return null
     throw error
   })

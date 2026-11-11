@@ -37,10 +37,15 @@ export interface LocalGitHub {
   history: (name: string) => Commit[]
   /** Every installation token stops working, as at expiry or revocation. */
   revokeTokens: () => void
+  /** A binary file's content as a tree entry keeps it, e.g. an image for `src/theme/media/`. */
+  binary: (bytes: Uint8Array) => string
 }
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 const hash = async (value: unknown) => hex(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(value))))
+// Files are kept as text; a binary one as its base64 behind a NUL, which no text file starts with.
+const binaryMark = '\u0000base64:'
+const base64Of = (content: string) => (content.startsWith(binaryMark) ? content.slice(binaryMark.length) : btoa(String.fromCharCode(...new TextEncoder().encode(content))))
 const reply = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
 // Unique across stand-ins and restarts, as GitHub's own ids are: `storefront.repo_id` keeps them (#517).
@@ -135,7 +140,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     }
     const blobPath = /^\/git\/blobs\/([0-9a-f]{40})$/.exec(rest)
     if (method === 'GET' && blobPath) {
-      for (const files of repo.trees.values()) for (const content of files.values()) if ((await hash(content)) === blobPath[1]) return reply(200, { sha: blobPath[1], encoding: 'base64', content: btoa(String.fromCharCode(...new TextEncoder().encode(content))) })
+      for (const files of repo.trees.values()) for (const content of files.values()) if ((await hash(content)) === blobPath[1]) return reply(200, { sha: blobPath[1], encoding: 'base64', content: base64Of(content) })
       return reply(404, { message: 'Not Found' })
     }
     // The top level only, as GitHub lists it: a folder's id is the hash of what is under it.
@@ -224,6 +229,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     revokeTokens: () => {
       tokens.clear()
     },
+    binary: (bytes) => `${binaryMark}${btoa(String.fromCharCode(...bytes))}`,
     history: (name) => {
       const repo = repos.get(name)
       const out: Commit[] = []

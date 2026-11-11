@@ -1,13 +1,14 @@
 import type { ActivityEntry } from '#auth/activity'
+import { logEvent } from '#core/log'
 import { selectMessage } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { lockStorefront, monthStart, pressesInFlight, selectCatalogueState, selectDraftCommits, selectLastPublish, selectPublishRun, selectVersionByNumber, type LastPublishRow, type PublishRunView } from '#db/scoped/publishing'
+import { lockStorefront, monthStart, pressesInFlight, pushGoingLive, selectCatalogueState, selectDraftCommits, selectLastPublish, selectPublishRun, selectRunningPublish, selectVersionByNumber, type LastPublishRow, type PublishRunView } from '#db/scoped/publishing'
 import { selectDesignUsage, selectRecentRuns, type RecentRequestRow } from '#db/scoped/design'
 import { usedThisPeriod } from '#db/scoped/storeAccount'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
 import { autoPublishIntervalMs } from '#saas/storefronts/index'
-import { publishBefore, startPublish, type GoBackActor } from '#saas/storefronts/index'
+import { publishBefore, startPublish, storefrontRepoPushKind, type GoBackActor } from '#saas/storefronts/index'
 import type { DesignerDeps, DesignResult } from './service'
 import { designAudit } from './words'
 
@@ -62,6 +63,11 @@ export const createPublishingService = (deps: DesignerDeps) => {
   /** The studio's hand-off: `commit` (the draft's head when null) with its theme kept privately for the push once live. */
   const handOff = async (commit: string | null): Promise<DesignResult<{ commit: string; template: string; coreVersion: string; taken: string | null }>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    // A push not live yet isn't in the live build #1211 takes from, so the design would replace it (LIVE-SHOP §4).
+    if (await withSystemScope(sql, (tx) => pushGoingLive(tx, storeId, storefrontRepoPushKind))) {
+      logEvent({ event: 'storefront_publish_push_pending', api: 'store', storeId })
+      return { ok: false, reason: 'PUSH_GOING_LIVE' }
+    }
     const prepared = await studio.prepare(storeId, { commit })
     if (prepared.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: prepared.place }
     if (prepared.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
@@ -106,6 +112,9 @@ export const createPublishingService = (deps: DesignerDeps) => {
 
   /** The Overview's rolled-back notice (FIRST-RELEASE §14): the newest finished publish of the design or the catalogue. */
   const lastPublish = (): Promise<LastPublishRow | null> => withScope(sql, context, (tx) => selectLastPublish(tx, storeId))
+
+  /** The design or "Publish now" run still under way, if any: its id, for `publishRun`. */
+  const runningPublish = (): Promise<string | null> => withScope(sql, context, (tx) => selectRunningPublish(tx, storeId))
 
   /**
    * "Go back to this" (SAAS §9.2; AI-STUDIO §5): the pointer moves to the version's kept build, using no build minutes,
@@ -177,6 +186,6 @@ export const createPublishingService = (deps: DesignerDeps) => {
     })
   }
 
-  return { publishDesign, publishEverythingBefore, publishRun, lastPublish, goBackTo, publishNow, catalogue, usage }
+  return { publishDesign, publishEverythingBefore, publishRun, lastPublish, runningPublish, goBackTo, publishNow, catalogue, usage }
 }
 

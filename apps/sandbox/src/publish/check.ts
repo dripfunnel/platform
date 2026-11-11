@@ -9,7 +9,7 @@ import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateTheme
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
 import { checkedPages, fileOf, itemFacts, languagePrefix, plan, type PlannedPage } from './pages'
-import { fileFor, serveFolders, shopFixture, type Served, type ShopReport } from './serve'
+import { fileFor, serveFolders, shopFixture, typeOf, type Served, type ShopReport } from './serve'
 
 // Step `check` (storefront LIVE-SHOP §4 step 7): a fresh process serves the built files to its own headless browser and
 // runs ARCHITECTURE §4.2 step 3's gate over what it sees. The theme runs only inside the browser.
@@ -83,7 +83,7 @@ const network = (): Network => ({ errors: [], reports: [], js: [], css: 0, bytes
 
 const answerShop = (route: Route, fixture: ReturnType<typeof shopFixture>) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
 // The browser runs a module script only when it is served as JavaScript.
-const answerAsset = (route: Route, found: { rel: string; bytes: Buffer }) => route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' })
+const answerAsset = (route: Route, found: { rel: string; bytes: Buffer }) => route.fulfill({ status: 200, body: found.bytes, contentType: typeOf(found.rel) })
 
 /** Requests stay on this machine: the page's own server, the build's assets and the offline Shop API; anything else fails. */
 const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { assets: string }, net: Network) => {

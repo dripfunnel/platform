@@ -6,7 +6,7 @@ import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
 import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type PreviewFiles, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
-import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
+import { draftBundle, guardContextFor, previewFolder, publishedTheme, skeletonRefresh, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { changedFiles, type KeptChange, type KeptChanges } from './kept'
 import { firstOnly, type LiveEvent } from './live'
 import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
@@ -125,7 +125,7 @@ const decode = (base64: string): ArrayBuffer => {
   return bytes.buffer
 }
 
-const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' }
+const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
 
 /** One ask of the model and what the gate said; `result` is null when the sandbox failed before it could say. */
 type Attempt = { proposal: Proposal; ms: number; result: ChangeResult | null }
@@ -386,6 +386,7 @@ export class StudioRunner {
   prepareUpgrade(ask: UpgradeAsk): Promise<UpgradeAnswer> {
     return this.inTurn(async (): Promise<UpgradeAnswer> => {
       if (this.loaded) return { outcome: 'busy' }
+      const skeleton = await skeletonRefresh(this.deps.sites, ask.from, ask.to)
       const grant = await this.deps.capacity.acquire()
       if (!grant.granted) return { outcome: 'busy' }
       const { storeId } = this.deps
@@ -403,9 +404,12 @@ export class StudioRunner {
         await client.loadBundle(await source.arrayBuffer())
         const baseline = ask.baseline ? (await templateFiles(this.deps.sites, ask.to, baselineTemplate)).theme : null
         const message = ask.baseline ? `Serve the baseline theme on storefront-core ${ask.to}` : `Upgrade storefront-core to ${ask.to}`
-        const made = await client.upgrade({ from: ask.from, to: ask.to, message, baseline })
+        const made = await client.upgrade({ from: ask.from, to: ask.to, message, baseline, skeleton })
         await this.deps.drafts.put(upgradeBundle(storeId, made.commit), await client.exportBundle())
         await this.deps.drafts.put(upgradeFiles(storeId, made.commit), new TextEncoder().encode(JSON.stringify({ files: made.files })).buffer)
+        const refreshed = new Set(skeleton.map((f) => f.path))
+        const paths = made.files.map((f) => f.path).filter((p) => refreshed.has(p))
+        logEvent({ event: 'core_upgrade_skeleton', api: 'system', storeId, code: ask.to, paths })
         return { outcome: 'prepared', commit: made.commit, notes: made.notes }
       } finally {
         await host.stop().catch(() => undefined)

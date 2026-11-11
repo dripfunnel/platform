@@ -87,7 +87,7 @@ let runtime: string
 const git = (cwd: string, ...args: string[]) => run('git', args, { cwd, env: { PATH: process.env['PATH'] ?? '', HOME: cwd, GIT_AUTHOR_NAME: 'DripFunnel', GIT_AUTHOR_EMAIL: 'noreply@dripfunnel.com', GIT_COMMITTER_NAME: 'DripFunnel', GIT_COMMITTER_EMAIL: 'noreply@dripfunnel.com', GIT_CONFIG_GLOBAL: '/dev/null' } }).then((r) => r.stdout.trim())
 
 /** A store repo of the baseline theme with `overlay` written over it, as a git bundle and its head commit. */
-const sourceOf = async (name: string, overlay: Record<string, string> = {}) => {
+const sourceOf = async (name: string, overlay: Record<string, string | Buffer> = {}) => {
   const repo = join(root, `${name}-repo`)
   cpSync(baselineDir, repo, { recursive: true })
   for (const [path, text] of Object.entries(overlay)) {
@@ -145,6 +145,24 @@ describe('step build', () => {
     // Every edge case has every page of the main language, the right-to-left one laid out so.
     for (const n of [0, 1, 2]) expect(listing(join(root, `same-1/edge/${n}`)).filter((l) => l.endsWith('index.html'))).toHaveLength(first.filter((l) => l.endsWith('index.html') && !l.includes('  hi/')).length)
     expect(readFileSync(join(root, 'same-1/edge/2/index.html'), 'utf8')).toContain('dir="rtl"')
+  })
+
+  it('ships a pushed theme image to the build’s assets and names it in the page as hydration will (#1405)', async () => {
+    // The smallest well-formed WebP, 4 by 3: the validator reads its structure before anything builds.
+    const webp = Buffer.from([...Buffer.from('RIFF'), 18, 0, 0, 0, ...Buffer.from('WEBPVP8L'), 5, 0, 0, 0, 0x2f, 0x03, 0x80, 0x00, 0x00, 0])
+    const home = readFileSync(join(baselineDir, 'src/theme/pages/HomePage.tsx'), 'utf8')
+      .replace('import { useStorefront }', 'import { ThemeImage, useStorefront }')
+      .replace(/<\/Shell>/, "  <ThemeImage src=\"haldi-home.webp\" alt={t('pages.home.title')} ratio={1.5} />\n    </Shell>")
+    const source = await sourceOf('theme-image', { 'src/theme/media/haldi-home.webp': webp, 'src/theme/pages/HomePage.tsx': home })
+    for (const [name, s] of [['theme-image-own', snapshot], ['theme-image-hosted', hosted]] as const) {
+      writeFileSync(join(root, `${name}.json`), JSON.stringify(s))
+      await cli(['build', ...stepArgs(source, join(root, `${name}.json`)), '--out', join(root, name)])
+      const copies = readdirSync(join(root, name, 'site/assets')).filter((f) => /^media-[0-9a-f]{16}\.webp$/.test(f))
+      expect(copies).toHaveLength(1)
+      expect(readFileSync(join(root, name, 'site/assets', copies[0] ?? ''))).toEqual(webp)
+      const address = `${s.assetBase ?? `${s.origin}/`}assets/${copies[0]}`
+      expect(readFileSync(join(root, name, 'site/index.html'), 'utf8')).toContain(`/cdn-cgi/image/width=960,quality=82,format=auto/${address}`)
+    }
   })
 
   it('escapes the store’s own words wherever the page carries them: its head, its body and its data for the script', async () => {

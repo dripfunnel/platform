@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { build, context, type BuildContext, type BuildOptions, type Message, type Metafile, type OutputFile, type Plugin } from 'esbuild'
 import { z } from 'zod'
 import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
+import { imageMapSource, readImages, themeImagePlugin, writeImages, type ThemeImageFile } from './media'
 import type { GateProblem } from './problems'
 
 // The fast gate's bundle is the studio frame and the preview (storefront AI-STUDIO §1, PREVIEW §4): the theme's own
@@ -45,7 +46,7 @@ export const stylesheetPlugin = (stylesheet: () => string): Plugin => ({
   },
 })
 
-const entrySource = (routesJson: string, content: Content): string => {
+const entrySource = (routesJson: string, content: Content, media: string): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const local = new Map(pages.map((page, i) => [page, `p${i}`]))
@@ -58,7 +59,8 @@ const entrySource = (routesJson: string, content: Content): string => {
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
     `  custom: { ${Object.entries(routes.custom ?? {}).map(([path, page]) => `${JSON.stringify(path)}: ${ref(page)}`).join(', ')} },`,
-    `  content: ${JSON.stringify(content)} }`,
+    `  content: ${JSON.stringify(content)},`,
+    `  media: ${media} }`,
     // Booted once; later bundles in the studio frame are loaded by the hot reload, which reads `theme` (runtime/boot.tsx).
     `boot(theme)`,
   ].join('\n')
@@ -80,7 +82,7 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
 })
 
 /** What the generated entry and the theme's stylesheet hold for the next build; a warm context reads them at each one. */
-type Generated = { entry: string; stylesheet: string }
+type Generated = { entry: string; stylesheet: string; images: ThemeImageFile[] }
 
 const runtimePlugin = (generated: Generated): Plugin => ({
   name: 'df-runtime',
@@ -147,17 +149,21 @@ const optionsFor = (repo: string, out: string, mediaOrigin: string | null, gener
     // Written here, not by esbuild: `out` starts empty each time, and a warm rebuild may skip a file it already wrote.
     write: false,
     logLevel: 'silent',
-    plugins: [mediaUrlPlugin(mediaOrigin), stylesheetPlugin(() => generated.stylesheet), runtimePlugin(generated)],
+    plugins: [themeImagePlugin(() => generated.images), mediaUrlPlugin(mediaOrigin), stylesheetPlugin(() => generated.stylesheet), runtimePlugin(generated)],
   }) satisfies BuildOptions
 
-/** The working copy at `repo` into `out` (replaced whole) by `run`: a one-off build, or a warm context's rebuild. */
-const bundleWith = async (repo: string, out: string, generated: Generated, run: () => Promise<Built>): Promise<Bundled> => {
+/**
+ * The working copy at `repo` into `out` (replaced whole) by `run`: a one-off build, or a warm context's rebuild.
+ * `imageBase` is where a live build's assets/ is served from, so its pages name the theme's images as the bundle does.
+ */
+const bundleWith = async (repo: string, out: string, generated: Generated, run: () => Promise<Built>, imageBase: string | null = null): Promise<Bundled> => {
   await rm(out, { recursive: true, force: true })
   await mkdir(out, { recursive: true })
   const tailwind = await themeStylesheet(readThemeStyling(repo))
   if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
+  generated.images = await readImages(repo)
   try {
-    generated.entry = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
+    generated.entry = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), imageMapSource(generated.images, imageBase))
   } catch {
     return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
   }
@@ -174,20 +180,21 @@ const bundleWith = async (repo: string, out: string, generated: Generated, run: 
   if (!entry) return { ok: false, problems: [{ step: 'bundle', file: null, line: null, rule: 'bundle/error', message: 'The bundle has no entry.' }] }
   const page = html(entry.path, outputs.filter((o) => o.path.endsWith('.css')).map((o) => o.path))
   await writeFile(join(out, 'index.html'), page)
-  const files = [{ path: 'index.html', bytes: Buffer.byteLength(page) }, ...outputs.map(({ path, bytes }) => ({ path, bytes }))]
+  await writeImages(generated.images, join(out, 'assets'))
+  const files = [{ path: 'index.html', bytes: Buffer.byteLength(page) }, ...outputs.map(({ path, bytes }) => ({ path, bytes })), ...generated.images.map((i) => ({ path: `assets/${i.file}`, bytes: i.bytes.byteLength }))]
   const id = createHash('sha256').update(files.map((f) => f.path).sort().join('\n')).digest('hex').slice(0, 16)
   return { ok: true, bundle: { id, entry: entry.path, files } }
 }
 
 /** Bundles the working copy at `repo` into `out` (replaced whole); the paths in the result are relative to `out`. */
-export const bundle = (repo: string, out: string, mediaOrigin: string | null = null): Promise<Bundled> => {
-  const generated: Generated = { entry: '', stylesheet: '' }
-  return bundleWith(repo, out, generated, () => build(optionsFor(repo, out, mediaOrigin, generated)))
+export const bundle = (repo: string, out: string, mediaOrigin: string | null = null, imageBase: string | null = null): Promise<Bundled> => {
+  const generated: Generated = { entry: '', stylesheet: '', images: [] }
+  return bundleWith(repo, out, generated, () => build(optionsFor(repo, out, mediaOrigin, generated)), imageBase)
 }
 
 /** One slot's bundle with its esbuild context kept between changes (#1240), so a rebuild reparses only what changed. */
 export class WarmBundle {
-  private readonly generated: Generated = { entry: '', stylesheet: '' }
+  private readonly generated: Generated = { entry: '', stylesheet: '', images: [] }
   private context: BuildContext<ReturnType<typeof optionsFor>> | null = null
   /** How many esbuild contexts this bundle has made: one for as long as the slot keeps its draft. */
   contexts = 0

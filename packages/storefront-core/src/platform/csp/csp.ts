@@ -89,7 +89,8 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): stri
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
     ['style-src', [...build, ...hashes.styles]],
     ['font-src', build],
-    ['img-src', ["'self'", ...p.mediaOrigins, ...from('img')]],
+    // The asset host too: a theme's CSS url(media/…) names its image beside the stylesheet there (#1405).
+    ['img-src', [...build, ...p.mediaOrigins, ...from('img')]],
     ['media-src', ["'self'", ...p.mediaOrigins]],
     ['connect-src', ["'self'", ...from('connect')]],
     ['frame-src', frames.length ? frames : ["'none'"]],

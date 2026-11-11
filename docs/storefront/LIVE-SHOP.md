@@ -20,7 +20,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
 repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-11-04 (#1211: a design Publish keeps a push that went live after its draft started, §4). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §4 step 3). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §4 step 7). Before: 2026-11-01 (the store's logo and favicon copied to the asset host too, §4 step 3). Before: 2026-11-01 (#1105: the catalogue's pictures copied to the asset host, §2, §4 step 3, §5 step 7). Before: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-11-11 (#1415: a live push's theme images are copied into Storefront › Assets, §4 "A push to `main`" step 7). Before: 2026-11-11 (#1405: the theme's own images in the build and on the asset host, §2, §4 steps 6 and 9). Before: 2026-11-04 (#1211: a design Publish keeps a push that went live after its draft started, §4). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §4 step 3). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §4 step 7). Before: 2026-11-01 (the store's logo and favicon copied to the asset host too, §4 step 3). Before: 2026-11-01 (#1105: the catalogue's pictures copied to the asset host, §2, §4 step 3, §5 step 7). Before: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -70,7 +70,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
 | **`storefront-sites` bucket** (decided on #317: `storefront-sites` on prod, `-dev` and `-local` elsewhere) | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
-| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), *since #1105* the catalogue pictures live builds name (`stores/{id}/media/{asset id}`, one copy per file shared by every build), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS, and *since #1405* the theme's own images, under its own build folder (`stores/{id}/builds/{b}/assets/`), *since #1105* the catalogue pictures live builds name (`stores/{id}/media/{asset id}`, one copy per file shared by every build), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
 | **`storefront-drafts` bucket** (decided on #317, named as above), private | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
@@ -222,7 +222,10 @@ checking, deploying, live, failed, rolled back).
    failing report instead. Each page carries its route and the store it was built with, and *since #1011* the
    catalogue answers it was rendered with, so the client hydrates the same tree; a version 2 snapshot also gives each
    product, version and collection it holds a page of its own (ARCHITECTURE §4.2). *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
-   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
+   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it. *Since #1405* so do the
+   theme's own images (ARCHITECTURE §3.4 "Images"): the checkout reads `src/theme/media/` as bytes for the validator,
+   the bundle copies each image into `assets/` as `media-<hash>.<ext>`, and the bundle and the pages name each by its
+   whole address there (`{assetBase or the shop's origin}assets/…`), so the HTML and its hydration agree.
 7. **Step `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
    (decided 2026-10-09 with Gaurav), in a fresh container of the same image with the browser and
    gate tools preinstalled. The built files are mounted read-only, and the container serves them
@@ -298,7 +301,7 @@ checking, deploying, live, failed, rolled back).
       (otherwise the publish fails `manifest_refused`); no credential is issued after it. Each file it lists is then read
       once into memory, hashed, and those same bytes written to the build folder with R2's own SHA-256 check on the write;
       one missing or not matching fails the publish (`file_missing`, `file_mismatch`) and nothing goes live. Every `.js`
-      and `.css` file then goes to `storefront-assets` at `stores/{id}/builds/{b}/assets/<its path>`, read back from the
+      and `.css` file, and *since #1405* every theme image (`assets/media-<16 hex>.png`, `.jpg` or `.webp`), then goes to `storefront-assets` at `stores/{id}/builds/{b}/assets/<its path>`, read back from the
       private folder, and the manifest is written last, so a build folder with one is whole. `verified_at` is set, and the
       switch refuses a build without it;
    3. deletes the staging folder, moves the live pointer, records the new build as live
@@ -413,17 +416,33 @@ Run `pnpm check` first: the store repo's `AGENTS.md` says so, and it runs the bu
    pusher's GitHub login and the commit.
 5. **Its source** (step 3) is the pushed commit's history, read once from the public repo with git's own HTTP protocol
    (`integrations/github/pack.ts`, at most 25 MB) and kept as the build's source bundle, so the workflow is unchanged.
+   The pack is carried as bytes throughout, so a theme's images arrive as pushed; they count toward the 25 MB with every
+   version of them the history holds (#1405).
    Locally (`GITHUB_LOCAL`) the stand-in's repos aren't on github.com, so a `repo` run fails as `no_source`.
 6. **Once live**, `storefront.repo_head` becomes the commit, and nothing is pushed back. The build's bundle is the
    private copy every later publish reads (step 3), and a page or catalogue run that waited behind it builds it too
    (it follows the live build when it starts, decided on #968).
+7. **Its images join Storefront › Assets** (#1415, decided 2026-11-11 with Kshitij), as the publish Workflow's last step
+   (`media`, after the commit is adopted; `saas/storefronts/publish.ts`). The images in the commit's `src/theme/media/`
+   (`integrations/github/repos.ts` `themeMedia`, within ARCHITECTURE §3.4's caps) whose bytes the store's Assets don't
+   hold yet (the same `checksum`) each become an `asset` of kind `image`, named after the file without its extension,
+   created by the system (`created_by` null) with one `asset.uploaded` entry each (actor `job`, reason `repo_push`, the
+   commit as its change, never the bytes); the technical log says `storefront_repo_media_copied` with the store and
+   the count. A repeated push adds nothing. The copy is then the merchant's: it stays when the image leaves the repo,
+   the Owner may rename or delete it, and a deleted one comes back only if a later push still holds its bytes. The
+   theme still names `media/<name>`, served from the build's own folder (step 9). The step retries like any other and
+   then gives up, logged as `storefront_repo_media_failed`; the publish stays live. No other kind of publish copies
+   anything, and images pushed before #1415 are copied only when a later push still holds them.
 
 A design Publish takes a push that went live after its draft started into the draft first, so it never overwrites it
-(AI-STUDIO §6 step 2; #1211).
+(AI-STUDIO §6 step 2; #1211). While a push is still going live (its `repo` run queued or under way, or its
+`storefront.repo_push` still in the outbox), a design Publish and "Publish everything before" are refused with
+`PUSH_GOING_LIVE` and change nothing, so the take never misses it (#1411).
 
-*Not covered yet:* a push that goes live after that take, while the design publish is still building, is still replaced
-by it; and an upgrade the bot prepared before a push went live builds its older source (§8), as it does after a go back.
-Each is its own card.
+*Not covered yet:* a push that arrives after Publish, while the design builds, queues behind it, goes live after it
+(taking the design off the live site), and the design's "Publish version N" then lands on `main` over it; and an
+upgrade the bot prepared before a push went live builds its older source (§8), as it does after a go back. Each is its
+own card.
 
 ---
 

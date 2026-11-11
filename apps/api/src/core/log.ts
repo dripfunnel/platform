@@ -14,6 +14,7 @@ export const technicalLogKeys = [
   'count',
   'metric',
   'value',
+  'paths',
 ] as const
 
 export type TechnicalLogKey = (typeof technicalLogKeys)[number]
@@ -33,6 +34,8 @@ export interface TechnicalEvent {
   /** A measurement's name and value (core/metrics.ts). */
   metric?: string
   value?: number
+  /** The platform's own template files an upgrade wrote or removed, never their contents (storefront ARCHITECTURE §7.1). */
+  paths?: string[]
 }
 
 export const technicalLine = (event: TechnicalEvent): string => {

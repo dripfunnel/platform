@@ -12,7 +12,7 @@ describe('storeCsp', () => {
     expect(directive(csp, 'default-src')).toBe("default-src 'none'")
     expect(directive(csp, 'script-src')).toBe("script-src 'self' https://assets.webpreview.store 'sha256-abc=' https://www.googletagmanager.com https://connect.facebook.net https://js.stripe.com")
     expect(directive(csp, 'connect-src')).toContain("connect-src 'self' https://*.google-analytics.com")
-    expect(directive(csp, 'img-src')).toBe("img-src 'self' https://media.dripfunnel.ai https://*.google-analytics.com https://www.googletagmanager.com https://www.facebook.com")
+    expect(directive(csp, 'img-src')).toBe("img-src 'self' https://assets.webpreview.store https://media.dripfunnel.ai https://*.google-analytics.com https://www.googletagmanager.com https://www.facebook.com")
     expect(directive(csp, 'frame-src')).toBe('frame-src https://js.stripe.com https://hooks.stripe.com')
     expect(directive(csp, 'form-action')).toBe("form-action 'self' https://hooks.stripe.com")
     expect(directive(csp, 'require-trusted-types-for')).toBe("require-trusted-types-for 'script'")

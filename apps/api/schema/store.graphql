@@ -3274,6 +3274,7 @@ type Storefront {
   history(before: Int): [StorefrontVersion!]
   lastPublish: StorefrontLastPublish
   live: StorefrontLiveVersion
+  publishing: ID
   status: String
   template: String
   usage: StorefrontUsage

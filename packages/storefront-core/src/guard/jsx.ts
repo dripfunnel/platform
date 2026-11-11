@@ -146,10 +146,26 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
   return found
 }
 
-const openingProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement): Found[] => {
+/** Core's ThemeImage however the theme names it: renamed on import, or through a namespace import. */
+const isCoreThemeImage = (checker: ts.TypeChecker, tag: ts.JsxTagNameExpression) => {
+  const symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(tag) ? tag.name : tag)
+  const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol
+  return target?.name === 'ThemeImage' && (target.declarations ?? []).some((d) => !inTheme(d.getSourceFile().fileName))
+}
+
+/** core's <ThemeImage src>: written out as the name of an image in src/theme/media/ (#1405). */
+const themeImageProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, images: ReadonlySet<string>): Found[] => {
+  if (!isCoreThemeImage(checker, node.tagName)) return []
+  const src = node.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'src')
+  const named = src ? writtenStrings(checker, src) : undefined
+  if (!src || named === undefined) return [{ node, rule: 'jsx/theme-image-not-found', message: 'Write <ThemeImage src="…"> as the file name of an image in src/theme/media/, such as src="haldi-home.webp".' }]
+  return named.filter((n) => !images.has(n)).map((n) => ({ node: src, rule: 'jsx/theme-image-not-found', message: `src="${n}" names no image in src/theme/media/; add it there, or name one that is.` }))
+}
+
+const openingProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, images: ReadonlySet<string>): Found[] => {
   const kind = kindOf(checker, node.tagName)
   const tag = tagName(checker, node.tagName, kind)
-  const found = node.attributes.properties.flatMap((attr) => attributeProblems(checker, kind, tag, attr))
+  const found = [...node.attributes.properties.flatMap((attr) => attributeProblems(checker, kind, tag, attr)), ...(kind === 'component' ? themeImageProblems(checker, node, images) : [])]
   const typed = node.attributes.properties.some((a) => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'type')
   // A button with no type submits the form around it, and core's forms are the only forms (§3.4).
   if ((kind === 'element' || kind === 'motion') && tag === 'button' && !typed) found.push({ node, rule: 'jsx/attribute-not-allowed', message: 'Write type="button" on every theme button; without it a button submits the form it sits in, and forms come from core.' })
@@ -165,5 +181,5 @@ const childProblems = (checker: ts.TypeChecker, children: ts.NodeArray<ts.JsxChi
   })
 
 /** The JSX rules of ARCHITECTURE §3.4 for one node: an element's tag and attributes, or the text among its children. */
-export const jsxProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement | ts.JsxElement | ts.JsxFragment): Found[] =>
-  ts.isJsxElement(node) || ts.isJsxFragment(node) ? childProblems(checker, node.children) : openingProblems(checker, node)
+export const jsxProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement | ts.JsxElement | ts.JsxFragment, images: ReadonlySet<string>): Found[] =>
+  ts.isJsxElement(node) || ts.isJsxFragment(node) ? childProblems(checker, node.children) : openingProblems(checker, node, images)

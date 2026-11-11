@@ -257,6 +257,64 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
+  it.runIf(key === 'classic')('shows a product’s published A+ modules in a “More about this product” section in their order, between its details and “You may also like”, and no section without any (#1351)', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-aplus`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const origin = 'https://k7f3q9f2xa.webpreview.store'
+    const money = { amount: '129900', currency: 'INR' }
+    const picture = (name: string, alt: string) => ({ alt, image: { url: `${origin}/shop-api/assets/${name}` } })
+    const module = (fields: Record<string, unknown>) => ({ title: null, body: null, side: null, photo: null, photos: null, items: null, products: null, block: null, video: null, ...fields })
+    const story = [
+      module({ id: 'm1', kind: 'banner', title: 'Made to be lived in', photo: picture('banner', 'A shirt on a line') }),
+      module({ id: 'm2', kind: 'features', items: [{ title: 'Pre-washed', text: 'No shrinking.', photo: null }, { title: 'Organic', text: null, photo: null }] }),
+      module({ id: 'm3', kind: 'imageText', title: 'The fabric', body: 'Heavyweight linen.', side: 'right', photo: picture('fabric', 'Close-up of the linen') }),
+      module({ id: 'm4', kind: 'faq' }),
+    ]
+    const related = { id: 'p2', name: 'Linen trousers', slug: 'linen-trousers', productType: 'physical', inStock: true, price: money, compareAt: null, maxPrice: null, photo: null, badges: [] }
+    const product = (slug: string, withStory: boolean) => ({ id: slug, name: `Linen ${slug}`, slug, description: null, highlights: [], inStock: true, price: money, compareAt: null, maxPrice: null, badges: [], photos: [], video: null, options: [], versions: [{ id: `${slug}-v`, name: null, choices: [], price: money, compareAt: null, inStock: true, available: 4 }], specs: [], faqs: [{ question: 'Does it crease?', answer: 'A little.' }], compliance: [], returns: null, warranty: null, seoTitle: null, seoDescription: null, related: [related], ...(withStory ? { story, storyTemplate: null } : {}) })
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') {
+        const body = route.request().postData() ?? ''
+        const slug = /"slug":"([^"]+)"/.exec(body)?.[1] ?? ''
+        const answer = /query Product\(/.test(body) ? { data: { product: product(slug, slug === 'linen-shirt'), store: { marketId: 'm1', markets: [{ id: 'm1', countries: ['IN'] }] } } } : shopFixture(snapshot, [])(body)
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+      }
+      const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+      const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/products/linen-shirt/`)
+      await page.getByRole('region', { name: 'More about this product' }).waitFor()
+      const seen = await page.evaluate(() => {
+        const section = document.querySelector('section[aria-label="More about this product"]')
+        const title = document.querySelector('main h1')
+        const related = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === 'You may also like')
+        const after = (a: Node | null | undefined, b: Node | null | undefined) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+        return {
+          headings: [...(section?.querySelectorAll('h2') ?? [])].map((h) => h.textContent?.trim()),
+          alts: [...(section?.querySelectorAll('img') ?? [])].map((i) => i.getAttribute('alt')),
+          belowDetails: after(title, section),
+          aboveRelated: after(section, related),
+          visible: !!section && section.getBoundingClientRect().height > 0,
+        }
+      })
+      expect(seen).toEqual({ headings: ['Made to be lived in', 'Highlights', 'The fabric', 'Questions'], alts: ['A shirt on a line', 'Close-up of the linen'], belowDetails: true, aboveRelated: true, visible: true })
+      await page.goto(`${origin}/products/linen-shirt-two/`)
+      await page.locator('main h1').first().waitFor()
+      await expect(page.locator('section[aria-label="More about this product"]').count()).resolves.toBe(0)
+    } finally {
+      await context.close()
+    }
+  })
+
   it('passes every check of the publish gate against the edge-case catalogue', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-site`)
