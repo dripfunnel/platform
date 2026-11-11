@@ -166,7 +166,6 @@
   },
   "product": {
     "from": "From {price}",
-    "was": "Was {price}",
     "tax": {
       "included": "Inclusive of all taxes",
       "added": "Tax calculated at checkout"
