@@ -14,6 +14,7 @@ import { moneySchema, type Money } from '../pricing/money'
 import type { LegalNotice } from '../sealed/components'
 import { textOfRichText } from '../platform/text/richText'
 import { decodeQuestions, questionFields, questionsSchema, rememberQuestions, type Question } from './questions'
+import { storyFields, storySchema, type StoryModule } from './story'
 import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, type ProductCard } from './summary'
 
 // A product page (ARCHITECTURE §2.1 `products`; DESIGN §6): which versions exist and can be bought, the chosen version's
@@ -24,7 +25,7 @@ const list = <T extends z.ZodType>(item: T) => z.array(item).nullable().optional
 const money = moneySchema.nullable().optional().catch(null)
 const count = z.number().int().nonnegative().nullable().optional()
 
-const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } sizeChart { name unit measurements rows { size values } } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} } ${questionFields}`
+const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } sizeChart { name unit measurements rows { size values } } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} } ${questionFields} ${storyFields}`
 export const productQuery = `query Product($slug: String!) { product(slug: $slug) { ${productFields} } store { marketId markets { id countries } } }`
 
 const answerSchema = z.object({
@@ -58,6 +59,8 @@ const answerSchema = z.object({
       seoDescription: text,
       related: cardsSchema,
       questions: questionsSchema,
+      story: storySchema,
+      storyTemplate: text,
     })
     .nullable(),
   store: z.object({ marketId: text, markets: list(z.object({ id: text, countries: list(z.string()) })) }).nullable().optional(),
@@ -107,6 +110,9 @@ export type Product = {
   related: ProductCard[]
   /** What the shopper is asked before buying (#1367); empty for a product without questions, which adds as before. */
   questions: Question[]
+  /** The published A+ modules in the merchant's order (#1351); empty when there are none. Core's `<ProductStory>` draws them. */
+  story: StoryModule[]
+  storyTemplate: string | null
   seoTitle: string | null
   seoDescription: string | null
 }
@@ -186,6 +192,8 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     seoTitle: p.seoTitle ?? null,
     seoDescription: p.seoDescription ?? null,
     questions: decodeQuestions(p.questions),
+    story: p.story,
+    storyTemplate: p.storyTemplate ?? null,
   }
 }
 

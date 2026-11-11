@@ -166,6 +166,18 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   the link is in built HTML. Its words are core's (`sizeChart.*`); the unit shows as "Measurements are in centimetres/inches" and
   nothing for another value. The starting themes place it under the options. Not built:
   the cm/inches switch, fit notes, how to measure and model info (CATALOG-DESIGN R12), which the Shop API already returns.
+- **A product's A+ content** (#1351, core minor): `useProduct().product.story` holds the modules the merchant published, in
+  their order, as the Shop API's `story` gives them (CATALOG-DESIGN A+ content), and `storyTemplate`. Core decodes each with zod:
+  a kind it doesn't know, or a module with nothing to show (a banner with no picture, a comparison of fewer than two products), is left out,
+  so the list is empty for a product with none. `<ProductStory product={…} versionId={…} classes={…}>` (`ui/headless`) draws the
+  "More about this product" section for every kind: banner, image and text, features, comparison, gallery, in the box, specifications
+  and FAQ (the product's own specifications and questions, so the chosen version's too), brand story and video. Headings run
+  in order (module titles are `h2`, their items `h3`), photos are core's `<Image>` with the merchant's alt text, an FAQ question is a
+  button that tells `aria-expanded`, and an uploaded video has controls, no autoplay and loads nothing until played; a video hosted
+  elsewhere is a link over `https`, never an embed. Core makes no network call and loads no third-party script for it. The theme gives
+  the section and each part a class (`classes`) and may style a module by its `data-kind` (and `data-side` on image and text); the
+  section is in built HTML and absent when there are no modules. Its words are core's (`story.*`). Only the Classic theme places it so far
+  (below the details, above "You may also like", as in the storefront prototype).
 - **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
   before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
   first photo is the page's main picture.

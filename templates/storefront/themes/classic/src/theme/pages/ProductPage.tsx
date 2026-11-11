@@ -1,4 +1,4 @@
-import { Breadcrumbs, LegalNotices, Link, Price, RichText, SizeChart, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Breadcrumbs, LegalNotices, Link, Price, ProductStory, RichText, SizeChart, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { BuyButtons } from '../components/interactive/BuyButtons'
 import { Gallery } from '../components/interactive/Gallery'
 import { Options } from '../components/interactive/Options'
@@ -7,6 +7,7 @@ import { Layout } from '../components/Layout'
 import { Notice } from '../components/Notice'
 import { ProductGrid } from '../components/ProductCard'
 import shop from '../styles/shop.module.css'
+import story from '../styles/aplus.module.css'
 import styles from '../styles/product.module.css'
 
 export const ProductPage = () => {
@@ -119,6 +120,7 @@ export const ProductPage = () => {
             </div>
           </div>
         </div>
+        <ProductStory product={product} versionId={page.version?.id ?? null} className={story.aplus} classes={story} />
         {product.related.length ? (
           <section className={styles.related}>
             <h2 className={shop.heading}>{t('shop.product.related')}</h2>
