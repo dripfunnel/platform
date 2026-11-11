@@ -42,7 +42,9 @@ import {
   type RunRow,
 } from '#db/scoped/publishing'
 import { isUploaded, isVerified } from '#db/scoped/builds'
-import { adoptRepoHead } from '#db/scoped/storefronts'
+import { adoptRepoHead, selectRepoHead } from '#db/scoped/storefronts'
+import { copyRepoImage, type AssetStore } from '#engine/modules/catalog/index'
+import type { StoreRepos } from '#integrations/github/index'
 import type { EdgeProbe } from '#integrations/http/edgeProbe'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -165,6 +167,8 @@ export interface PublishDeps extends FreezeDeps {
   wait: (ms: number) => Promise<void>
   /** The push API (`push.ts`) through the GitHub App; absent where GitHub isn't configured, and then nothing is pushed. */
   push?: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) => Promise<PushResult>
+  /** A live push's `src/theme/media/` and the assets bucket its copies go to (#1415); absent, nothing is copied. */
+  repoMedia?: { read: StoreRepos['themeMedia']; files: AssetStore }
 }
 
 /**
@@ -353,6 +357,24 @@ const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): P
   if (!pushed.ok && pushed.code === 'MAIN_MOVED') throw new Error('push: main moved')
   if (!pushed.ok) logEvent({ event: 'storefront_push_refused', api: 'system', storeId: p.storeId, code: pushed.code })
   return pushed.ok ? 'pushed' : pushed.code
+}
+
+/** A live push's theme images that Storefront › Assets doesn't hold yet are copied there (#1415; LIVE-SHOP §4 "A push to `main`" step 7). */
+const mediaStep = async (deps: PublishDeps, media: NonNullable<PublishDeps['repoMedia']>, p: PublishParams, buildId: string): Promise<string> => {
+  const found = await withSystemScope(deps.sql, async (tx) => {
+    const run = await selectRun(tx, buildId)
+    const at = run?.store_id === p.storeId ? await selectRepoHead(tx, p.storeId) : null
+    return run && at ? { run, repo: at.repo } : null
+  })
+  if (!found) return 'skipped'
+  const { run } = found
+  let copied = 0
+  for (const image of await media.read(found.repo, run.commit)) {
+    const done = await copyRepoImage({ sql: deps.sql, activity: activityLog, store: media.files }, { storeId: run.store_id, partnerId: run.partner_id, name: image.name, bytes: image.bytes, commit: run.commit })
+    if (done === 'copied') copied += 1
+  }
+  logEvent({ event: 'storefront_repo_media_copied', api: 'system', storeId: run.store_id, count: copied })
+  return `copied:${copied}`
 }
 
 /**
@@ -573,7 +595,10 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     // Only now that no live page shows them; a copy left behind waits for the next publish to find it again.
     await steps.do('prune', async () => (await pruneCatalogue(deps, p.storeId, liveId), 'pruned')).catch((error: unknown) => logEvent({ event: 'storefront_prune_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     // The build is live whatever the push does; one still failing after its retries waits for the next publish's push.
-    await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
+    const pushed = await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
+    // Only a push's run is adopted, and only a push can add images to the repo (#1415).
+    const media = deps.repoMedia
+    if (media && pushed === 'adopted') await steps.do('media', () => mediaStep(deps, media, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_repo_media_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     return 'live'
   } catch (error) {
     const code = codeOf(error)

@@ -79,6 +79,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       wait,
       push: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) =>
         pushToRepo({ sql, repos, now: () => new Date() }, { storeId: input.storeId, key: `publish:${input.buildId}`, reason: { kind: 'publish', version: input.version, buildId: input.buildId }, files: input.files }),
+      ...(env.ASSETS ? { repoMedia: { read: repos.themeMedia, files: env.ASSETS } } : {}),
       ...(studio && provider ? { repair: (storeId: string, failing: string[], key: string) => studioForJob(studio, storeId).repair(storeId, { failing, key }, designModel(provider, repairBrief)) } : {}),
     }
     return await runPublish(deps, event.payload, {
