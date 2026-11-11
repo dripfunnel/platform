@@ -76,6 +76,7 @@ describe('a product video', () => {
     expect(checkProductVideo(mp4WithoutLength())).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
     expect(checkProductVideo(mp4Of(0))).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
     expect(checkProductVideo(webmWithoutLength())).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    for (const cut of [1, 3, 8]) expect(checkProductVideo(webmOf(10).slice(0, -cut))).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
     expect(checkProductVideo(png)).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
     expect(checkProductVideo(new Uint8Array())).toEqual({ ok: false, code: 'EMPTY' })
   })

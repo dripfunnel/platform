@@ -134,6 +134,7 @@ const webmSeconds = (b: Uint8Array): number | null => {
         const length = child ? ebml(b, j + child.length, false) : null
         if (!child || !length || length.unknown) return null
         const from = j + child.length + length.length
+        if (from + length.value > end) return null
         if (child.value === 0x2ad7b1) scale = unsigned(b, from, from + length.value)
         else if (child.value === 0x4489 && (length.value === 4 || length.value === 8)) {
           const view = new DataView(b.buffer, b.byteOffset + from, length.value)
