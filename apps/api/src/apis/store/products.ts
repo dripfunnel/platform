@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import type { CurrencyPrice, MarketReadiness } from '#engine/modules/markets/index'
-import { approvalAudit, catalogAudit, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import { approvalAudit, catalogAudit, createAssetService, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import type { AmountRow, ChoiceRow, PriceRow, QuestionRow } from '#db/scoped/questions'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
@@ -656,6 +656,13 @@ export const registerProducts = (builder: StoreBuilder) => {
     const video = input.video && (input.video.assetId || input.video.url) ? { assetId: input.video.assetId ?? null, url: input.video.url ?? null } : null
     const keptVideo = stored?.video ? { assetId: (stored.video as { asset_id: string | null }).asset_id ?? null, url: (stored.video as { url: string | null }).url ?? null } : null
     if (video && !same(video, keptVideo)) await requireFeature(ctx, caller, 'product_video')
+    // A linked file must pass the same 4 MB / 30 s check as an upload, whichever route stored it (#1401).
+    if (video?.assetId && video.assetId.toLowerCase() !== keptVideo?.assetId?.toLowerCase()) {
+      if (!ctx.sql || !ctx.files) throw new GraphQLError('Files aren’t available right now.', { extensions: { code: 'NOT_CONNECTED' } })
+      const files = createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files })
+      if (!(await files.videoSwitchOn())) throw new GraphQLError('This isn’t available in this store.', { extensions: { code: 'FEATURE_UNAVAILABLE' } })
+      if (!(await files.isProductVideo(video.assetId.toLowerCase()))) throw new GraphQLError('A product video is an MP4 or WebM of at most 30 seconds and 4 MB.', { extensions: { code: 'VIDEO_LIMIT' } })
+    }
   }
   builder.mutationFields((t) => ({
     // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).

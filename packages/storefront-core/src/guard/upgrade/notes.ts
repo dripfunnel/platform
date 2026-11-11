@@ -38,7 +38,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
     kind: 'minor',
     security: false,
     notes: [
-      'A theme may now hold its own PNG, JPEG and WebP images in `src/theme/media/` (#1405) and draw them with `<ThemeImage src="<name>" alt={…} />` or name them in CSS as `url(media/<name>)`.',
+      'A theme may now hold its own PNG, JPEG and WebP images in `src/theme/media/` (#1405) and draw them with `<ThemeImage src="<name>" alt={…} ratio={…} />` (width over height) or name them in CSS as `url(media/<name>)`.',
       'A product\'s size chart is available (#1326): `useProduct().product.sizeChart` (null when the product has none) and `<SizeChart>` to show it.',
       'Both are optional; no theme has to change.',
     ].join('\n'),

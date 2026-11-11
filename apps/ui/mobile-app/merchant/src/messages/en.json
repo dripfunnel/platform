@@ -222,6 +222,7 @@
       "TOO_MANY_PHOTOS": "A product can have up to 20 photos.",
       "INVALID_PHOTO": "A photo isn’t valid. Remove it and add it again.",
       "INVALID_VIDEO": "The video link isn’t valid.",
+      "VIDEO_LIMIT": "A product video can be up to 30 seconds and 4 MB.",
       "FILE_REFUSED": "A photo isn’t here any more. Remove it and add it again.",
       "INVALID_FILTER": "A filter value on this product isn’t one this store has.",
       "INVALID_LISTING": "Something in the listing sections isn’t valid.",

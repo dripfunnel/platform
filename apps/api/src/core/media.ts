@@ -59,6 +59,110 @@ export const checkMedia = (bytes: Uint8Array): MediaCheck => {
   return { ok: true, type }
 }
 
+// A product's one video (CatEditor; #1401): short enough to stream from the gallery, small enough to hold in memory.
+export const maxProductVideoBytes = 4 * 1024 * 1024
+export const maxProductVideoSeconds = 30
+
+/** An MP4's length from its `moov` › `mvhd` box; null when it has none or says zero (a fragmented file keeps its length elsewhere). */
+const mp4Seconds = (b: Uint8Array): number | null => {
+  const boxes = (start: number, end: number, type: string): { payload: number; end: number } | null => {
+    let i = start
+    while (i + 8 <= end) {
+      let length = be32(b, i)
+      let header = 8
+      if (length === 1) {
+        length = be32(b, i + 8) * 2 ** 32 + be32(b, i + 12)
+        header = 16
+      } else if (length === 0) length = end - i
+      if (length < header) return null
+      if (String.fromCharCode(at(b, i + 4), at(b, i + 5), at(b, i + 6), at(b, i + 7)) === type) return { payload: i + header, end: Math.min(i + length, end) }
+      i += length
+    }
+    return null
+  }
+  const moov = boxes(0, b.length, 'moov')
+  const mvhd = moov ? boxes(moov.payload, moov.end, 'mvhd') : null
+  if (!mvhd) return null
+  const version = at(b, mvhd.payload)
+  const timescale = be32(b, mvhd.payload + (version === 1 ? 20 : 12))
+  const duration = version === 1 ? be32(b, mvhd.payload + 24) * 2 ** 32 + be32(b, mvhd.payload + 28) : be32(b, mvhd.payload + 16)
+  return timescale > 0 && duration > 0 ? duration / timescale : null
+}
+
+/** An EBML number: its length, and its value with the length marker taken off (or kept, for an element's id). */
+const ebml = (b: Uint8Array, i: number, keepMarker: boolean): { value: number; length: number; unknown: boolean } | null => {
+  const first = at(b, i)
+  let length = 1
+  while (length <= 8 && (first & (0x80 >> (length - 1))) === 0) length++
+  if (length > 8 || i + length > b.length) return null
+  const mask = 0xff >> length
+  let value = keepMarker ? first : first & mask
+  let unknown = (first & mask) === mask
+  for (let k = 1; k < length; k++) {
+    value = value * 256 + at(b, i + k)
+    unknown = unknown && at(b, i + k) === 0xff
+  }
+  return { value, length, unknown }
+}
+
+const unsigned = (b: Uint8Array, from: number, to: number) => {
+  let value = 0
+  for (let i = from; i < to; i++) value = value * 256 + at(b, i)
+  return value
+}
+
+/** A WebM's length from its Segment › Info (Duration × TimecodeScale); null when Info is missing or sits after a Cluster of unknown size. */
+const webmSeconds = (b: Uint8Array): number | null => {
+  const segment = 0x18538067
+  const info = 0x1549a966
+  let i = 0
+  while (i < b.length) {
+    const id = ebml(b, i, true)
+    const size = id ? ebml(b, i + id.length, false) : null
+    if (!id || !size) return null
+    const payload = i + id.length + size.length
+    if (id.value === segment) {
+      i = payload
+      continue
+    }
+    if (id.value === info) {
+      const end = Math.min(payload + size.value, b.length)
+      let scale = 1_000_000
+      let duration: number | null = null
+      for (let j = payload; j < end; ) {
+        const child = ebml(b, j, true)
+        const length = child ? ebml(b, j + child.length, false) : null
+        if (!child || !length || length.unknown) return null
+        const from = j + child.length + length.length
+        if (from + length.value > end) return null
+        if (child.value === 0x2ad7b1) scale = unsigned(b, from, from + length.value)
+        else if (child.value === 0x4489 && (length.value === 4 || length.value === 8)) {
+          const view = new DataView(b.buffer, b.byteOffset + from, length.value)
+          duration = length.value === 4 ? view.getFloat32(0) : view.getFloat64(0)
+        }
+        j = from + length.value
+      }
+      return duration !== null && duration > 0 && scale > 0 ? (duration * scale) / 1e9 : null
+    }
+    if (size.unknown) return null
+    i = payload + size.value
+  }
+  return null
+}
+
+export type ProductVideoCheck = { ok: true; type: Extract<MediaType, { kind: 'video' }>; seconds: number } | { ok: false; code: 'EMPTY' | 'TOO_LARGE' | 'TOO_LONG' | 'UNSUPPORTED_TYPE' }
+
+/** A product video: an MP4 or WebM of at most 4 MB and 30 seconds, its length read from the file itself; one whose length can't be read is refused. */
+export const checkProductVideo = (bytes: Uint8Array): ProductVideoCheck => {
+  if (bytes.byteLength === 0) return { ok: false, code: 'EMPTY' }
+  const type = sniffMedia(bytes)
+  if (!type || type.kind !== 'video') return { ok: false, code: 'UNSUPPORTED_TYPE' }
+  if (bytes.byteLength > maxProductVideoBytes) return { ok: false, code: 'TOO_LARGE' }
+  const seconds = type.ext === 'mp4' ? mp4Seconds(bytes) : webmSeconds(bytes)
+  if (seconds === null) return { ok: false, code: 'UNSUPPORTED_TYPE' }
+  return seconds > maxProductVideoSeconds ? { ok: false, code: 'TOO_LONG' } : { ok: true, type, seconds }
+}
+
 // What a download may be (CatEditor: PDF, ZIP, MP3, MP4 or an image), read from its bytes; never a photo or shown inline.
 export type DownloadType = { ext: 'pdf' | 'zip' | 'mp3' | 'mp4' | 'webm' | 'jpg' | 'png' | 'webp'; mime: string }
 

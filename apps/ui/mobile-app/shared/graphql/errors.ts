@@ -53,6 +53,7 @@ export const knownErrorCodes = [
   'TOO_MANY_PHOTOS',
   'INVALID_PHOTO',
   'INVALID_VIDEO',
+  'VIDEO_LIMIT',
   'FILE_REFUSED',
   'INVALID_FILTER',
   'INVALID_LISTING',

@@ -553,7 +553,16 @@ asking, as the API can't make a file without a currency.
   list with quick edit and approval, the editor (choices and versions, photos, stock with history, the
   listing sections, translations, prices in other currencies and per market), A+ content at
   `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
-  come with their own cards: a fixed price per market, product video upload, and Import and Export (§13).
+  come with their own cards: a fixed price per market and Import and Export (§13).
+- **Built on #1401** (product video upload, in `productEditor`): **Add more** takes one MP4 or WebM beside the photos when the plan has
+  video and Settings › Catalogue has it on, at most **30 seconds and 4 MB**. The editor checks the size, the length (the browser's
+  metadata) and "one video" before sending; the file goes to `POST /api/assets?kind=product-video`, where the server reads the
+  length from the file itself (an MP4's `mvhd`, a WebM's Info duration) and refuses `TOO_LARGE`, `TOO_LONG`, or a file whose length it
+  cannot read (`UNSUPPORTED_TYPE`); the library's own videos and a download's file keep their wider limits. It saves as `saveProduct`'s
+  `video { assetId }`, shows in the photo grid after the photos with a ▶ and Remove, never gets ★ (the first photo stays the main
+  one), and the meter reads "9 of 20 photos · 1 of 1 video", the video not using a photo place. An uploaded video replaces a
+  YouTube/Vimeo link on the product; the editor has no box to type a link into, so a link set elsewhere shows as a tile to remove.
+  Not built: a second video, a poster image, trimming or compressing.
 - **Built on #328** (SUI 16, on #323's API: CATALOG-DESIGN T14): the other three kinds in the editor, each with its
   own card under "What are you selling?". A **download** uploads its file privately (`POST /api/assets?kind=download`,
   up to 30 MB, shown by its type and size) with how often and how long its link works, or keeps a **licence-key pool**:

@@ -1332,6 +1332,25 @@
       "help": "The first photo is the one shoppers see in lists. Square photos look best.",
       "helpNone": "Products with a photo sell far better.",
       "limit": "That’s the most photos a product can have.",
+      "meterVideo": "{count} of {limit} photos · {videos} of 1 video",
+      "videoHint": "You can add photos and one MP4 or WebM video together. A video can be up to 30 seconds and 4 MB.",
+      "video": "Product video",
+      "removeVideo": "Remove the video",
+      "linkVideo": "Video link: {url}",
+      "videoTooLong": "That video is longer than 30 seconds.",
+      "videoTooBig": "That video is bigger than 4 MB.",
+      "videoSecond": "A product can have one video. Remove the current one first.",
+      "videoRefused": {
+        "TOO_LONG": "That video is longer than 30 seconds.",
+        "TOO_LARGE": "That video is bigger than 4 MB.",
+        "UNSUPPORTED_TYPE": "Use an MP4 or WebM video whose length we can read.",
+        "EMPTY": "That file is empty.",
+        "FORBIDDEN": "You can’t add a video here.",
+        "PLAN_LIMIT": "Your plan doesn’t include a product video.",
+        "FEATURE_UNAVAILABLE": "Product video is turned off for this store. Turn it on in Settings › Catalogue.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "NOT_CONNECTED": "The video didn’t upload. Check your connection and try again."
+      },
       "refused": {
         "TOO_LARGE": "That photo is too big. Use one under 10 MB.",
         "UNSUPPORTED_TYPE": "Use a JPG, PNG, WebP or AVIF photo.",
@@ -1340,7 +1359,7 @@
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "NOT_CONNECTED": "The photo didn’t upload. Check your connection and try again."
       },
-      "waitUpload": "A photo is still uploading. Save again once it’s in."
+      "waitUpload": "A photo or video is still uploading. Save again once it’s in."
     },
     "name": {
       "label": "Product name",
@@ -1669,6 +1688,7 @@
       "VERSION_REQUIRED": "A product needs at least one version.",
       "INVALID_BARCODE": "A barcode’s check digit doesn’t match. Check the digits.",
       "INVALID_VIDEO": "Use an uploaded video or a link, not both.",
+      "VIDEO_LIMIT": "A product video is an MP4 or WebM of at most 30 seconds and 4 MB.",
       "INVALID_FILTER": "A filter value isn’t one this store has. Remove it and choose it again.",
       "INVALID_LISTING": "Something in the product page sections isn’t valid. Check each section.",
       "LISTING_REFUSED": "A related product, badge or size chart can’t be used on this product. Remove it and choose another.",

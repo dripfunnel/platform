@@ -92,8 +92,13 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
     return listed.tree.flatMap((e) => (e.type === 'blob' && e.sha ? [{ path: e.path, sha: e.sha, size: e.size }] : []))
   }
 
-  const blob = async (name: string, sha: string): Promise<Uint8Array<ArrayBuffer>> =>
-    Uint8Array.from(atob(read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${sha}`)).body).content.replaceAll('\n', '')), (c) => c.charCodeAt(0))
+  const blob = async (name: string, sha: string): Promise<Uint8Array<ArrayBuffer>> => {
+    const text = atob(read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${sha}`)).body).content.replaceAll('\n', ''))
+    // A plain loop: `Uint8Array.from` with a map callback is far slower on a push's 20 MB of images (#1427).
+    const bytes = new Uint8Array(text.length)
+    for (let i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i)
+    return bytes
+  }
 
   return {
     find,

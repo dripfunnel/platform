@@ -1,8 +1,9 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
+import { checkDownload, checkMedia, checkProductVideo, maxProductVideoBytes, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
 import { deleteAsset, hasLibraryChecksum, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
+import { selectFeatures } from '#db/scoped/catalogListing'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 
 // Catalogue files (DATA-MODEL §7.3 `asset`; FIRST-RELEASE §19 `uploadAsset`): checked by their bytes,
@@ -101,6 +102,29 @@ export const createAssetService = (deps: AssetDeps) => {
     return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
   }
 
+  /** A product's video (#1401): an MP4 or WebM of at most 4 MB and 30 seconds; the library's own videos keep the wider limit of `upload`. */
+  const uploadProductVideo = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult | { ok: false; code: 'TOO_LONG' }> => {
+    const checked = checkProductVideo(bytes)
+    if (!checked.ok) return checked
+    const { type } = checked
+    const id = await save(bytes, type)
+    return { ok: true, asset: { id, kind: 'video', mime: type.mime, bytes: bytes.byteLength, width: null, height: null } }
+  }
+
+  /** Settings › Catalogue's Video switch for this store. */
+  const videoSwitchOn = (): Promise<boolean> => withScope(sql, context, async (tx) => (await selectFeatures(tx, storeId)).video)
+
+  /** False for a stored video over the product video's 4 MB or 30 s, however it was uploaded (#1401); size from the row, length from the bytes. */
+  const isProductVideo = async (id: string): Promise<boolean> => {
+    const row = await withScope(sql, context, (tx) => selectAsset(tx, storeId, id))
+    if (!row || !row.mime.startsWith('video/')) return true // a missing or non-video file is the catalogue's FILE_REFUSED
+    if (row.bytes > maxProductVideoBytes) return false
+    const object = await store.get(row.r2_key)
+    if (!object) return false
+    const bytes = new Uint8Array(await new Response(object.body).arrayBuffer())
+    return checkProductVideo(bytes).ok
+  }
+
   /** A download's file (CATALOG T14): kept as `file`, which no photo, page or storefront shows (migration 0064's asset policy). */
   const uploadDownload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
     const checked = checkDownload(bytes)
@@ -169,7 +193,7 @@ export const createAssetService = (deps: AssetDeps) => {
     return 'deleted'
   }
 
-  return { upload, uploadImage, uploadDownload, open, library, rename, remove }
+  return { upload, uploadImage, uploadProductVideo, videoSwitchOn, isProductVideo, uploadDownload, open, library, rename, remove }
 }
 
 export interface RepoImageCopy {

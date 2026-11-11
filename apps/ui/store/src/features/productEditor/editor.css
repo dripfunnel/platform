@@ -410,6 +410,26 @@
   border: 2px solid var(--df-color-heading);
 }
 
+.df-editor-photo--video {
+  overflow: hidden;
+}
+
+.df-editor-photo-play {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+  font-size: 10px;
+  pointer-events: none;
+}
+
 .df-editor-photo-img {
   width: 100%;
   height: 100%;

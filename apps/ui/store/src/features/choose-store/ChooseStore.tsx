@@ -25,6 +25,13 @@ export const chooserStep = (stores: readonly StoreChoice[]): { kind: 'none' } | 
 /** Where an opened store lands: the page that sent the person here, on this host only, else Home. */
 export const chooserDestination = (next: unknown, origin: string): string => safeNext(next, origin, '/home')
 
+/** An invitation link (`/join?token=…`) on this host: a person with no store follows it instead of being refused (ACCESS.md §6.2; #1356). */
+export const joinDestination = (next: unknown, origin: string): string | null => {
+  const destination = chooserDestination(next, origin)
+  const url = new URL(destination, origin)
+  return url.pathname === '/join' && url.searchParams.get('token') ? destination : null
+}
+
 /** Signed out on the chooser: sign-in comes back here with the same landing, as loadShell's redirect does. */
 export const signInSearch = (next: unknown, origin: string): { next: string } => ({ next: chooserDestination(next, origin) })
 
@@ -69,13 +76,16 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
       }
       const stores = await loadMyStores()
       const step = chooserStep(stores)
-      if (step.kind === 'none') setView({ kind: 'none', me })
-      else if (step.kind === 'open') await open(step.choice)
+      if (step.kind === 'none') {
+        const join = joinDestination(next, window.location.origin)
+        if (join) await navigate({ href: join })
+        else setView({ kind: 'none', me })
+      } else if (step.kind === 'open') await open(step.choice)
       else setView({ kind: 'pick', me, stores })
     } catch {
       setView({ kind: 'error' })
     }
-  }, [navigate, open, sample])
+  }, [navigate, next, open, sample])
 
   useEffect(() => {
     void load()

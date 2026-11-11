@@ -2,6 +2,8 @@ import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { useId, useRef, type ReactNode } from 'react'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { AssetVideo } from '../common/AssetVideo'
+import { isVideoFile } from '../common/videoLength'
 import { productKinds, type Draft, type DraftProblem, type DraftVersion, type ProductKind } from '../common/productDraft'
 import { RichTextField } from './RichTextField'
 
@@ -41,17 +43,21 @@ export interface PendingPhoto {
   name: string
   state: 'uploading' | 'failed'
   message: string | null
+  /** A product's video shares the grid with its photos but not their limit; absent is a photo. */
+  kind?: 'video'
 }
 
 export const maxPhotos = 20
 
-/** Photos: the main one first, made main with a tap; uploads show while they run, and a failed one says why. */
+/** Photos: the main one first, made main with a tap; uploads show while they run, and a failed one says why. A product's one video sits in the grid after them (#1401). */
 export const PhotosCard = ({
   draft,
   update,
   disabled,
   pending,
   onFiles,
+  videoOn,
+  onVideo,
   onRetry,
   onDismiss,
 }: {
@@ -60,6 +66,9 @@ export const PhotosCard = ({
   disabled: boolean
   pending: readonly PendingPhoto[]
   onFiles: (files: File[]) => void
+  /** The store's plan has video and it is switched on: the picker takes one MP4 or WebM, handed to `onVideo`. */
+  videoOn: boolean
+  onVideo: (file: File) => void
   onRetry: (id: string) => void
   onDismiss: (id: string) => void
 }) => {
@@ -67,12 +76,14 @@ export const PhotosCard = ({
   const altId = useId()
   const own = draft.photos.filter((p) => p.versionChoices === null)
   // Versions' own photos count too: the API's limit is on every photo of the product.
-  const count = draft.photos.length + pending.length
+  const count = draft.photos.length + pending.filter((p) => p.kind !== 'video').length
   const full = count >= maxPhotos
+  const videoShown = videoOn || draft.video !== null
+  const canAdd = !full || (videoOn && draft.video === null)
   const move = (assetId: string) => update((d) => ({ ...d, photos: [...d.photos.filter((p) => p.assetId === assetId), ...d.photos.filter((p) => p.assetId !== assetId)] }))
   const remove = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId) }))
   return (
-    <Card title={words.photos.title} aside={<span className="df-editor-meter">{fill(words.photos.meter, { count: String(count), limit: String(maxPhotos) })}</span>}>
+    <Card title={words.photos.title} aside={<span className="df-editor-meter">{videoShown ? fill(words.photos.meterVideo, { count: String(count), limit: String(maxPhotos), videos: draft.video ? '1' : '0' }) : fill(words.photos.meter, { count: String(count), limit: String(maxPhotos) })}</span>}>
       <ul className="df-editor-photos">
         {own.map((photo, i) => (
           <li key={photo.assetId} className={i === 0 ? 'df-editor-photo df-editor-photo--main' : 'df-editor-photo'}>
@@ -92,6 +103,25 @@ export const PhotosCard = ({
             )}
           </li>
         ))}
+        {draft.video && (
+          <li className="df-editor-photo df-editor-photo--video">
+            {draft.video.uploaded ? (
+              <AssetVideo className="df-editor-photo-img" url={draft.video.url} label={words.photos.video} placeholder="" />
+            ) : (
+              <span className="df-editor-photo-img df-editor-photo-img--none">{fill(words.photos.linkVideo, { url: draft.video.url })}</span>
+            )}
+            <span className="df-editor-photo-play" aria-hidden="true">
+              ▶
+            </span>
+            {!disabled && (
+              <span className="df-editor-photo-actions">
+                <button type="button" aria-label={words.photos.removeVideo} title={words.photos.removeVideo} onClick={() => update((d) => ({ ...d, video: null }))}>
+                  ×
+                </button>
+              </span>
+            )}
+          </li>
+        )}
         {pending.map((p) => (
           <li key={p.id} className="df-editor-photo df-editor-photo--pending" role="status">
             {p.state === 'uploading' ? (
@@ -112,7 +142,7 @@ export const PhotosCard = ({
             )}
           </li>
         ))}
-        {!disabled && !full && (
+        {!disabled && canAdd && (
           <li>
             <button type="button" className="df-editor-photo-add" onClick={() => input.current?.click()}>
               <span aria-hidden="true">+</span>
@@ -122,12 +152,15 @@ export const PhotosCard = ({
               ref={input}
               className="df-visually-hidden"
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/avif,image/heic"
+              accept={videoOn ? 'image/jpeg,image/png,image/webp,image/avif,image/heic,video/mp4,video/webm' : 'image/jpeg,image/png,image/webp,image/avif,image/heic'}
               multiple
               tabIndex={-1}
               aria-hidden="true"
               onChange={(event) => {
-                onFiles([...(event.target.files ?? [])].slice(0, maxPhotos - count))
+                const chosen = [...(event.target.files ?? [])]
+                const videos = videoOn ? chosen.filter(isVideoFile) : []
+                onFiles(chosen.filter((f) => !videos.includes(f)).slice(0, Math.max(0, maxPhotos - count)))
+                for (const file of videos) onVideo(file)
                 event.target.value = ''
               }}
             />
@@ -135,6 +168,7 @@ export const PhotosCard = ({
         )}
       </ul>
       {full && <p className="df-editor-hint">{words.photos.limit}</p>}
+      {videoOn && <p className="df-editor-hint">{words.photos.videoHint}</p>}
       {own[0] && (
         <div className="df-editor-field">
           <label htmlFor={altId}>

@@ -54,7 +54,8 @@ describe('a product description as plain words (#1272)', () => {
       const started = Date.now()
       const text = words(`<p>${unit.repeat(40_000)}`)
       expect(text.length).toBeLessThan(400_000)
-      expect(Date.now() - started).toBeLessThan(1_000)
+      // A quadratic scan of 40,000 units takes far longer; 1 s failed on a slow CI runner (1,086 ms).
+      expect(Date.now() - started).toBeLessThan(3_000)
     }
   })
 

@@ -59,6 +59,13 @@ export interface DraftPhoto {
   versionChoices: string[] | null
 }
 
+/** The product's one video: an upload (its asset) or a link to a video host; a link is shown and removed here, never typed (#1401). */
+export interface DraftVideo {
+  assetId: string | null
+  url: string
+  uploaded: boolean
+}
+
 export interface Draft {
   name: string
   description: string
@@ -70,6 +77,9 @@ export interface Draft {
   options: DraftOption[]
   versions: DraftVersion[]
   photos: DraftPhoto[]
+  video: DraftVideo | null
+  /** The product had one when it loaded: removing it is sent as null, and a product that never had one writes nothing about it. */
+  hadVideo: boolean
   /**
    * Shipping, as the prototype edits it once for the product: weight and box in the store's units, and the customs
    * code. Shown when every version agrees; a field changed here goes to every version, an untouched one keeps theirs.
@@ -180,6 +190,8 @@ export const blankDraft = (units: Units = 'metric'): Draft => ({
   details: blankDetails(),
   questions: [],
   hadQuestions: false,
+  video: null,
+  hadVideo: false,
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
@@ -280,6 +292,8 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
       return v ? keyOf(v.choices) : null
     }),
     hadQuestions: product.questions.length > 0,
+    video: product.video?.url ? { assetId: product.video.uploaded ? (product.video.assetId ?? null) : null, url: product.video.url, uploaded: product.video.uploaded === true } : null,
+    hadVideo: Boolean(product.video?.url),
   }
 }
 
@@ -467,6 +481,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
     versions,
     // Left out for a product that never had questions, so its save writes nothing about them (CATALOG U1).
     ...(draft.hadQuestions || draft.questions.length > 0 ? { questions: questionsInputOf(draft.questions, currency, live.map((v) => keyOf(v.choices))) } : {}),
+    ...(draft.video?.uploaded && draft.video.assetId ? { video: { assetId: draft.video.assetId } } : draft.video ? { video: { url: draft.video.url } } : draft.hadVideo ? { video: null } : {}),
     // A photo of a version no longer made goes with it.
     photos: draft.photos.flatMap((p) => {
       const at = indexOf(p.versionChoices)
