@@ -8,6 +8,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
+import { mp4Of, mp4WithoutLength, webmOf } from './support/video'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #293 (SAPI 3, part 1): products through the Store API, the merchant side over the store's
@@ -492,6 +493,42 @@ describe('photos, video and files', () => {
     const big = new Uint8Array(29 * 1024 * 1024)
     big.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32])
     const response = await handleAssets(new Request('https://store.example/api/assets', { method: 'POST', body: big, headers: { 'content-length': String(big.byteLength) } }), await contextFor('owner', t.storeA1), r2)
+    expect(response.status).toBe(200)
+  })
+
+  // A product's one video (#1401): `?kind=product-video` takes an MP4 or WebM of at most 4 MB and 30 seconds, read from the file.
+  const uploadProductVideo = async (body: Uint8Array<ArrayBuffer>) => {
+    const response = await handleAssets(new Request('https://store.example/api/assets?kind=product-video', { method: 'POST', body, headers: { 'content-length': String(body.byteLength) } }), await contextFor('owner', t.storeA1), r2)
+    return { status: response.status, ...((await response.json()) as { ok: boolean; code?: string; asset?: { id: string; kind: string; mime: string; bytes: number } }) }
+  }
+  const assetCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${t.storeA1}`)[0]?.n ?? 0
+
+  it('saves a product video of up to 30 seconds and 4 MB, an MP4 or a WebM, and links it as the product’s video', async () => {
+    const mp4 = await uploadProductVideo(mp4Of(20, 3 * 1024 * 1024))
+    expect(mp4).toMatchObject({ status: 200, ok: true, asset: { kind: 'video', mime: 'video/mp4', bytes: 3 * 1024 * 1024 } })
+    const webm = await uploadProductVideo(webmOf(30))
+    expect(webm).toMatchObject({ status: 200, asset: { kind: 'video', mime: 'video/webm' } })
+    const { saved } = await create('owner', simple('With a film', { video: { assetId: mp4.asset?.id } }))
+    const shown = (await gql(`query P($id: ID!) { product(id: $id) { video { url uploaded } } }`, 'owner', { id: saved?.id })).data?.['product'] as { video: { url: string; uploaded: boolean } }
+    expect(shown.video).toEqual({ url: `/api/assets/${mp4.asset?.id}`, uploaded: true })
+  })
+
+  it('refuses a product video longer than 30 seconds, bigger than 4 MB or with no readable length, and stores none of them', async () => {
+    const before = await assetCount()
+    expect(await uploadProductVideo(mp4Of(31))).toMatchObject({ status: 422, ok: false, code: 'TOO_LONG' })
+    expect(await uploadProductVideo(webmOf(45))).toMatchObject({ status: 422, code: 'TOO_LONG' })
+    expect(await uploadProductVideo(mp4Of(10, 4 * 1024 * 1024 + 1))).toMatchObject({ status: 413, code: 'TOO_LARGE' })
+    expect(await uploadProductVideo(webmOf(10, 5 * 1024 * 1024))).toMatchObject({ status: 413, code: 'TOO_LARGE' })
+    expect(await uploadProductVideo(mp4WithoutLength())).toMatchObject({ status: 415, code: 'UNSUPPORTED_TYPE' })
+    expect(await uploadProductVideo(png)).toMatchObject({ status: 415, code: 'UNSUPPORTED_TYPE' })
+    expect(await assetCount()).toBe(before)
+  })
+
+  it('leaves the library’s own videos and a download’s file at their wider limits', async () => {
+    expect(await upload('owner', mp4Of(120, 10 * 1024 * 1024))).toMatchObject({ status: 200 })
+    const download = new Uint8Array(29 * 1024 * 1024)
+    download.set([0x25, 0x50, 0x44, 0x46, 0x2d])
+    const response = await handleAssets(new Request('https://store.example/api/assets?kind=download', { method: 'POST', body: download, headers: { 'content-length': String(download.byteLength) } }), await contextFor('owner', t.storeA1), r2)
     expect(response.status).toBe(200)
   })
 

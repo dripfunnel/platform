@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
+import { checkDownload, checkMedia, checkProductVideo, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
 import { deleteAsset, hasLibraryChecksum, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -101,6 +101,15 @@ export const createAssetService = (deps: AssetDeps) => {
     return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
   }
 
+  /** A product's video (#1401): an MP4 or WebM of at most 4 MB and 30 seconds; the library's own videos keep the wider limit of `upload`. */
+  const uploadProductVideo = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult | { ok: false; code: 'TOO_LONG' }> => {
+    const checked = checkProductVideo(bytes)
+    if (!checked.ok) return checked
+    const { type } = checked
+    const id = await save(bytes, type)
+    return { ok: true, asset: { id, kind: 'video', mime: type.mime, bytes: bytes.byteLength, width: null, height: null } }
+  }
+
   /** A download's file (CATALOG T14): kept as `file`, which no photo, page or storefront shows (migration 0064's asset policy). */
   const uploadDownload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
     const checked = checkDownload(bytes)
@@ -169,7 +178,7 @@ export const createAssetService = (deps: AssetDeps) => {
     return 'deleted'
   }
 
-  return { upload, uploadImage, uploadDownload, open, library, rename, remove }
+  return { upload, uploadImage, uploadProductVideo, uploadDownload, open, library, rename, remove }
 }
 
 export interface RepoImageCopy {

@@ -73,6 +73,8 @@ const productSchema = z.object({
   seoDescription: z.string().nullable(),
   pricingCurrency: z.string().nullable(),
   photos: z.array(z.object({ id: z.string(), assetId: z.string(), url: z.string(), alt: z.string().nullable(), versionId: z.string().nullable() })),
+  // The product's one video: an upload (`uploaded`, its asset) or a link to a video host (#1401).
+  video: z.object({ assetId: z.string().nullable(), uploaded: z.boolean().nullable(), url: z.string().nullable() }).nullable().optional(),
   options: z.array(z.object({ id: z.string(), name: z.string(), values: z.array(z.object({ id: z.string(), name: z.string() })) })),
   versions: z.array(versionSchema),
   listing: z.object({
@@ -99,6 +101,7 @@ export type EditorVersion = z.infer<typeof versionSchema>
 
 const productFields = `id revision name description productType visible approval sentBackReason supplier { id name } slug seoTitle seoDescription pricingCurrency
   photos { id assetId url alt versionId }
+  video { assetId uploaded url }
   options { id name values { id name } }
   versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock continueSelling }
   listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds related { id name } badgeIds compliance { region field value } ageRestricted hazardous }
@@ -181,6 +184,8 @@ export interface ProductInput {
     continueSelling: boolean | null
   }[]
   photos: { assetId: string; alt?: string; version?: number }[]
+  /** Left out keeps the product's video; null removes it (CATALOG S7). */
+  video?: { assetId?: string; url?: string } | null
   /** Each section named replaces the product's; one left out stays as it is (CATALOG S9). */
   listing?: {
     specs?: { name: string; value: string; version?: number; filterValueId?: string }[]
@@ -214,7 +219,7 @@ const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ 
 type Uploaded = Extract<z.infer<typeof uploadSchema>, { ok: true }>['asset']
 
 /** The raw file to `/api/assets` (FIRST-RELEASE §19 uploadAsset), with `search` naming what it is for: the asset, or why not. */
-export const postAsset = async (file: Blob, search = ''): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal }> => {
+const postAssetAs = async (file: Blob, search: string): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal | 'TOO_LONG' }> => {
   try {
     const response = await fetch(`/api/assets${search}`, {
       method: 'POST',
@@ -226,11 +231,18 @@ export const postAsset = async (file: Blob, search = ''): Promise<{ ok: true; as
     const answer = uploadSchema.safeParse(await response.json())
     if (!answer.success) return { ok: false, code: 'NOT_CONNECTED' }
     if (answer.data.ok) return answer.data
-    const code = z.enum(uploadRefusals).safeParse(answer.data.code)
+    const code = z.enum([...uploadRefusals, 'TOO_LONG']).safeParse(answer.data.code)
     return { ok: false, code: code.success ? code.data : 'NOT_CONNECTED' }
   } catch {
     return { ok: false, code: 'NOT_CONNECTED' }
   }
+}
+
+/** Only a product video is ever too long (#1401); for any other file the server doesn't say it. */
+export const postAsset = async (file: Blob, search = ''): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal }> => {
+  const answer = await postAssetAs(file, search)
+  if (answer.ok) return answer
+  return answer.code === 'TOO_LONG' ? { ok: false, code: 'TOO_LARGE' } : { ok: false, code: answer.code }
 }
 
 /** A photo: its asset id, or why not. */
@@ -238,6 +250,13 @@ export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: stri
   const answer = await postAsset(file)
   if (!answer.ok) return answer
   return answer.asset.kind === 'image' ? { ok: true, assetId: answer.asset.id } : { ok: false, code: 'UNSUPPORTED_TYPE' }
+}
+
+/** A product's one video (at most 4 MB and 30 seconds, checked by the server from the file): its asset id, or why not. */
+export const uploadVideo = async (file: Blob): Promise<{ ok: true; assetId: string } | { ok: false; code: UploadRefusal | 'TOO_LONG' }> => {
+  const answer = await postAssetAs(file, '?kind=product-video')
+  if (!answer.ok) return answer
+  return answer.asset.kind === 'video' ? { ok: true, assetId: answer.asset.id } : { ok: false, code: 'UNSUPPORTED_TYPE' }
 }
 
 /** What the editor needs of the tax setup; Settings › Tax setup reads the whole of it (api/tax.ts). */

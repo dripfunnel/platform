@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { checkDownload, checkMedia, maxDownloadBytes, maxImageBytes, sniffDownload, sniffMedia } from './media'
+import { mp4MoovLast, mp4Of, mp4WithoutLength, webmOf, webmWithoutLength } from '../../tests/support/video'
+import { checkDownload, checkMedia, checkProductVideo, maxDownloadBytes, maxImageBytes, maxProductVideoBytes, sniffDownload, sniffMedia } from './media'
 
 const bytes = (...parts: (number[] | string)[]) => new Uint8Array(parts.flatMap((p) => (typeof p === 'string' ? [...p].map((c) => c.charCodeAt(0)) : p)))
 
@@ -44,5 +45,38 @@ describe('media', () => {
     expect(checkDownload(bytes('#!/bin/sh'))).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
     expect(checkDownload(new Uint8Array())).toEqual({ ok: false, code: 'EMPTY' })
     expect(checkDownload(new Uint8Array(maxDownloadBytes + 1))).toEqual({ ok: false, code: 'TOO_LARGE' })
+  })
+})
+
+// A product's one video (#1401): an MP4 or WebM of at most 4 MB and 30 seconds, its length read from the file.
+describe('a product video', () => {
+  it('takes an MP4 or a WebM of up to 30 seconds, reading the length from the file', () => {
+    expect(checkProductVideo(mp4Of(20))).toMatchObject({ ok: true, type: { ext: 'mp4' }, seconds: 20 })
+    expect(checkProductVideo(mp4Of(30))).toMatchObject({ ok: true, seconds: 30 })
+    expect(checkProductVideo(webmOf(20))).toMatchObject({ ok: true, type: { ext: 'webm' }, seconds: 20 })
+    expect(checkProductVideo(webmOf(30))).toMatchObject({ ok: true, seconds: 30 })
+  })
+
+  it('finds an MP4’s length when its moov box comes after the media', () => {
+    expect(checkProductVideo(mp4MoovLast(12))).toMatchObject({ ok: true, seconds: 12 })
+  })
+
+  it('refuses a video longer than 30 seconds', () => {
+    expect(checkProductVideo(mp4Of(31))).toEqual({ ok: false, code: 'TOO_LONG' })
+    expect(checkProductVideo(webmOf(31))).toEqual({ ok: false, code: 'TOO_LONG' })
+  })
+
+  it('refuses a video over 4 MB, before reading its length', () => {
+    expect(checkProductVideo(mp4Of(10, maxProductVideoBytes + 1))).toEqual({ ok: false, code: 'TOO_LARGE' })
+    expect(checkProductVideo(webmOf(10, maxProductVideoBytes + 1))).toEqual({ ok: false, code: 'TOO_LARGE' })
+    expect(checkProductVideo(mp4Of(10, maxProductVideoBytes))).toMatchObject({ ok: true })
+  })
+
+  it('refuses a video whose length can’t be read, one that says zero, and a file that isn’t a video', () => {
+    expect(checkProductVideo(mp4WithoutLength())).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    expect(checkProductVideo(mp4Of(0))).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    expect(checkProductVideo(webmWithoutLength())).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    expect(checkProductVideo(png)).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    expect(checkProductVideo(new Uint8Array())).toEqual({ ok: false, code: 'EMPTY' })
   })
 })

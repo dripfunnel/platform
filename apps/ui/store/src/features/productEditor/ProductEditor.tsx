@@ -4,7 +4,7 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
+import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, uploadVideo, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
 import { addLicenceKeys, loadProductKind, maxKeyLength, maxKeysPerSave, saveProductKind, type ProductKindView } from '../../api/productKinds'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
@@ -18,6 +18,7 @@ import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindD
 import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
 import { GiftCardsIssued } from './GiftCardsIssued'
 import { BasicsCard, KindCard, maxPhotos, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
+import { maxVideoBytes, maxVideoSeconds, videoSeconds } from '../common/videoLength'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
 import { signed, StockCard, type StockHistoryView } from './StockCard'
@@ -30,7 +31,7 @@ import './editor.css'
 const words = messages.editor
 const shellRoute = getRouteApi('/_app')
 
-type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]>; extras: Extras; kindView: ProductKindView | null }
+type Loaded = { product: EditorProduct | null; videoOn: boolean; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]>; extras: Extras; kindView: ProductKindView | null }
 
 
 const sectionKeys: readonly ListingSection[] = ['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts']
@@ -38,6 +39,12 @@ const sectionKeys: readonly ListingSection[] = ['specs', 'highlights', 'faqs', '
 const aplusOf = (basics: ProductBasics): 'on' | 'plan' | null => {
   const f = basics.features.find((x) => x.key === 'aplus')
   return !f?.enabled ? null : f.inPlan === false ? 'plan' : 'on'
+}
+
+/** Product video is offered once the plan has it and Settings › Catalogue has it switched on (CATALOG F9). */
+const videoOf = (basics: ProductBasics): boolean => {
+  const f = basics.features.find((x) => x.key === 'video')
+  return Boolean(f?.enabled) && f?.inPlan !== false
 }
 
 const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: string | null): Promise<Extras> => {
@@ -150,6 +157,8 @@ export const ProductEditor = () => {
     if (language) setTodo((t) => ({ ...t, [language]: todoCount(rows) }))
   }, [language])
   const files = useRef(new Map<string, File>())
+  // The id of the video now being checked or uploaded: a product holds one, so a second waits for the first (#1401).
+  const videoBusy = useRef<string | null>(null)
   const leaving = useRef(false)
   const carriedCounts = useRouterState({ select: (state) => state.location.state.unsavedCounts })
   const carriedCollections = useRouterState({ select: (state) => state.location.state.unsavedCollections })
@@ -175,7 +184,7 @@ export const ProductEditor = () => {
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: sample.product ? sample.levels : new Map(), extras: sample.extras, kindView: sample.kind })
+    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: sample.product, videoOn: false, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: sample.product ? sample.levels : new Map(), extras: sample.extras, kindView: sample.kind })
     const supplierSide = shell.acting.seller !== null
     void Promise.all([
       isNew ? Promise.resolve(null) : loadProduct(productId),
@@ -192,7 +201,7 @@ export const ProductEditor = () => {
         // A kind's own details, the merchant's only (ACCESS §7.1): the form never offers stored ones as blank.
         const kind = product && !supplierSide && product.productType !== 'physical' ? await loadProductKind(product.id).catch(() => undefined) : null
         if (kind === undefined) return setView({ kind: 'error' })
-        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels, extras: await loadExtras(basics, !supplierSide, isNew ? null : productId), kindView: kind })
+        show({ product, videoOn: videoOf(basics), currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels, extras: await loadExtras(basics, !supplierSide, isNew ? null : productId), kindView: kind })
       },
       () => setView({ kind: 'error' }),
     )
@@ -249,6 +258,41 @@ export const ProductEditor = () => {
       setPending((list) => list.filter((p) => p.id !== id))
       update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '', versionChoices: null }] }))
     })
+  }
+  const sendVideo = async (id: string, file: File) => {
+    const fail = (message: string) => {
+      if (videoBusy.current === id) videoBusy.current = null
+      setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'failed', message } : p)))
+    }
+    setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'uploading', message: null } : p)))
+    if (draft.video?.uploaded || (videoBusy.current !== null && videoBusy.current !== id)) return fail(words.photos.videoSecond)
+    videoBusy.current = id
+    if (file.size > maxVideoBytes) return fail(words.photos.videoTooBig)
+    const seconds = await videoSeconds(file)
+    if (seconds !== null && seconds > maxVideoSeconds) return fail(words.photos.videoTooLong)
+    const result = await uploadVideo(file)
+    if (!result.ok) return fail(words.photos.videoRefused[result.code])
+    videoBusy.current = null
+    files.current.delete(id)
+    setPending((list) => list.filter((p) => p.id !== id))
+    update((d) => ({ ...d, video: { assetId: result.assetId, url: `/api/assets/${result.assetId}`, uploaded: true } }))
+  }
+  const addVideo = (file: File) => {
+    const id = crypto.randomUUID()
+    files.current.set(id, file)
+    setPending((list) => [...list, { id, name: file.name, state: 'uploading', message: null, kind: 'video' }])
+    void sendVideo(id, file)
+  }
+  const retry = (id: string) => {
+    const file = files.current.get(id)
+    if (!file) return
+    if (pending.find((p) => p.id === id)?.kind === 'video') void sendVideo(id, file)
+    else upload(id, file)
+  }
+  const dismiss = (id: string) => {
+    if (videoBusy.current === id) videoBusy.current = null
+    files.current.delete(id)
+    setPending((list) => list.filter((p) => p.id !== id))
   }
   const addFiles = (chosen: File[]) => {
     const added = chosen.map((file) => ({ id: crypto.randomUUID(), file }))
@@ -369,11 +413,11 @@ export const ProductEditor = () => {
       collectionsFailed = true
     }
     try {
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved), extras, kindView })
+      show({ product: stored, videoOn: view.videoOn, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved), extras, kindView })
       if (!access.canEdit) setToast(words.saved)
     } catch (error) {
       // The product is saved; its counts are still typed on the page, to save again.
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels, extras, kindView })
+      show({ product: stored, videoOn: view.videoOn, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels, extras, kindView })
       setDraft((d) => ({ ...d, stock: kept.stock }))
       setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
     }
@@ -545,7 +589,7 @@ export const ProductEditor = () => {
               {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
             </GiftCardCard>
           )}
-          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />
+          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} videoOn={view.videoOn} onVideo={addVideo} onRetry={retry} onDismiss={dismiss} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
           {!made && draft.kind !== 'gift_card' && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
