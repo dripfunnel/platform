@@ -135,7 +135,7 @@ Design floors the gates check, whatever the look:
 
 | Page | The AI decides | Core decides |
 |---|---|---|
-| **Product** | Gallery style and zoom, layout, where options sit, how versions look (swatches, buttons, dropdowns), content order, related products' presentation | Which versions exist and are buyable, the selected version's price, stock and photo, add-to-cart and buy-now behaviour |
+| **Product** | Gallery style and zoom, layout, where options sit, how versions look (swatches, buttons, dropdowns), content order, related products' presentation, where the "More about this product" section sits (below the details, above related products) and its look, through the class names `<ProductStory>` takes | Which versions exist and are buyable, the selected version's price, stock and photo, add-to-cart and buy-now behaviour, the A+ modules shown (the merchant's published ones, in their order, none when there are none) and how each kind is built and made accessible |
 | **Collection and search** | Grid density, card design, filter presentation (sidebar, drawer, chips), sort control placement, pages or infinite scroll | Which products match, filter logic (OR within a filter, AND across), sort and pagination as URL state |
 | **Cart** | Drawer or page, layout, empty-cart design, upsell placement (from real related products) | Lines, quantities, totals, codes, limits |
 | **Checkout** | Layout (one page or steps shown as tabs, accordion or pages), styling of forms and summary, reassurance content, where express wallets sit | Step order, required fields per country, validation, shipping options, payment element, placing the order, payment processing state, the review summary |
