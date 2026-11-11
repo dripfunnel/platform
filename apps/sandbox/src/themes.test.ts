@@ -79,6 +79,40 @@ let root: string
 let runtime: string
 let browser: Browser | null = null
 
+/** A page on the preview host whose shop answers `product` and whose files are the built `out` and the runtime. */
+const openProduct = async (b: Browser, out: string, product: { slug: string }, width = 1440): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width, height: 900 } })
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.origin !== origin) return route.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      const body = route.request().postData() ?? ''
+      const answer = /query Product\(/.test(body) ? { data: { product, store: { marketId: 'm1', markets: [{ id: 'm1', countries: ['IN'] }] } } } : shopFixture(snapshot, [])(body)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return route.fulfill({ status: 404 })
+    return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}/products/${product.slug}/`)
+  return page
+}
+
+type Choice = { id: string; name: string }
+/** A product with these options, one version per row of `versions` (a value id for each option, whether it is in stock, how many). */
+const productWith = (options: { id: string; name: string; values: Choice[] }[], versions: { values: string[]; inStock: boolean; available: number | null }[]) => {
+  const money = { amount: '129900', currency: 'INR' }
+  return {
+    id: 'p1', name: 'Kit', slug: 'kit', description: null, highlights: [], inStock: versions.some((v) => v.inStock), price: money, compareAt: null, maxPrice: null, badges: [], photos: [], video: null,
+    options: options.map((o) => ({ id: o.id, name: o.name, values: o.values })),
+    versions: versions.map((v, i) => ({ id: `v${i}`, name: v.values.join(' / '), choices: options.map((o, n) => ({ optionId: o.id, valueId: v.values[n] ?? '' })), price: money, compareAt: null, inStock: v.inStock, available: v.available })),
+    specs: [], faqs: [], compliance: [], returns: null, warranty: null, seoTitle: null, seoDescription: null, related: [],
+  }
+}
+
 beforeAll(async () => {
   root = mkdtempSync(join(tmpdir(), 'themes-test-'))
   runtime = join(root, 'runtime')
@@ -213,28 +247,12 @@ describe.each(keys)('the %s theme', (key) => {
     const out = join(root, `${key}-description`)
     const built = await bundle(dir, out)
     if (!built.ok) throw new Error(JSON.stringify(built.problems))
-    const origin = 'https://k7f3q9f2xa.webpreview.store'
     const description =
       '<ul>\n<li><b>Material &amp; Construction:</b> 100% cotton</li>\n<li><b>Care:</b> Machine wash cold</li>\n</ul><p onclick="window.__clicked = 1">Read the <a href="https://example.com/care">care guide</a> or <a href="javascript:window.__pwned = 1">this</a>.</p><script>window.__pwned = 1</script>'
     const money = { amount: '129900', currency: 'INR' }
     const product = { id: 'p1', name: 'Linen shirt', slug: 'linen-shirt', description, highlights: [], inStock: true, price: money, compareAt: null, maxPrice: null, badges: [], photos: [], video: null, options: [], versions: [{ id: 'v1', name: null, choices: [], price: money, compareAt: null, inStock: true, available: 4 }], specs: [], faqs: [], compliance: [], returns: null, warranty: null, seoTitle: null, seoDescription: null, related: [] }
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-    await context.route('**/*', async (route) => {
-      const url = new URL(route.request().url())
-      if (url.origin !== origin) return route.abort('blockedbyclient')
-      if (url.pathname === '/shop-api') {
-        const body = route.request().postData() ?? ''
-        const answer = /query Product\(/.test(body) ? { data: { product, store: { marketId: 'm1', markets: [{ id: 'm1', countries: ['IN'] }] } } } : shopFixture(snapshot, [])(body)
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
-      }
-      const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
-      const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
-      if (!file) return route.fulfill({ status: 404 })
-      return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
-    })
+    const page = await openProduct(browser, out, product)
     try {
-      const page = await context.newPage()
-      await page.goto(`${origin}/products/linen-shirt/`)
       await page.getByRole('heading', { name: 'Description' }).waitFor()
       const seen = await page.evaluate(() => {
         const heading = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === 'Description')
@@ -253,7 +271,93 @@ describe.each(keys)('the %s theme', (key) => {
       expect(seen.text).not.toMatch(/<\/?[a-z]/i)
       expect(seen.text).toContain('100% cotton')
     } finally {
-      await context.close()
+      await page.context().close()
+    }
+  })
+
+  it('disables a choice that is out of stock with the other choices made, and says so (#1360)', async ({ skip }) => {
+    if (!browser || key !== 'classic') return skip()
+    const out = join(root, `${key}-choices`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const size = { id: 'o1', name: 'Size', values: [{ id: 'l', name: 'Large' }, { id: 'm', name: 'Medium' }, { id: 's', name: 'Small' }, { id: 'x', name: 'Huge' }] }
+    const sizes = productWith([size], [
+      { values: ['l'], inStock: true, available: 5 },
+      { values: ['m'], inStock: false, available: 0 },
+      { values: ['s'], inStock: false, available: 0 },
+      { values: ['x'], inStock: true, available: null },
+    ])
+    const group = (page: Page, name: string) => page.getByRole('group', { name })
+    const chosen = (page: Page, name: string) => group(page, name).locator('[aria-pressed="true"]').allTextContents()
+
+    const wide = await openProduct(browser, out, sizes)
+    try {
+      await group(wide, 'Size').getByRole('button', { name: 'Large', exact: true }).click()
+      const medium = group(wide, 'Size').getByRole('button', { name: 'Medium, out of stock' })
+      await expect(medium.getAttribute('aria-disabled')).resolves.toBe('true')
+      await expect(group(wide, 'Size').getByRole('button', { name: 'Huge', exact: true }).getAttribute('aria-disabled')).resolves.toBeNull()
+      await medium.click({ force: true })
+      await medium.focus()
+      await wide.keyboard.press('Enter')
+      await wide.keyboard.press('Space')
+      await expect(chosen(wide, 'Size')).resolves.toEqual(['Large'])
+      await wide.mouse.move(0, 0)
+      await wide.keyboard.press('Shift+Tab')
+      await wide.keyboard.press('Tab')
+      await expect(medium.getByText('Out of stock').isVisible()).resolves.toBe(true)
+      await wide.mouse.move(0, 0)
+      await group(wide, 'Size').getByRole('button', { name: 'Large', exact: true }).focus()
+      await expect(medium.getByText('Out of stock').isVisible()).resolves.toBe(false)
+      await medium.hover()
+      await expect(medium.getByText('Out of stock').isVisible()).resolves.toBe(true)
+      await group(wide, 'Size').getByRole('button', { name: 'Huge', exact: true }).click()
+      await expect(chosen(wide, 'Size')).resolves.toEqual(['Huge'])
+    } finally {
+      await wide.context().close()
+    }
+
+    const phone = await openProduct(browser, out, sizes, 390)
+    try {
+      await group(phone, 'Size').getByRole('button', { name: 'Large', exact: true }).click()
+      const small = group(phone, 'Size').getByRole('button', { name: 'Small, out of stock' })
+      await expect(small.getByText('Out of stock').isVisible()).resolves.toBe(true)
+      await small.click({ force: true })
+      await expect(chosen(phone, 'Size')).resolves.toEqual(['Large'])
+    } finally {
+      await phone.context().close()
+    }
+
+    const colour = { id: 'o2', name: 'Colour', values: [{ id: 'r', name: 'Red' }, { id: 'b', name: 'Blue' }] }
+    const both = productWith([{ ...size, values: size.values.slice(0, 2) }, colour], [
+      { values: ['l', 'r'], inStock: true, available: 3 },
+      { values: ['l', 'b'], inStock: false, available: 0 },
+      { values: ['m', 'r'], inStock: false, available: 0 },
+      { values: ['m', 'b'], inStock: true, available: 3 },
+    ])
+    const two = await openProduct(browser, out, both)
+    try {
+      const disabled = async (name: string) => (await group(two, 'Colour').getByRole('button', { name }).getAttribute('aria-disabled')) === 'true'
+      await group(two, 'Size').getByRole('button', { name: 'Large', exact: true }).click()
+      await expect(disabled('Blue, out of stock')).resolves.toBe(true)
+      await expect(group(two, 'Colour').getByRole('button', { name: 'Red', exact: true }).getAttribute('aria-disabled')).resolves.toBeNull()
+      await group(two, 'Size').getByRole('button', { name: 'Medium', exact: true }).click()
+      await expect(disabled('Red, out of stock')).resolves.toBe(true)
+      await expect(group(two, 'Colour').getByRole('button', { name: 'Blue', exact: true }).getAttribute('aria-disabled')).resolves.toBeNull()
+    } finally {
+      await two.context().close()
+    }
+
+    const gone = await openProduct(browser, out, productWith([{ ...size, values: size.values.slice(0, 2) }], [
+      { values: ['l'], inStock: false, available: 0 },
+      { values: ['m'], inStock: false, available: 0 },
+    ]))
+    try {
+      await gone.goto(`${gone.url()}v0/`)
+      await group(gone, 'Size').getByRole('button', { name: 'Large, out of stock' }).waitFor()
+      await expect(group(gone, 'Size').locator('button:not([aria-disabled="true"])').count()).resolves.toBe(0)
+      await expect(gone.getByText('Sold out').first().isVisible()).resolves.toBe(true)
+    } finally {
+      await gone.context().close()
     }
   })
 
