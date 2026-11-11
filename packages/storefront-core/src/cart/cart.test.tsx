@@ -96,6 +96,39 @@ describe('useCart', () => {
     expect(assign).toHaveBeenCalledWith('/checkout/')
   })
 
+  it('buys now without adding a version the cart already holds, so its quantity stays, and opens checkout (#1359)', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...location, pathname: '/products/organic-cotton-tee/', origin: location.origin, assign })
+    localStorage.setItem('df-cart', 'tok-1')
+    const asked = shopAnswering(() => ({ data: { cart: cartOf([line('v1', 1)]) } }))
+    mount()
+    await act(async () => undefined)
+    let worked = false
+    await act(async () => void (worked = await page.buyNow('v1', 1)))
+    expect(worked).toBe(true)
+    expect(asked.some((a) => a.query.includes('addToCart'))).toBe(false)
+    expect(assign).toHaveBeenCalledWith('/checkout/')
+    expect(count()).toBe('1 v1×1')
+  })
+
+  it('buys now by adding once a version the cart doesn’t hold, whatever else it holds, and a gift card every time (#1359)', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...location, pathname: '/products/organic-cotton-tee/', origin: location.origin, assign })
+    localStorage.setItem('df-cart', 'tok-1')
+    const gift = { recipientName: 'Asha', recipientEmail: 'asha@example.com', sendOn: '', message: null }
+    const held = [line('v2', 1), { ...line('g1', 1), gift: { recipientName: 'Ravi', recipientEmail: 'ravi@example.com', sendOn: null, message: null } }]
+    const asked = shopAnswering(({ query }) => ({ data: query.includes('addToCart') ? { addToCart: { cartToken: 'tok-1', cart: cartOf(held) } } : { cart: cartOf(held) } }))
+    mount()
+    await act(async () => undefined)
+    const adds = () => asked.filter((a) => a.query.includes('addToCart')).length
+    await act(async () => void (await page.buyNow('v1', 1)))
+    expect(adds()).toBe(1)
+    expect(assign).toHaveBeenCalledTimes(1)
+    await act(async () => void (await page.buyNow('g1', 1, gift)))
+    expect(adds()).toBe(2)
+    expect(assign).toHaveBeenCalledTimes(2)
+  })
+
   it('answers a code’s state and shows the cart the engine priced with it', async () => {
     localStorage.setItem('df-cart', 'tok-1')
     shopAnswering(({ query }) => (query.includes('applyCode') ? { data: { applyCode: { state: 'APPLIED', cart: cartOf([line('v1', 1)], { codes: [{ code: 'AUTUMN', state: 'APPLIED' }], discount: usd(280), discounts: [{ name: 'Autumn', code: 'AUTUMN', amount: usd(280) }] }) } } } : { data: { cart: cartOf([line('v1', 1)]) } }))
