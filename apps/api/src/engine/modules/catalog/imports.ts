@@ -19,6 +19,8 @@ import {
   selectOwnDefaultWarehouse,
   selectOwnSkus,
   selectImporterSeat,
+  selectImporterUserStatus,
+  selectStoreHasAllower,
   selectOwnWarehouse,
   startImportRun,
   type CatalogImportRow,
@@ -30,7 +32,7 @@ import { selectRates } from '#db/scoped/rates'
 import { selectLanguages } from '#db/scoped/translations'
 import { importLimits, planImport, type ImportPlan, type ImportProblem, type ImportSource, type PlannedProduct, type PlanOptions, type PlanRefusal, type ProblemCode } from './importFile'
 import { applyInventory, readInventory, type InventoryRefusal } from './inventoryFile'
-import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
+import { isActiveSeat, isInvitedOwnerSeat, isMerchantRole, isNewStoreOwnerSeat, isSupplierRole, isSupplierTier, storeRoleHas, type SeatStatus } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import { collectionsRecomputeKind } from './structure'
 import { maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
@@ -570,18 +572,19 @@ export const problemsCsv = (file: string | null, plan: ImportPlan, all: readonly
 }
 
 /**
- * Whether the person who confirmed may still import here: an active member whose role (and, for a supplier, its
- * active company's tier) holds `catalog.import`. The run is checked each chunk, since a seat can change meanwhile.
+ * Whether the importer may still act as its seat (auth/storePermissions; ACCESS §8, §8.1) and it holds `catalog.import`.
+ * Checked each chunk, since a seat can change meanwhile; a supplier's seat by its membership, its user being unreadable there.
  */
-const mayStillImport = async (tx: ScopedSql, context: TenantContext): Promise<boolean> => {
+const mayStillImport = async (tx: ScopedSql, context: TenantContext, importerId: string): Promise<boolean> => {
   const c = context.caller
-  const userId = c.kind === 'person' || c.kind === 'impersonation' ? c.userId : null
-  if (!userId) return false
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
-  const seat = await selectImporterSeat(tx, context.storeId, userId, sellerId)
+  const seat = await selectImporterSeat(tx, context.storeId, importerId, sellerId)
   if (!seat) return false
-  if (sellerId === null) return isMerchantRole(seat.role_key) && storeRoleHas({ side: 'merchant', role: seat.role_key }, 'catalog.import')
-  return seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
+  if (sellerId !== null)
+    return seat.membership_status === 'active' && seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
+  const status: SeatStatus = { role: seat.role_key, membershipStatus: seat.membership_status, userStatus: (await selectImporterUserStatus(tx, importerId)) ?? '' }
+  const acts = isActiveSeat(status) || (c.kind === 'impersonation' ? isInvitedOwnerSeat(status) : c.kind === 'support' && isNewStoreOwnerSeat(status, await selectStoreHasAllower(tx, context.storeId)))
+  return acts && isMerchantRole(seat.role_key) && storeRoleHas({ side: 'merchant', role: seat.role_key }, 'catalog.import')
 }
 
 /** A chunk of the run (K6), from where the last one stopped: each product commits with its place in the file, so a retry never makes one twice. */
@@ -592,7 +595,7 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
   const plan = job?.plan as ImportPlan | null | undefined
   if (!job || job.state !== 'running' || !plan) return
   // Removed, suspended or moved to a tier without imports since confirming: the rest isn't imported, and it says so.
-  const allowed = await withScope(d.sql, d.context, (tx) => mayStillImport(tx, d.context))
+  const allowed = await withScope(d.sql, d.context, (tx) => mayStillImport(tx, d.context, job.requested_by_id))
   if (!allowed) {
     await withScope(d.sql, d.context, async (tx) => {
       await addImportProblems(tx, jobId, [{ line: 0, column: null, code: 'NOT_ALLOWED' }])
@@ -654,8 +657,8 @@ export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: 
   const { storeId } = d.context
   // Nothing fetched or stored for an import that ended, or an importer who can't import any more; the photo is reported.
   const before = await withScope(d.sql, d.context, async (tx) => {
-    const [job, allowed] = await Promise.all([selectCatalogImport(tx, storeId, jobId), mayStillImport(tx, d.context)])
-    return { job, allowed }
+    const job = await selectCatalogImport(tx, storeId, jobId)
+    return { job, allowed: job ? await mayStillImport(tx, d.context, job.requested_by_id) : false }
   })
   if (before.job?.state !== 'running') return
   if (!before.allowed) return skipImportPhoto(d, jobId, photo, 'NOT_ALLOWED')

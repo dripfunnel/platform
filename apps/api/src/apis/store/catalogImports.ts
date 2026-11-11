@@ -23,12 +23,6 @@ const refused = (reason: CatalogImportRefusal) => new GraphQLError(words[reason]
 
 const access = { api: 'store', scope: 'store-seller', permission: 'catalog.import', target: 'none' } as const
 
-/** An import runs as a person in the store, whose seat each chunk checks again; a support session never starts one (ACCESS §8). */
-const writer = (ctx: StoreContext) => {
-  if (actingCaller(ctx).context.caller.kind === 'support') throw new GraphQLError('A support session can’t import. Someone in the store imports from their own account.', { extensions: { code: 'FORBIDDEN' } })
-  return service(ctx)
-}
-
 const service = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const caller = actingCaller(ctx)
@@ -102,7 +96,7 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       resolve: async (_, { file, source, inventory, currency }, ctx) => {
         // With no source (the mobile app) either kind is read, so a Shopify file is gated as one whichever option sent it.
         await requireFeature(ctx, actingCaller(ctx), (source ?? (isShopifyFile(file) ? 'shopify' : 'csv')) === 'shopify' ? 'import_shopify' : 'import_spreadsheet')
-        const result = await writer(ctx).start(file, source ?? null, inventory ?? null, currency ?? null)
+        const result = await service(ctx).start(file, source ?? null, inventory ?? null, currency ?? null)
         if (!result.ok) throw refused(result.reason)
         return result.value
       },
@@ -111,7 +105,7 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       args: { id: t.arg.id({ required: true }), matching: t.arg({ type: Matching, required: true }), warehouseId: t.arg.id(), locations: t.arg({ type: [LocationInput] }) },
       extensions: { access: { ...access, audit: catalogImportAudit.confirmed } },
       resolve: async (_, { id, matching, warehouseId, locations }, ctx) => {
-        const result = await writer(ctx).confirm(
+        const result = await service(ctx).confirm(
           String(id),
           matching,
           warehouseId === null || warehouseId === undefined ? null : String(warehouseId),

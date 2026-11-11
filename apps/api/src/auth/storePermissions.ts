@@ -122,7 +122,7 @@ export interface SeatStatus {
 export const isInvitedOwnerSeat = (seat: SeatStatus): boolean =>
   seat.role === 'owner' && seat.membershipStatus === 'invited' && (seat.userStatus === 'active' || seat.userStatus === 'invited')
 
-const isActiveSeat = (seat: SeatStatus): boolean => seat.membershipStatus === 'active' && seat.userStatus === 'active'
+export const isActiveSeat = (seat: SeatStatus): boolean => seat.membershipStatus === 'active' && seat.userStatus === 'active'
 
 /** Whether staff may act as this seat: an active one, or an invited Owner's (ACCESS.md §8.1). */
 export const mayActAsSeat = (seat: SeatStatus): boolean => isActiveSeat(seat) || isInvitedOwnerSeat(seat)

@@ -1,4 +1,5 @@
 import { pgArray, type ScopedSql } from './index'
+import { storeHasAllower } from './supportSessions'
 
 // The store's catalogue imports as jobs (migrations/0059; FIRST-RELEASE §13): uploaded, checked, confirmed, run a
 // chunk at a time in the importer's own scope. Row security keeps a supplier to its own imports.
@@ -194,16 +195,26 @@ export const addImportProblems = async (tx: ScopedSql, id: string, problems: unk
   await tx`update catalog_import set problems = problems || ${JSON.stringify(problems)}::text::jsonb where id = ${id} and state = 'running'`
 }
 
-/** The importer's seat in the store now: its role, and for a supplier its tier and whether the company is active. */
-export const selectImporterSeat = async (
-  tx: ScopedSql,
-  storeId: string,
-  userId: string,
-  sellerId: string | null,
-): Promise<{ role_key: string; access_level: string | null; seller_status: string | null } | null> =>
+export interface ImporterSeatRow {
+  role_key: string
+  membership_status: string
+  access_level: string | null
+  seller_status: string | null
+}
+
+/** The importer's seat in the store now, whatever its status: its role, and for a supplier its tier and whether the company is active. */
+export const selectImporterSeat = async (tx: ScopedSql, storeId: string, userId: string, sellerId: string | null): Promise<ImporterSeatRow | null> =>
   (
-    await tx<{ role_key: string; access_level: string | null; seller_status: string | null }[]>`
-      select m.role_key, s.access_level, s.status as seller_status from membership m left join seller s on s.id = m.seller_id
-      where m.user_id = ${userId} and m.store_id = ${storeId} and m.seller_id is not distinct from ${sellerId} and m.status = 'active'
+    await tx<ImporterSeatRow[]>`
+      select m.role_key, m.status as membership_status, s.access_level, s.status as seller_status from membership m left join seller s on s.id = m.seller_id
+      where m.user_id = ${userId} and m.store_id = ${storeId} and m.seller_id is not distinct from ${sellerId}
     `
   )[0] ?? null
+
+/** Whether the store has an active Owner or Manager, so support may no longer act as its invited Owner (ACCESS §8). */
+export const selectStoreHasAllower = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
+  (await tx<{ has: boolean }[]>`select ${storeHasAllower(tx)} as has from store s where s.id = ${storeId}`)[0]?.has ?? false
+
+/** The importer's account status, on the merchant side only: a supplier's role can't read `"user"`. */
+export const selectImporterUserStatus = async (tx: ScopedSql, userId: string): Promise<string | null> =>
+  (await tx<{ status: string }[]>`select status from "user" where id = ${userId}`)[0]?.status ?? null

@@ -221,7 +221,7 @@ describe('the blocked lists', () => {
       .map((field) => field.name)
       .sort()
   }
-  const support = ['endSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
+  const support = ['endSupportSession', 'extendSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
   // Payment and payout details stay with the partner (ACCESS §8.1, §8.2; #201).
   const moneyDetails = ['paymentMethod', 'payoutAccount', 'setPaymentMethod', 'setPayoutAccount']
   // An AI key is set by the partner, or by staff in a setup session (#275), never while acting as a partner user.
