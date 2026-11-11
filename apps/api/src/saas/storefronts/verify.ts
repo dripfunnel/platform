@@ -48,8 +48,8 @@ const types: Record<string, string> = {
 
 const contentTypeOf = (path: string) => types[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream'
 
-/** The hashed JS and CSS the asset host serves (LIVE-SHOP §2); everything stays in the private folder too. */
-export const isPublicAsset = (path: string) => /\.(js|css)$/.test(path)
+/** The hashed JS, CSS and theme images the asset host serves (LIVE-SHOP §2, #1405); everything stays in the private folder too. */
+export const isPublicAsset = (path: string) => /\.(js|css)$/.test(path) || /^assets\/media-[0-9a-f]{16}\.(png|jpg|webp)$/.test(path)
 
 export const copyObject = async (to: SitesBucket, key: string, bytes: ArrayBuffer, sha256: string, path: string) => {
   // R2 refuses bytes whose SHA-256 isn't the one given, a second check on the write itself.

@@ -125,7 +125,7 @@ const decode = (base64: string): ArrayBuffer => {
   return bytes.buffer
 }
 
-const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' }
+const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
 
 /** One ask of the model and what the gate said; `result` is null when the sandbox failed before it could say. */
 type Attempt = { proposal: Proposal; ms: number; result: ChangeResult | null }

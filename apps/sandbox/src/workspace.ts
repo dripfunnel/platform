@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize } from 'node:path'
-import { applyCodemods, baselineWithOwn, changesBetween, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
+import { applyCodemods, baselineWithOwn, changesBetween, mediaFolder, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder, type ClientBundle } from './gate/bundle'
-import { WarmGate, type GateProblem, type Lane } from './gate/index'
+import { WarmGate, type GateProblem, type Lane, type ThemeImages } from './gate/index'
+import { imageThemeFiles } from './gate/media'
 import { laneOf } from './gate/lanes'
 import { gitIn, type Git } from './git'
 import { isRepoPath, isThemePath } from './paths'
@@ -50,6 +51,12 @@ const withChange = (theme: ReadonlyMap<string, string>, files: readonly FileChan
 
 const scripts = (b: ClientBundle) => b.files.filter((f) => f.path.endsWith('.js')).map((f) => f.path).sort().join('\n')
 
+// A theme's own images come only from a person's push (#1405); the studio picks from Assets instead.
+const studioImageProblems = (files: readonly FileChange[]): GateProblem[] =>
+  files
+    .filter((f) => f.path.startsWith(mediaFolder))
+    .map((f) => ({ step: 'validator', file: f.path, line: null, rule: 'studio/media-not-allowed', message: "The studio can't add, change or remove the theme's own images in src/theme/media/; use an image from Assets." }))
+
 /** One store's working copy and its current client bundle; the server keeps one per slot. */
 export class Workspace {
   private readonly repo: string
@@ -58,6 +65,8 @@ export class Workspace {
   private current: ClientBundle | null = null
   private loaded = false
   private gate: WarmGate
+  // The theme's own images by the git tree that holds them: a studio change never touches them, so each is read once.
+  private images: ThemeImages | null = null
 
   constructor(private readonly dir: string) {
     this.repo = join(dir, 'repo')
@@ -112,12 +121,21 @@ export class Workspace {
     return new Map(await Promise.all(paths.map(async (p) => [p, await this.git(['show', `${commit}:${p}`])] as const)))
   }
 
+  /** The head's own images, read again only when the git tree holding them changes. */
+  private async headImages(): Promise<ThemeImages> {
+    const tree = await this.git(['rev-parse', `HEAD:${mediaFolder.slice(0, -1)}`]).then((t) => t.trim(), () => '')
+    if (this.images?.tree !== tree) this.images = { tree, files: tree ? await imageThemeFiles(this.repo) : [] }
+    return this.images
+  }
+
   /** The validator, then the typecheck unless the lane skips it, on the theme with `files`; nothing is written. */
   async precheck(files: readonly FileChange[], context: GuardContext): Promise<Prechecked> {
     const before = await this.theme()
     const theme = withChange(before, files)
     const lane = laneOf(before, files)
-    const problems = await this.gate.validate(theme, context)
+    const touched = studioImageProblems(files)
+    if (touched.length > 0) return { lane, problems: touched }
+    const problems = await this.gate.validate(theme, context, await this.headImages())
     return { lane, problems: lane === 'full' ? [...problems, ...this.gate.typecheck(theme).problems] : problems }
   }
 
@@ -128,11 +146,13 @@ export class Workspace {
 
   /** Applies a change and runs the fast gate; on a pass it is a local commit, on a failure nothing changed at all. */
   async change(files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> {
+    const touched = studioImageProblems(files)
+    if (touched.length > 0) return { ok: false, problems: touched }
     const before = await this.theme()
     const theme = withChange(before, files)
     // The sandbox chooses the lane from the diff, never the model (ARCHITECTURE §6.2).
     const lane = laneOf(before, files)
-    const refused = await this.gate.validate(theme, context)
+    const refused = await this.gate.validate(theme, context, await this.headImages())
     if (refused.length > 0) return { ok: false, problems: refused }
     // The validator accepted every path, so each is one of §3.4's; checked again before it touches the disk.
     if (!files.every((f) => isThemePath(f.path))) throw new Error('A validated path is outside the theme.')
@@ -222,7 +242,7 @@ export class Workspace {
       const next = join(this.client, 'next')
       try {
         const theme = await this.theme()
-        const refused = await this.gate.validate(theme, context)
+        const refused = await this.gate.validate(theme, context, await this.headImages())
         const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full')
         if (!gated.ok) {
           await this.git(['reset', '--quiet', '--hard', before])

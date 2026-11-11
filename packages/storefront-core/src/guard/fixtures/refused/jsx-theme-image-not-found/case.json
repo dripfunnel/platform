@@ -1,0 +1,5 @@
+{
+  "rule": "jsx/theme-image-not-found",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 5
+}

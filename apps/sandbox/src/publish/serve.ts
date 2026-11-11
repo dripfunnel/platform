@@ -9,7 +9,10 @@ import type { CatalogueSnapshot } from '@dripfunnel/storefront-core/guard'
 // What the check step serves to its own headless browser, on 127.0.0.1 only: a built folder as the edge Worker would
 // (LIVE-SHOP §5), and core's offline Shop API fixture in place of the real one (LIVE-SHOP §4 step 7).
 
-const types: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json', xml: 'application/xml', txt: 'text/plain; charset=utf-8' }
+const types: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json', xml: 'application/xml', txt: 'text/plain; charset=utf-8', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
+
+/** A built file's type, as the edge Worker and the asset host serve it. */
+export const typeOf = (rel: string) => types[rel.split('.').at(-1) ?? ''] ?? 'application/octet-stream'
 
 /** A path inside one of `roots`: `/cart/` is `cart/index.html`; nothing climbs out. */
 export const fileFor = async (roots: readonly string[], path: string): Promise<{ rel: string; bytes: Buffer } | null> => {
@@ -36,7 +39,7 @@ export const serveFolders = async (roots: readonly string[], csp: (rel: string) 
     void (async () => {
       const found = await fileFor(roots, new URL(req.url ?? '/', 'http://127.0.0.1').pathname)
       if (!found) return res.writeHead(404).end()
-      const type = types[found.rel.split('.').at(-1) ?? ''] ?? 'application/octet-stream'
+      const type = typeOf(found.rel)
       const policy = found.rel.endsWith('.html') ? csp(found.rel) : null
       res.writeHead(200, { 'content-type': type, ...(policy ? { 'content-security-policy': policy } : {}) }).end(found.bytes)
     })().catch(() => res.writeHead(500).end())

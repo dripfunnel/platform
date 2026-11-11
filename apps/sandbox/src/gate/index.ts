@@ -14,6 +14,10 @@ export type GateResult = { ok: true; bundle: ClientBundle; weight: Weight } | { 
 
 const filesOf = (theme: ReadonlyMap<string, string>): ThemeFile[] => [...theme].map(([path, content]) => ({ path, content }))
 
+/** The head's src/theme/media/ as the validator takes it, with the git tree id that names those exact files. */
+export type ThemeImages = { tree: string; files: readonly ThemeFile[] }
+const noImages: ThemeImages = { tree: '', files: [] }
+
 /** The validator first, on the files alone: nothing reaches the disk before every path and line passed it. */
 export const validate = async (files: readonly ThemeFile[], context: GuardContext): Promise<GateProblem[]> =>
   (await validateTheme(files, context)).problems.map((p) => ({ step: 'validator', ...p }))
@@ -52,12 +56,15 @@ export class WarmGate {
     return this.bundler.contexts
   }
 
-  /** The validator, run again only when a byte of the theme or the store's context differs from its last answer's. */
-  async validate(theme: ReadonlyMap<string, string>, context: GuardContext): Promise<GateProblem[]> {
+  /**
+   * The validator, run again only when a byte of the theme or the store's context differs from its last answer's. The
+   * theme's own images (#1405) count by the git tree that holds them, not their bytes.
+   */
+  async validate(theme: ReadonlyMap<string, string>, context: GuardContext, images: ThemeImages = noImages): Promise<GateProblem[]> {
     const files = filesOf(theme)
-    const key = createHash('sha256').update(JSON.stringify([files, context])).digest('hex')
+    const key = createHash('sha256').update(JSON.stringify([files, context, images.tree])).digest('hex')
     if (this.validated?.key === key) return this.validated.problems
-    const problems = await validate(files, context)
+    const problems = await validate([...files, ...images.files], context)
     this.validated = { key, problems }
     return problems
   }

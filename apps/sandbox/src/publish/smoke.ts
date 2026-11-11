@@ -2,7 +2,7 @@ import type { Browser, Page } from 'playwright-core'
 import { consentStorageKey } from '@dripfunnel/storefront-core'
 import { gateWidths, smokeProductSlug, smokeShop, smokeShopper, type CatalogueSnapshot, type SmokeRun } from '@dripfunnel/storefront-core/guard'
 import { headersOf } from './check'
-import { fileFor, serveFolders, type Served } from './serve'
+import { fileFor, serveFolders, typeOf, type Served } from './serve'
 
 // The checkout smoke test (ARCHITECTURE §4.2, LIVE-SHOP §4 step 7): at one width, a shopper buys core's test product from
 // its page through the cart and checkout to the order's page, against core's offline Shop API. Any theme's checkout is
@@ -74,7 +74,7 @@ const smokeCheckout = async (browser: Browser, served: Served, s: CatalogueSnaps
     const base = s.assetBase ? new URL(s.assetBase) : null
     if (base && url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
       const found = await fileFor([roots.assets], url.pathname.slice(base.pathname.length))
-      return found ? route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' }) : route.fulfill({ status: 404 })
+      return found ? route.fulfill({ status: 200, body: found.bytes, contentType: typeOf(found.rel) }) : route.fulfill({ status: 404 })
     }
     return route.abort('blockedbyclient')
   })
