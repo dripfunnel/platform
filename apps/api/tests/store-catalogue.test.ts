@@ -496,8 +496,8 @@ describe('photos, video and files', () => {
   })
 
   // A product's one video (#1401): `?kind=product-video` takes an MP4 or WebM of at most 4 MB and 30 seconds, read from the file.
-  const uploadProductVideo = async (body: Uint8Array<ArrayBuffer>) => {
-    const response = await handleAssets(new Request('https://store.example/api/assets?kind=product-video', { method: 'POST', body, headers: { 'content-length': String(body.byteLength) } }), await contextFor('owner', t.storeA1), r2)
+  const uploadProductVideo = async (body: Uint8Array<ArrayBuffer>, who: Who = 'owner') => {
+    const response = await handleAssets(new Request('https://store.example/api/assets?kind=product-video', { method: 'POST', body, headers: { 'content-length': String(body.byteLength) } }), await contextFor(who, t.storeA1), r2)
     return { status: response.status, ...((await response.json()) as { ok: boolean; code?: string; asset?: { id: string; kind: string; mime: string; bytes: number } }) }
   }
   const assetCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${t.storeA1}`)[0]?.n ?? 0
@@ -550,6 +550,37 @@ describe('photos, video and files', () => {
     } finally {
       await videoSwitch(true)
     }
+  })
+
+  it('takes a product video from a supplier only in its own scope, and from no one without catalogue write or on a read-only store', async () => {
+    await videoSwitch(true)
+    const before = await assetCount()
+    const mine = await uploadProductVideo(mp4Of(5), 'supplier')
+    expect(mine).toMatchObject({ status: 200, ok: true })
+    expect((await db.sql<{ seller_id: string | null }[]>`select seller_id from asset where id = ${mine.asset?.id ?? ''}`)[0]?.seller_id).toBe(t.sellerA1First)
+    expect(await fetchAsset('otherSupplier', mine.asset?.id ?? '')).toBe(404)
+    await videoSwitch(false)
+    expect(await uploadProductVideo(mp4Of(5), 'supplier')).toMatchObject({ status: 403, code: 'FEATURE_UNAVAILABLE' })
+    await videoSwitch(true)
+    const stored = await assetCount()
+    expect(stored).toBe(before + 1)
+    const [store] = await db.sql<{ status: string }[]>`select status from store where id = ${t.storeA1}`
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      expect(await uploadProductVideo(mp4Of(5))).toMatchObject({ status: 403, code: 'READ_ONLY' })
+      expect(await uploadProductVideo(mp4Of(5), 'supplier')).toMatchObject({ status: 403, code: 'READ_ONLY' })
+    } finally {
+      await db.sql`update store set status = ${store?.status ?? 'active'} where id = ${t.storeA1}`
+    }
+    expect(await uploadProductVideo(mp4Of(5), 'bOwner')).toMatchObject({ status: 403 })
+    expect(await assetCount()).toBe(stored)
+  })
+
+  it('refuses a product video from a role without catalogue write', async () => {
+    await videoSwitch(true)
+    const before = await assetCount()
+    expect(await uploadProductVideo(mp4Of(5), 'staff')).toMatchObject({ status: 403, ok: false, code: 'FORBIDDEN' })
+    expect(await assetCount()).toBe(before)
   })
 
   it('refuses a product video longer than 30 seconds, bigger than 4 MB or with no readable length, and stores none of them', async () => {
