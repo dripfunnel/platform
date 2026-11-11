@@ -14,5 +14,8 @@ export const isThemePath = (path: string): boolean => themePaths.some((p) => p.t
 
 export const isThemeCode = (path: string): boolean => path.startsWith('src/theme/') && path.endsWith('.tsx')
 
+// A plain name, or a Next.js dynamic segment such as the template's theme-media/[name] (#1420).
+const repoSegment = /^(?:[A-Za-z0-9_.-]{1,100}|\[(?:\.\.\.)?[A-Za-z0-9_-]{1,64}\]|\[\[\.\.\.[A-Za-z0-9_-]{1,64}\]\])$/
+
 /** Plain relative names, so no `..`, absolute or empty segment reaches outside the repo. */
-export const isRepoPath = (path: string): boolean => path.length <= 512 && path.split('/').every((s) => /^[A-Za-z0-9_.-]{1,100}$/.test(s) && s !== '.' && s !== '..')
+export const isRepoPath = (path: string): boolean => path.length <= 512 && path.split('/').every((s) => repoSegment.test(s) && s !== '.' && s !== '..')
