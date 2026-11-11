@@ -619,17 +619,26 @@ export interface NewAsset {
   height: number | null
   checksum: string
   createdBy: string | null
+  /** Only the system names a file as it creates it; a rider's role may not write the column. */
+  name?: string
 }
 
 export const insertAsset = async (tx: ScopedSql, a: NewAsset): Promise<string> => {
   const [made] = await tx<{ id: string }[]>`
-    insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, width, height, checksum, created_by)
-    values (${a.storeId}, ${a.sellerId}, ${a.key}, ${a.kind}, ${a.mime}, ${a.bytes}, ${a.width}, ${a.height}, ${a.checksum}, ${a.createdBy})
+    insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, width, height, checksum, created_by${a.name === undefined ? tx`` : tx`, name`})
+    values (${a.storeId}, ${a.sellerId}, ${a.key}, ${a.kind}, ${a.mime}, ${a.bytes}, ${a.width}, ${a.height}, ${a.checksum}, ${a.createdBy}${a.name === undefined ? tx`` : tx`, ${a.name}`})
     returning id
   `
   if (!made) throw new Error('catalogue: asset insert returned nothing')
   return made.id
 }
+
+/** Whether Storefront › Assets already holds a file with these bytes (the library's own files, as `selectLibrary` lists them). */
+export const hasLibraryChecksum = async (tx: ScopedSql, storeId: string, checksum: string): Promise<boolean> =>
+  (
+    await tx`select 1 from asset a where a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video') and a.checksum = ${checksum}
+      and not exists (select 1 from rider r where r.photo_asset_id = a.id) limit 1`
+  ).length > 0
 
 /** A file the caller's scope can read: its R2 key and type, or null. */
 export const selectAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; mime: string; bytes: number } | null> =>

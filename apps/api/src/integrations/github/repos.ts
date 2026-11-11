@@ -31,6 +31,8 @@ export interface StoreRepos {
   paths: (name: string, tree: string) => Promise<string[]>
   /** The text of the theme's files at `commit` (the only files a design reads a merchant's image from, AI-STUDIO §8). */
   themeText: (name: string, commit: string) => Promise<string>
+  /** The images in `src/theme/media/` at `commit` (ARCHITECTURE §3.4 "Images"), named without their extension, within its caps. */
+  themeMedia: (name: string, commit: string) => Promise<ThemeImageFile[]>
   /** A tree from `base` (or empty) with the changes applied. */
   writeTree: (name: string, base: string | null, changes: readonly RepoChange[]) => Promise<string>
   commit: (name: string, commit: NewCommit) => Promise<string>
@@ -44,14 +46,23 @@ export interface StoreRepos {
   lockedTree: (name: string, commit: string) => Promise<string | null>
 }
 
+export interface ThemeImageFile {
+  name: string
+  bytes: Uint8Array<ArrayBuffer>
+}
+
 /** The store repo's one workflow (LIVE-SHOP §3). */
 export const buildWorkflow = 'build.yml'
+
+// A copy of core's guard (`mediaPath`, `maxMedia*`), which can't be bundled into the Worker (saas/storefronts/paths.ts).
+const mediaPath = /^src\/theme\/media\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\.(?:png|jpg|jpeg|webp)$/
+const mediaCaps = { files: 100, bytes: 2 * 1024 * 1024, totalBytes: 20 * 1024 * 1024 }
 
 const sha = z.string().regex(/^[0-9a-f]{40}$/)
 const repoSchema = z.object({ id: z.number() }).loose()
 const refSchema = z.object({ object: z.object({ sha }).loose() }).loose()
 const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
-const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string(), sha: sha.optional() }).loose()) }).loose()
+const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string(), sha: sha.optional(), size: z.number().optional() }).loose()) }).loose()
 const blobSchema = z.object({ content: z.string() }).loose()
 const created = z.object({ sha }).loose()
 const compareSchema = z.object({ status: z.string() }).loose()
@@ -73,6 +84,16 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
     const answer = await call('GET', repo(name), undefined, [404])
     return answer.status === 404 ? null : { id: read(repoSchema, answer.body).id }
   }
+
+  const filesAt = async (name: string, commit: string): Promise<{ path: string; sha: string; size?: number | undefined }[]> => {
+    const tree = read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha
+    const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
+    if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
+    return listed.tree.flatMap((e) => (e.type === 'blob' && e.sha ? [{ path: e.path, sha: e.sha, size: e.size }] : []))
+  }
+
+  const blob = async (name: string, sha: string): Promise<Uint8Array<ArrayBuffer>> =>
+    Uint8Array.from(atob(read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${sha}`)).body).content.replaceAll('\n', '')), (c) => c.charCodeAt(0))
 
   return {
     find,
@@ -110,12 +131,23 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       return listed.tree.filter((entry) => entry.type === 'blob').map((entry) => entry.path)
     },
     themeText: async (name, commit) => {
-      const tree = read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha
-      const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
-      if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
-      const theme = listed.tree.filter((e) => e.type === 'blob' && e.sha && (e.path.startsWith('src/theme/') || e.path.startsWith('content/') || e.path === 'routes.json'))
-      const texts = await Promise.all(theme.map(async (e) => new TextDecoder().decode(Uint8Array.from(atob(read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${e.sha}`)).body).content.replaceAll('\n', '')), (c) => c.charCodeAt(0)))))
+      const theme = (await filesAt(name, commit)).filter((e) => e.path.startsWith('src/theme/') || e.path.startsWith('content/') || e.path === 'routes.json')
+      const texts = await Promise.all(theme.map(async (e) => new TextDecoder().decode(await blob(name, e.sha))))
       return texts.join('\n')
+    },
+    themeMedia: async (name, commit) => {
+      const images: ThemeImageFile[] = []
+      let total = 0
+      for (const e of await filesAt(name, commit)) {
+        const image = mediaPath.exec(e.path)?.[1]
+        if (!image || (e.size ?? 0) > mediaCaps.bytes) continue
+        const bytes = await blob(name, e.sha)
+        if (bytes.byteLength > mediaCaps.bytes || total + bytes.byteLength > mediaCaps.totalBytes) continue
+        total += bytes.byteLength
+        images.push({ name: image, bytes })
+        if (images.length === mediaCaps.files) break
+      }
+      return images
     },
     writeTree: async (name, base, changes) => {
       const tree = changes.map((c) => (c.content === null ? { path: c.path, mode: '100644', type: 'blob', sha: null } : { path: c.path, mode: '100644', type: 'blob', content: c.content }))

@@ -53,7 +53,7 @@ import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, textLimits, type ProductInput } from './rules'
 export { maxChoices, maxQuestions, type QuestionInput, type QuestionRefusal } from './questions'
-export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
+export { assetsAudit, copyRepoImage, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { maxSizeCharts } from '#db/scoped/catalogListing'
