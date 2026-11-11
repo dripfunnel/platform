@@ -32,6 +32,5 @@ them at the end.
 3. `git add` the image with the code that uses it, run `pnpm check`, and push.
 
 `src` is the file's name, written out; `pnpm check` refuses a name with no file in `src/theme/media/`, and a file whose
-bytes aren't the image type its name says. `pnpm dev` shows a `ThemeImage`; a CSS background image shows once the site is
-built (the preview or the live site). A picture the merchant
-uploaded in Storefront › Assets is shown with `MerchantImage` and its asset id instead.
+bytes aren't the image type its name says. `pnpm dev` shows both a `ThemeImage` and a CSS background image. A picture
+the merchant uploaded in Storefront › Assets is shown with `MerchantImage` and its asset id instead.
