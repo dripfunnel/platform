@@ -360,7 +360,7 @@ export type CartPage = {
   /** A gift card's number pays part of the cart: null once it does, else the refusal's code (GIFT_CARD_INVALID, RATE_LIMITED, NOT_IN_PREVIEW, …). */
   applyGiftCard: (number: string) => Promise<string | null>
   removeGiftCard: () => Promise<boolean>
-  /** Adds the version to the cart, then opens checkout. */
+  /** Opens checkout with the version in the cart: adds it, unless the cart already holds it (not a gift card), which keeps its quantity. */
   buyNow: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
   /** Adds the version with the shopper's answers (the customisation modal, #1372): null once added, else the refusal's code. */
   addWithAnswers: (versionId: string, quantity: number, answers: readonly Answer[], gift?: GiftRecipient) => Promise<string | null>
@@ -390,9 +390,10 @@ export const useCart = (): CartPage => {
     removeCode: async (code) => (await store.change(removeCodeMutation, { code }, changeSchema)) !== null,
     applyGiftCard: async (number) => ((await store.change(giftCardMutation, { number: number.replace(/\s+/g, '') }, changeSchema)) !== null ? null : (store.get().error ?? 'UNKNOWN')),
     removeGiftCard: async () => (await store.change(removeGiftCardMutation, {}, changeSchema)) !== null,
-    // The active order is the only cart (ARCHITECTURE §2.1), so buying now is adding to it and going straight to checkout.
+    // The active order is the only cart (ARCHITECTURE §2.1, §3.2), so buying now is going straight to checkout with the version in it (#1359).
     buyNow: async (versionId, quantity = 1, gift) => {
-      const added = await add(versionId, quantity, gift)
+      const held = !gift && cart?.lines.some((l) => l.versionId === versionId && !l.gift)
+      const added = held || (await add(versionId, quantity, gift))
       if (added) navigate('/checkout/')
       return added
     },
