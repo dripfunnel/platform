@@ -454,6 +454,7 @@
       "NOTHING_TO_PUBLISH": "There are no changes to publish.",
       "CHANGE_REFUSED": "We couldn’t bring in the changes made to your site’s code since this draft started. Nothing was published.",
       "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+      "PUSH_GOING_LIVE": "A change pushed to your site’s code is still going live. Publish again once it’s live.",
       "ALREADY_LIVE": "That version is already live.",
       "BUILD_GONE": "That version can’t be restored any more.",
       "SECURITY_RELEASE": "That version predates a security fix to your storefront, so it can’t be restored.",

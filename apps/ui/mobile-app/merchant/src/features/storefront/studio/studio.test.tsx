@@ -641,6 +641,7 @@ describe('Publish', () => {
 
   it.each([
     ['PUBLISH_RUNNING', 'Wait for the publish in progress to finish.'],
+    ['PUSH_GOING_LIVE', 'A change pushed to your site’s code is still going live. Publish again once it’s live.'],
     ['NOTHING_TO_PUBLISH', 'There are no changes to publish.'],
     ['READ_ONLY', 'Your store is view-only until the payment goes through.'],
     ['FORBIDDEN', 'Only the store owner can change the storefront.'],
