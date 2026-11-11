@@ -11,6 +11,8 @@ const config: NextConfig = {
   // Core's routeAddresses end every route with a slash.
   trailingSlash: true,
   images: { unoptimized: true },
+  // `*.dev.ts` files exist only under next dev: the theme's images' route (src/app/theme-media, #1405).
+  pageExtensions: dev ? ['dev.ts', 'tsx', 'ts', 'jsx', 'js'] : ['tsx', 'ts', 'jsx', 'js'],
   ...(dev &&
     shopApiProxy && {
       async rewrites() {

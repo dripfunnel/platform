@@ -45,7 +45,7 @@ const frameOrigins = (req: IncomingMessage): { mediaOrigin: string; portalOrigin
   return typeof media === 'string' && typeof portal === 'string' ? { mediaOrigin: media, portalOrigin: portal } : null
 }
 
-const types: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json' }
+const types: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
 
 class HttpError extends Error {
   constructor(

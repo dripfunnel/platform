@@ -118,6 +118,8 @@ describe('the sandbox server', () => {
   it.each([
     ['the validator', 'validator', 'code/browser-global', [{ path: 'src/theme/pages/HomePage.tsx', content: "export const HomePage = () => { fetch('/x'); return null }\n" }]],
     ['the validator, for a path outside the theme', 'validator', 'files/path-not-allowed', [{ path: '.github/workflows/build.yml', content: 'on: push\n' }]],
+    ['the studio, for a theme image (#1405)', 'validator', 'studio/media-not-allowed', [{ path: 'src/theme/media/hero.webp', content: 'UklGRg==' }, { path: 'src/theme/components/Photo.tsx', content: 'export const Photo = () => null\n' }]],
+    ['the studio, for removing a theme image (#1405)', 'validator', 'studio/media-not-allowed', [{ path: 'src/theme/media/hero.webp', content: null }]],
     ['the typecheck', 'typecheck', 'ts/2339', [{ path: 'src/theme/pages/HomePage.tsx', content: "import { useStorefront } from '@dripfunnel/storefront-core/theme'\n\nexport const HomePage = () => {\n  const { nothing } = useStorefront()\n  return <div>{nothing}</div>\n}\n" }]],
     ['the bundle', 'bundle', 'bundle/error', [{ path: 'src/theme/pages/NotFoundPage.tsx', content: "import { useStorefront } from '@dripfunnel/storefront-core/theme'\n\nexport const Missing = () => {\n  const { t } = useStorefront()\n  return <h1>{t('pages.notFound.title')}</h1>\n}\n" }]],
   ])('refuses a change %s fails, leaving the draft and its files as they were', async (_name, step, rule, files) => {

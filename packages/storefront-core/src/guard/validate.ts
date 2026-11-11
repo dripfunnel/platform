@@ -14,8 +14,8 @@ const validate = (files: readonly ThemeFile[], context: GuardContext, storeData:
   const store = guardContextSchema.parse(context)
   const checked = checkFiles(input, store)
   const code = new Map([...checked.files].filter(([path]) => codePath.test(path)))
-  const { problems: codeProblems, keys } = checkCode(code, new Set(checked.files.keys()), store, storeData, classes, checked.files)
-  const css = [...checked.files].filter(([path]) => cssPath.test(path)).flatMap(([path, text]) => checkCss(path, text, store, storeData))
+  const { problems: codeProblems, keys } = checkCode(code, new Set(checked.files.keys()), store, storeData, classes, checked.files, checked.media)
+  const css = [...checked.files].filter(([path]) => cssPath.test(path)).flatMap(([path, text]) => checkCss(path, text, store, storeData, false, checked.media))
   const problems = [...checked.problems, ...codeProblems, ...css, ...checkContent(checked.files, keys, store, storeData), ...checkRoutes(checked.files, store, storeData)].sort(byPlace)
   return { ok: problems.length === 0, problems, files: checked.files, store }
 }

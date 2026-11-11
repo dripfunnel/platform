@@ -90,6 +90,8 @@ type Walk = {
   holds: Map<ts.Type, boolean>
   /** The file's clsx names when the class rules judge what reaches a class (ARCHITECTURE §3.4 "Classes"); null otherwise. */
   classes: ReadonlySet<string> | null
+  /** The names of the theme's own images that passed the file rules (#1405). */
+  images: ReadonlySet<string>
   report: (node: ts.Node, rule: RuleId, message: string) => void
 }
 
@@ -523,13 +525,13 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
   else if (ts.isCallExpression(node)) checkCall(w, node)
   else if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node) || ts.isJsxText(node)) checkText(w, node)
   if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node) || ts.isJsxFragment(node)) {
-    for (const found of jsxProblems(w.checker, node)) w.report(found.node, found.rule, found.message)
+    for (const found of jsxProblems(w.checker, node, w.images)) w.report(found.node, found.rule, found.message)
   }
   ts.forEachChild(node, (child) => visit(w, child, files))
 }
 
 /** The code rules of ARCHITECTURE §3.4 over every .tsx file, and the content keys the theme's t() calls ask for. */
-export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false, styles: ReadonlyMap<string, string> = new Map()): { problems: Problem[]; keys: KeyUse[] } => {
+export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false, styles: ReadonlyMap<string, string> = new Map(), images: ReadonlySet<string> = new Set()): { problems: Problem[]; keys: KeyUse[] } => {
   const problems: Problem[] = []
   const keys: KeyUse[] = []
   if (code.size === 0) return { problems, keys }
@@ -550,7 +552,7 @@ export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<
     if (sf.referencedFiles.length + sf.typeReferenceDirectives.length + sf.libReferenceDirectives.length > 0) {
       problems.push(problem(file, 1, 'code/declaration-not-allowed', 'A theme may not use /// <reference> directives; it gets its types from its imports.'))
     }
-    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, classes: classes ? clsxNames(sf) : null, report }
+    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, classes: classes ? clsxNames(sf) : null, images, report }
     try {
       checkDirectives(w, sf)
       for (const statement of sf.statements) visit(w, statement, files)

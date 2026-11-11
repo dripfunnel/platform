@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { isThemePath } from './files.js'
+import { isThemePath, mediaFolder } from './files.js'
 import { localePattern, type GuardResult, type ThemeFile } from './rules.js'
 import { storeDataChecks, validateLocally } from './validate.js'
 
@@ -36,7 +36,10 @@ const unstaged = (root: string) =>
 const themeFilesIn = (root: string): ThemeFile[] =>
   tracked(root)
     .filter(({ path }) => isThemePath(path) && existsSync(join(root, path)))
-    .map(({ path, link }) => (link ? { path, content: '', symlink: true } : { path, content: readFileSync(join(root, path), 'utf8') }))
+    .map(({ path, link }): ThemeFile => {
+      if (link) return { path, content: '', symlink: true }
+      return path.startsWith(mediaFolder) ? { path, content: readFileSync(join(root, path), 'base64'), encoding: 'base64' } : { path, content: readFileSync(join(root, path), 'utf8') }
+    })
 
 const localesIn = (root: string): string[] => {
   const content = join(root, 'content')

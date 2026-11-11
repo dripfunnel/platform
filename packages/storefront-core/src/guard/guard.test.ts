@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { maxFileBytes, maxFiles, maxThemeBytes, ruleIds, validateChange, validateTheme, type GuardContext, type Problem, type RuleId, type ThemeFile } from './index'
+import { base64, jpeg, png, webp } from '../../test/images'
+import { maxFileBytes, maxFiles, maxMediaBytes, maxMediaFiles, maxMediaTotalBytes, maxThemeBytes, ruleIds, validateChange, validateTheme, type GuardContext, type Problem, type RuleId, type ThemeFile } from './index'
 
 // The first case builds the TypeScript program with the DOM's types, which takes over 10 s on CI's runners.
 vi.setConfig({ testTimeout: 30_000 })
@@ -73,6 +74,15 @@ describe('validateTheme: the accepted corpus, honest code each rule must let thr
 
 const page = (path: string, content = 'export const X = () => null\n'): ThemeFile => ({ path, content })
 const padded = (path: string, bytes: number): ThemeFile => page(path, `//${'x'.repeat(bytes - 2)}`)
+const image = (name: string, bytes: Uint8Array = webp()): ThemeFile => ({ path: `src/theme/media/${name}`, content: base64(bytes), encoding: 'base64' })
+// A PNG of `bytes` bytes: its IDAT holds the padding, which the structural read never decodes. Built once per size.
+const sized = new Map<number, Uint8Array>()
+const pngOf = (bytes: number): Uint8Array => {
+  const built = sized.get(bytes) ?? png(4, 3, new Array<number>(bytes - png(4, 3, []).length).fill(0))
+  sized.set(bytes, built)
+  return built
+}
+const styled = (css: string): ThemeFile => page('src/theme/styles/Banner.module.css', css)
 
 /** Cases a file on disk can't hold: names the disk refuses, links, and sizes too big to keep in the repo. */
 const generated: [name: string, files: ThemeFile[], rule: RuleId, file: string | null][] = [
@@ -91,6 +101,21 @@ const generated: [name: string, files: ThemeFile[], rule: RuleId, file: string |
     'files/theme-too-large',
     null,
   ],
+  ['an image sent as text', [{ path: 'src/theme/media/hero.webp', content: 'RIFF' }], 'files/encoding', 'src/theme/media/hero.webp'],
+  ['a text file sent as base64', [{ ...page('src/theme/pages/Extra.tsx'), encoding: 'base64' }], 'files/encoding', 'src/theme/pages/Extra.tsx'],
+  ['an SVG in media/', [image('logo.svg')], 'files/media-type-not-allowed', 'src/theme/media/logo.svg'],
+  ['a video in media/', [image('intro.mp4')], 'files/media-type-not-allowed', 'src/theme/media/intro.mp4'],
+  ['an image in a media/ subfolder', [image('home/hero.webp')], 'files/media-type-not-allowed', 'src/theme/media/home/hero.webp'],
+  ['an image name with a space', [image('haldi home.webp')], 'files/media-name-not-allowed', 'src/theme/media/haldi home.webp'],
+  ['an image name with an upper-case extension', [image('hero.WEBP')], 'files/media-name-not-allowed', 'src/theme/media/hero.WEBP'],
+  ['a .png that is a JPEG', [image('hero.png', jpeg())], 'files/media-type-mismatch', 'src/theme/media/hero.png'],
+  ['a .webp that is text', [image('hero.webp', new TextEncoder().encode('<svg/>'))], 'files/media-type-mismatch', 'src/theme/media/hero.webp'],
+  ['an image cut short', [image('hero.png', png().subarray(0, 40))], 'files/media-unreadable', 'src/theme/media/hero.png'],
+  ['an image over 10,000 pixels wide', [image('hero.png', png(10_001, 1))], 'files/media-dimensions', 'src/theme/media/hero.png'],
+  ['an image over its cap', [image('hero.png', pngOf(maxMediaBytes + 1))], 'files/media-too-large', 'src/theme/media/hero.png'],
+  ['too many images', Array.from({ length: maxMediaFiles + 1 }, (_, i) => image(`i${i}.webp`)), 'files/too-many-media', null],
+  ['images over their total cap', Array.from({ length: maxMediaTotalBytes / maxMediaBytes + 1 }, (_, i) => image(`i${i}.png`, pngOf(maxMediaBytes))), 'files/media-total-too-large', null],
+  ['a CSS url() naming no image in media/', [styled('.banner { background-image: url(media/missing.webp); }\n')], 'css/media-not-found', 'src/theme/styles/Banner.module.css'],
 ]
 
 describe('validateChange: the file rules for what a fixture on disk cannot hold', () => {
@@ -103,6 +128,52 @@ describe('validateChange: the file rules for what a fixture on disk cannot hold'
   it('accepts a file exactly at its cap and a theme of exactly the most files', () => {
     const full = Array.from({ length: maxFiles - baseline.length - 1 }, (_, i) => page(`src/theme/components/C${i}.tsx`))
     expect(validateChange(changed([...full, padded('src/theme/components/Big.tsx', maxFileBytes)]), context).ok).toBe(true)
+  })
+})
+
+describe('validateChange: a theme\'s own images (#1405)', () => {
+  it('accepts PNG, JPEG and WebP images that CSS names as media/<name>', () => {
+    const css = styled('.banner { background-image: url(media/haldi-home.webp); }\n.logo { background: url(media/logo.png); }\n.hero { background: url(m_hero01); }\n')
+    const files = [image('haldi-home.webp'), image('logo.png', png()), image('photo.jpg', jpeg()), image('photo_2.jpeg', jpeg()), css]
+    expect(validateChange(changed(files), context)).toEqual({ ok: true, problems: [] })
+  })
+
+  it('accepts an image exactly at its cap, and the most images exactly at the total cap', () => {
+    expect(validateChange(changed([image('hero.png', pngOf(maxMediaBytes))]), context).ok).toBe(true)
+    const full = Array.from({ length: maxMediaTotalBytes / maxMediaBytes }, (_, i) => image(`i${i}.png`, pngOf(maxMediaBytes)))
+    expect(validateChange(changed(full), context).ok).toBe(true)
+    expect(validateChange(changed(Array.from({ length: maxMediaFiles }, (_, i) => image(`i${i}.webp`))), context).ok).toBe(true)
+  })
+
+  it('leaves the code caps to code: images count toward neither the file count nor the theme size', () => {
+    const code = Array.from({ length: maxFiles - baseline.length }, (_, i) => page(`src/theme/components/C${i}.tsx`))
+    expect(validateChange(changed([...code, image('hero.png', pngOf(maxMediaBytes))]), context).ok).toBe(true)
+  })
+
+  it('accepts <ThemeImage src> naming an image in media/, and a choice of two that are both there', () => {
+    const banner = page(
+      'src/theme/components/Banner.tsx',
+      "import { ThemeImage, useStorefront } from '@dripfunnel/storefront-core/theme'\n\nexport const Banner = ({ warm }: { warm: boolean }) => {\n  const { t } = useStorefront()\n  return (\n    <div>\n      <ThemeImage src=\"haldi-home.webp\" alt={t('pages.home.title')} ratio={1.5} />\n      <ThemeImage src={warm ? 'haldi-home.webp' : 'logo.png'} alt={t('pages.home.title')} ratio={1} />\n    </div>\n  )\n}\n",
+    )
+    expect(validateChange(changed([banner, image('haldi-home.webp'), image('logo.png', png())]), context)).toEqual({ ok: true, problems: [] })
+    expect(validateChange(changed([banner, image('haldi-home.webp')]), context).problems.map(at)).toEqual([{ file: 'src/theme/components/Banner.tsx', line: 8, rule: 'jsx/theme-image-not-found' }])
+  })
+
+  it('checks ThemeImage renamed on import or reached through a namespace, and leaves a theme’s own ThemeImage alone', () => {
+    const using = (name: string, head: string, tag: string) =>
+      page(`src/theme/components/${name}.tsx`, `${head}\n\nexport const ${name} = () => {\n  const { t } = core.useStorefront()\n  return <${tag} src="missing.webp" alt={t('pages.home.title')} ratio={1} />\n}\n`)
+    const renamed = using('Renamed', "import * as core from '@dripfunnel/storefront-core/theme'\nimport { ThemeImage as Picture } from '@dripfunnel/storefront-core/theme'", 'Picture')
+    const spaced = using('Spaced', "import * as core from '@dripfunnel/storefront-core/theme'", 'core.ThemeImage')
+    const own = using('Own', "import * as core from '@dripfunnel/storefront-core/theme'\n\nconst ThemeImage = (p: { src: 'missing.webp'; alt: string; ratio: number }) => <div title={p.alt} />", 'ThemeImage')
+    expect(validateChange(changed([renamed, spaced, own]), context).problems.map(at)).toEqual([
+      { file: 'src/theme/components/Renamed.tsx', line: 6, rule: 'jsx/theme-image-not-found' },
+      { file: 'src/theme/components/Spaced.tsx', line: 5, rule: 'jsx/theme-image-not-found' },
+    ])
+  })
+
+  it('folds an image name with another that differs only in case', () => {
+    const result = validateChange(changed([image('hero.webp'), image('Hero.webp')]), context)
+    expect(result.problems.map((p) => p.rule)).toEqual(['files/duplicate-path'])
   })
 })
 

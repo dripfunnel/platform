@@ -1,5 +1,5 @@
-// The paths a theme may write (storefront ARCHITECTURE §3.4 "Files"), as storefront-core's guard/files.ts has them. The
-// guard can't be bundled into the Worker (it carries the TypeScript compiler), so the push checks its own copy.
+// The paths the AI may write (storefront ARCHITECTURE §3.4 "Files"); core's guard also takes src/theme/media/ from a
+// person's push (#1405), which a publish leaves in place. The guard can't be bundled into the Worker, so this is a copy.
 const name = '[A-Za-z0-9][A-Za-z0-9_-]{0,63}'
 const folders = `(?:${name}/){0,4}`
 const themePaths = [

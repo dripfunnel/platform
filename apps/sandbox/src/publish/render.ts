@@ -7,6 +7,7 @@ import { build, type Plugin } from 'esbuild'
 import type { AnsweredPage, RecordedAnswer, ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
 import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
 import { mediaUrlPlugin, readContent, routesSchema, runtimeModules, stylesheetModule, stylesheetPlugin } from '../gate/bundle'
+import { imageMapSource, readImages, themeImagePlugin } from '../gate/media'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
 // core and libraries the client bundle loads, then rendered to HTML once per page from the frozen snapshot.
@@ -41,7 +42,7 @@ const resolveOwn = (): Plugin => ({
   },
 })
 
-const entrySource = (routesJson: string, content: unknown): string => {
+const entrySource = (routesJson: string, content: unknown, media: string): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const ref = (page: string) => `p${pages.indexOf(page)}`
@@ -50,24 +51,26 @@ const entrySource = (routesJson: string, content: unknown): string => {
     `import '${stylesheetModule}'`,
     `import { renderToString } from 'react-dom/server'`,
     `import { jsx } from 'react/jsx-runtime'`,
-    `import { answeredRender, createI18n, createShopClient, PrefilledProvider, StorefrontProvider } from '@dripfunnel/storefront-core'`,
+    `import { answeredRender, createI18n, createShopClient, PrefilledProvider, StorefrontProvider, ThemeMediaProvider } from '@dripfunnel/storefront-core'`,
     ...pages.map((page) => `import { ${page.split('/').at(-1) ?? page} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `const routes = { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} }`,
     `const custom = { ${Object.entries(routes.custom ?? {}).map(([path, page]) => `${JSON.stringify(path)}: ${ref(page)}`).join(', ')} }`,
     `const content = ${JSON.stringify(content)}`,
+    `const media = ${media}`,
     `export const page = (route, path) => (path ? custom[path] : routes[route])`,
     // The same provider value the page's script hydrates with (runtime/boot.tsx); no request is made while rendering.
-    `const tree = (Page, { store, poweredBy, path }, client, prefilled) => jsx(StorefrontProvider, { value: { client, store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, address: path, children: prefilled ? jsx(PrefilledProvider, { value: prefilled, children: jsx(Page, {}) }) : jsx(Page, {}) })`,
+    `const tree = (Page, { store, poweredBy, path }, client, prefilled) => jsx(StorefrontProvider, { value: { client, store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, address: path, children: jsx(ThemeMediaProvider, { media, children: prefilled ? jsx(PrefilledProvider, { value: prefilled, children: jsx(Page, {}) }) : jsx(Page, {}) }) })`,
     // A catalogue snapshot's page is rendered from its recorded answers (core's answeredRender); one without, once.
     `export const render = async (Page, value) => value.answers ? answeredRender(value.answers, (client, prefilled) => renderToString(tree(Page, value, client, prefilled))) : { html: renderToString(tree(Page, value, createShopClient({}), null)), answers: {}, unexpected: [] }`,
   ].join('\n')
 }
 
-/** Bundles the checked-out theme at `repo` for Node into `work`, and loads it. */
-export const serverTheme = async (repo: string, work: string): Promise<ServerTheme> => {
+/** Bundles the checked-out theme at `repo` for Node into `work`, and loads it; `imageBase` as the client bundle has it. */
+export const serverTheme = async (repo: string, work: string, imageBase: string): Promise<ServerTheme> => {
   await rm(work, { recursive: true, force: true })
   await mkdir(work, { recursive: true })
-  const source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
+  const images = await readImages(repo)
+  const source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), imageMapSource(images, imageBase))
   const stylesheet = await themeStylesheet(readThemeStyling(repo))
   if (!stylesheet.ok) throw new Error("The theme's classes break the theme rules.")
   const outfile = join(work, 'server.cjs')
@@ -85,6 +88,7 @@ export const serverTheme = async (repo: string, work: string): Promise<ServerThe
     define: { 'process.env.NODE_ENV': '"production"' },
     logLevel: 'silent',
     plugins: [
+      themeImagePlugin(() => images),
       mediaUrlPlugin(),
       stylesheetPlugin(() => stylesheet.css),
       resolveOwn(),

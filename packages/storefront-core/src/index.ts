@@ -12,6 +12,7 @@ export { consentStorageKey, readConsent, writeConsent, type ConsentChoice } from
 export { createI18n, createTextKeys, type TextKeys, type Translate } from './platform/i18n/i18n'
 export { catalogues, en, type Catalogue, type MessageKey } from './platform/i18n/messages'
 export { fontNames, fonts, fontStack, type Font } from './platform/media/fonts'
+export { ThemeMediaProvider } from './platform/media/themeImage'
 export { badgeSchema, ratingSchema, stockSchema, type Badge, type Rating, type Stock } from './pricing/brand'
 export { formatMoney, moneySchema, toDecimal, type Money } from './pricing/money'
 export { RichText, type RichTextProps } from './products/richText'

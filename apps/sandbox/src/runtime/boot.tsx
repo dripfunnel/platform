@@ -17,6 +17,7 @@ import {
   guestShopState,
   storedShopState,
   StorefrontProvider,
+  ThemeMediaProvider,
   studioBasePath,
   studioPagePath,
   studioPortalOrigin,
@@ -28,7 +29,7 @@ import {
 import { routeAt } from './routes'
 
 /** The theme's pages as the bundle's entry exports them, from routes.json (gate/bundle.ts). */
-export type ThemePages = { routes: Partial<Record<ThemeRoute, ComponentType>>; custom: Record<string, ComponentType>; content: Record<string, Record<string, string>> }
+export type ThemePages = { routes: Partial<Record<ThemeRoute, ComponentType>>; custom: Record<string, ComponentType>; content: Record<string, Record<string, string>>; media: Record<string, string> }
 
 // In the studio frame every address carries the session (AI-STUDIO §3 step 6); core reads it from its own module's URL.
 const base = studioBasePath(import.meta.url)
@@ -80,7 +81,7 @@ const render = async (pages: ThemePages): Promise<void> => {
   const { t } = createI18n(settings.language, pages.content as Record<string, Catalogue>, base ? shown : undefined)
   root.render(
     <StorefrontProvider value={{ client, store: settings, locale: settings.language, t, mode: base ? 'studio' : 'preview', poweredBy: null }}>
-      {routed(Page, route)}
+      <ThemeMediaProvider media={pages.media}>{routed(Page, route)}</ThemeMediaProvider>
     </StorefrontProvider>,
   )
 }
@@ -98,7 +99,9 @@ const hydrate = (pages: ThemePages, live: NonNullable<ReturnType<typeof livePage
   const { t } = createI18n(live.store.language, pages.content as Record<string, Catalogue>)
   const tree = (
     <StorefrontProvider value={{ client, store: live.store, locale: live.store.language, t, mode: 'live', poweredBy: live.poweredBy }} address={live.path}>
-      {live.answers ? <PrefilledProvider value={{ answers: new Map(Object.entries(live.answers)) }}>{routed(Page, live.route)}</PrefilledProvider> : routed(Page, live.route)}
+      <ThemeMediaProvider media={pages.media}>
+        {live.answers ? <PrefilledProvider value={{ answers: new Map(Object.entries(live.answers)) }}>{routed(Page, live.route)}</PrefilledProvider> : routed(Page, live.route)}
+      </ThemeMediaProvider>
     </StorefrontProvider>
   )
   // The built checkout is the theme's for a visit without JavaScript; with it, the switch is the browser's, so it renders afresh.

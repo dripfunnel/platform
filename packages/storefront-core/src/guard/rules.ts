@@ -9,6 +9,15 @@ export const ruleIds = [
   'files/file-too-large',
   'files/too-many-files',
   'files/theme-too-large',
+  'files/encoding',
+  'files/media-name-not-allowed',
+  'files/media-type-not-allowed',
+  'files/media-type-mismatch',
+  'files/media-unreadable',
+  'files/media-dimensions',
+  'files/media-too-large',
+  'files/too-many-media',
+  'files/media-total-too-large',
   'code/unreadable',
   'code/import-not-allowed',
   'code/motion-outside-interactive',
@@ -35,12 +44,14 @@ export const ruleIds = [
   'jsx/core-marker',
   'jsx/animated-property',
   'jsx/product-image',
+  'jsx/theme-image-not-found',
   'css/unreadable',
   'css/selector-not-scoped',
   'css/global',
   'css/pseudo-not-allowed',
   'css/at-rule-not-allowed',
   'css/url-not-media',
+  'css/media-not-found',
   'css/function-not-allowed',
   'css/core-selector',
   'css/z-index',
@@ -82,10 +93,14 @@ export const problem = (file: string | null, line: number | null, rule: RuleId, 
 export const localePattern = /^[a-z]{2,3}(?:-[A-Z]{2})?$/
 export const mediaIdPattern = /^[A-Za-z0-9_-]{1,128}$/
 
-/** One file of the theme as it would be after the change; `symlink` when the caller found a link rather than a file. */
+/**
+ * One file of the theme as it would be after the change; `symlink` when the caller found a link rather than a file.
+ * An image in src/theme/media/ comes as base64, every other file as text.
+ */
 export const themeFileSchema = z.strictObject({
   path: z.string(),
   content: z.string(),
+  encoding: z.literal('base64').optional(),
   symlink: z.boolean().optional(),
 })
 
