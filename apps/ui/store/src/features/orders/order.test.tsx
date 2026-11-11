@@ -144,7 +144,9 @@ describe('an order’s page', () => {
     expect(within(own).getByText('3 to ship')).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Northwind Textiles packs these' })).toBeTruthy()
     const totals = screen.getByRole('region', { name: words.totals.title })
-    expect(within(totals).getByText(words.totals.includesTax)).toBeTruthy()
+    expect(within(totals).getByText('Total (Inclusive of ₹621.00 tax)')).toBeTruthy()
+    expect(within(totals).queryByText('Includes tax')).toBeNull()
+    expect(within(totals).queryByText(words.totals.tax)).toBeNull()
     expect(within(totals).getByText(words.totals.free)).toBeTruthy()
     expect(within(totals).getByText('Razorpay')).toBeTruthy()
     const customer = screen.getByRole('region', { name: words.customer.title })
@@ -152,6 +154,20 @@ describe('an order’s page', () => {
     expect(within(customer).getByText('Market: India')).toBeTruthy()
     expect(within(screen.getByRole('region', { name: words.history.title })).getByText('Order placed')).toBeTruthy()
     expect(api.loadOrder).toHaveBeenCalledWith('o1')
+  })
+
+  it('keeps a Tax row above a plain Total when the tax is added, and shows neither when there is none', async () => {
+    await show(owner, { ...placed, taxInclusive: false })
+    const totals = within(screen.getByRole('region', { name: words.totals.title }))
+    expect(totals.getByText(words.totals.tax)).toBeTruthy()
+    expect(totals.getByText(words.totals.total)).toBeTruthy()
+    expect(totals.queryByText(/Inclusive of/)).toBeNull()
+    cleanup()
+    await show(owner, { ...placed, tax: null })
+    const untaxed = within(screen.getByRole('region', { name: words.totals.title }))
+    expect(untaxed.queryByText(words.totals.tax)).toBeNull()
+    expect(untaxed.queryByText(/Inclusive of/)).toBeNull()
+    expect(untaxed.getByText(words.totals.total)).toBeTruthy()
   })
 
   it('ships the picked items from the chosen location with the courier and tracking, and says the shopper is told', async () => {

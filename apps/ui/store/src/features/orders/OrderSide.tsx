@@ -16,9 +16,9 @@ const Totals = ({ order }: { order: Order }) => {
   if (order.subtotal) rows.push({ key: 'items', label: words.totals.items, value: moneyText(order.subtotal) })
   if (some(order.discount)) rows.push({ key: 'discount', label: words.totals.discount, value: fill(words.totals.less, { amount: moneyText(order.discount) }) })
   if (order.shipping) rows.push({ key: 'delivery', label: words.totals.delivery, value: some(order.shipping) ? moneyText(order.shipping) : words.totals.free })
-  if (order.tax) rows.push({ key: 'tax', label: order.taxInclusive ? words.totals.includesTax : words.totals.tax, value: moneyText(order.tax) })
+  if (order.tax && !order.taxInclusive) rows.push({ key: 'tax', label: words.totals.tax, value: moneyText(order.tax) })
   if (some(order.duties)) rows.push({ key: 'duties', label: words.totals.duties, value: moneyText(order.duties) })
-  if (order.total) rows.push({ key: 'total', label: words.totals.total, value: moneyText(order.total), strong: true })
+  if (order.total) rows.push({ key: 'total', label: order.tax && order.taxInclusive ? fill(words.totals.totalInclusiveTax, { amount: moneyText(order.tax) }) : words.totals.total, value: moneyText(order.total), strong: true })
   if (some(order.refunded)) rows.push({ key: 'refunded', label: words.totals.refunded, value: fill(words.totals.less, { amount: moneyText(order.refunded) }), refund: true })
   rows.push({ key: 'method', label: words.totals.paidWith, value: methodText(order.paymentMethod) })
   return (

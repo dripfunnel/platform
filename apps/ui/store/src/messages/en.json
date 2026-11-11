@@ -4878,10 +4878,10 @@
         "discount": "Discount",
         "delivery": "Delivery",
         "free": "Free",
-        "includesTax": "Includes tax",
         "tax": "Tax",
         "duties": "Duties",
         "total": "Total",
+        "totalInclusiveTax": "Total (Inclusive of {amount} tax)",
         "refunded": "Refunded",
         "paidWith": "Paid with",
         "less": "−{amount}"
