@@ -10,7 +10,7 @@ const literal = /const notRefreshed = \/(.+)\/([a-z]*)\r?\n/.exec(apiSource)
 const apiNotRefreshed = new RegExp(literal?.[1] ?? '^$', literal?.[2])
 const apiIsRefreshedPath = (path: string) => isRepoPath(path) && !apiNotRefreshed.test(path)
 
-const refreshed = ['AGENTS.md', 'CLAUDE.md', '.npmrc', 'next.config.ts', 'src/app/layout.tsx', 'src/app/theme-media/route.dev.ts', 'src/app/gitignore.ts', 'tests/.gitkeep', '.gitignore', 'src/themes/x.ts', 'contents/x.json']
+const refreshed = ['AGENTS.md', 'CLAUDE.md', '.npmrc', 'next.config.ts', 'src/app/layout.tsx', 'src/app/theme-media/route.dev.ts', 'src/app/theme-media/[name]/route.dev.ts', 'src/app/gitignore.ts', 'tests/.gitkeep', '.gitignore', 'src/themes/x.ts', 'contents/x.json']
 const never = [
   'src/theme/pages/HomePage.tsx',
   'SRC/Theme/manifest.ts',
@@ -40,5 +40,15 @@ describe('the template files an upgrade refreshes', () => {
   it('never include the theme, the generated files, package.json, .github, .git or node_modules', () => {
     expect(refreshed.filter((p) => !isRefreshedPath(p))).toEqual([])
     expect(never.filter(isRefreshedPath)).toEqual([])
+  })
+})
+
+describe('isRepoPath', () => {
+  it.each(['package.json', 'src/app/theme-media/[name]/route.dev.ts', 'src/app/[...slug]/page.tsx', 'src/app/[[...slug]]/page.tsx'])('accepts %s', (path) => {
+    expect(isRepoPath(path)).toBe(true)
+  })
+
+  it.each(['..', 'a/../b', '.', 'a/./b', '', 'a//b', '/abs', 'a/[..]/b', 'a/[]/b', 'a/[...]/b', 'a/[name/b', 'a/name]/b', 'a/[[name]]/b', 'a/[[...slug]/b'])('refuses %j', (path) => {
+    expect(isRepoPath(path)).toBe(false)
   })
 })
