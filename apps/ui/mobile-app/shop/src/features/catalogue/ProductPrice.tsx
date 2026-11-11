@@ -13,7 +13,7 @@ export function ProductPrice({ price, compareAt, from, pricesIncludeTax }: Props
   const text = from ? t('product.from', { price: money(price) }) : money(price)
   const was = compareAt && compareAt.amount !== price.amount ? money(compareAt) : null
   return (
-    <View style={styles.block} accessible accessibilityLabel={[text, was, taxLine(pricesIncludeTax)].filter(Boolean).join(', ')}>
+    <View style={styles.block} accessible accessibilityLabel={[text, was ? t('product.was', { price: was }) : null, taxLine(pricesIncludeTax)].filter(Boolean).join(', ')}>
       <View style={styles.line}>
         <Text style={[styles.price, { color: colors.text }]}>{text}</Text>
         {was ? <Text style={[styles.was, { color: colors.muted }]}>{was}</Text> : null}

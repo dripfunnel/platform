@@ -26,12 +26,14 @@ describe('the price and its tax label', () => {
     expect(lines({ price: inr('149900'), compareAt: inr('199900'), from: true, pricesIncludeTax: true })).toEqual([t('product.from', { price: '₹1,499.00' }), '₹1,999.00', t('product.tax.included')])
   })
 
-  it('read the compare-at price to a screen reader with no "Was" in front of it', () => {
+  it('name the compare-at price as the original price to a screen reader, since a line-through is not announced', () => {
     let tree!: ReturnType<typeof create>
     act(() => {
       tree = create(<ProductPrice price={inr('149900')} compareAt={inr('199900')} from={false} pricesIncludeTax />)
     })
-    expect(tree.root.findAll((node) => node.props.accessibilityLabel === `₹1,499.00, ₹1,999.00, ${t('product.tax.included')}`).length).toBeGreaterThan(0)
+    const label = `₹1,499.00, ${t('product.was', { price: '₹1,999.00' })}, ${t('product.tax.included')}`
+    expect(tree.root.findAll((node) => node.props.accessibilityLabel === label).length).toBeGreaterThan(0)
+    expect(label).not.toContain('Was')
   })
 
   it('show no compare-at price when it is the same as the price', () => {

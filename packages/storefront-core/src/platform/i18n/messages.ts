@@ -4,7 +4,7 @@
 export const en = {
   'price.inclTax': 'incl. tax',
   'price.plusTax': '+ tax',
-  'price.was': 'Was {price}',
+  'price.was': 'Original price',
   'sizeChart.open': 'Size chart',
   'sizeChart.title': 'Size chart',
   'sizeChart.size': 'Size',

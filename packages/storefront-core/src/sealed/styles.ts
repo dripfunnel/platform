@@ -18,6 +18,7 @@ const parts: Record<SealedPart, string> = {
 .price{display:inline-flex!important;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
 [part~=amount]{font-weight:700;font-size:max(12px,var(--df-price-size,1em))!important}
 [part~=was]{${muted};text-decoration:line-through!important;font-size:max(12px,0.9em)!important}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 [part~=tax]{${muted};font-size:max(12px,0.75em)!important}`,
   preview: `:host{display:block!important}
 ${banner('top')}

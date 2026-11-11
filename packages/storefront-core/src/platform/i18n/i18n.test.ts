@@ -24,7 +24,7 @@ describe('createI18n', () => {
     expect(t('pages.cart.titel')).toBe('pages.cart.titel')
   })
   it('leaves a placeholder it has no value for, rather than printing undefined', () => {
-    expect(createI18n('en').t('price.was')).toBe('Was {price}')
+    expect(createI18n('en').t('priceRange.orMore')).toBe('{price}+')
   })
 })
 

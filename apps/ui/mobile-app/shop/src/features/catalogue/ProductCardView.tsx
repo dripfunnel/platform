@@ -23,7 +23,7 @@ export function ProductCardView({ product, onOpen }: { product: ProductCard; onO
   const width = useCardWidth()
   const price = priceLabel(product)
   const was = product.compareAt && product.compareAt.amount !== product.price?.amount ? money(product.compareAt) : null
-  const label = [product.name, price, was, product.inStock ? null : t('product.stock.soldOut')].filter(Boolean).join(', ')
+  const label = [product.name, price, was ? t('product.was', { price: was }) : null, product.inStock ? null : t('product.stock.soldOut')].filter(Boolean).join(', ')
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => onOpen(product.slug)} style={[styles.card, { width }]}>
       <View style={[styles.photo, { backgroundColor: colors.skeleton, borderRadius: radii.tile }]}>
