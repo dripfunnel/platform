@@ -113,7 +113,6 @@ the missing backend.
   - ~~Services are toast only, "not in the first release" (:732).~~
   - ~~Digital downloads have no file upload.~~
   Drawn on #286: download (a file or a licence-key pool), service (duration and location, no booking) and gift card (amounts, expiry, cards issued) in `CatEditor`.
-- **Product video:** gated by plan, but there is no upload in the editor.
 - **Translation:** only into French, even when Settings adds another language.
 - **Barcode:** the import template has a barcode column, the editor has none.
 - **Per-version values:** a version has no weight of its own. ~~Compare price and cost~~: built

@@ -1294,7 +1294,8 @@ information (S4)**, which is configuration only.
 - S6. **Related products / Frequently bought together**: pick by hand, or "Automatic (same
   collection)". Vendors can pick only their own products.
 - S7. **Video**: upload or paste a YouTube link, with a poster image *(plan-gated; ask whether
-  hosted or linked only)*.
+  hosted or linked only)*. **Built so far (#1401):** one uploaded MP4 or WebM of at most 30 seconds and 4 MB,
+  added from Add more; the link box and the poster image are not built.
 - S8. **Warranty and returns**: per product, overriding the store policy (e.g. "No returns on
   underwear"). Consumer law sets floors that a seller cannot go below: the EU's 14-day
   withdrawal right and 2-year legal guarantee, and the UK's equivalents. A per-product override

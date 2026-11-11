@@ -26,13 +26,16 @@ const api = vi.hoisted(() => ({
   loadApprovalRequired: vi.fn(),
   saveProduct: vi.fn(),
   uploadPhoto: vi.fn(),
+  uploadVideo: vi.fn(),
 }))
+const lengthApi = vi.hoisted(() => ({ videoSeconds: vi.fn() }))
 const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
 const translationApi = vi.hoisted(() => ({ loadProductTranslation: vi.fn(), saveProductTranslation: vi.fn() }))
 const kindApi = vi.hoisted(() => ({ loadProductKind: vi.fn(), saveProductKind: vi.fn(), addLicenceKeys: vi.fn(), uploadDownload: vi.fn(), loadGiftCards: vi.fn(), issueGiftCard: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
 
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
+vi.mock('../common/videoLength', async (actual) => ({ ...(await actual<typeof import('../common/videoLength')>()), ...lengthApi }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...listApi }))
 vi.mock('../../api/translations', async (actual) => ({ ...(await actual<typeof import('../../api/translations')>()), ...translationApi }))
 vi.mock('../../api/productKinds', async (actual) => ({ ...(await actual<typeof import('../../api/productKinds')>()), ...kindApi }))
@@ -279,7 +282,7 @@ describe('the product editor', () => {
       'NAME_REQUIRED', 'INVALID_INPUT', 'CATEGORY_REFUSED', 'TOO_MANY_OPTIONS', 'TOO_MANY_VERSIONS', 'OPTION_VALUES_REQUIRED', 'DUPLICATE_OPTION', 'DUPLICATE_VALUE',
       'VERSION_CHOICES', 'DUPLICATE_VERSION', 'VERSION_REQUIRED', 'PRICE_REQUIRED', 'INVALID_PRICE', 'INVALID_BARCODE', 'DUPLICATE_SKU', 'TOO_MANY_PHOTOS', 'INVALID_PHOTO',
       'INVALID_VIDEO', 'INVALID_FILTER', 'INVALID_LISTING', 'LISTING_REFUSED', 'NOT_FOUND', 'CURRENCY_REQUIRED', 'SUPPLIER_FIELD', 'FILE_REFUSED', 'NOT_SHOWABLE',
-      'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
+      'VIDEO_LIMIT', 'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
     ]
     const refused: Record<string, string> = words.refused
     expect(codes.filter((code) => !refused[code])).toEqual([])
@@ -1448,5 +1451,174 @@ describe('the description (#1216)', () => {
     fireEvent.click(screen.getByRole('button', { name: words.translate.save }))
     await settle()
     expect(translationApi.saveProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN', { description: '<p>Mulayam</p>' })
+  })
+})
+
+// A product's one video (#1401): Add more takes an MP4 or WebM of at most 30 seconds and 4 MB, counted apart from the 20 photos.
+describe('a product video', () => {
+  const withVideo = (extra: Partial<{ enabled: boolean; inPlan: boolean }> = {}) =>
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges', 'video'].map((key) => ({ key, enabled: true, inPlan: true, ...(key === 'video' ? extra : {}) })), badges: [] })
+  const film = (name = 'clip.mp4', type = 'video/mp4', bytes = 3 * 1024 * 1024) => new File([new Uint8Array(bytes)], name, { type })
+  const choose = (...files: File[]) => fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files } })
+  const meter = () => document.querySelector('.df-editor-meter')?.textContent
+  const tile = () => document.querySelector('.df-editor-photo--video')
+  const photosOf = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `ph${i}`, assetId: `a${i}`, url: `/api/assets/a${i}`, alt: null, versionId: null }))
+  const saved = async () => {
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    return api.saveProduct.mock.calls[0]?.[2] as { photos: unknown[]; video?: unknown }
+  }
+
+  beforeEach(() => {
+    withVideo()
+    lengthApi.videoSeconds.mockResolvedValue(20)
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+  })
+
+  it('takes a short MP4 without "All Files": the picker lists MP4 and WebM, and the video is set as the product’s video, not a photo', async () => {
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v1' })
+    await show(owner)
+    expect((document.querySelector('input[type="file"]') as HTMLInputElement).accept).toContain('video/mp4,video/webm')
+    expect(screen.getByText(words.photos.videoHint)).toBeTruthy()
+    choose(film())
+    await settle()
+    expect(api.uploadVideo).toHaveBeenCalledTimes(1)
+    expect(api.uploadPhoto).not.toHaveBeenCalled()
+    expect(tile()?.textContent).toContain('▶')
+    expect(meter()).toBe('0 of 20 photos · 1 of 1 video')
+    expect(await saved()).toMatchObject({ photos: [], video: { assetId: 'v1' } })
+  })
+
+  it('takes a WebM the same way', async () => {
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v2' })
+    await show(owner)
+    choose(film('clip.webm', 'video/webm'))
+    await settle()
+    expect(tile()).not.toBeNull()
+    expect(await saved()).toMatchObject({ video: { assetId: 'v2' } })
+  })
+
+  it('refuses a video longer than 30 seconds, naming the limit, without uploading it', async () => {
+    lengthApi.videoSeconds.mockResolvedValue(31)
+    await show(owner)
+    choose(film())
+    await settle()
+    expect(screen.getByText('That video is longer than 30 seconds.')).toBeTruthy()
+    expect(api.uploadVideo).not.toHaveBeenCalled()
+    expect(tile()).toBeNull()
+    expect(meter()).toBe('0 of 20 photos · 0 of 1 video')
+  })
+
+  it('refuses a video bigger than 4 MB, naming the limit, without uploading it or reading its length; 4 MB itself is allowed', async () => {
+    await show(owner)
+    choose(film('big.mp4', 'video/mp4', 4 * 1024 * 1024 + 1))
+    await settle()
+    expect(screen.getByText('That video is bigger than 4 MB.')).toBeTruthy()
+    expect(api.uploadVideo).not.toHaveBeenCalled()
+    expect(lengthApi.videoSeconds).not.toHaveBeenCalled()
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v3' })
+    choose(film('edge.mp4', 'video/mp4', 4 * 1024 * 1024))
+    await settle()
+    expect(api.uploadVideo).toHaveBeenCalledTimes(1)
+  })
+
+  it('says what the server refused a video for, and lets the person try again', async () => {
+    api.uploadVideo.mockResolvedValueOnce({ ok: false, code: 'TOO_LONG' }).mockResolvedValueOnce({ ok: true, assetId: 'v4' })
+    await show(owner)
+    choose(film())
+    await settle()
+    expect(screen.getByText(words.photos.videoRefused.TOO_LONG)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.photos.retry }))
+    await settle()
+    expect(tile()).not.toBeNull()
+    expect(api.uploadVideo).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the plan or the Settings switch refuses a video, not "check your connection"', async () => {
+    api.uploadVideo.mockResolvedValueOnce({ ok: false, code: 'PLAN_LIMIT' }).mockResolvedValueOnce({ ok: false, code: 'FEATURE_UNAVAILABLE' })
+    await show(owner)
+    choose(film())
+    await settle()
+    expect(screen.getByText(words.photos.videoRefused.PLAN_LIMIT)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.photos.retry }))
+    await settle()
+    expect(screen.getByText(words.photos.videoRefused.FEATURE_UNAVAILABLE)).toBeTruthy()
+    expect(screen.queryByText(words.photos.videoRefused.NOT_CONNECTED)).toBeNull()
+  })
+
+  it('holds one video: a second, chosen with the first or after it, is refused with the card’s words', async () => {
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v1' })
+    await show(owner)
+    choose(film('a.mp4'), film('b.mp4'))
+    await settle()
+    expect(api.uploadVideo).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('A product can have one video. Remove the current one first.')).toBeTruthy()
+    choose(film('c.mp4'))
+    await settle()
+    expect(api.uploadVideo).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByText(words.photos.videoSecond)).toHaveLength(2)
+  })
+
+  it('counts the video apart from the photos: 9 photos and a video read "9 of 20 photos · 1 of 1 video", and 20 photos still leave room for the video', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(9), video: { assetId: 'v1', uploaded: true, url: '/api/assets/v1' } }))
+    await show(owner)
+    expect(meter()).toBe('9 of 20 photos · 1 of 1 video')
+    cleanup()
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(20) }))
+    await show(owner)
+    expect(meter()).toBe('20 of 20 photos · 0 of 1 video')
+    expect(screen.getByRole('button', { name: words.photos.addMore })).toBeTruthy()
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v5' })
+    choose(film())
+    await settle()
+    expect(meter()).toBe('20 of 20 photos · 1 of 1 video')
+    expect(screen.queryByRole('button', { name: words.photos.addMore })).toBeNull()
+  })
+
+  it('never makes the video the main photo: it has Remove and no star, and the first photo stays the main one', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(2), video: { assetId: 'v1', uploaded: true, url: '/api/assets/v1' } }))
+    await show(owner)
+    const buttons = within(tile() as HTMLElement).getAllByRole('button')
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([words.photos.removeVideo])
+    expect(screen.getAllByRole('button', { name: words.photos.makeMain })).toHaveLength(1)
+    expect(screen.getByText(words.photos.main)).toBeTruthy()
+    fireEvent.click(buttons[0] as HTMLElement)
+    expect(tile()).toBeNull()
+    expect(await saved()).toMatchObject({ video: null })
+  })
+
+  it('shows a video link set elsewhere, keeps it when nothing about it changes, and replaces it with an uploaded video', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ video: { assetId: null, uploaded: false, url: 'https://www.youtube.com/watch?v=x' } }))
+    api.uploadVideo.mockResolvedValue({ ok: true, assetId: 'v6' })
+    await show(owner)
+    expect(tile()?.textContent).toContain('https://www.youtube.com/watch?v=x')
+    expect(meter()).toBe('0 of 20 photos · 1 of 1 video')
+    fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
+    expect((await saved()).video).toEqual({ url: 'https://www.youtube.com/watch?v=x' })
+    api.saveProduct.mockClear()
+    choose(film())
+    await settle()
+    expect(screen.queryByText(words.photos.videoSecond)).toBeNull()
+    expect(tile()?.textContent).not.toContain('youtube')
+    expect((await saved()).video).toEqual({ assetId: 'v6' })
+  })
+
+  it('writes nothing about a video for a product that never had one', async () => {
+    await show(owner)
+    fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
+    expect('video' in (await saved())).toBe(false)
+  })
+
+  it('offers no video when the plan lacks it or Settings › Catalogue has it off, only photos', async () => {
+    withVideo({ inPlan: false })
+    await show(owner)
+    expect((document.querySelector('input[type="file"]') as HTMLInputElement).accept).not.toContain('video')
+    expect(screen.queryByText(words.photos.videoHint)).toBeNull()
+    expect(meter()).toBe('0 of 20 photos')
+    cleanup()
+    withVideo({ enabled: false })
+    await show(owner)
+    expect((document.querySelector('input[type="file"]') as HTMLInputElement).accept).not.toContain('video')
   })
 })
