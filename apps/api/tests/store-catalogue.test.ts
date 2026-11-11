@@ -534,8 +534,8 @@ describe('photos, video and files', () => {
     const tooBig = await upload('owner', mp4Of(10, 10 * 1024 * 1024))
     const tooLong = await upload('owner', mp4Of(120))
     const fine = await upload('owner', mp4Of(10))
-    expect((await create('owner', simple('Big film', { video: { assetId: tooBig.asset?.id } }))).code).toBe('INVALID_VIDEO')
-    expect((await create('owner', simple('Long film', { video: { assetId: tooLong.asset?.id } }))).code).toBe('INVALID_VIDEO')
+    expect((await create('owner', simple('Big film', { video: { assetId: tooBig.asset?.id } }))).code).toBe('VIDEO_LIMIT')
+    expect((await create('owner', simple('Long film', { video: { assetId: tooLong.asset?.id } }))).code).toBe('VIDEO_LIMIT')
     expect((await create('owner', simple('Short film', { video: { assetId: fine.asset?.id } }))).code).toBeUndefined()
   })
 

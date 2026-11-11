@@ -282,7 +282,7 @@ describe('the product editor', () => {
       'NAME_REQUIRED', 'INVALID_INPUT', 'CATEGORY_REFUSED', 'TOO_MANY_OPTIONS', 'TOO_MANY_VERSIONS', 'OPTION_VALUES_REQUIRED', 'DUPLICATE_OPTION', 'DUPLICATE_VALUE',
       'VERSION_CHOICES', 'DUPLICATE_VERSION', 'VERSION_REQUIRED', 'PRICE_REQUIRED', 'INVALID_PRICE', 'INVALID_BARCODE', 'DUPLICATE_SKU', 'TOO_MANY_PHOTOS', 'INVALID_PHOTO',
       'INVALID_VIDEO', 'INVALID_FILTER', 'INVALID_LISTING', 'LISTING_REFUSED', 'NOT_FOUND', 'CURRENCY_REQUIRED', 'SUPPLIER_FIELD', 'FILE_REFUSED', 'NOT_SHOWABLE',
-      'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
+      'VIDEO_LIMIT', 'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
     ]
     const refused: Record<string, string> = words.refused
     expect(codes.filter((code) => !refused[code])).toEqual([])
@@ -1533,6 +1533,18 @@ describe('a product video', () => {
     await settle()
     expect(tile()).not.toBeNull()
     expect(api.uploadVideo).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the plan or the Settings switch refuses a video, not "check your connection"', async () => {
+    api.uploadVideo.mockResolvedValueOnce({ ok: false, code: 'PLAN_LIMIT' }).mockResolvedValueOnce({ ok: false, code: 'FEATURE_UNAVAILABLE' })
+    await show(owner)
+    choose(film())
+    await settle()
+    expect(screen.getByText(words.photos.videoRefused.PLAN_LIMIT)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.photos.retry }))
+    await settle()
+    expect(screen.getByText(words.photos.videoRefused.FEATURE_UNAVAILABLE)).toBeTruthy()
+    expect(screen.queryByText(words.photos.videoRefused.NOT_CONNECTED)).toBeNull()
   })
 
   it('holds one video: a second, chosen with the first or after it, is refused with the card’s words', async () => {

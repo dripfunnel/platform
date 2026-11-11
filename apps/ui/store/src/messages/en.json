@@ -1346,6 +1346,8 @@
         "UNSUPPORTED_TYPE": "Use an MP4 or WebM video whose length we can read.",
         "EMPTY": "That file is empty.",
         "FORBIDDEN": "You can’t add a video here.",
+        "PLAN_LIMIT": "Your plan doesn’t include a product video.",
+        "FEATURE_UNAVAILABLE": "Product video is turned off for this store. Turn it on in Settings › Catalogue.",
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "NOT_CONNECTED": "The video didn’t upload. Check your connection and try again."
       },
@@ -1686,6 +1688,7 @@
       "VERSION_REQUIRED": "A product needs at least one version.",
       "INVALID_BARCODE": "A barcode’s check digit doesn’t match. Check the digits.",
       "INVALID_VIDEO": "Use an uploaded video or a link, not both.",
+      "VIDEO_LIMIT": "A product video is an MP4 or WebM of at most 30 seconds and 4 MB.",
       "INVALID_FILTER": "A filter value isn’t one this store has. Remove it and choose it again.",
       "INVALID_LISTING": "Something in the product page sections isn’t valid. Check each section.",
       "LISTING_REFUSED": "A related product, badge or size chart can’t be used on this product. Remove it and choose another.",

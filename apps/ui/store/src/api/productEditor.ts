@@ -215,11 +215,15 @@ export const saveProduct = async (id: string | null, revision: number | null, in
 export const uploadRefusals = ['TOO_LARGE', 'UNSUPPORTED_TYPE', 'EMPTY', 'FORBIDDEN', 'READ_ONLY', 'NOT_CONNECTED'] as const
 export type UploadRefusal = (typeof uploadRefusals)[number]
 
+/** What only a product video's upload answers (#1401). */
+const videoRefusals = ['TOO_LONG', 'PLAN_LIMIT', 'FEATURE_UNAVAILABLE'] as const
+type VideoRefusal = (typeof videoRefusals)[number]
+
 const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string(), mime: z.string(), bytes: z.number().int() }) }), z.object({ ok: z.literal(false), code: z.string() })])
 type Uploaded = Extract<z.infer<typeof uploadSchema>, { ok: true }>['asset']
 
 /** The raw file to `/api/assets` (FIRST-RELEASE §19 uploadAsset), with `search` naming what it is for: the asset, or why not. */
-const postAssetAs = async (file: Blob, search: string): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal | 'TOO_LONG' }> => {
+const postAssetAs = async (file: Blob, search: string): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal | VideoRefusal }> => {
   try {
     const response = await fetch(`/api/assets${search}`, {
       method: 'POST',
@@ -231,18 +235,19 @@ const postAssetAs = async (file: Blob, search: string): Promise<{ ok: true; asse
     const answer = uploadSchema.safeParse(await response.json())
     if (!answer.success) return { ok: false, code: 'NOT_CONNECTED' }
     if (answer.data.ok) return answer.data
-    const code = z.enum([...uploadRefusals, 'TOO_LONG']).safeParse(answer.data.code)
+    const code = z.enum([...uploadRefusals, ...videoRefusals]).safeParse(answer.data.code)
     return { ok: false, code: code.success ? code.data : 'NOT_CONNECTED' }
   } catch {
     return { ok: false, code: 'NOT_CONNECTED' }
   }
 }
 
-/** Only a product video is ever too long (#1401); for any other file the server doesn't say it. */
+/** Only a product video's upload says too long or not in the plan (#1401); for any other file the server doesn't. */
 export const postAsset = async (file: Blob, search = ''): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal }> => {
   const answer = await postAssetAs(file, search)
   if (answer.ok) return answer
-  return answer.code === 'TOO_LONG' ? { ok: false, code: 'TOO_LARGE' } : { ok: false, code: answer.code }
+  if (answer.code === 'TOO_LONG') return { ok: false, code: 'TOO_LARGE' }
+  return { ok: false, code: answer.code === 'PLAN_LIMIT' || answer.code === 'FEATURE_UNAVAILABLE' ? 'FORBIDDEN' : answer.code }
 }
 
 /** A photo: its asset id, or why not. */
@@ -253,7 +258,7 @@ export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: stri
 }
 
 /** A product's one video (at most 4 MB and 30 seconds, checked by the server from the file): its asset id, or why not. */
-export const uploadVideo = async (file: Blob): Promise<{ ok: true; assetId: string } | { ok: false; code: UploadRefusal | 'TOO_LONG' }> => {
+export const uploadVideo = async (file: Blob): Promise<{ ok: true; assetId: string } | { ok: false; code: UploadRefusal | VideoRefusal }> => {
   const answer = await postAssetAs(file, '?kind=product-video')
   if (!answer.ok) return answer
   return answer.asset.kind === 'video' ? { ok: true, assetId: answer.asset.id } : { ok: false, code: 'UNSUPPORTED_TYPE' }

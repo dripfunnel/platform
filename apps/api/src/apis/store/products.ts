@@ -661,7 +661,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       if (!ctx.sql || !ctx.files) throw new GraphQLError('Files aren’t available right now.', { extensions: { code: 'NOT_CONNECTED' } })
       const files = createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files })
       if (!(await files.videoSwitchOn())) throw new GraphQLError('This isn’t available in this store.', { extensions: { code: 'FEATURE_UNAVAILABLE' } })
-      if (!(await files.isProductVideo(video.assetId.toLowerCase()))) throw new GraphQLError('A product video is an MP4 or WebM of at most 30 seconds and 4 MB.', { extensions: { code: 'INVALID_VIDEO' } })
+      if (!(await files.isProductVideo(video.assetId.toLowerCase()))) throw new GraphQLError('A product video is an MP4 or WebM of at most 30 seconds and 4 MB.', { extensions: { code: 'VIDEO_LIMIT' } })
     }
   }
   builder.mutationFields((t) => ({
