@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import type { CurrencyPrice, MarketReadiness } from '#engine/modules/markets/index'
-import { approvalAudit, catalogAudit, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import { approvalAudit, catalogAudit, createAssetService, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import type { AmountRow, ChoiceRow, PriceRow, QuestionRow } from '#db/scoped/questions'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
@@ -40,8 +40,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   PLAN_LIMIT: 'Your plan has no room for more products.',
   TOO_MANY_PHOTOS: 'A product can have up to 20 photos.',
   INVALID_PHOTO: 'A photo isn’t valid.',
-  INVALID_VIDEO: 'Use an uploaded video or an https link, not both.',
-  FILE_REFUSED: 'That file isn’t here, or belongs to another product owner.',
+  INVALID_VIDEO: 'Use an uploaded video or an https link, not both.',  FILE_REFUSED: 'That file isn’t here, or belongs to another product owner.',
   INVALID_FILTER: 'A filter value isn’t this store’s, or is listed twice.',
   INVALID_LISTING: 'Something in the listing sections isn’t valid.',
   LISTING_REFUSED: 'A related product, badge or size chart isn’t one this product can use.',
@@ -656,6 +655,11 @@ export const registerProducts = (builder: StoreBuilder) => {
     const video = input.video && (input.video.assetId || input.video.url) ? { assetId: input.video.assetId ?? null, url: input.video.url ?? null } : null
     const keptVideo = stored?.video ? { assetId: (stored.video as { asset_id: string | null }).asset_id ?? null, url: (stored.video as { url: string | null }).url ?? null } : null
     if (video && !same(video, keptVideo)) await requireFeature(ctx, caller, 'product_video')
+    // A linked file must pass the same 4 MB / 30 s check as an upload, whichever route stored it (#1401).
+    if (video?.assetId && video.assetId.toLowerCase() !== keptVideo?.assetId?.toLowerCase() && ctx.sql && ctx.files) {
+      const files = createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files })
+      if (!(await files.isProductVideo(video.assetId.toLowerCase()))) throw new GraphQLError('A product video is an MP4 or WebM of at most 30 seconds and 4 MB.', { extensions: { code: 'INVALID_VIDEO' } })
+    }
   }
   builder.mutationFields((t) => ({
     // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).

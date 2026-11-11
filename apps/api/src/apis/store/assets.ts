@@ -5,6 +5,7 @@ import { storeRoleHas } from '#auth/storePermissions'
 import { createAssetService, type AssetStore } from '#engine/modules/catalog/index'
 import { actingCaller, storePolicy, type StoreContext } from './access'
 import { isUuid } from '#core/ids'
+import { requireFeature } from './listing'
 
 // `POST /api/assets` (the raw file as the body; `?kind=download` for a download's file, `?kind=product-video` for a product's video) and `GET /api/assets/{id}` on the
 // portal host (FIRST-RELEASE §19 `uploadAsset`): the session, the acting store and the role come first, as for
@@ -60,6 +61,15 @@ export const handleAssets = async (request: Request, ctx: StoreContext, store: A
   if (download && caller.context.sellerScope.kind === 'seller') return refuse(403, 'FORBIDDEN')
   // `?kind=product-video`: a product's one video, at most 4 MB and 30 seconds (#1401).
   const productVideo = url.searchParams.get('kind') === 'product-video'
+  if (productVideo) {
+    // The plan's video and Settings › Catalogue's Video switch are checked here, not only in the editor.
+    try {
+      await requireFeature(ctx, caller, 'product_video')
+    } catch (error) {
+      return refuse(403, error instanceof GraphQLError ? String(error.extensions['code'] ?? 'FORBIDDEN') : 'FORBIDDEN')
+    }
+    if (!(await service.videoSwitchOn())) return refuse(403, 'FEATURE_UNAVAILABLE')
+  }
   const limit = download ? maxDownloadBytes : productVideo ? maxProductVideoBytes : Math.max(maxImageBytes, maxVideoBytes)
   if (Number(request.headers.get('content-length') ?? 0) > limit) return refuse(413, 'TOO_LARGE')
   const read = await readCapped(request, limit)

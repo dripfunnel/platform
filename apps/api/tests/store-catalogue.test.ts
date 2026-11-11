@@ -71,7 +71,7 @@ const gql = async (source: string, who: Who, variables: Record<string, unknown> 
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now, files: r2 }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -480,9 +480,7 @@ describe('photos, video and files', () => {
 
   it('links a photo only to an image and a video only to a video', async () => {
     const image = await upload('owner')
-    const video = new Uint8Array(1024)
-    video.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d])
-    const film = await upload('owner', video)
+    const film = await upload('owner', mp4Of(5))
     expect(film).toMatchObject({ status: 200, asset: { width: null } })
     expect((await create('owner', simple('Video as photo', { photos: [{ assetId: film.asset?.id }] }))).code).toBe('FILE_REFUSED')
     expect((await create('owner', simple('Photo as video', { video: { assetId: image.asset?.id } }))).code).toBe('FILE_REFUSED')
@@ -503,7 +501,10 @@ describe('photos, video and files', () => {
   }
   const assetCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${t.storeA1}`)[0]?.n ?? 0
 
+  const videoSwitch = (enabled: boolean) => db.sql`insert into store_feature (store_id, key, enabled, updated_at) values (${t.storeA1}, 'video', ${enabled}, ${now}) on conflict (store_id, key) do update set enabled = excluded.enabled`
+
   it('saves a product video of up to 30 seconds and 4 MB, an MP4 or a WebM, and links it as the product’s video', async () => {
+    await videoSwitch(true)
     const mp4 = await uploadProductVideo(mp4Of(20, 3 * 1024 * 1024))
     expect(mp4).toMatchObject({ status: 200, ok: true, asset: { kind: 'video', mime: 'video/mp4', bytes: 3 * 1024 * 1024 } })
     const webm = await uploadProductVideo(webmOf(30))
@@ -513,7 +514,32 @@ describe('photos, video and files', () => {
     expect(shown.video).toEqual({ url: `/api/assets/${mp4.asset?.id}`, uploaded: true })
   })
 
+  it('takes no product video upload while Settings › Catalogue has Video off or the plan lacks it', async () => {
+    const before = await assetCount()
+    await videoSwitch(false)
+    expect(await uploadProductVideo(mp4Of(5))).toMatchObject({ status: 403, ok: false, code: 'FEATURE_UNAVAILABLE' })
+    await videoSwitch(true)
+    await db.sql`update plan_entitlement set enabled = false where key = 'product_video' and plan_id = (select plan_id from store where id = ${t.storeA1})`
+    try {
+      expect(await uploadProductVideo(mp4Of(5))).toMatchObject({ status: 403, code: 'PLAN_LIMIT' })
+    } finally {
+      await db.sql`update plan_entitlement set enabled = true where key = 'product_video' and plan_id = (select plan_id from store where id = ${t.storeA1})`
+    }
+    expect(await assetCount()).toBe(before)
+  })
+
+  it('refuses to link a library video over 4 MB or 30 seconds as a product video, but links a short one', async () => {
+    await videoSwitch(true)
+    const tooBig = await upload('owner', mp4Of(10, 10 * 1024 * 1024))
+    const tooLong = await upload('owner', mp4Of(120))
+    const fine = await upload('owner', mp4Of(10))
+    expect((await create('owner', simple('Big film', { video: { assetId: tooBig.asset?.id } }))).code).toBe('INVALID_VIDEO')
+    expect((await create('owner', simple('Long film', { video: { assetId: tooLong.asset?.id } }))).code).toBe('INVALID_VIDEO')
+    expect((await create('owner', simple('Short film', { video: { assetId: fine.asset?.id } }))).code).toBeUndefined()
+  })
+
   it('refuses a product video longer than 30 seconds, bigger than 4 MB or with no readable length, and stores none of them', async () => {
+    await videoSwitch(true)
     const before = await assetCount()
     expect(await uploadProductVideo(mp4Of(31))).toMatchObject({ status: 422, ok: false, code: 'TOO_LONG' })
     expect(await uploadProductVideo(webmOf(45))).toMatchObject({ status: 422, code: 'TOO_LONG' })
