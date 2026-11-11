@@ -18,8 +18,8 @@ export const isThemeCode = (path: string): boolean => path.startsWith('src/theme
 export const isRepoPath = (path: string): boolean => path.length <= 512 && path.split('/').every((s) => /^[A-Za-z0-9_.-]{1,100}$/.test(s) && s !== '.' && s !== '..')
 
 // The template files an upgrade never writes (storefront ARCHITECTURE §2.2, §7.1): the theme's, the generated ones, core's
-// pin (written on its own) and the locked workflow.
-const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$/i
+// pin (written on its own), the locked workflow, and git's or the install's own folders (a hook would run on the commit).
+const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$|(?:^|\/)(?:\.git|node_modules)(?:\/|$)/i
 
 /** A template file an upgrade refreshes from the skeleton of the core it upgrades to (#1416). */
 export const isRefreshedPath = (path: string): boolean => isRepoPath(path) && !notRefreshed.test(path)

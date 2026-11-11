@@ -17,8 +17,8 @@ export const isThemePath = (path: string): boolean => themePaths.some((p) => p.t
 export const isLockedPath = (path: string): boolean => path.toLowerCase().startsWith('.github/')
 
 // A copy of the sandbox's: an upgrade never writes the theme, the generated files, package.json beyond core's pin (written
-// on its own) or the locked workflow (storefront ARCHITECTURE §2.2, §7.1).
-const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$/i
+// on its own), the locked workflow, or git's and the install's own folders (storefront ARCHITECTURE §2.2, §7.1).
+const notRefreshed = /^(?:src\/theme\/|content\/|\.github\/)|^(?:routes\.json|package\.json|store\.config\.ts|\.env\.development)$|(?:^|\/)(?:\.git|node_modules)(?:\/|$)/i
 
 /** A template file an upgrade refreshes from the skeleton of the core it upgrades to (#1416). */
 export const isRefreshedPath = (path: string): boolean => isRepoPath(path) && !notRefreshed.test(path)

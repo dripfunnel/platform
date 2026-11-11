@@ -363,7 +363,8 @@ before a skeleton change catches up at the next release that reaches it, with no
 file from the template (`src/app/**`, `next.config.ts`, `postcss.config.mjs`, `tsconfig.json`, `eslint.config.js`,
 `next-env.d.ts`, `AGENTS.md`, `CLAUDE.md`, `.npmrc` and any other skeleton file) and overwrites a hand edit to one;
 never `src/theme/**`, `content/**`, `routes.json`, the generated `store.config.ts` and `.env.development`,
-`package.json` beyond core's pin, or `.github/**`.
+`package.json` beyond core's pin, `.github/**`, or anything in a `.git` or `node_modules` folder (a git hook would run on
+the commit).
 
 Decided on #316:
 - **The shims are generated at build, by core, from `routes.json`** (in the build image and the

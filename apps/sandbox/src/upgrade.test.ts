@@ -130,7 +130,7 @@ describe('the upgrade bot’s commit', () => {
     expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.1.0', message: 'm', baseline: null, skeleton: [] })).status).toBe(400)
     expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null })).status).toBe(400)
     const before = await head('live')
-    const never = ['src/theme/pages/HomePage.tsx', 'src/theme/manifest.ts', 'src/theme/media/hero.png', 'content/en/pages.json', 'routes.json', 'package.json', 'store.config.ts', '.env.development', '.github/workflows/build.yml', '.GitHub/workflows/x.yml', '../outside.ts']
+    const never = ['src/theme/pages/HomePage.tsx', 'src/theme/manifest.ts', 'src/theme/media/hero.png', 'content/en/pages.json', 'routes.json', 'package.json', 'store.config.ts', '.env.development', '.github/workflows/build.yml', '.GitHub/workflows/x.yml', '.git/hooks/pre-commit', '.git/config', 'src/app/.git/hooks/post-commit', 'node_modules/next/index.js', 'src/app/node_modules/x.js', '../outside.ts']
     for (const path of never) expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null, skeleton: [{ path, content: 'x' }] })).status, path).toBe(400)
     expect((await call('POST', '/slots/live/upgrade', { from: '1.1.0', to: '1.2.0', message: 'm', baseline: null, skeleton: [{ path: 'store.config.ts', content: null }] })).status).toBe(400)
     expect(await head('live')).toBe(before)
