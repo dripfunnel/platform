@@ -488,6 +488,7 @@ describe('a supplier’s import', () => {
     const reset = async () => {
       await db.sql`update membership set status = 'active', role_key = 'owner' where user_id = ${people.owner} and store_id = ${t.storeA1}`
       await db.sql`update membership set role_key = 'staff' where user_id = ${people.staff} and store_id = ${t.storeA1}`
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
     }
     // Started and confirmed as the Owner's seat; `before` changes the seat by the time the run reads it.
     const run = async (via: keyof typeof through, handle: string, before: () => Promise<unknown> = async () => {}) => {
@@ -506,6 +507,11 @@ describe('a supplier’s import', () => {
       await invited()
       await db.sql`update membership set role_key = 'manager' where user_id = ${people.staff} and store_id = ${t.storeA1}`
     }
+    const suspended = async () => db.sql`update "user" set status = 'suspended' where id = ${people.owner}`
+    const invitedSuspended = async () => {
+      await invited()
+      await suspended()
+    }
     const stopped = { state: 'failed', created: 0, problems: [{ code: 'NOT_ALLOWED' }] }
     try {
       expect(await run('support', 'support-write')).toMatchObject({ state: 'done', created: 1 })
@@ -518,6 +524,9 @@ describe('a supplier’s import', () => {
       // Once an active Manager could give an Allow, support stops acting as the invited Owner; staff don't need one (§8.1).
       expect(await run('support', 'support-invited-allower', invitedWithManager)).toMatchObject(stopped)
       expect(await run('impersonation', 'staff-invited-allower', invitedWithManager)).toMatchObject({ state: 'done', created: 1 })
+      // The seat rule's user half (auth/storePermissions): a suspended account stops the run, whoever acts as it.
+      expect(await run('support', 'support-suspended', suspended)).toMatchObject(stopped)
+      expect(await run('impersonation', 'staff-invited-suspended', invitedSuspended)).toMatchObject(stopped)
     } finally {
       await reset()
     }
