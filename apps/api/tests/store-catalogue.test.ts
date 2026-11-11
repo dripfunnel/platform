@@ -480,6 +480,7 @@ describe('photos, video and files', () => {
 
   it('links a photo only to an image and a video only to a video', async () => {
     const image = await upload('owner')
+    await videoSwitch(true)
     const film = await upload('owner', mp4Of(5))
     expect(film).toMatchObject({ status: 200, asset: { width: null } })
     expect((await create('owner', simple('Video as photo', { photos: [{ assetId: film.asset?.id }] }))).code).toBe('FILE_REFUSED')
@@ -536,6 +537,19 @@ describe('photos, video and files', () => {
     expect((await create('owner', simple('Big film', { video: { assetId: tooBig.asset?.id } }))).code).toBe('INVALID_VIDEO')
     expect((await create('owner', simple('Long film', { video: { assetId: tooLong.asset?.id } }))).code).toBe('INVALID_VIDEO')
     expect((await create('owner', simple('Short film', { video: { assetId: fine.asset?.id } }))).code).toBeUndefined()
+  })
+
+  it('refuses to link a stored video while the Video switch is off, and never another store’s video', async () => {
+    await videoSwitch(true)
+    const mine = await upload('owner', mp4Of(10))
+    const theirs = await upload('bOwner', mp4Of(10))
+    expect((await create('owner', simple('Their film', { video: { assetId: theirs.asset?.id } }))).code).toBe('FILE_REFUSED')
+    await videoSwitch(false)
+    try {
+      expect((await create('owner', simple('Switched off', { video: { assetId: mine.asset?.id } }))).code).toBe('FEATURE_UNAVAILABLE')
+    } finally {
+      await videoSwitch(true)
+    }
   })
 
   it('refuses a product video longer than 30 seconds, bigger than 4 MB or with no readable length, and stores none of them', async () => {
