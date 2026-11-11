@@ -19,6 +19,7 @@ import {
   selectOwnDefaultWarehouse,
   selectOwnSkus,
   selectImporterSeat,
+  selectImporterUserStatus,
   selectStoreHasAllower,
   selectOwnWarehouse,
   startImportRun,
@@ -31,7 +32,7 @@ import { selectRates } from '#db/scoped/rates'
 import { selectLanguages } from '#db/scoped/translations'
 import { importLimits, planImport, type ImportPlan, type ImportProblem, type ImportSource, type PlannedProduct, type PlanOptions, type PlanRefusal, type ProblemCode } from './importFile'
 import { applyInventory, readInventory, type InventoryRefusal } from './inventoryFile'
-import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
+import { isActiveSeat, isInvitedOwnerSeat, isMerchantRole, isNewStoreOwnerSeat, isSupplierRole, isSupplierTier, storeRoleHas, type SeatStatus } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import { collectionsRecomputeKind } from './structure'
 import { maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
@@ -571,19 +572,19 @@ export const problemsCsv = (file: string | null, plan: ImportPlan, all: readonly
 }
 
 /**
- * Whether the importer's seat is still active, or for staff and support an invited Owner's (support only while the store has no
- * active Owner or Manager; ACCESS §8, §8.1), and holds `catalog.import`. Checked each chunk, since a seat can change meanwhile.
+ * Whether the importer may still act as its seat (auth/storePermissions; ACCESS §8, §8.1) and it holds `catalog.import`.
+ * Checked each chunk, since a seat can change meanwhile; a supplier's seat by its membership, its user being unreadable there.
  */
 const mayStillImport = async (tx: ScopedSql, context: TenantContext, importerId: string): Promise<boolean> => {
   const c = context.caller
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
   const seat = await selectImporterSeat(tx, context.storeId, importerId, sellerId)
   if (!seat) return false
-  const invitedOwner = (c.kind === 'impersonation' || c.kind === 'support') && seat.role_key === 'owner' && seat.membership_status === 'invited'
-  if (seat.membership_status !== 'active' && !invitedOwner) return false
-  if (invitedOwner && c.kind === 'support' && (await selectStoreHasAllower(tx, context.storeId))) return false
-  if (sellerId === null) return isMerchantRole(seat.role_key) && storeRoleHas({ side: 'merchant', role: seat.role_key }, 'catalog.import')
-  return seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
+  if (sellerId !== null)
+    return seat.membership_status === 'active' && seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
+  const status: SeatStatus = { role: seat.role_key, membershipStatus: seat.membership_status, userStatus: (await selectImporterUserStatus(tx, importerId)) ?? '' }
+  const acts = isActiveSeat(status) || (c.kind === 'impersonation' ? isInvitedOwnerSeat(status) : c.kind === 'support' && isNewStoreOwnerSeat(status, await selectStoreHasAllower(tx, context.storeId)))
+  return acts && isMerchantRole(seat.role_key) && storeRoleHas({ side: 'merchant', role: seat.role_key }, 'catalog.import')
 }
 
 /** A chunk of the run (K6), from where the last one stopped: each product commits with its place in the file, so a retry never makes one twice. */

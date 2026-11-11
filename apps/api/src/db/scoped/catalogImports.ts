@@ -214,3 +214,7 @@ export const selectImporterSeat = async (tx: ScopedSql, storeId: string, userId:
 /** Whether the store has an active Owner or Manager, so support may no longer act as its invited Owner (ACCESS §8). */
 export const selectStoreHasAllower = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
   (await tx<{ has: boolean }[]>`select ${storeHasAllower(tx)} as has from store s where s.id = ${storeId}`)[0]?.has ?? false
+
+/** The importer's account status, on the merchant side only: a supplier's role can't read `"user"`. */
+export const selectImporterUserStatus = async (tx: ScopedSql, userId: string): Promise<string | null> =>
+  (await tx<{ status: string }[]>`select status from "user" where id = ${userId}`)[0]?.status ?? null
