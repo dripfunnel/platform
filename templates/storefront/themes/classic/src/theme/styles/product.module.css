@@ -164,8 +164,8 @@
 }
 
 .value,
-.valueOn,
-.valueGone {
+.valueOn {
+  position: relative;
   min-width: 56px;
   min-height: 44px;
   padding: 0 16px;
@@ -185,7 +185,40 @@
 
 .valueGone {
   color: var(--muted);
+  cursor: not-allowed;
+}
+
+.valueGone .valueName {
   text-decoration: line-through;
+}
+
+.valueNote {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+@media (min-width: 900px) and (hover: hover) {
+  .valueNote {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    z-index: 1;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translateX(-50%);
+    visibility: hidden;
+  }
+
+  .valueGone:hover .valueNote,
+  .valueGone:focus-visible .valueNote {
+    visibility: visible;
+  }
 }
 
 .stock {
@@ -309,7 +342,6 @@
 .thumbOn:focus-visible,
 .value:focus-visible,
 .valueOn:focus-visible,
-.valueGone:focus-visible,
 .summary:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
