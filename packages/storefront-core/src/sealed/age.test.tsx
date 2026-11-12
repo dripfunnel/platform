@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderIn, screen, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CheckoutPage } from '../checkout/checkout'
 import { PlaceOrder } from '../checkout/place'
 import { createI18n } from '../platform/i18n/i18n'
+import { AgeBoxScope } from './ageBox'
 import { AgeConfirmation } from './components'
 import { rootOf } from './element'
 
@@ -13,6 +15,8 @@ vi.mock('../platform/store/context', () => ({ useStorefront: () => ({ t }) }))
 const words = 'Before you order: please confirm you’re 18 or over.'
 
 afterEach(cleanup)
+
+const render = (ui: ReactElement) => renderIn(ui, { wrapper: AgeBoxScope })
 
 const box = () => {
   const host = document.querySelector('df-sealed[data-df-sealed="age"]')
