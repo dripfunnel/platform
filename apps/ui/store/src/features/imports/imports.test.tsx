@@ -669,6 +669,40 @@ describe('exports', () => {
     expect(api.requestProductExport).toHaveBeenCalledWith({ filter: 'hidden' })
     expect(card.getByText(words.export.preparing)).toBeTruthy()
   })
+
+  const listed = (id: string, state: 'ready' | 'failed' | 'preparing', url: string | null = null) => ({ id, state, entries: state === 'ready' ? 42 : null, url, expiresAt: null, kind: 'products' as const, requestedAt: '2026-10-06T10:00:00Z' })
+
+  it('fetches a finished export by its id for its file, and shows Download', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready'), listed('e0', 'ready', 'blob:e0')])
+    api.loadCatalogExport.mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getAllByRole('link', { name: words.export.download }).map((a) => a.getAttribute('href'))).toEqual(['blob:e1', 'blob:e0'])
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(1)
+    expect(api.loadCatalogExport).toHaveBeenCalledWith('e1')
+    expect(card.queryByText(words.export.failed)).toBeNull()
+  })
+
+  it('shows Couldn’t be made only for an export that failed, and fetches nothing for it', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'failed')])
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.failed)).toBeTruthy()
+    expect(card.queryByRole('link', { name: words.export.download })).toBeNull()
+    expect(api.loadCatalogExport).not.toHaveBeenCalled()
+  })
+
+  it('turns Preparing… into Download without reloading the page', async () => {
+    api.loadCatalogExports.mockResolvedValueOnce([listed('e1', 'preparing')]).mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.preparing)).toBeTruthy()
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1700)))
+    await settle()
+    expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1')
+    expect(card.queryByText(words.export.preparing)).toBeNull()
+  })
 })
 
 describe('while a file is being checked (#1195)', () => {

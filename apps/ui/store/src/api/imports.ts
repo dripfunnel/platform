@@ -115,9 +115,13 @@ const readCatalogExport = (job: z.infer<typeof catalogExportSchema> | null): Cat
 export const loadCatalogExport = async (id: string): Promise<CatalogExport | null> =>
   readCatalogExport((await query(`query E($id: ID!) { catalogExport(id: $id) { ${exportJobFields} kind requestedAt } }`, z.object({ catalogExport: catalogExportSchema.nullable() }), { id })).catalogExport)
 
-/** The caller's own recent exports, newest first. */
+// The list comes without files, so a finished export is ready with no link yet; loadCatalogExport(id) brings its file (#1444).
+const readListed = (job: z.infer<typeof catalogExportSchema>): CatalogExport | null =>
+  job.state === 'done' && job.csv === null ? { id: job.id, state: 'ready', entries: job.rows, url: null, expiresAt: job.expiresAt, truncated: job.truncated ?? false, kind: job.kind, requestedAt: job.requestedAt } : readCatalogExport(job)
+
+/** The caller's own recent exports, newest first, without their files. */
 export const loadCatalogExports = async (): Promise<CatalogExport[]> =>
-  ((await query(`{ catalogExports { ${exportJobFields} kind requestedAt } }`, z.object({ catalogExports: z.array(catalogExportSchema).nullable() }))).catalogExports ?? []).flatMap((job) => readCatalogExport(job) ?? [])
+  ((await query(`{ catalogExports { ${exportJobFields} kind requestedAt } }`, z.object({ catalogExports: z.array(catalogExportSchema).nullable() }))).catalogExports ?? []).flatMap((job) => readListed(job) ?? [])
 
 /** The caller's products as the list shows them: all, one filter, a search, a supplier. */
 export const requestProductExport = async (filter: Partial<Pick<ProductQuery, 'filter' | 'search' | 'supplier'>> = {}): Promise<CatalogExport> => {

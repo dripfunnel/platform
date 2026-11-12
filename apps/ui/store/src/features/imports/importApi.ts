@@ -16,6 +16,7 @@ export const liveImportApi = {
   finishShopifyConnect: imports.finishShopifyConnect,
   startShopifyImport: imports.startShopifyImport,
   loadCatalogExports: imports.loadCatalogExports,
+  loadCatalogExport: imports.loadCatalogExport,
   requestProductExport: imports.requestProductExport,
   loadPlaces,
   loadProductCounts,
