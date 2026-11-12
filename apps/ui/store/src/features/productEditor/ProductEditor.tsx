@@ -143,6 +143,7 @@ export const ProductEditor = () => {
   const [refused, setRefused] = useState<{ draft: Draft; problems: DraftProblem[] } | null>(null)
   const page = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
+  const [problemTick, setProblemTick] = useState(0)
   const [failure, setFailure] = useState<{ text: string; stale: boolean } | null>(null)
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [versionUploads, setVersionUploads] = useState<ReadonlySet<string>>(new Set())
@@ -209,9 +210,13 @@ export const ProductEditor = () => {
 
   useEffect(load, [load])
 
+  const scrollToInvalid = () => page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
   useEffect(() => {
-    if (refused) page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
+    if (refused) scrollToInvalid()
   }, [refused])
+  useEffect(() => {
+    if (problemTick > 0) scrollToInvalid()
+  }, [problemTick])
 
   const dirty = view.kind === 'ready' && isDirty(draft, saved)
   const unsaved = dirty || translationDirty
@@ -342,6 +347,8 @@ export const ProductEditor = () => {
     const blocking = access.canEdit ? [...problems, ...kindProblems] : problems.filter((p) => p === 'stock')
     if (blocking.length > 0) {
       setShowProblems(true)
+      setToast(fill(plural(words.fixBeforeSaving, blocking.length), { count: String(blocking.length) }))
+      setProblemTick((n) => n + 1)
       return
     }
     // A photo still on its way isn't in the product yet; saving now would leave it out.
@@ -539,6 +546,7 @@ export const ProductEditor = () => {
         )}
         {(access.canEdit || access.canStock) && (
           <button type="button" className="df-button df-button--primary" disabled={saving || !dirty} onClick={() => void save()}>
+            {saving && <span className="df-editor-spinner" aria-hidden="true" />}
             {saveLabel}
           </button>
         )}
@@ -632,12 +640,14 @@ export const ProductEditor = () => {
             {words.bar.discard}
           </button>
           <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => void save()}>
+            {saving && <span className="df-editor-spinner" aria-hidden="true" />}
             {saveLabel}
           </button>
         </div>
       )}
 
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}`} {...(ask as Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>)} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
+      <span className="df-visually-hidden" role="status">{saving ? words.saving : ''}</span>
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )
