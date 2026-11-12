@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-26 (#921: the review reads the diff as per-file pieces from `.review/`, §7). Before: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-26 (#921: the review reads the diff as per-file pieces from `.review/`, §7). Before: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
 
 ---
 

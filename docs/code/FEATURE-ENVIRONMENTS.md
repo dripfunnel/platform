@@ -11,7 +11,7 @@ It is deployed on every push and deleted when the branch goes. The workflow is
 [`.github/workflows/feature-env.yml`](../../.github/workflows/feature-env.yml). The tooling is in
 [`apps/api/scripts/feature-env/`](../../apps/api/scripts/feature-env/).
 
-Last updated: 2026-10-31 (#1071: the default branch is frozen, kept for feature environments). Before: 2026-09-29.
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-31 (#1071: the default branch is frozen, kept for feature environments). Before: 2026-09-29.
 
 ---
 

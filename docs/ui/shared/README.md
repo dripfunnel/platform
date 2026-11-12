@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
 
 ---
 

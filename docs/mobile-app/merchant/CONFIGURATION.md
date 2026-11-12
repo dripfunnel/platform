@@ -7,7 +7,7 @@ the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 **Status: built for the `dev` partner (#496).** `app.config.ts`, `partners/dev.env`, `.env.example` and
 `eas.json`'s `dev` profile exist. Other partners' files and profiles are added when their apps are set up.
 
-Last updated: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Before: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Before: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
 
 ---
 

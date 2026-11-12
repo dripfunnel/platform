@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.dev` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, §2.9 restored and §2.10 added). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -219,9 +219,21 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.my-shop.dev/*` and the
    variable `SHOP_DOMAIN=my-shop.dev`, as its comment lists (#317, #744).
 
-### 2.9 Moving dev from `dripfunnel.ai` to `dripfunnel.dev` (#907)
+### 2.9 Moving dev from `dripfunnel.ai` to `actuateminds.com` (#907)
 
 One-off, done by a person; the repo already names the new zone.
+1. Add `actuateminds.com` to the dev Cloudflare account, SSL Full (strict); create the Access
+   applications `*.actuateminds.com` (allow `@softobotics.com`) and the `*-hooks.actuateminds.com` Bypass (§2.1).
+2. Re-point the deploy token's zone scope (§2.2) and the Worker routes to the new zone; `dev-hooks` is a custom domain.
+3. Set `EDGE_ZONE`, `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST`, `CF_SAAS_ZONE_ID` and the `CF_CACHE_PURGE_TOKEN`
+   zone (§3), and the repo's `FEATURE_DOMAIN` and `FEATURE_ZONE_ID` variables (FEATURE-ENVIRONMENTS.md).
+4. Create `portal.edge` and `shops.edge` on the new zone, then reset the dev domain rows so they get the new targets.
+5. Update the callbacks: Stripe webhook and Connect redirect, SES/SNS subscription, the Entra redirect URIs.
+6. Check `https://dev-platform.actuateminds.com/api/health` and the other `dev-` hosts.
+
+### 2.10 Moving dev from `actuateminds.com` to `dripfunnel.dev` (#1441)
+
+One-off, done by a person; the repo already names the new zone. The steps of §2.9, on the new zone:
 1. Add `dripfunnel.dev` to the dev Cloudflare account, SSL Full (strict); create the Access
    applications `*.dripfunnel.dev` (allow `@softobotics.com`) and the `*-hooks.dripfunnel.dev` Bypass (§2.1).
 2. Re-point the deploy token's zone scope (§2.2) and the Worker routes to the new zone; `dev-hooks` is a custom domain.

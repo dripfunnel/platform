@@ -8,7 +8,7 @@ in `dripfunnel/platform`. [WORKFLOW.md](WORKFLOW.md) §3 lists a card's fields;
 Claude follows this page whenever someone asks for a card. The repo skill
 `.claude/skills/create-card` loads it.
 
-Last updated: 2026-10-29 (#1000).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-29 (#1000).
 
 ---
 
