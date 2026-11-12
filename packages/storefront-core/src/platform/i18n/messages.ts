@@ -141,6 +141,7 @@ export const en = {
   'checkout.refused.phone': 'Add your mobile number to pay this way.',
   'checkout.refused.notReady': 'There’s something to finish before you pay. Check each step.',
   'checkout.refused.changed': 'Your cart changed while you were paying. Check it and try again.',
+  'checkout.refused.age': 'Please confirm your age below, then place your order.',
   'checkout.refused.other': 'We couldn’t place your order. Try again in a minute.',
   'address.country': 'Country',
   'address.chooseCountry': 'Choose a country',

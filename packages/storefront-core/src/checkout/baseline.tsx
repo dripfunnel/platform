@@ -62,7 +62,7 @@ const stepWord: Record<CheckoutStepId, MessageKey> = { contact: 'checkout.contac
 const methodWord = (provider: string): MessageKey =>
   provider === 'cod' ? 'checkout.method.cod' : provider === 'bank_transfer' ? 'checkout.method.transfer' : provider === 'razorpay' || provider === 'cashfree' ? 'checkout.method.upi' : provider === 'phonepe' ? 'checkout.method.phonepe' : provider === 'paypal' ? 'checkout.method.paypal' : 'checkout.method.card'
 const refusalWord = (code: string): MessageKey =>
-  code === 'OUT_OF_STOCK' ? 'checkout.refused.outOfStock' : code === 'PHONE_REQUIRED' ? 'checkout.refused.phone' : code === 'NOT_READY' ? 'checkout.refused.notReady' : code === 'CART_CHANGED' ? 'checkout.refused.changed' : 'checkout.refused.other'
+  code === 'OUT_OF_STOCK' ? 'checkout.refused.outOfStock' : code === 'PHONE_REQUIRED' ? 'checkout.refused.phone' : code === 'NOT_READY' ? 'checkout.refused.notReady' : code === 'CART_CHANGED' ? 'checkout.refused.changed' : code === 'AGE_CONFIRMATION_REQUIRED' ? 'checkout.refused.age' : 'checkout.refused.other'
 
 export const BaselineCheckout = () => {
   style()

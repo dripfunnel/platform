@@ -67,7 +67,9 @@ export const CheckoutView = () => {
           ? t('shop.checkout.refusals.notReady')
           : code === 'OFFER_CHANGED' || code === 'CART_CHANGED'
             ? t('shop.checkout.refusals.changed')
-            : t('shop.checkout.refusals.other')
+            : code === 'AGE_CONFIRMATION_REQUIRED'
+              ? t('shop.checkout.refusals.age')
+              : t('shop.checkout.refusals.other')
   const problem = (p: string | undefined) => (p === 'required' ? t('shop.checkout.required') : p === 'invalid' ? t('shop.checkout.invalid') : null)
 
   const body = (id: CheckoutStepId) => {
