@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -502,7 +502,15 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     `(release: decide)`; show the effect on the storefront ("Not available in your country").
 43. **Age-restricted products** (alcohol, tobacco and vapes, knives in the UK, some games or
     videos) need a flag that makes the storefront ask for age confirmation or verification at
-    checkout `(release: decide)`. Which categories require it varies by country.
+    checkout. Which categories require it varies by country. **Decided 2026-11-12 on #1443:** a
+    product's "Ask shoppers to confirm their age" makes **Review and place order** show a tick box,
+    "Before you order: please confirm you're 18 or over.", when the cart holds such a product; Place
+    order stays disabled until it is ticked, once per order. No date of birth, no ID, no setting: the
+    same age for every store. The server checks it too: `placeOrder` takes `ageConfirmed`, refuses
+    with `AGE_CONFIRMATION_REQUIRED` without it (for every caller, the shop app included until it
+    asks), and the order records when it was confirmed (`order.age_confirmed_at`). The Shop API's
+    cart carries `needsAgeConfirmation`. Classic places the box; any other checkout gets it drawn by Place order; storefront
+    ARCHITECTURE §2.1, §3.5. Verification (ID, date of birth) and other ages stay `(release: decide)`.
 44. **Barcodes (GTIN / UPC / EAN / ISBN) are per version.** Google Shopping and marketplaces
     require them for most branded goods. Validate the check digit (in the UI and in the
     engine). Let handmade or own-brand products say "This product has no barcode".

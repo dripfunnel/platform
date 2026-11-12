@@ -12,7 +12,7 @@ type Mutation {
   confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
   payOrder(app: ShopAppPaymentInput, orderId: ID!): ShopPaymentStart
-  placeOrder(app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
+  placeOrder(ageConfirmed: Boolean, app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
   registerPushDevice(orderId: ID, platform: ShopPushPlatform!, token: String!): Boolean
   removeCode(code: String!): ShopCartChange
   removeFromWishlist(productId: ID!): Boolean
@@ -178,6 +178,7 @@ type ShopCart {
   giftCard: ShopAppliedGiftCard
   id: ID
   lines: [ShopCartLine!]
+  needsAgeConfirmation: Boolean
   needsShipping: Boolean
   note: String
   phone: String
