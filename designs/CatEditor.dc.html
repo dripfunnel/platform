@@ -14,7 +14,7 @@
       <button onClick="{{ a.back }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">← Products</button>
       <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.02em;flex:1;min-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ heading }}</span>
       <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:{{ chip.bg }};border:1px solid {{ chip.bd }};color:{{ chip.fg }};font-size:12px;font-family:Manrope,sans-serif;font-weight:600;">{{ chip.label }}</span>
-      <sc-if value="{{ showDup }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.duplicate }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Duplicate</button></sc-if>
+      <sc-if value="{{ showDup }}" hint-placeholder-val="{{ false }}"><span style="position:relative;display:inline-block;"><button aria-haspopup="menu" aria-label="More actions" onClick="{{ a.menuToggle }}" style="height:36px;width:36px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:18px;line-height:1;cursor:pointer;">⋮</button><sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><span role="menu" style="position:absolute;right:0;top:40px;z-index:5;min-width:150px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:8px;box-shadow:0 6px 18px rgba(31,41,51,.14);padding:4px 0;"><button role="menuitem" onClick="{{ a.duplicate }}" style="display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 14px;font-size:13px;color:var(--text,#1F2933);cursor:pointer;">Duplicate</button></span></sc-if></span></sc-if>
       <sc-if value="{{ showDelete }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.del }}" style="height:36px;padding:0 12px;border:1px solid var(--pbd,#F0D4BF);border-radius:8px;background:var(--card,#FFFFFF);color:var(--link,#B8541F);font-size:13px;cursor:pointer;">Delete</button></sc-if>
       <sc-if value="{{ canSave }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">{{ saveLabel }}</button></sc-if>
     </div>
@@ -488,7 +488,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     const d = this.draftFrom(props.app);
-    this.state = { d, orig: JSON.stringify(d), open: {}, lang: 'main', err: {}, saveErr: '', optDraft: {}, vSearch: '', ai: 18, teaserOff: false, pendingGen: false };
+    this.state = { d, orig: JSON.stringify(d), open: {}, lang: 'main', err: {}, saveErr: '', optDraft: {}, vSearch: '', ai: 18, teaserOff: false, pendingGen: false, menuOpen: false };
   }
   componentWillUnmount() { Object.values(this._up || {}).forEach(clearInterval); }
 
@@ -867,7 +867,7 @@ class Component extends DCLogic {
       R, d, fr, frSlug: app.slug(fr.name || d.name), pad: phone ? '14px 14px 20px' : '22px 28px 28px', h1: phone ? '19px' : '24px', gridCols: phone ? '1fr' : 'minmax(0,1fr) 320px', sidePos: phone ? 'static' : 'sticky',
       priceCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', threeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
       heading: d.isNew ? (d.name || 'New product') : d.name || 'Untitled', chip: { label: st[0], bg: st[1], bd: st[2], fg: st[3] },
-      showDup: !d.isNew && c.canManage, showDelete: !d.isNew && c.canManage, canSave: c.canEdit, saveLabel,
+      showDup: !d.isNew && c.canManage, menuOpen: this.state.menuOpen, showDelete: !d.isNew && c.canManage, canSave: c.canEdit, saveLabel,
       multiLang: c.multiLang, langs, translating, notTranslating: !translating, banners,
       showTip: d.isNew && app.walkthrough && !c.isVendor && !phone, tip,
       ro, roMost, canEditMost, canManage: c.canManage,
@@ -937,7 +937,8 @@ class Component extends DCLogic {
         save: () => this.doSave(), saveAnother: () => this.doSave({ another: true }),
         discard: () => { const o = JSON.parse(s.orig); this.setState({ d: o, err: {}, saveErr: '' }); },
         hideTip: () => app.hideWalkthrough(),
-        duplicate: () => { const copy = { ...app.allProducts.find(p => p.id === d.id), id: 'p' + Date.now(), name: 'Copy of ' + d.name, status: 'hidden', stock: 0, stock2: 0, sku: (d.sku || 'PRD') + '-COPY', slug: '', updated: Date.now(), variants: (app.allProducts.find(p => p.id === d.id).variants || []).map(v => ({ ...v, stock: 0, sku: v.sku + '-C' })) }; app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
+        menuToggle: () => this.setState({ menuOpen: !this.state.menuOpen }),
+        duplicate: () => { const copy = { ...app.allProducts.find(p => p.id === d.id), id: 'p' + Date.now(), name: 'Copy of ' + d.name, status: 'hidden', stock: 0, stock2: 0, sku: '', slug: '', updated: Date.now(), variants: (app.allProducts.find(p => p.id === d.id).variants || []).map(v => ({ ...v, stock: 0, sku: '' })) }; this.setState({ menuOpen: false }); app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
         del: () => app.modal({ tag: 'Delete', danger: true, title: `Delete “${d.name}”?`, body: `It leaves ${app.collections.filter(x => app.matches(x, d)).length} collection(s). Past orders keep their record. If you might sell it again, hide it instead.`, confirm: 'Delete', alt: 'Hide instead', onAlt: () => { app.updateProducts([d.id], { status: 'hidden' }); this.upd({ status: 'hidden' }); this.setState(ss => ({ orig: JSON.stringify(ss.d) })); app.toast('Hidden from shoppers'); }, onConfirm: () => { app.deleteProducts([d.id]); app.go('products'); } }),
         addPhoto: () => this.addPhoto(),
         photoLimit: () => c.isOwner ? app.upgradeTo('More photos per product', ['starter', 'growth', 'business', 'enterprise', 'enterprise'][c.P.rank]) : app.toast('Ask your store owner for more photos per product'),
