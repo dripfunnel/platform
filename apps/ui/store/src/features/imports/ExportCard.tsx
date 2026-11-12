@@ -16,22 +16,34 @@ export const ExportCard = () => {
   const [failed, setFailed] = useState(false)
 
   const asked = useRef(new Set<string>())
+  const [missing, setMissing] = useState<ReadonlySet<string>>(new Set())
 
   // The list is read without files, so a ready export is fetched by its id for its file (#1444).
   const refresh = useCallback(
     () => loadCatalogExports().then((listed) => setExports((current) => listed.map((e) => (e.state === 'ready' && !e.url ? (current.find((c) => c.id === e.id && c.url) ?? e) : e))), () => undefined),
     [loadCatalogExports],
   )
-  useEffect(() => {
-    for (const e of exports) {
-      if (e.state !== 'ready' || e.url || asked.current.has(e.id)) continue
-      asked.current.add(e.id)
-      loadCatalogExport(e.id).then(
-        (full) => full && setExports((current) => current.map((c) => (c.id === e.id ? full : c))),
-        () => asked.current.delete(e.id),
+  const fetchFile = useCallback(
+    (id: string) => {
+      asked.current.add(id)
+      const lost = (gone: boolean) =>
+        setMissing((current) => {
+          const next = new Set(current)
+          if (gone) next.add(id)
+          else next.delete(id)
+          return next
+        })
+      lost(false)
+      loadCatalogExport(id).then(
+        (full) => (full ? setExports((current) => current.map((c) => (c.id === id ? full : c))) : lost(true)),
+        () => lost(true),
       )
-    }
-  }, [exports, loadCatalogExport])
+    },
+    [loadCatalogExport],
+  )
+  useEffect(() => {
+    for (const e of exports) if (e.state === 'ready' && !e.url && !asked.current.has(e.id)) fetchFile(e.id)
+  }, [exports, fetchFile])
   useEffect(() => {
     void refresh()
     loadProductCounts().then((counts) => setTotal(counts.all), () => undefined)
@@ -90,7 +102,14 @@ export const ExportCard = () => {
                   {words.download}
                 </a>
               ) : (
-                <span className="df-import-export-state">{e.state === 'expired' ? words.expired : e.state === 'preparing' || e.state === 'ready' ? '' : words.failed}</span>
+                <span className="df-import-export-state">{e.state === 'expired' ? words.expired : e.state === 'preparing' ? '' : e.state === 'ready' ? missing.has(e.id) ? (
+                    <>
+                      {words.fileFailed}{' '}
+                      <button type="button" className="df-import-text-button df-import-link" onClick={() => fetchFile(e.id)}>
+                        {words.retry}
+                      </button>
+                    </>
+                  ) : '' : words.failed}</span>
               )}
             </li>
           ))}

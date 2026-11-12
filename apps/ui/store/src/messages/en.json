@@ -2594,6 +2594,8 @@
       "download": "Download",
       "expired": "Expired",
       "failed": "Couldn’t be made",
+      "fileFailed": "The file didn’t load.",
+      "retry": "Try again",
       "ready": "Your export is ready",
       "file": "products-{date}.csv",
       "counting": "…"

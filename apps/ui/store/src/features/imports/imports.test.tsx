@@ -692,6 +692,30 @@ describe('exports', () => {
     expect(api.loadCatalogExport).not.toHaveBeenCalled()
   })
 
+  it('says the file didn’t load when fetching it fails, and Try again gets it', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.fileFailed, { exact: false })).toBeTruthy()
+    expect(card.queryByText(words.export.failed)).toBeNull()
+    fireEvent.click(card.getByRole('button', { name: words.export.retry }))
+    await settle()
+    expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1')
+    expect(card.queryByText(words.export.fileFailed, { exact: false })).toBeNull()
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the file didn’t load when the export is no longer there, and asks again only when told to', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockResolvedValue(null)
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.fileFailed, { exact: false })).toBeTruthy()
+    expect(card.queryByRole('link', { name: words.export.download })).toBeNull()
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(1)
+  })
+
   it('turns Preparing… into Download without reloading the page', async () => {
     api.loadCatalogExports.mockResolvedValueOnce([listed('e1', 'preparing')]).mockResolvedValue([listed('e1', 'ready')])
     api.loadCatalogExport.mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
