@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -861,6 +861,11 @@ depend on an engine capability whose release is not yet chosen.
 
 - F1. Drag-and-drop or tap to upload several at once, and use the phone camera.
 - F2. Progress per photo, retry on failure, and continue editing while uploads finish.
+  - **The count (decided 2026-11-09 on #1348):** "{n} of 20 photos" counts only photos that have
+    uploaded. One still uploading and a "Didn't upload" box don't count; the box stays, with Try again
+    and Remove. The limit still allows for photos uploading: the files taken at once, Add more and Try again
+    stop at uploaded + uploading, so a product never passes 20. "That's the most photos a product can have."
+    shows once 20 have uploaded.
 - F3. Reorder by dragging. The first photo is the main photo, and this is stated.
 - F4. Remove a photo, and choose from photos already uploaded.
 - F5. Alt text, auto-suggested and explained as "helps blind shoppers and Google".
@@ -966,6 +971,12 @@ with validation before any write, partial-failure reports, and translation and c
   be said, with no warehouse used twice.
 - K6. Long-running import: a progress bar, and permission to leave the page, with a
   notification when done and partial-failure reporting (e.g. image URLs that 404).
+  - **A product's photos (decided 2026-11-09 on #1348):** a product gets up to 20 photos that
+    **downloaded**, in the file's order. The 21st photo and later are spares: when one of the first 20
+    fails, the next spare is tried at its place, until the product has 20 or the spares run out; photos
+    are still fetched in parallel. A failed photo is listed on its line. A photo is reported as left out
+    (`TOO_MANY_PHOTOS`, "the first 20 that download are imported") only when the product already has
+    20, once the run ends.
 - K7. Shopify connect: enter the store address, approve on Shopify, return, pick products with
   select-all, then import. Also handle a connection that failed or expired.
 - K8. Export all or the current filtered selection: long-running, with a download link and a

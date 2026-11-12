@@ -17,7 +17,7 @@ import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChan
 import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
 import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
 import { GiftCardsIssued } from './GiftCardsIssued'
-import { BasicsCard, KindCard, maxPhotos, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
+import { BasicsCard, KindCard, maxPhotos, PhotosCard, photosTaken, PriceCard, type PendingPhoto } from './EditorCards'
 import { maxVideoBytes, maxVideoSeconds, videoSeconds } from '../common/videoLength'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
@@ -292,6 +292,7 @@ export const ProductEditor = () => {
     const file = files.current.get(id)
     if (!file) return
     if (pending.find((p) => p.id === id)?.kind === 'video') void sendVideo(id, file)
+    else if (photosTaken(draft.photos.length, pending) + versionUploads.size >= maxPhotos) setToast(words.photos.limit)
     else upload(id, file)
   }
   const dismiss = (id: string) => {
@@ -308,7 +309,7 @@ export const ProductEditor = () => {
   const ofVersion = (key: string) => (p: Draft['photos'][number]) => p.versionChoices !== null && versionKey(p.versionChoices) === key
   const uploadVersionPhoto = (choices: string[], file: File) => {
     const key = versionKey(choices)
-    if (!draft.photos.some(ofVersion(key)) && draft.photos.length + pending.length + versionUploads.size >= maxPhotos) return setToast(words.photos.limit)
+    if (!draft.photos.some(ofVersion(key)) && photosTaken(draft.photos.length, pending) + versionUploads.size >= maxPhotos) return setToast(words.photos.limit)
     setVersionUploads((s) => new Set([...s, key]))
     void uploadPhoto(file).then((result) => {
       setVersionUploads((s) => new Set([...s].filter((k) => k !== key)))

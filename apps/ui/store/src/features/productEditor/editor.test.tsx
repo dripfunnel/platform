@@ -1659,3 +1659,64 @@ describe('a product video', () => {
     expect((document.querySelector('input[type="file"]') as HTMLInputElement).accept).not.toContain('video')
   })
 })
+
+// The photo meter counts photos that uploaded; the limit also allows for the ones still uploading (#1348).
+describe('the photo count', () => {
+  const photosOf = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `ph${i}`, assetId: `a${i}`, url: `/api/assets/a${i}`, alt: null, versionId: null }))
+  const choose = (...names: string[]) => fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: names.map((n) => new File(['x'], n, { type: 'image/png' })) } })
+  const meter = () => document.querySelector('.df-editor-meter')?.textContent
+
+  beforeEach(() => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+  })
+
+  it('leaves a photo that didn’t upload out of the count, whether it is removed or tried again', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(9) }))
+    api.uploadPhoto.mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' }).mockResolvedValueOnce({ ok: true, assetId: 'new' })
+    await show(owner)
+    expect(meter()).toBe('9 of 20 photos')
+    choose('bad.png')
+    await settle()
+    expect(screen.getByText(words.photos.failed)).toBeTruthy()
+    expect(meter()).toBe('9 of 20 photos')
+    fireEvent.click(screen.getByRole('button', { name: words.photos.retry }))
+    await settle()
+    expect(screen.queryByText(words.photos.failed)).toBeNull()
+    expect(meter()).toBe('10 of 20 photos')
+    api.uploadPhoto.mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' })
+    choose('bad2.png')
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: words.photos.dismiss }))
+    expect(screen.queryByText(words.photos.failed)).toBeNull()
+    expect(meter()).toBe('10 of 20 photos')
+  })
+
+  it('leaves a photo that is still uploading out of the count, but never lets the product pass 20', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(18) }))
+    api.uploadPhoto.mockReturnValue(new Promise(() => undefined))
+    await show(owner)
+    choose('a.png', 'b.png', 'c.png', 'd.png')
+    await settle()
+    expect(api.uploadPhoto).toHaveBeenCalledTimes(2)
+    expect(meter()).toBe('18 of 20 photos')
+    expect(screen.queryByRole('button', { name: words.photos.addMore })).toBeNull()
+    expect(screen.queryByText(words.photos.limit)).toBeNull()
+  })
+
+  it('says “the most photos” only once 20 have uploaded, and won’t try a failed photo again past 20', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ photos: photosOf(19) }))
+    api.uploadPhoto.mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' }).mockResolvedValueOnce({ ok: true, assetId: 'new' })
+    await show(owner)
+    choose('bad.png')
+    await settle()
+    choose('good.png')
+    await settle()
+    expect(meter()).toBe('20 of 20 photos')
+    expect(screen.getAllByText(words.photos.limit).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: words.photos.retry }))
+    await settle()
+    expect(api.uploadPhoto).toHaveBeenCalledTimes(2)
+    expect(meter()).toBe('20 of 20 photos')
+  })
+})
