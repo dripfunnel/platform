@@ -89,7 +89,6 @@
     "OUT_OF_STOCK": "Something in your cart has just sold out. Check your cart and try again.",
     "OFFER_CHANGED": "An offer in your cart has just ended or been used up. Check your cart and try again.",
     "CART_CHANGED": "Your cart changed while you were placing the order. Check it and try again.",
-    "AGE_CONFIRMATION_REQUIRED": "Please confirm you’re 18 or over before you order.",
     "ALREADY_PLACED": "This order has already been placed.",
     "METHOD_UNAVAILABLE": "This shop doesn’t take that payment any more. Choose another way to pay.",
     "PHONE_REQUIRED": "Add your mobile number to pay this way.",
@@ -479,7 +478,6 @@
       "payment": "Payment",
       "summary": "Order summary",
       "place": "Place order",
-      "age": "Before you order: please confirm you’re 18 or over.",
       "legal": "By placing your order you agree to our Terms and Returns policy. We use your details as our Privacy policy says."
     },
     "pay": {

@@ -63,7 +63,7 @@ const courier = { id: 'courier', service: 'Blue Dart Surface', amount: inr('1290
 const afterContact = cartRead({ email: 'ana@example.com', problems: ['NO_ADDRESS'] })
 const afterAddress = (options: object[]) => cartRead({ email: 'ana@example.com', shippingAddress: address, shippingOptions: options, problems: ['NO_SHIPPING'] })
 // The engine says ₹1,550.00; the lines (₹1,499.00) and the ₹49.00 delivery would add up to ₹1,548.00.
-const afterOption = (options: object[], id: string, shipping: string, age = false) => cartRead({ email: 'ana@example.com', shippingAddress: address, shippingOptions: options, shippingOption: id, shipping: inr(shipping), total: inr('155000'), problems: [], needsAgeConfirmation: age })
+const afterOption = (options: object[], id: string, shipping: string) => cartRead({ email: 'ana@example.com', shippingAddress: address, shippingOptions: options, shippingOption: id, shipping: inr(shipping), total: inr('155000'), problems: [] })
 
 const payments = [
   { provider: 'klarna', kind: 'card', instructions: null },
@@ -71,9 +71,9 @@ const payments = [
   { provider: 'bank_transfer', kind: 'bank_transfer', instructions: 'A/C 123, IFSC ABCD0001' },
 ]
 
-type Setup = { account?: object; options?: object[]; payments?: object[]; place?: () => unknown; checkoutRefusal?: ApiError; age?: boolean }
+type Setup = { account?: object; options?: object[]; payments?: object[]; place?: () => unknown; checkoutRefusal?: ApiError }
 
-const shopFor = ({ account = signedInAs, options = [own, pickup], payments: ways = payments, place, checkoutRefusal, age = false }: Setup = {}) => {
+const shopFor = ({ account = signedInAs, options = [own, pickup], payments: ways = payments, place, checkoutRefusal }: Setup = {}) => {
   const chosen = options.find((o) => (o as { id: string }).id === 'own_delivery') ?? options[0]
   return fakeShop(({ query, variables }) => {
     if (query.startsWith('{ cart')) return { cart: cartRead() }
@@ -84,7 +84,7 @@ const shopFor = ({ account = signedInAs, options = [own, pickup], payments: ways
     if (query.includes('setShippingOption')) return { setShippingOption: { cart: afterOption(options, String(variables?.['option']), String((chosen as { amount: { amount: string } }).amount.amount)), cartToken: null } }
     if (query.startsWith('mutation { checkout')) {
       if (checkoutRefusal) throw checkoutRefusal
-      return { checkout: afterOption(options, 'own_delivery', '4900', age) }
+      return { checkout: afterOption(options, 'own_delivery', '4900') }
     }
     if (query.includes('confirmPayment')) return { confirmPayment: { state: 'placed', paymentState: 'paid' } }
     if (query.includes('address { country }')) return { store: { address: { country: 'US' } } }
@@ -163,47 +163,6 @@ describe('checkout for an address inside an own-delivery area, paid by cash on d
     expect(hasText(screen, t('checkout.placed.bankTitle', { total: '₹1,550.00' }))).toBe(true)
     expect(hasText(screen, t('checkout.placed.bankBody', { number: 'ORD-1002' }))).toBe(true)
     expect(hasText(screen, 'A/C 123, IFSC ABCD0001')).toBe(true)
-  })
-})
-
-describe('a cart with an age-restricted product', () => {
-  const placeButton = (screen: ReactTestRenderer) => pressableNamed(screen, t('checkout.review.place'))
-
-  it('asks at Review for the shopper to confirm they are 18 or over, keeps Place order off until they do, and sends the confirmation with the order', async () => {
-    const shop = shopFor({ age: true })
-    const screen = await render(<CheckoutScreen />, shop)
-    await toReview(screen)
-    expect(hasText(screen, t('checkout.review.age'))).toBe(true)
-    expect(isDisabled(placeButton(screen))).toBe(true)
-    await press(screen, t('checkout.review.age'))
-    expect(isDisabled(placeButton(screen))).toBe(false)
-    await press(screen, t('checkout.review.place'))
-    expect(sent(shop.requests, 'placeOrder')[0]?.variables).toEqual({ provider: 'cod', ageConfirmed: true })
-  })
-
-  it('puts Place order back off when the shopper unticks it', async () => {
-    const screen = await render(<CheckoutScreen />, shopFor({ age: true }))
-    await toReview(screen)
-    await press(screen, t('checkout.review.age'))
-    await press(screen, t('checkout.review.age'))
-    expect(isDisabled(placeButton(screen))).toBe(true)
-  })
-
-  it('shows nothing about age for a cart without one, and Place order is ready', async () => {
-    const screen = await render(<CheckoutScreen />, shopFor())
-    await toReview(screen)
-    expect(hasText(screen, t('checkout.review.age'))).toBe(false)
-    expect(isDisabled(placeButton(screen))).toBe(false)
-  })
-
-  it('says so when the server refuses an order sent without the confirmation', async () => {
-    const refusal = new ApiError('AGE_CONFIRMATION_REQUIRED', 'x')
-    const shop = shopFor({ age: true, place: () => { throw refusal } })
-    const screen = await render(<CheckoutScreen />, shop)
-    await toReview(screen)
-    await press(screen, t('checkout.review.age'))
-    await press(screen, t('checkout.review.place'))
-    expect(hasText(screen, t('errors.AGE_CONFIRMATION_REQUIRED'))).toBe(true)
   })
 })
 

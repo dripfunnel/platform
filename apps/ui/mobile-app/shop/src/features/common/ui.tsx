@@ -133,25 +133,7 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
   )
 }
 
-/** A checkbox or radio row: its label, an optional detail on the right, and a mark that fills when selected. */
-export function ChoiceRow({ label, detail, role, selected, onPress }: { label: string; detail?: string; role: 'checkbox' | 'radio'; selected: boolean; onPress: () => void }) {
-  const { colors } = useTheme()
-  return (
-    <Pressable accessibilityRole={role} accessibilityState={{ checked: selected }} accessibilityLabel={detail ? `${label}, ${detail}` : label} onPress={onPress} style={styles.row}>
-      <View style={[styles.mark, role === 'radio' ? styles.round : styles.square, { borderColor: selected ? colors.focus : colors.fieldBorder, backgroundColor: selected ? colors.focus : colors.surface }]}>
-        {selected ? <Text style={{ color: colors.onInk, fontSize: 12, fontWeight: '800' }}>✓</Text> : null}
-      </View>
-      <Text style={{ color: colors.text, fontSize: 16, flex: 1 }}>{label}</Text>
-      {detail ? <Text style={{ color: colors.muted, fontSize: 14 }}>{detail}</Text> : null}
-    </Pressable>
-  )
-}
-
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
-  mark: { width: 22, height: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  square: { borderRadius: 5 },
-  round: { borderRadius: 11 },
   button: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   buttonLabel: { fontWeight: '700', fontSize: 16 },
   state: { alignItems: 'center', gap: 10, paddingHorizontal: 28, paddingVertical: 64 },

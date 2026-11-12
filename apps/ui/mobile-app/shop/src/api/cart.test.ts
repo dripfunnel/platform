@@ -17,11 +17,6 @@ describe('the cart read', () => {
     expect(cart?.lines[0]).toMatchObject({ quantity: 2, lineTotal: inr('299800') })
   })
 
-  it('says whether a product in it asks the shopper to confirm their age, and no when the API says nothing', () => {
-    expect(cartOperation().parse({ cart: cartRead({ needsAgeConfirmation: true }) })?.needsAgeConfirmation).toBe(true)
-    expect(cartOperation().parse({ cart: cartRead() })?.needsAgeConfirmation).toBe(false)
-  })
-
   it('is no cart when the API has none', () => {
     expect(cartOperation().parse({ cart: null })).toBeNull()
   })
@@ -80,12 +75,6 @@ describe('the writes', () => {
     const api = client({ placeOrder: { orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'bank_transfer', instructions: 'A/C 123' } })
     expect(await placeOrder(api, 'bank_transfer')).toEqual({ orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'bank_transfer', instructions: 'A/C 123', payment: null })
     expect(api.requests[0]?.variables).toEqual({ provider: 'bank_transfer' })
-  })
-
-  it('sends the age confirmation only when the shopper gave it', async () => {
-    const api = client({ placeOrder: { orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'cod', instructions: null } })
-    await placeOrder(api, 'cod', undefined, true)
-    expect(api.requests[0]?.variables).toEqual({ provider: 'cod', ageConfirmed: true })
   })
 })
 
