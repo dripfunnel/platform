@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { ApiError } from '@dripfunnel/shared/graphql'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogImport } from '../../api/imports'
@@ -698,9 +698,8 @@ describe('exports', () => {
     await show()
     const card = within(screen.getByRole('region', { name: words.export.title }))
     expect(card.getByText(words.export.preparing)).toBeTruthy()
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 1700)))
-    await settle()
-    expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1')
+    // The card polls every 1.5 s; wait for what it shows rather than for a fixed time.
+    await waitFor(() => expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1'), { timeout: 5000 })
     expect(card.queryByText(words.export.preparing)).toBeNull()
   })
 })
