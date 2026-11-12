@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { CatalogExport } from '../../api/imports'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { useImportApi } from './importApi'
@@ -48,6 +48,21 @@ export const ExportCard = () => {
     void refresh()
     loadProductCounts().then((counts) => setTotal(counts.all), () => undefined)
   }, [refresh, loadProductCounts])
+
+  const stateOf = (e: CatalogExport): ReactNode => {
+    if (e.state === 'expired') return words.expired
+    if (e.state === 'preparing') return ''
+    if (e.state !== 'ready') return words.failed
+    if (!missing.has(e.id)) return words.gettingFile
+    return (
+      <>
+        {words.fileFailed}{' '}
+        <button type="button" className="df-import-text-button df-import-link" onClick={() => fetchFile(e.id)}>
+          {words.retry}
+        </button>
+      </>
+    )
+  }
 
   const preparing = exports.some((e) => e.state === 'preparing')
   useEffect(() => {
@@ -102,14 +117,9 @@ export const ExportCard = () => {
                   {words.download}
                 </a>
               ) : (
-                <span className="df-import-export-state">{e.state === 'expired' ? words.expired : e.state === 'preparing' ? '' : e.state === 'ready' ? missing.has(e.id) ? (
-                    <>
-                      {words.fileFailed}{' '}
-                      <button type="button" className="df-import-text-button df-import-link" onClick={() => fetchFile(e.id)}>
-                        {words.retry}
-                      </button>
-                    </>
-                  ) : '' : words.failed}</span>
+                <span className="df-import-export-state" aria-live="polite">
+                  {stateOf(e)}
+                </span>
               )}
             </li>
           ))}

@@ -692,6 +692,15 @@ describe('exports', () => {
     expect(api.loadCatalogExport).not.toHaveBeenCalled()
   })
 
+  it('says it is getting the file while that fetch is out', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.gettingFile)).toBeTruthy()
+    expect(card.queryByText(words.export.failed)).toBeNull()
+  })
+
   it('says the file didn’t load when fetching it fails, and Try again gets it', async () => {
     api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
     api.loadCatalogExport.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
