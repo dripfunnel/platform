@@ -29,7 +29,7 @@ export type PayPhase =
   | { kind: 'confirming'; orderId: string }
   | { kind: 'failed'; orderId: string | null; amount: Money | null; code: string; message: string | null }
 
-type State = { phase: PayPhase; editing: CheckoutStepId | null; chosen: string | null; host: HTMLElement | null; busy: boolean; error: string | null; problems: string[]; instructions: string | null; soleDeliveryFailed: boolean }
+type State = { phase: PayPhase; editing: CheckoutStepId | null; chosen: string | null; host: HTMLElement | null; busy: boolean; error: string | null; problems: string[]; instructions: string | null; soleDeliveryFailed: boolean; ageConfirmed: boolean }
 
 const optionsQuery = `query PaymentOptions { paymentOptions { provider kind instructions mode publicKey } store { markets { id countries } } }`
 const optionsSchema = z.object({
@@ -38,7 +38,7 @@ const optionsSchema = z.object({
 })
 const startFields = 'providerRef publicKey accountId clientSecret sessionId redirectUrl'
 const startSchema = z.object({ providerRef: z.string(), publicKey: z.string().nullable().optional(), accountId: z.string().nullable().optional(), clientSecret: z.string().nullable().optional(), sessionId: z.string().nullable().optional(), redirectUrl: z.string().nullable().optional() }).transform((s): PaymentStart => ({ providerRef: s.providerRef, publicKey: s.publicKey ?? null, accountId: s.accountId ?? null, clientSecret: s.clientSecret ?? null, sessionId: s.sessionId ?? null, redirectUrl: s.redirectUrl ?? null }))
-const placeMutation = `mutation Place($provider: String!) { placeOrder(provider: $provider) { orderId total { amount currency } instructions payment { ${startFields} } } }`
+const placeMutation = `mutation Place($provider: String!, $ageConfirmed: Boolean) { placeOrder(provider: $provider, ageConfirmed: $ageConfirmed) { orderId total { amount currency } instructions payment { ${startFields} } } }`
 const placeSchema = z.object({ placeOrder: z.object({ orderId: z.string(), total: moneySchema, instructions: z.string().nullable().optional(), payment: startSchema.nullable().optional() }) })
 const payMutation = `mutation Pay($orderId: ID!) { payOrder(orderId: $orderId) { ${startFields} } }`
 const confirmMutation = `mutation Confirm($orderId: ID!) { confirmPayment(orderId: $orderId) { id } }`
@@ -55,7 +55,7 @@ export const orderPath = (orderId: string) => `/order/${encodeURIComponent(order
 export const checkoutSdk: { current: Sdk } = { current: browserSdk }
 
 const createCheckoutStore = () => {
-  let state: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false }
+  let state: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false, ageConfirmed: false }
   const listeners = new Set<() => void>()
   return {
     subscribe: (l: () => void) => {
@@ -79,7 +79,7 @@ const checkoutStoreOf = (client: ShopClient) => {
 
 const applyingDelivery = new WeakSet<CheckoutStore>()
 
-const serverState: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false }
+const serverState: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false, ageConfirmed: false }
 
 /** The payment phase and the host the sealed payment element gives the provider, shared by every checkout component. */
 export const useCheckoutState = () => {
@@ -129,6 +129,10 @@ export type CheckoutPage = {
   choosePayment: (provider: string) => void
   /** Payment's Continue: the engine checks everything it needs and the review opens. */
   review: () => Promise<boolean>
+  /** The cart asks shoppers to confirm their age, and whether they have: Place order waits for it (#1443). */
+  needsAgeConfirmation: boolean
+  ageConfirmed: boolean
+  confirmAge: (confirmed: boolean) => void
   /** "Pay" or "Place order"; in the studio frame it does nothing (the placeholder says why). */
   place: () => Promise<void>
   /** "Try again" after a declined or abandoned payment. */
@@ -274,10 +278,11 @@ export const useCheckout = (): CheckoutPage => {
       const { chosen: provider, phase } = store.get()
       // One order per cart: while one is being placed or paid, or failed with its order, only payAgain goes on.
       if (mode === 'studio' || !provider || (phase.kind !== 'idle' && !(phase.kind === 'failed' && phase.orderId === null))) return
+      if (cart?.needsAgeConfirmation && !store.get().ageConfirmed) return
       store.set({ phase: { kind: 'placing' }, error: null })
       let placed: z.infer<typeof placeSchema>['placeOrder']
       try {
-        placed = (await client.query(placeMutation, placeSchema, { provider })).placeOrder
+        placed = (await client.query(placeMutation, placeSchema, { provider, ...(cart?.needsAgeConfirmation ? { ageConfirmed: true } : {}) })).placeOrder
       } catch (error) {
         store.set({ phase: { kind: 'failed', orderId: null, amount: null, code: codeOf(error), message: null } })
         return void carts.reload()
@@ -297,6 +302,9 @@ export const useCheckout = (): CheckoutPage => {
         store.set({ phase: { kind: 'failed', orderId, amount, code: codeOf(error), message: null } })
       }
     },
+    needsAgeConfirmation: cart?.needsAgeConfirmation ?? false,
+    ageConfirmed: state.ageConfirmed,
+    confirmAge: (confirmed) => store.set({ ageConfirmed: confirmed }),
     phase: state.phase,
     test: payments.some((p) => p.test) || mode !== 'live',
     mode,

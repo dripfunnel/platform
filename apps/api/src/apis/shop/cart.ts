@@ -193,6 +193,8 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       shippingOption: t.exposeString('shippingOption', { nullable: true }),
       // False when nothing in the cart is sent (downloads, services, gift cards): checkout skips the address and delivery.
       needsShipping: t.exposeBoolean('needsShipping'),
+      // True when a product in the cart asks shoppers to confirm their age: Review shows the tick box (#1443).
+      needsAgeConfirmation: t.exposeBoolean('needsAgeConfirmation'),
       checkoutStep: t.exposeString('checkoutStep', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (c) => c.lines }),
       subtotal: t.field({ type: Money_, resolve: (c) => c.subtotal }),

@@ -137,6 +137,8 @@ export interface CartView {
   revision: number
   /** False when nothing in it is sent: checkout then asks no address or delivery (CATALOG T14). */
   needsShipping: boolean
+  /** Something in it asks shoppers to confirm their age: placing the order needs the confirmation (#1443). */
+  needsAgeConfirmation: boolean
   lines: CartLineView[]
   /** Before any offer. */
   subtotal: Money
@@ -336,6 +338,7 @@ export const createCartService = (deps: CartDeps) => {
       checkoutStep: row.checkout_step,
       revision: row.revision,
       needsShipping,
+      needsAgeConfirmation: lines.some((l) => l.item?.ageRestricted),
       lines,
       subtotal,
       discounts: offers.discounts.map((d) => ({ ...d, amount: { amount: d.amount, currency } })),

@@ -5,7 +5,7 @@ import { Link } from '../platform/browser/link'
 import type { MessageKey } from '../platform/i18n/messages'
 import { useStorefront } from '../platform/store/context'
 import { formatMoney, isZero } from '../pricing/money'
-import { PreviewBanner } from '../sealed/components'
+import { AgeConfirmation, PreviewBanner } from '../sealed/components'
 import { PaymentElement } from '../sealed/payment'
 import { OrderSummary } from '../sealed/summary'
 import { Checkbox } from '../ui/headless/fields'
@@ -167,6 +167,7 @@ export const BaselineCheckout = () => {
     return (
       <>
         <PaymentElement t={t} />
+        <AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} />
         <PlaceOrder checkout={c} again={t('checkout.payAgain')}>
           {t('checkout.place')}
         </PlaceOrder>

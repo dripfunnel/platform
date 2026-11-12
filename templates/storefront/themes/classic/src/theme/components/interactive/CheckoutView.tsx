@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cx } from '../cx'
-import { AddressFields, Checkbox, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, AgeConfirmation, Checkbox, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -190,6 +190,7 @@ export const CheckoutView = () => {
         </dl>
         <p className={styles.note}>{t('shop.checkout.agree')}</p>
         <PaymentElement t={t} className={styles.payment} />
+        <AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} className={styles.age} />
         <PlaceOrder checkout={c} className={cx(shop.primary, styles.pay)} again={t('shop.checkout.payAgain')}>
           {t('shop.checkout.place')}
         </PlaceOrder>

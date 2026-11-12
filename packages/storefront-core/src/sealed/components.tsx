@@ -65,7 +65,19 @@ export const LegalNotices = ({ notices, t, className }: Styled & { notices: read
     </Sealed>
   ) : null
 
-export type Crumb = { label: string; href: string }
+export type AgeConfirmationProps = Styled & { needed: boolean; checked: boolean; onChange: (checked: boolean) => void; t: Translate }
+
+/** The tick box a cart with an age-restricted product needs before it can be ordered (#1443); nothing for any other cart. Part: box. */
+export const AgeConfirmation = ({ needed, checked, onChange, t, className }: AgeConfirmationProps) =>
+  needed ? (
+    <Sealed part="age" className={className}>
+      <label part="box">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {t('checkout.age.confirm')}
+      </label>
+    </Sealed>
+  ) : null
+
+export type Crumb ={ label: string; href: string }
 
 // A crumb clicked in the studio frame stays in it, as core's Link does (AI-STUDIO §8).
 const CrumbLink = ({ crumb }: { crumb: Crumb }) => (

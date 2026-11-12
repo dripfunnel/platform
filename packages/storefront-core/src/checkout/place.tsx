@@ -11,7 +11,7 @@ export const PlaceOrder = ({ checkout, children, again, className }: { checkout:
   const retry = phase.kind === 'failed' && phase.orderId !== null
   if (phase.kind === 'paying' || phase.kind === 'confirming' || phase.kind === 'leaving') return null
   return (
-    <button type="button" className={className} data-df-action="place-order" disabled={checkout.mode === 'studio' || phase.kind === 'placing' || !checkout.chosen} onClick={() => void (retry ? checkout.payAgain() : checkout.place())}>
+    <button type="button" className={className} data-df-action="place-order" disabled={checkout.mode === 'studio' || phase.kind === 'placing' || !checkout.chosen || (checkout.needsAgeConfirmation && !checkout.ageConfirmed)} onClick={() => void (retry ? checkout.payAgain() : checkout.place())}>
       {retry ? again : children}
     </button>
   )
