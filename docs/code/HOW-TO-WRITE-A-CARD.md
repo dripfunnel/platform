@@ -8,7 +8,7 @@ in `dripfunnel/platform`. [WORKFLOW.md](WORKFLOW.md) §3 lists a card's fields;
 Claude follows this page whenever someone asks for a card. The repo skill
 `.claude/skills/create-card` loads it.
 
-Last updated: 2026-10-29 (#1000).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-29 (#1000).
 
 ---
 
@@ -155,7 +155,7 @@ assignee** unless the request names one.
 ## 6. The bug sections
 
 ```
-**Environment:** dev (store.acme.actuateminds.com), signed in as the store's Owner; seed data, store "Jaipur Looms".
+**Environment:** dev (store.acme.dripfunnel.dev), signed in as the store's Owner; seed data, store "Jaipur Looms".
 
 **Steps to reproduce**
 1. Open Orders and pick an order paid by card and not shipped.

@@ -10,7 +10,7 @@
   "env": {
     // `wrangler dev --env local` (docs/setup/local.md §6.3): preview and shop hosts, behind Caddy, on the API Worker's local bucket.
     "local": {
-      "vars": { "OWN_ZONE": "actuateminds.com", "PAGES_HOST": "localhost", "SHOP_DOMAIN": "my-store.localhost" },
+      "vars": { "OWN_ZONE": "dripfunnel.dev", "PAGES_HOST": "localhost", "SHOP_DOMAIN": "my-store.localhost" },
       "services": [
         { "binding": "API", "service": "dripfunnel-api-local" },
         { "binding": "EDGE", "service": "dripfunnel-api-local", "entrypoint": "StorefrontEdge" }
@@ -21,7 +21,7 @@
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
-      "vars": { "OWN_ZONE": "actuateminds.com", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "SHOP_DOMAIN": "my-shop.dev" },
+      "vars": { "OWN_ZONE": "dripfunnel.dev", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "SHOP_DOMAIN": "my-shop.dev" },
       // A partner's own host goes to the API's default fetch, so its placement applies (SAAS.md §8, ARCHITECTURE §6); shop and preview hosts use StorefrontEdge (LIVE-SHOP §5, PREVIEW §5).
       "services": [
         { "binding": "API", "service": "dripfunnel-api-dev" },
@@ -29,7 +29,7 @@
       ],
       "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }],
       "routes": [
-        { "pattern": "*/*", "zone_name": "actuateminds.com" },
+        { "pattern": "*/*", "zone_name": "dripfunnel.dev" },
         { "pattern": "*.my-shop.dev/*", "zone_name": "my-shop.dev" }
       ]
     },

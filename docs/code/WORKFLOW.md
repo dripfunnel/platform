@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-26 (#921: the review reads the diff as per-file pieces from `.review/`, §7). Before: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-26 (#921: the review reads the diff as per-file pieces from `.review/`, §7). Before: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
 
 ---
 
@@ -34,7 +34,7 @@ kind of work, and a short name.
 
 | Kind | Use it for | Branch | Environment |
 |---|---|---|---|
-| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.actuateminds.com` (e.g. `12-abandoned-carts-store.actuateminds.com`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
+| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.dripfunnel.dev` (e.g. `12-abandoned-carts-store.dripfunnel.dev`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
 | **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `#<issue>/task/<short-name>`, e.g. `#13/task/db-foundation` | No: gates only |
 | **Bug** | Fixing a defect in something already merged | `#<issue>/bug/<short-name>`, e.g. `#14/bug/money-rounding` | No: gates only |
 

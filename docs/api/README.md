@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-11-09 (#1367: the nightly cart purge keeps a cart holding a shopper's upload, §5.1). Before: 2026-11-05 (#1301: sweeps handed to the placed fetch handler, §5). Before: 2026-11-05 (#1300: a deliverer's own timeout; rows one at a time again, §5). Before: 2026-11-05 (#1267: the relay wakes itself when a sweep runs out of budget, and a deliverer may take rows concurrently, §5). Before: 2026-11-01 (#1124: system scope in one statement, each console's session check in one query, §7). Before: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-09 (#1367: the nightly cart purge keeps a cart holding a shopper's upload, §5.1). Before: 2026-11-05 (#1301: sweeps handed to the placed fetch handler, §5). Before: 2026-11-05 (#1300: a deliverer's own timeout; rows one at a time again, §5). Before: 2026-11-05 (#1267: the relay wakes itself when a sweep runs out of budget, and a deliverer may take rows concurrently, §5). Before: 2026-11-01 (#1124: system scope in one statement, each console's session check in one query, §7). Before: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -441,7 +441,7 @@ out, since nothing answered.
 2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
 3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
-   presence of each value, never a value. Dev answers the same at `https://dev-platform.actuateminds.com/api/health`.
+   presence of each value, never a value. Dev answers the same at `https://platform.dripfunnel.dev/api/health`.
 
 ---
 

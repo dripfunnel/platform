@@ -1,7 +1,7 @@
 import { EnvironmentBanner, environmentFor } from '@dripfunnel/shared/ui'
 import { messages } from '../../messages'
 
-const nonProd = /(^|\.)(localhost|actuateminds\.com)$|^(127\.0\.0\.1|\[?::1\]?)$/
+const nonProd = /(^|\.)(localhost|dripfunnel\.dev)$|^(127\.0\.0\.1|\[?::1\]?)$/
 
 // Portal hosts are open-ended (house and custom domains), so only the closed set of non-prod hosts
 // gets the strip; environmentFor's "unknown is feature" default would flag every prod store host.

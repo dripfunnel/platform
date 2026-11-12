@@ -1293,6 +1293,43 @@ describe('Save, only when there is something to save (#1223)', () => {
     expect(top().disabled).toBe(true)
   })
 
+  it('says how many things need fixing when Save is chosen with a problem, and scrolls to the first (#1327)', async () => {
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+    await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText('1 thing to fix before saving')).toBeTruthy()
+    expect(scrolled.mock.contexts.at(-1)).toBe(field(words.price.price))
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    cleanup()
+    scrolled.mockClear()
+    await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: '  ' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText('2 things to fix before saving')).toBeTruthy()
+    expect(scrolled.mock.contexts.at(-1)).toBe(field(words.name.label))
+  })
+
+  it('shows a spinner beside Saving… on both Save buttons while it saves, and none otherwise (#1327)', async () => {
+    const answer = deferred<{ id: string; revision: number; approval: null }>()
+    api.saveProduct.mockReturnValue(answer.promise)
+    await show(owner)
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    expect(document.querySelector('.df-editor-spinner')).toBeNull()
+    api.loadProduct.mockResolvedValue(cushion({ name: 'Renamed', revision: 3 }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    const saving = screen.getAllByRole('button', { name: words.saving })
+    expect(saving).toHaveLength(2)
+    for (const button of saving) expect(button.querySelector('.df-editor-spinner[aria-hidden="true"]')).toBeTruthy()
+    answer.resolve({ id: 'p1', revision: 3, approval: null })
+    await settle()
+    expect(document.querySelector('.df-editor-spinner')).toBeNull()
+  })
+
   it('is greyed out and reads Saving… while it saves, then stays greyed out with the toast until the next change', async () => {
     const answer = deferred<{ id: string; revision: number; approval: null }>()
     api.saveProduct.mockReturnValue(answer.promise)
