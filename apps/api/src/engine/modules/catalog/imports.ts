@@ -13,6 +13,7 @@ import {
   saveImportCheck,
   saveImportPhotos,
   saveImportProgress,
+  saveImportSpare,
   selectCatalogImport,
   selectCatalogImports,
   selectManualCurrencies,
@@ -35,7 +36,7 @@ import { applyInventory, readInventory, type InventoryRefusal } from './inventor
 import { isActiveSeat, isInvitedOwnerSeat, isMerchantRole, isNewStoreOwnerSeat, isSupplierRole, isSupplierTier, storeRoleHas, type SeatStatus } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import { collectionsRecomputeKind } from './structure'
-import { maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
+import { maxPhotos, maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
 import type { SaveResult } from './index'
 import type { ProductTranslationInput, TranslationResult } from './translations'
 
@@ -104,7 +105,7 @@ export const problemWords: Record<ProblemCode, string> = {
   INVALID_PRICE: 'The price or compare-at price isn’t valid.',
   INVALID_BARCODE: 'This barcode isn’t a valid EAN, UPC or GTIN.',
   DUPLICATE_SKU: 'This SKU is already used by another of your products.',
-  TOO_MANY_PHOTOS: 'A product can have up to 20 photos; the first 20 are imported and the rest left out.',
+  TOO_MANY_PHOTOS: 'A product can have up to 20 photos; the first 20 that download are imported and the rest left out.',
   INVALID_PHOTO: 'A photo isn’t usable.',
   INVALID_VIDEO: 'The video isn’t usable.',
   INVALID_FILTER: 'A filter value isn’t one of your store’s.',
@@ -544,7 +545,13 @@ const finishIfDone = async (tx: ScopedSql, storeId: string, jobId: string, at: D
   const job = held ?? (await lockCatalogImport(tx, storeId, jobId))
   const plan = job?.plan as ImportPlan | null | undefined
   if (!job || job.state !== 'running' || !plan || job.done < plan.products.length || job.photos_pending > 0) return
-  await finishImport(tx, jobId, { problemsCsv: problemsCsv(job.file, plan, problemsOf(job.problems)), at, expiresAt: new Date(at.getTime() + catalogImportLifetimeMs) })
+  // Spares no failed photo needed: the product already has its 20, and these are the ones left out (#1348).
+  const leftOut: ImportProblem[] = plan.products.flatMap((p) => {
+    const extra = p.spare === undefined ? undefined : p.photos[p.spare]
+    return extra ? [{ line: extra.line, column: 'image', code: 'TOO_MANY_PHOTOS' as const }] : []
+  })
+  await addImportProblems(tx, jobId, leftOut)
+  await finishImport(tx, jobId, { problemsCsv: problemsCsv(job.file, plan, [...problemsOf(job.problems), ...leftOut]), at, expiresAt: new Date(at.getTime() + catalogImportLifetimeMs) })
 }
 
 /** The error file (K3): the file's own rows that had a problem, each product's rows together, with a problem column. */
@@ -623,8 +630,9 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
         if (!(await d.saveTranslationIn(tx, productId, language, text)).ok) problems.push({ line, column: `name:${language}`, code: 'TRANSLATION_REFUSED' })
       }
       // Photos for a product the import made; one that was there keeps its own (and its approval, ACCESS §7.2).
-      const photos = kind === 'created' ? p.photos : []
-      if (payload) await d.queueMany(tx, importPhotosKind, photos.map((photo, position) => ({ key: `${jobId}:photo:${productId}:${position}`, payload: { ...payload, productId, position, ...photo } })))
+      const photos = kind === 'created' ? p.photos.slice(0, maxPhotos) : []
+      if (payload) await d.queueMany(tx, importPhotosKind, photos.map((photo, position) => ({ key: `${jobId}:photo:${productId}:${position}`, payload: { ...payload, productId, plan: done - 1, position, ...photo } })))
+      if (payload && p.photos.length > photos.length && photos.length > 0) await saveImportSpare(tx, jobId, done - 1, maxPhotos)
       await saveImportProgress(tx, jobId, { ...none, [kind]: 1, done, photos: photos.length, problems })
     }
     const outcome = await importOne(d, job, p, owners, alongside)
@@ -646,11 +654,25 @@ export const importPhotoPayload = z.object({
   productId: z.guid(),
   line: z.number().int(),
   position: z.number().int().min(0).max(19),
+  /** The photo's product in the plan, where its spares are; absent on a job queued before spares. */
+  plan: z.number().int().min(0).optional(),
   url: z.string().max(importLimits.photoUrl),
   alt: z.string().max(importLimits.photoAlt).nullable(),
 })
 
 export type PhotoFetch = (url: string) => Promise<{ ok: true; assetId: string } | { ok: false; code: 'PHOTO_UNAVAILABLE' | 'PHOTO_REFUSED' }>
+
+/** A photo that failed is replaced, at its place, by its product's next spare, so each of the 20 places keeps trying until one downloads (#1348); false when none is left. */
+const queueSpare = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRow, photo: z.infer<typeof importPhotoPayload>): Promise<boolean> => {
+  const planned = photo.plan === undefined ? undefined : (job.plan as ImportPlan | null)?.products[photo.plan]
+  const next = planned?.spare
+  const spare = next === undefined ? undefined : planned?.photos[next]
+  const payload = jobPayloadOf(d.context, job.id)
+  if (photo.plan === undefined || next === undefined || !spare || !payload) return false
+  await saveImportSpare(tx, job.id, photo.plan, next + 1)
+  await d.queue(tx, importPhotosKind, `${job.id}:photo:${photo.productId}:${photo.position}:${next}`, { ...payload, productId: photo.productId, plan: photo.plan, position: photo.position, ...spare })
+  return true
+}
 
 /** One of a made product's photos, fetched and stored as the importer's file at its place; one that fails is reported (K6). */
 export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: z.infer<typeof importPhotoPayload>, fetchPhoto: PhotoFetch): Promise<void> => {
@@ -666,9 +688,10 @@ export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: 
   await withScope(d.sql, d.context, async (tx) => {
     const job = await lockCatalogImport(tx, storeId, jobId)
     if (job?.state !== 'running') return
+    const replaced = !result.ok && (await queueSpare(tx, d, job, photo))
     const [, counted] = await Promise.all([
       result.ok ? addProductPhoto(tx, storeId, photo.productId, { assetId: result.assetId, alt: photo.alt, position: photo.position }) : undefined,
-      saveImportPhotos(tx, jobId, result.ok ? [] : [{ line: photo.line, column: 'image', code: result.code }]),
+      saveImportPhotos(tx, jobId, result.ok ? [] : [{ line: photo.line, column: 'image', code: result.code }], replaced ? 1 : 0),
     ])
     await finishIfDone(tx, storeId, jobId, d.now(), counted)
   })

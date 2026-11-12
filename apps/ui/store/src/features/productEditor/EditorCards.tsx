@@ -49,6 +49,9 @@ export interface PendingPhoto {
 
 export const maxPhotos = 20
 
+/** Photos that count toward the limit: those uploaded and those still uploading. A failed one doesn't (#1348). */
+export const photosTaken = (photos: number, pending: readonly PendingPhoto[]): number => photos + pending.filter((p) => p.kind !== 'video' && p.state === 'uploading').length
+
 /** Photos: the main one first, made main with a tap; uploads show while they run, and a failed one says why. A product's one video sits in the grid after them (#1401). */
 export const PhotosCard = ({
   draft,
@@ -76,10 +79,12 @@ export const PhotosCard = ({
   const altId = useId()
   const own = draft.photos.filter((p) => p.versionChoices === null)
   // Versions' own photos count too: the API's limit is on every photo of the product.
-  const count = draft.photos.length + pending.filter((p) => p.kind !== 'video').length
+  const count = draft.photos.length
+  const taken = photosTaken(count, pending)
   const full = count >= maxPhotos
+  const noRoom = taken >= maxPhotos
   const videoShown = videoOn || draft.video !== null
-  const canAdd = !full || (videoOn && draft.video === null)
+  const canAdd = !noRoom || (videoOn && draft.video === null)
   const move = (assetId: string) => update((d) => ({ ...d, photos: [...d.photos.filter((p) => p.assetId === assetId), ...d.photos.filter((p) => p.assetId !== assetId)] }))
   const remove = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId) }))
   return (
@@ -146,7 +151,7 @@ export const PhotosCard = ({
           <li>
             <button type="button" className="df-editor-photo-add" onClick={() => input.current?.click()}>
               <span aria-hidden="true">+</span>
-              {count === 0 ? words.photos.add : words.photos.addMore}
+              {count === 0 && pending.length === 0 ? words.photos.add : words.photos.addMore}
             </button>
             <input
               ref={input}
@@ -159,7 +164,7 @@ export const PhotosCard = ({
               onChange={(event) => {
                 const chosen = [...(event.target.files ?? [])]
                 const videos = videoOn ? chosen.filter(isVideoFile) : []
-                onFiles(chosen.filter((f) => !videos.includes(f)).slice(0, Math.max(0, maxPhotos - count)))
+                onFiles(chosen.filter((f) => !videos.includes(f)).slice(0, Math.max(0, maxPhotos - taken)))
                 for (const file of videos) onVideo(file)
                 event.target.value = ''
               }}
