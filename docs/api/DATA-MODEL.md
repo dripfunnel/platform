@@ -2503,8 +2503,10 @@ catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), sta
                     -- a day later. A connected import (K7) has connection_id, selection (the picked
                     -- products, null for all) and cursor, and is read into the file before its check
 catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'|'report'|'activity'), filter jsonb,
-                     state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
+                     state ('queued'|'done'|'failed'), rows, products integer NULL, truncated, csv text NULL,
                      requested_by_id, requested_by_label, created_at, finished_at, expires_at)
+                    -- products (#1445, migration 0396) is a product export's own product count, beside `rows`
+                    -- (its versions, one row each); null for any other kind and for one made before it
                     -- built on #301 (migration 0058): the store's CSV exports, named apart from
                     -- the partner's export_job (§2.6); built through the outbox in the asker's
                     -- scope, so a supplier's holds its own rows only; the file is on the row for

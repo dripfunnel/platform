@@ -980,7 +980,13 @@ with validation before any write, partial-failure reports, and translation and c
 - K7. Shopify connect: enter the store address, approve on Shopify, return, pick products with
   select-all, then import. Also handle a connection that failed or expired.
 - K8. Export all or the current filtered selection: long-running, with a download link and a
-  "recent exports" list.
+  "recent exports" list. The file has one row for each version, so the card counts products and versions
+  apart (decided 2026-11-12 on #1445): "Export all · 11 products, 13 versions", "Export hidden · 2 products, 3 versions"
+  (the hidden products' own versions), and each recent row "Products · 11 products, 13 versions", with the note
+  "One row for each version in the file." under the title. A product without choices is one version; a count of one
+  is singular ("1 product, 1 version"); a supplier sees its own products' counts only. The API's product counts give
+  `versions` and `hiddenVersions`, and each product export records its `products` beside its `rows`
+  (`catalog_export.products`, migration 0396).
 - K9. Vendor import/export: allowed, their own products only (decided on #184).
 - K10. Multi-language: import and export translations as extra columns (`name:hi`,
   `description:hi`) (decided 2026-10-05 on #337).

@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { CatalogExport } from '../../api/imports'
+import type { ProductCounts } from '../../api/products'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { useImportApi } from './importApi'
 
 const words = messages.imports.export
 const pollMs = 1500
 
+const countsOf = (products: number | null, versions: number): string => {
+  const inVersions = fill(plural(words.versions, versions), { count: formatCount(versions) })
+  return products === null ? inVersions : fill(words.counts, { products: fill(plural(words.count, products), { count: formatCount(products) }), versions: inVersions })
+}
+
 /** Export: all products or the hidden ones as a job, and the caller's recent files to download while their link lasts. */
 export const ExportCard = () => {
   const { loadCatalogExport, loadCatalogExports, loadProductCounts, requestProductExport } = useImportApi()
   const id = useId()
   const [exports, setExports] = useState<CatalogExport[]>([])
-  const [total, setTotal] = useState<number | null>(null)
+  const [sizes, setSizes] = useState<Pick<ProductCounts, 'all' | 'versions' | 'hidden' | 'hiddenVersions'> | null>(null)
   const [asking, setAsking] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -46,7 +52,7 @@ export const ExportCard = () => {
   }, [exports, fetchFile])
   useEffect(() => {
     void refresh()
-    loadProductCounts().then((counts) => setTotal(counts.all), () => undefined)
+    loadProductCounts().then(setSizes, () => undefined)
   }, [refresh, loadProductCounts])
 
   const stateOf = (e: CatalogExport): ReactNode => {
@@ -89,13 +95,14 @@ export const ExportCard = () => {
         <h2 id={`${id}-title`}>{words.title}</h2>
         <span className="df-import-row-actions">
           <button type="button" className="df-button df-button--small" disabled={asking} onClick={() => void ask('hidden')}>
-            {words.hidden}
+            {sizes === null ? words.hidden : fill(words.withCounts, { action: words.hidden, counts: countsOf(sizes.hidden, sizes.hiddenVersions) })}
           </button>
           <button type="button" className="df-button df-button--small df-import-export-all" disabled={asking} onClick={() => void ask('all')}>
-            {fill(words.all, { count: total === null ? '' : formatCount(total) }).trim()}
+            {sizes === null ? words.all : fill(words.withCounts, { action: words.all, counts: countsOf(sizes.all, sizes.versions) })}
           </button>
         </span>
       </div>
+      <p className="df-import-export-about">{words.note}</p>
       {preparing && (
         <p className="df-import-export-note" role="status">
           {words.preparing}
@@ -110,7 +117,7 @@ export const ExportCard = () => {
         <ul className="df-import-export-rows">
           {exports.map((e) => (
             <li key={e.id}>
-              <span className="df-import-export-label">{fill(words.row, { label: words.label[e.kind], count: e.entries === null ? words.counting : fill(plural(words.count, e.entries), { count: formatCount(e.entries) }) })}</span>
+              <span className="df-import-export-label">{fill(words.row, { label: words.label[e.kind], count: e.entries === null ? words.counting : countsOf(e.products, e.entries) })}</span>
               <span className="df-import-export-date">{formatTime(e.requestedAt)}</span>
               {e.state === 'ready' && e.url ? (
                 <a className="df-import-link" href={e.url} download={fill(words.file, { date: e.requestedAt.slice(0, 10) })}>

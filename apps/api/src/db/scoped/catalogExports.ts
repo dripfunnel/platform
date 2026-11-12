@@ -14,6 +14,8 @@ export interface CatalogExportRow {
   filter: Record<string, unknown>
   state: 'queued' | 'done' | 'failed'
   rows: number | null
+  /** A product export's products (`rows` counts its versions); null for any other. */
+  products: number | null
   truncated: boolean
   csv: string | null
   requested_by_id: string
@@ -41,14 +43,14 @@ export const selectCatalogExport = async (tx: ScopedSql, storeId: string, id: st
 /** "Recent exports": the asker's own, newest first, without their files. */
 export const selectCatalogExports = (tx: ScopedSql, storeId: string, requesterId: string, kinds: readonly CatalogExportKind[], limit: number): Promise<Omit<CatalogExportRow, 'csv'>[]> =>
   tx<Omit<CatalogExportRow, 'csv'>[]>`
-    select id, store_id, seller_id, kind, filter, state, rows, truncated, requested_by_id, requested_by_label, created_at, finished_at, expires_at
+    select id, store_id, seller_id, kind, filter, state, rows, products, truncated, requested_by_id, requested_by_label, created_at, finished_at, expires_at
     from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and kind = any (${pgArray([...kinds])}::text[])
     order by created_at desc, id desc limit ${limit}
   `
 
-export const completeCatalogExport = async (tx: ScopedSql, id: string, r: { rows: number; truncated: boolean; csv: string; at: Date; expiresAt: Date }): Promise<void> => {
+export const completeCatalogExport = async (tx: ScopedSql, id: string, r: { rows: number; products?: number; truncated: boolean; csv: string; at: Date; expiresAt: Date }): Promise<void> => {
   await tx`
-    update catalog_export set state = 'done', rows = ${r.rows}, truncated = ${r.truncated}, csv = ${r.csv}, finished_at = ${r.at}, expires_at = ${r.expiresAt}
+    update catalog_export set state = 'done', rows = ${r.rows}, products = ${r.products ?? null}, truncated = ${r.truncated}, csv = ${r.csv}, finished_at = ${r.at}, expires_at = ${r.expiresAt}
     where id = ${id} and state = 'queued'
   `
 }

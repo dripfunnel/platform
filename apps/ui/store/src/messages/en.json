@@ -2579,8 +2579,15 @@
     },
     "export": {
       "title": "Export",
-      "hidden": "Export hidden only",
-      "all": "Export all {count}",
+      "note": "One row for each version in the file.",
+      "hidden": "Export hidden",
+      "all": "Export all",
+      "withCounts": "{action} · {counts}",
+      "counts": "{products}, {versions}",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
       "preparing": "Preparing your file… big exports run in the background.",
       "row": "{label} · {count}",
       "label": {

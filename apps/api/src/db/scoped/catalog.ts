@@ -178,6 +178,9 @@ export interface ProductCounts {
   /** The summary line's: products a supplier owns, and physical ones with nothing on hand (as the list's stock). */
   fromSuppliers: number
   outOfStock: number
+  /** Every version of these products, one at least for each (a product's export has a row for each), and the hidden products' own. */
+  versions: number
+  hiddenVersions: number
 }
 
 /** The list's chips, from their own query and in the caller's scope, so a supplier counts only its own (ACCESS §7.1). */
@@ -192,10 +195,14 @@ export const countProducts = async (tx: ScopedSql, storeId: string): Promise<Pro
         count(*) filter (where description = '' or not exists (select 1 from product_photo ph where ph.product_id = product.id))::int as "missingInfo",
         count(*) filter (where ${lowStock(tx, 'product')})::int as "lowStock",
         count(*) filter (where seller_id is not null)::int as "fromSuppliers",
-        count(*) filter (where product_type = 'physical' and ${stockOf(tx, 'product')} <= 0)::int as "outOfStock"
-      from product where store_id = ${storeId} and deleted_at is null and not is_sample
+        count(*) filter (where product_type = 'physical' and ${stockOf(tx, 'product')} <= 0)::int as "outOfStock",
+        coalesce(sum(greatest(1, versions.n)), 0)::int as versions,
+        coalesce(sum(greatest(1, versions.n)) filter (where visibility = 'hidden'), 0)::int as "hiddenVersions"
+      from product
+      left join lateral (select count(*) as n from product_version v where v.product_id = product.id and v.deleted_at is null) versions on true
+      where store_id = ${storeId} and deleted_at is null and not is_sample
     `
-  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0, missingInfo: 0, lowStock: 0, fromSuppliers: 0, outOfStock: 0 }
+  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0, missingInfo: 0, lowStock: 0, fromSuppliers: 0, outOfStock: 0, versions: 0, hiddenVersions: 0 }
 
 export interface OptionRow {
   id: string
