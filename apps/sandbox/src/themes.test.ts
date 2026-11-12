@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, type Browser, type Page } from 'playwright-core'
+import { chromium, type Browser, type Locator, type Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { coreRoutes, routeAddresses, themeRoutesSchema } from '@dripfunnel/storefront-core'
@@ -511,6 +511,42 @@ describe.each(['baseline', 'classic'])('the %s theme’s account, mobile number'
     }
   })
 
+  it('keeps focus with the shopper at every step, by keyboard: each field as it opens, back to Add on Cancel, and to Change once the number is saved', async ({ skip }) => {
+    if (!browser) return skip()
+    const page = await openAccount(browser, out, fresh())
+    const focused = (target: Locator) => target.evaluate((el) => el === document.activeElement)
+    try {
+      const row = mobileRow(page)
+      const number = page.getByLabel('Mobile number')
+      const code = page.getByLabel('6-digit code')
+      const add = row.getByRole('button', { name: 'Add' })
+      await add.focus()
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await expect.poll(() => focused(code)).toBe(true)
+      await page.getByRole('button', { name: 'Use another number' }).click()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect.poll(() => focused(add)).toBe(true)
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await page.keyboard.type('123456')
+      await page.keyboard.press('Enter')
+      const change = row.getByRole('button', { name: 'Change' })
+      await change.waitFor()
+      await expect.poll(() => focused(change)).toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+
   it('changes a number: Change, and the old number stays on screen until the new one is proved', async ({ skip }) => {
     if (!browser) return skip()
     const state = fresh({ phone: '+919811100001', verified: true })
@@ -525,7 +561,8 @@ describe.each(['baseline', 'classic'])('the %s theme’s account, mobile number'
       await expect(row.textContent()).resolves.toContain('+919811100001')
       await page.getByLabel('6-digit code').fill('123456')
       await page.getByRole('button', { name: 'Save number' }).click()
-      await row.getByText('+919855000005').waitFor()
+      await row.getByRole('button', { name: 'Change' }).waitFor()
+      await expect(row.textContent()).resolves.toContain('+919855000005')
       await expect(row.textContent()).resolves.not.toContain('+919811100001')
     } finally {
       await page.context().close()
