@@ -333,6 +333,36 @@ describe('the product editor', () => {
       expect(screen.getByText(messages.products.duplicated)).toBeTruthy()
     })
 
+    it('asks first when there are unsaved changes: Cancel makes no copy, and confirming copies what is saved and opens it without a second prompt', async () => {
+      listApi.duplicateProduct.mockResolvedValue('p2')
+      const leave = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const router = await show(owner)
+      fireEvent.change(field(words.name.label), { target: { value: 'Changed name' } })
+      fireEvent.click(duplicate() as HTMLElement)
+      const dialog = () => within(document.querySelector('dialog') as HTMLElement)
+      expect(dialog().getByText(words.duplicateUnsaved)).toBeTruthy()
+      fireEvent.click(dialog().getByRole('button', { name: words.cancel }))
+      expect(listApi.duplicateProduct).not.toHaveBeenCalled()
+      expect(router.state.location.pathname).toBe('/products/p1')
+      expect(duplicate()?.disabled).toBe(false)
+      fireEvent.click(duplicate() as HTMLElement)
+      fireEvent.click(dialog().getByRole('button', { name: words.duplicateConfirm }))
+      await settle()
+      expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
+      expect(router.state.location.pathname).toBe('/products/p2')
+      expect(leave).not.toHaveBeenCalled()
+      leave.mockRestore()
+    })
+
+    it('copies at once, with no question, when nothing is unsaved', async () => {
+      listApi.duplicateProduct.mockResolvedValue('p2')
+      await show(owner)
+      fireEvent.click(duplicate() as HTMLElement)
+      expect(document.querySelector('dialog')).toBeNull()
+      await settle()
+      expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
+    })
+
     it('sits next to Delete, and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
       await show(owner)
       const buttons = screen.getAllByRole('button').map((b) => b.textContent)

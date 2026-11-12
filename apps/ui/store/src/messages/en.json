@@ -1670,6 +1670,9 @@
       "failed": "Couldn’t save — your changes are still here",
       "discard": "Discard"
     },
+    "duplicateTitle": "Duplicate “{name}”?",
+    "duplicateUnsaved": "The copy is made from what you last saved, so your unsaved changes aren’t in it. They are lost when the copy opens.",
+    "duplicateConfirm": "Duplicate",
     "deleteTitle": "Delete “{name}”?",
     "deleteBody": "It leaves every collection. Past orders keep their record. If you might sell it again, hide it instead.",
     "deleteConfirm": "Delete",

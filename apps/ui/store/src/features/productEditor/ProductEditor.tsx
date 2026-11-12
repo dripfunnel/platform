@@ -512,15 +512,25 @@ export const ProductEditor = () => {
     })
   }
 
-  const duplicate = () => {
+  // The copy is made from what is saved, so unsaved changes are asked about first; once confirmed, opening the copy is not asked again.
+  const copy = () => {
     if (!product || copying) return
     setCopying(true)
     void copyProduct(product.id).then((made) => {
-      if (made.ok) return void navigate({ to: '/products/$productId', params: { productId: made.id } })
-      setToast(made.message)
-      setCopying(false)
+      if (!made.ok) {
+        setToast(made.message)
+        return setCopying(false)
+      }
+      leaving.current = true
+      void navigate({ to: '/products/$productId', params: { productId: made.id } }).finally(() => (leaving.current = false))
     })
   }
+
+  const duplicate = () =>
+    product &&
+    (unsaved
+      ? setAsk({ title: fill(words.duplicateTitle, { name: product.name }), target: product.name, consequence: words.duplicateUnsaved, confirmLabel: words.duplicateConfirm, onConfirm: copy })
+      : copy())
 
   const remove = () =>
     product &&

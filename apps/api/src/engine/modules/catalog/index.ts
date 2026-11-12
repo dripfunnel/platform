@@ -52,7 +52,6 @@ import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, textL
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, textLimits, type ProductInput } from './rules'
-
 export { maxChoices, maxQuestions, type QuestionInput, type QuestionRefusal } from './questions'
 export { assetsAudit, copyRepoImage, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'

@@ -853,7 +853,8 @@ depend on an engine capability whose release is not yet chosen.
   store asks for it), never on a new product or in a read-only store. The copy is named "Copy of {name}" (cut to the name
   limit), is hidden, has no stock and no product codes, keeps the photos, choices, prices and listing, and gets its own
   web address; it opens for editing with "Copy made — it's hidden, and stock starts at 0". At the plan's product limit it
-  says so and makes no copy. One click makes one copy.
+  says so and makes no copy. One click makes one copy. The copy is made from what is saved: on a page with unsaved
+  changes it asks first, and opening the copy then discards them.
 - E7. Hide vs delete. Hiding is the recommended action. Delete confirms, lists what happens to
   collections and past orders, and offers undo where possible.
 - E8. Bulk delete of many products, with progress and partial failure ("48 deleted, 2 could
