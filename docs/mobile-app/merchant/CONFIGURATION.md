@@ -7,7 +7,7 @@ the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 **Status: built for the `dev` partner (#496).** `app.config.ts`, `partners/dev.env`, `.env.example` and
 `eas.json`'s `dev` profile exist. Other partners' files and profiles are added when their apps are set up.
 
-Last updated: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Before: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Before: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
 
 ---
 
@@ -53,7 +53,7 @@ Last updated: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Be
 | `GOOGLE_WEB_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID` | `<number>-<id>.apps.googleusercontent.com` | *Optional, both or neither* (#1048). Turns on **Continue with Google** on Sign in: the iOS client's reversed ID becomes the Google plugin's URL scheme, and the app asks Google for an ID token for the web client, which the API checks (ACCESS §2). The button shows only while the partner's Google sign-in is also on (`brand.googleSignIn`) | The partner's own Google Cloud project: the web client is the one on Settings › Integrations; the iOS client is made for the bundle id (BUILD-CHECKLIST §1). Public IDs, not secrets |
 
 **The development target is a `dev` partner profile**, `partners/dev.env` with
-`PARTNER_DOMAIN=dev-store.actuateminds.com`, the dev environment's portal host (docs/setup/dev.md)
+`PARTNER_DOMAIN=store.dripfunnel.dev`, the dev environment's portal host (docs/setup/dev.md)
 (decided 2026-10-09: an exception to AGENTS.md "Working with the user" rule 3 for the mobile app
 only). Cloudflare Access gates that host (docs/setup/dev.md §1), so the app's API calls are
 refused there until that is solved on its own card.

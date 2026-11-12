@@ -133,7 +133,7 @@ const configSchema = z.object({
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
-const devHooksHost = 'dev-hooks.actuateminds.com'
+const devHooksHost = 'hooks.dripfunnel.dev'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
 const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL', 'GOOGLE_SIGN_IN_LOCAL'] as const
 

@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-11-01 (#1086: the production database on PlanetScale). Before: 2026-10-31 (#1071: the dev database on PlanetScale). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, own delivery, api/DELIVERY.md, proposed). Before: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-01 (#1086: the production database on PlanetScale). Before: 2026-10-31 (#1071: the dev database on PlanetScale). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, own delivery, api/DELIVERY.md, proposed). Before: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -96,7 +96,7 @@ docs/
     ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
   setup/
     local.md                runbook: your machine: tools, local Postgres, .env.local, setup:local, dev, dev:https, signing in
-    dev.md                  runbook: the dev environment on actuateminds.com: one-time setup, the Worker's values, deploying, checklist
+    dev.md                  runbook: the dev environment on dripfunnel.dev: one-time setup, the Worker's values, deploying, checklist
     prod.md                 runbook: production on dripfunnel.ai: what is missing, one-time setup, values, releasing, checklist
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,

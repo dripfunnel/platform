@@ -17,7 +17,7 @@ const spas = [
 ] as const
 
 for (const { spa, project } of spas) {
-  const host = `dev-${spa}.${env.DEV_DOMAIN}`
+  const host = `${spa}.${env.DEV_DOMAIN}`
   await cf.ensurePagesDomain(project, host)
   await cf.upsertCname(host, `${project}.pages.dev`, 'dev environment')
 }

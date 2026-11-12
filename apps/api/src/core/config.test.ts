@@ -52,7 +52,7 @@ describe('parseConfig', () => {
 
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
-    expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.actuateminds.com', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
+    expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.dripfunnel.dev', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
   })
