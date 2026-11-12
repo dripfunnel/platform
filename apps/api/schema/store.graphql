@@ -275,6 +275,7 @@ type CatalogExport {
   expiresAt: String
   id: ID
   kind: String
+  products: Int
   requestedAt: String
   rows: Int
   state: String
@@ -1990,11 +1991,13 @@ type ProductCounts {
   all: Int
   fromSuppliers: Int
   hidden: Int
+  hiddenVersions: Int
   lowStock: Int
   missingInfo: Int
   outOfStock: Int
   pending: Int
   sentBack: Int
+  versions: Int
   visible: Int
 }
 

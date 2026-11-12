@@ -34,6 +34,7 @@ export const registerCatalogExports = (builder: StoreBuilder) => {
       // queued, done, failed or expired
       state: t.exposeString('state'),
       rows: t.exposeInt('rows', { nullable: true }),
+      products: t.exposeInt('products', { nullable: true }),
       truncated: t.exposeBoolean('truncated'),
       csv: t.exposeString('csv', { nullable: true }),
       requestedAt: t.string({ resolve: (e) => e.requestedAt.toISOString() }),

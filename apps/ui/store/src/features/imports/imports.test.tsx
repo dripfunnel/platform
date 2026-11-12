@@ -106,7 +106,7 @@ beforeEach(() => {
     { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, supplierId: null, supplierName: null },
     { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 0, revision: 1, address: null, supplierId: 'v1', supplierName: 'Anand' },
   ])
-  products.loadProductCounts.mockResolvedValue({ all: 42, visible: 40, hidden: 2, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0 })
+  products.loadProductCounts.mockResolvedValue({ all: 42, visible: 40, hidden: 2, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0, versions: 51, hiddenVersions: 3 })
 })
 
 afterEach(() => {
@@ -245,7 +245,7 @@ describe('a store that can’t import', () => {
     expect(screen.getByText(words.readOnly)).toBeTruthy()
     expect((screen.getByRole('button', { name: new RegExp(words.sources.file.title) }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: new RegExp(words.sources.template.title) }) as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.getByRole('button', { name: fill(words.export.all, { count: '42' }) })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Export all · 42 products, 51 versions' })).toBeTruthy()
   })
 
   it('tells a seat without catalog.import it has no access, and asks the API nothing', async () => {
@@ -656,21 +656,46 @@ describe('picking from a big shop', () => {
 describe('exports', () => {
   it('lists the caller’s recent files and starts one for the hidden products', async () => {
     api.loadCatalogExports.mockResolvedValue([
-      { id: 'e1', state: 'ready', entries: 42, url: 'blob:e1', expiresAt: '2026-10-06T11:00:00Z', kind: 'products', requestedAt: '2026-10-06T10:00:00Z' },
-      { id: 'e0', state: 'expired', entries: 40, url: null, expiresAt: null, kind: 'products', requestedAt: '2026-10-05T10:00:00Z' },
+      { id: 'e1', state: 'ready', entries: 42, url: 'blob:e1', expiresAt: '2026-10-06T11:00:00Z', kind: 'products', products: 40, requestedAt: '2026-10-06T10:00:00Z' },
+      { id: 'e0', state: 'expired', entries: 40, url: null, expiresAt: null, kind: 'products', products: 40, requestedAt: '2026-10-05T10:00:00Z' },
     ])
-    api.requestProductExport.mockResolvedValue({ id: 'e2', state: 'preparing', entries: null, url: null, expiresAt: null, kind: 'products', requestedAt: '2026-10-06T10:05:00Z' })
+    api.requestProductExport.mockResolvedValue({ id: 'e2', state: 'preparing', entries: null, url: null, expiresAt: null, kind: 'products', products: null, requestedAt: '2026-10-06T10:05:00Z' })
     await show()
     const card = within(screen.getByRole('region', { name: words.export.title }))
     expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1')
     expect(card.getByText(words.export.expired)).toBeTruthy()
-    fireEvent.click(card.getByRole('button', { name: words.export.hidden }))
+    expect(card.getByText('Products · 40 products, 42 versions')).toBeTruthy()
+    fireEvent.click(card.getByRole('button', { name: new RegExp(`^${words.export.hidden}`) }))
     await settle()
     expect(api.requestProductExport).toHaveBeenCalledWith({ filter: 'hidden' })
     expect(card.getByText(words.export.preparing)).toBeTruthy()
   })
 
-  const listed = (id: string, state: 'ready' | 'failed' | 'preparing', url: string | null = null) => ({ id, state, entries: state === 'ready' ? 42 : null, url, expiresAt: null, kind: 'products' as const, requestedAt: '2026-10-06T10:00:00Z' })
+  const listed = (id: string, state: 'ready' | 'failed' | 'preparing', url: string | null = null) => ({ id, state, entries: state === 'ready' ? 42 : null, products: state === 'ready' ? 40 : null, url, expiresAt: null, kind: 'products' as const, requestedAt: '2026-10-06T10:00:00Z' })
+
+  it('shows products and versions apart on both buttons, with the note that a file row is a version', async () => {
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByRole('button', { name: 'Export all · 42 products, 51 versions' })).toBeTruthy()
+    expect(card.getByRole('button', { name: 'Export hidden · 2 products, 3 versions' })).toBeTruthy()
+    expect(card.getByText('One row for each version in the file.')).toBeTruthy()
+  })
+
+  it('says one product and one version in the singular, and a product with no choices as one version', async () => {
+    products.loadProductCounts.mockResolvedValue({ all: 1, visible: 0, hidden: 1, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0, versions: 1, hiddenVersions: 1 })
+    api.loadCatalogExports.mockResolvedValue([{ ...listed('e1', 'ready', 'blob:e1'), entries: 1, products: 1 }])
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByRole('button', { name: 'Export all · 1 product, 1 version' })).toBeTruthy()
+    expect(card.getByRole('button', { name: 'Export hidden · 1 product, 1 version' })).toBeTruthy()
+    expect(card.getByText('Products · 1 product, 1 version')).toBeTruthy()
+  })
+
+  it('reads an export made before products were counted as its versions only', async () => {
+    api.loadCatalogExports.mockResolvedValue([{ ...listed('e1', 'ready', 'blob:e1'), entries: 13, products: null }])
+    await show()
+    expect(within(screen.getByRole('region', { name: words.export.title })).getByText('Products · 13 versions')).toBeTruthy()
+  })
 
   it('fetches a finished export by its id for its file, and shows Download', async () => {
     api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready'), listed('e0', 'ready', 'blob:e0')])
