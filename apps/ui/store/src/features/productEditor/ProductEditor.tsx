@@ -10,6 +10,9 @@ import { addLicenceKeys, loadProductKind, maxKeyLength, maxKeysPerSave, saveProd
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { copyProduct } from '../common/copyProduct'
+import { RowMenu } from '../common/RowMenu'
+import { takeFlash } from '../offers/flash'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
 import { QuestionsSection } from './QuestionsSection'
@@ -149,6 +152,7 @@ export const ProductEditor = () => {
   const [versionUploads, setVersionUploads] = useState<ReadonlySet<string>>(new Set())
   const [ask, setAsk] = useState<Parameters<Ask>[0] | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [copying, setCopying] = useState(false)
   const [history, setHistory] = useState<StockHistoryView>(closedHistory)
   const [language, setLanguage] = useState<string | null>(null)
   const panelId = useId()
@@ -209,6 +213,13 @@ export const ProductEditor = () => {
   }, [forced, sample, show, shell.acting.seller, isNew, productId])
 
   useEffect(load, [load])
+
+  // A copy opens in this same page, so the busy mark and the copy's message are picked up when the id changes.
+  useEffect(() => {
+    setCopying(false)
+    const message = takeFlash()
+    if (message) setToast(message)
+  }, [productId])
 
   const scrollToInvalid = () => page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
   useEffect(() => {
@@ -502,6 +513,26 @@ export const ProductEditor = () => {
     })
   }
 
+  // The copy is made from what is saved, so unsaved changes are asked about first; once confirmed, opening the copy is not asked again.
+  const copy = () => {
+    if (!product || copying) return
+    setCopying(true)
+    void copyProduct(product.id).then((made) => {
+      if (!made.ok) {
+        setToast(made.message)
+        return setCopying(false)
+      }
+      leaving.current = true
+      void navigate({ to: '/products/$productId', params: { productId: made.id } }).finally(() => (leaving.current = false))
+    })
+  }
+
+  const duplicate = () =>
+    product &&
+    (unsaved
+      ? setAsk({ title: fill(words.duplicateTitle, { name: product.name }), target: product.name, consequence: words.duplicateUnsaved, confirmLabel: words.duplicateConfirm, onConfirm: copy })
+      : copy())
+
   const remove = () =>
     product &&
     setAsk({
@@ -540,6 +571,23 @@ export const ProductEditor = () => {
         <h1 className="df-editor-title">{draft.name.trim() || (isNew ? words.newProduct : words.untitled)}</h1>
         <span className={`df-editor-status df-editor-status--${status}`}>{words.status[status]}</span>
         <span className="df-editor-top-gap" />
+        {!isNew && access.canEdit && (
+          <RowMenu label={fill(messages.products.moreActionsFor, { name: draft.name.trim() || words.untitled })}>
+            {(close) => (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={saving || copying}
+                onClick={() => {
+                  close()
+                  duplicate()
+                }}
+              >
+                {messages.products.duplicate}
+              </button>
+            )}
+          </RowMenu>
+        )}
         {!isNew && access.storeFields && (
           <button type="button" className="df-button df-editor-delete" disabled={saving} onClick={remove}>
             {words.delete}

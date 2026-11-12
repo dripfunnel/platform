@@ -90,6 +90,8 @@ export interface ProductAccess {
   /** Quick edit's two halves: prices (catalog.write) and the default location's counts (stock.write). */
   quickPrice: boolean
   quickStock: boolean
+  /** Duplicate: the server's catalog.write, as a copy is a new product (#1446). */
+  canDuplicate: boolean
   /** Import & export opens for an importer; exports as a job for anyone reading the catalogue but a Stock-only supplier (CatList). */
   canImport: boolean
   canExport: boolean
@@ -109,6 +111,7 @@ export const accessOf = (acting: { permissions: readonly string[]; seller: unkno
     viewOnly: !supplier && !has('catalog.write'),
     quickPrice: !readOnly && has('catalog.write'),
     quickStock: !readOnly && has('stock.write'),
+    canDuplicate: !readOnly && has('catalog.write'),
     canImport: has('catalog.import'),
     canExport: has('catalog.read') && (!supplier || has('catalog.import')),
   }

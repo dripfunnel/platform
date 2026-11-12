@@ -217,11 +217,36 @@ describe('the merchant side', () => {
     ])
   })
 
-  it('duplicates into a hidden copy with its prices and no product codes', async () => {
+  it('duplicates into a hidden copy named "Copy of …", with its prices, no product codes and no stock', async () => {
     const { saved } = await create('owner', simple('Silk scarf', { versions: [{ choices: [], sku: 'SCARF-1', prices: [price('250000')] }] }))
-    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
+    const home = (await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA1} and seller_id is null and is_default and deleted_at is null`)[0]?.id ?? ''
+    const original = (await db.sql<{ id: string }[]>`select id from product_version where product_id = ${saved?.id ?? ''}`)[0]?.id ?? ''
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand, reserved) values (${original}, ${home}, ${t.storeA1}, 5, 0)`
+    const make = async () => (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
+    const copy = await make()
     expect(copy.slug).toBe('silk-scarf-2')
-    expect(await detail('owner', copy.id)).toMatchObject({ visible: false, versions: [{ sku: null, prices: [{ amount: '250000' }] }] })
+    expect(await detail('owner', copy.id)).toMatchObject({ name: 'Copy of Silk scarf', visible: false, versions: [{ sku: null, prices: [{ amount: '250000' }] }] })
+    expect(await detail('owner', saved?.id ?? '')).toMatchObject({ name: 'Silk scarf', slug: saved?.slug })
+    expect(await db.sql`select 1 from stock_level where version_id in (select id from product_version where product_id = ${copy.id})`).toHaveLength(0)
+    // Each copy has its own web address.
+    const second = await make()
+    expect(new Set([saved?.slug, copy.slug, second.slug]).size).toBe(3)
+  })
+
+  it('keeps a copy’s name within the limit, however long the original’s is', async () => {
+    const { saved } = await create('owner', simple('x'.repeat(255)))
+    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string }
+    const made = await detail('owner', copy.id)
+    expect(made?.name).toHaveLength(255)
+    expect(made?.name.startsWith('Copy of x')).toBe(true)
+  })
+
+  it('makes a supplier’s copy its own, named the same way, and lets Staff do nothing', async () => {
+    const mine = (await create('supplier', simple('Supplier jar'))).saved
+    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'supplier', { id: mine?.id })).data?.['duplicateProduct'] as { id: string }
+    expect(await detail('supplier', copy.id)).toMatchObject({ name: 'Copy of Supplier jar', shared: true, supplier: { id: t.sellerA1First } })
+    expect((await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'staff', { id: mine?.id })).code).toBe('FORBIDDEN')
+    await gql(`mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }`, 'supplier', { ids: [mine?.id, copy.id] })
   })
 
   it('shows and hides in bulk, and counts each chip', async () => {
@@ -284,15 +309,20 @@ describe('the merchant side', () => {
     const owner2 = await user(t.partnerA, 'owner2@a.example', 'Owner Two')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner2}, ${t.storeA2}, 'owner', 'active')`
     const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: owner2, partnerId: t.partnerA }, now))
-    const asOwner2 = async (name: string) => {
+    const ownerTwo = async (source: string, variableValues: Record<string, unknown>) => {
       const facts = { requestId: 'r', ip: null, userAgent: null }
       const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers: { cookie: `${storeCookieName}=${cookie}`, [storeHeader]: t.storeA2 } }), t.partnerA, now, activityLog, facts)
-      const result = await graphql({ schema: storeSchema as GraphQLSchema, source: save, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext, variableValues: { input: simple(name) } })
+      const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext, variableValues })
       return result.errors?.[0]?.extensions ?? null
     }
+    const asOwner2 = (name: string) => ownerTwo(save, { input: simple(name) })
     expect(await asOwner2('One')).toBeNull()
     expect(await asOwner2('Two')).toBeNull()
     expect(await asOwner2('Three')).toMatchObject({ code: 'PLAN_LIMIT', key: 'products', limit: 2, unlockedBy: { id: bigger?.id } })
+    // A copy is a product too: at the limit it is refused, and nothing is made (#1446).
+    const first = (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA2} and deleted_at is null order by created_at limit 1`)[0]?.id ?? ''
+    expect(await ownerTwo('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', { id: first })).toMatchObject({ code: 'PLAN_LIMIT', key: 'products', limit: 2 })
+    expect(await db.sql`select 1 from product where store_id = ${t.storeA2} and deleted_at is null`).toHaveLength(2)
     expect(smallStorePlan).not.toBe('')
   })
 })

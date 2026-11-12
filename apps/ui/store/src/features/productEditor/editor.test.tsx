@@ -29,7 +29,7 @@ const api = vi.hoisted(() => ({
   uploadVideo: vi.fn(),
 }))
 const lengthApi = vi.hoisted(() => ({ videoSeconds: vi.fn() }))
-const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
+const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), duplicateProduct: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
 const translationApi = vi.hoisted(() => ({ loadProductTranslation: vi.fn(), saveProductTranslation: vi.fn() }))
 const kindApi = vi.hoisted(() => ({ loadProductKind: vi.fn(), saveProductKind: vi.fn(), addLicenceKeys: vi.fn(), uploadDownload: vi.fn(), loadGiftCards: vi.fn(), issueGiftCard: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
@@ -315,6 +315,103 @@ describe('the product editor', () => {
     await settle()
     expect(listApi.deleteProducts).toHaveBeenCalledWith(['p1'])
     expect(router.state.location.pathname).toBe('/products')
+  })
+
+  describe('Duplicate (#1446)', () => {
+    const menu = () => screen.queryByRole('button', { name: /^More actions for/ }) as HTMLButtonElement | null
+    const duplicate = () => {
+      const button = menu()
+      if (button && button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
+      return screen.queryByRole('menuitem', { name: messages.products.duplicate }) as HTMLButtonElement | null
+    }
+
+    it('makes one copy from an open product, and opens it with the message', async () => {
+      listApi.duplicateProduct.mockResolvedValue('p2')
+      const router = await show(owner)
+      expect(duplicate()).toBeTruthy()
+      fireEvent.click(duplicate() as HTMLElement)
+      fireEvent.click(duplicate() as HTMLElement)
+      await settle()
+      expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
+      expect(listApi.duplicateProduct).toHaveBeenCalledWith('p1')
+      expect(router.state.location.pathname).toBe('/products/p2')
+      expect(screen.getByText(messages.products.duplicated)).toBeTruthy()
+    })
+
+    it('asks first when there are unsaved changes: Cancel makes no copy, and confirming copies what is saved and opens it without a second prompt', async () => {
+      listApi.duplicateProduct.mockResolvedValue('p2')
+      const leave = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const router = await show(owner)
+      fireEvent.change(field(words.name.label), { target: { value: 'Changed name' } })
+      fireEvent.click(duplicate() as HTMLElement)
+      const dialog = () => within(document.querySelector('dialog') as HTMLElement)
+      expect(dialog().getByText(words.duplicateUnsaved)).toBeTruthy()
+      fireEvent.click(dialog().getByRole('button', { name: words.cancel }))
+      expect(listApi.duplicateProduct).not.toHaveBeenCalled()
+      expect(router.state.location.pathname).toBe('/products/p1')
+      expect(duplicate()?.disabled).toBe(false)
+      fireEvent.click(duplicate() as HTMLElement)
+      fireEvent.click(dialog().getByRole('button', { name: words.duplicateConfirm }))
+      await settle()
+      expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
+      expect(router.state.location.pathname).toBe('/products/p2')
+      expect(leave).not.toHaveBeenCalled()
+      leave.mockRestore()
+    })
+
+    it('copies at once, with no question, when nothing is unsaved', async () => {
+      listApi.duplicateProduct.mockResolvedValue('p2')
+      await show(owner)
+      fireEvent.click(duplicate() as HTMLElement)
+      expect(document.querySelector('dialog')).toBeNull()
+      await settle()
+      expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
+    })
+
+    it('is in a ⋮ menu beside Delete, not a button of its own, and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
+      await show(owner)
+      expect(screen.queryByRole('button', { name: messages.products.duplicate })).toBeNull()
+      expect(menu()?.getAttribute('aria-haspopup')).toBe('menu')
+      expect(duplicate()).toBeTruthy()
+      cleanup()
+      await show(owner, '/products/new')
+      expect(duplicate()).toBeNull()
+      cleanup()
+      await show(staff)
+      expect(duplicate()).toBeNull()
+      cleanup()
+      await show({ ...supplier, permissions: ['catalog.read', 'catalog.propose', 'stock.write'] })
+      expect(duplicate()).toBeNull()
+      cleanup()
+      await show(owner, '/products/p1', true)
+      expect(duplicate()).toBeNull()
+    })
+
+    it('is offered to a supplier on its own product, which stays its own', async () => {
+      await show(supplier)
+      expect(duplicate()).toBeTruthy()
+    })
+
+    it('says so at the plan’s product limit, and makes no copy', async () => {
+      listApi.duplicateProduct.mockRejectedValue(new ApiError('PLAN_LIMIT', 'No room'))
+      const router = await show(owner)
+      fireEvent.click(duplicate() as HTMLElement)
+      await settle()
+      expect(screen.getByText(messages.products.duplicateLimit)).toBeTruthy()
+      expect(router.state.location.pathname).toBe('/products/p1')
+      expect(duplicate()?.disabled).toBe(false)
+    })
+
+    it('says the copy couldn’t be made on any other error, and lets the merchant try again', async () => {
+      listApi.duplicateProduct.mockRejectedValueOnce(new Error('offline')).mockResolvedValue('p2')
+      const router = await show(owner)
+      fireEvent.click(duplicate() as HTMLElement)
+      await settle()
+      expect(screen.getByText(messages.products.duplicateFailed)).toBeTruthy()
+      fireEvent.click(duplicate() as HTMLElement)
+      await settle()
+      expect(router.state.location.pathname).toBe('/products/p2')
+    })
   })
 
   it('gives a supplier its own form: no visibility or tax category, sent-back reason shown, changes submitted', async () => {

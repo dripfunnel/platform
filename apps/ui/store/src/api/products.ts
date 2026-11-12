@@ -116,6 +116,10 @@ export const setProductsVisible = async (ids: string[], visible: boolean): Promi
 export const deleteProducts = async (ids: string[]): Promise<number> =>
   (await query('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', z.object({ deleteProducts: z.number() }), { ids })).deleteProducts
 
+/** A hidden copy named "Copy of …", with no stock; the copy's id. */
+export const duplicateProduct = async (id: string): Promise<string> =>
+  (await query('mutation D($id: ID!) { duplicateProduct(id: $id) { id } }', z.object({ duplicateProduct: z.object({ id: z.string() }) }), { id })).duplicateProduct.id
+
 export const addToCollection = async (collectionId: string, productIds: string[]): Promise<number> =>
   (await query('mutation A($c: ID!, $p: [ID!]!) { addProductsToCollection(collectionId: $c, productIds: $p) }', z.object({ addProductsToCollection: z.number() }), { c: collectionId, p: productIds })).addProductsToCollection
 

@@ -4,7 +4,9 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProductCounts, ProductRow } from '../../api/products'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { ApiError } from '@dripfunnel/shared/graphql'
+import { fill, messages } from '../../messages'
+import { takeFlash } from '../offers/flash'
 import { accessOf } from './productView'
 
 // CatList driven as a merchant would (FIRST-RELEASE §11): what each seat sees, and what each action sends.
@@ -19,6 +21,7 @@ const api = vi.hoisted(() => ({
   loadTaxClasses: vi.fn(),
   setProductsVisible: vi.fn(),
   deleteProducts: vi.fn(),
+  duplicateProduct: vi.fn(),
   addToCollection: vi.fn(),
   setTaxClass: vi.fn(),
   approveProduct: vi.fn(),
@@ -86,18 +89,137 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
+// A row's actions are in its "⋮" menu: open it, then the item.
+const openRowMenu = (name: string) => {
+  const button = screen.getByRole('button', { name: `More actions for ${name}` })
+  if (button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
+}
+const quickEditItem = (name: string) => {
+  const button = screen.queryByRole('button', { name: `More actions for ${name}` })
+  if (!button) return null
+  openRowMenu(name)
+  return screen.queryByRole('menuitem', { name: `Quick edit ${name}` })
+}
+const openQuickEdit = (name: string) => {
+  openRowMenu(name)
+  fireEvent.click(screen.getByRole('menuitem', { name: `Quick edit ${name}` }))
+}
+
 describe('who may do what on Products', () => {
   it('lets the owner edit, select, approve and filter by supplier; staff only look; a past-due store only looks', () => {
-    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false, quickPrice: true, quickStock: false, canImport: false, canExport: true })
+    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false, quickPrice: true, quickStock: false, canDuplicate: true, canImport: false, canExport: true })
     expect(accessOf(staff, false)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: true })
     expect(accessOf(owner, true)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: false })
   })
 
   it('lets a supplier propose its own products but never select, approve or see other suppliers', () => {
-    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false, quickPrice: false, quickStock: false, canImport: false, canExport: false })
+    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false, quickPrice: false, quickStock: false, canDuplicate: false, canImport: false, canExport: false })
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'stock.write'] }, false).canEdit).toBe(false)
     // A catalogue tier writes its products outright; a Stock-only one proposes them.
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'catalog.write'] }, false)).toMatchObject({ canEdit: true, canSelect: false })
+  })
+})
+
+describe('Duplicate on a row (#1446)', () => {
+  const menuButton = (name: string) => screen.queryByRole('button', { name: fill(words.moreActionsFor, { name }) }) as HTMLButtonElement | null
+  const duplicateItem = (name: string) => screen.queryByRole('menuitem', { name: fill(words.duplicateOf, { name }) }) as HTMLButtonElement | null
+  const openMenu = (name: string) => fireEvent.click(menuButton(name) as HTMLElement)
+
+  it('is in each row’s menu for whoever may add products, and nowhere else', async () => {
+    await show(owner)
+    expect(menuButton(kurta.name)).toBeTruthy()
+    expect(menuButton(dupatta.name)).toBeTruthy()
+    expect(duplicateItem(kurta.name)).toBeNull()
+    openMenu(kurta.name)
+    expect(duplicateItem(kurta.name)).toBeTruthy()
+    cleanup()
+    for (const acting of [staff, supplier]) {
+      await show(acting)
+      expect(menuButton(kurta.name)).toBeNull()
+      cleanup()
+    }
+    await show(owner, true)
+    expect(menuButton(kurta.name)).toBeNull()
+  })
+
+  it('holds Quick edit and Duplicate together, with no button of their own on the row', async () => {
+    await show(owner)
+    expect(screen.queryByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeNull()
+    expect(screen.queryByRole('button', { name: fill(words.duplicateOf, { name: kurta.name }) })).toBeNull()
+    openMenu(kurta.name)
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([words.quick.open, words.duplicate])
+  })
+
+  it('opens on its button with focus on the first item, and closes on Escape or a click outside, with focus back on the button', async () => {
+    await show(owner)
+    openMenu(kurta.name)
+    expect(menuButton(kurta.name)?.getAttribute('aria-expanded')).toBe('true')
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0])
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(duplicateItem(kurta.name)).toBeNull()
+    expect(document.activeElement).toBe(menuButton(kurta.name))
+    openMenu(kurta.name)
+    fireEvent.pointerDown(document.body)
+    expect(duplicateItem(kurta.name)).toBeNull()
+    expect(menuButton(kurta.name)?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('follows the menu pattern: arrows, Home and End move between items, Tab closes it, and choosing an item puts focus back on the button', async () => {
+    api.duplicateProduct.mockResolvedValue('p9')
+    await show(owner)
+    openMenu(kurta.name)
+    const [quick, copy] = screen.getAllByRole('menuitem')
+    fireEvent.keyDown(document, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(copy)
+    fireEvent.keyDown(document, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(quick)
+    fireEvent.keyDown(document, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(copy)
+    fireEvent.keyDown(document, { key: 'Home' })
+    expect(document.activeElement).toBe(quick)
+    fireEvent.keyDown(document, { key: 'End' })
+    expect(document.activeElement).toBe(copy)
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(duplicateItem(kurta.name)).toBeNull()
+    expect(document.activeElement).toBe(menuButton(kurta.name))
+    openMenu(kurta.name)
+    fireEvent.click(duplicateItem(kurta.name) as HTMLElement)
+    expect(document.activeElement).toBe(menuButton(kurta.name))
+    await settle()
+  })
+
+  it('makes a copy, opens it, and leaves the message for it', async () => {
+    api.duplicateProduct.mockResolvedValue('p9')
+    const router = await show(owner)
+    openMenu(kurta.name)
+    fireEvent.click(duplicateItem(kurta.name) as HTMLElement)
+    await settle()
+    expect(api.duplicateProduct).toHaveBeenCalledTimes(1)
+    expect(api.duplicateProduct).toHaveBeenCalledWith('p1')
+    expect(router.state.location.pathname).toBe('/products/p9')
+    expect(takeFlash()).toBe(words.duplicated)
+  })
+
+  it('says so at the plan’s product limit, and on any other error, and makes no copy', async () => {
+    api.duplicateProduct.mockRejectedValueOnce(new ApiError('PLAN_LIMIT', 'No room')).mockRejectedValueOnce(new Error('offline'))
+    const router = await show(owner)
+    openMenu(kurta.name)
+    fireEvent.click(duplicateItem(kurta.name) as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.duplicateLimit)).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/products')
+    openMenu(kurta.name)
+    expect(duplicateItem(kurta.name)?.disabled).toBe(false)
+    fireEvent.click(duplicateItem(kurta.name) as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.duplicateFailed)).toBeTruthy()
+    expect(takeFlash()).toBeNull()
+  })
+
+  it('is not in the bulk bar', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByLabelText(fill(words.row.select, { name: kurta.name })))
+    expect(within(document.querySelector('.df-products-bulk') ?? document.body).queryByRole('button', { name: words.duplicate })).toBeNull()
   })
 })
 
@@ -270,7 +392,7 @@ describe('the Products list', () => {
     stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
     stockApi.setStock.mockResolvedValue(undefined)
     await show(editable)
-    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    openQuickEdit('Mara Linen Shirt')
     await settle()
     const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
     expect(panel.getByText('Price in INR · stock in Jaipur studio')).toBeTruthy()
@@ -285,19 +407,20 @@ describe('the Products list', () => {
 
   it('offers no quick edit to staff, and none on a product waiting for review', async () => {
     await show(staff)
-    expect(screen.queryByRole('button', { name: /^Quick edit/ })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^Quick edit/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^More actions for/ })).toBeNull()
     cleanup()
     await show(owner)
-    expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+    expect(quickEditItem('Mara Linen Shirt')).toBeTruthy()
+    expect(quickEditItem('Handloom Dupatta')).toBeNull()
     // Nor to a seat that can't review it: a waiting product changes only through review.
     cleanup()
     await show({ ...owner, permissions: ['catalog.read', 'catalog.write'] })
-    expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+    expect(quickEditItem('Mara Linen Shirt')).toBeTruthy()
+    expect(quickEditItem('Handloom Dupatta')).toBeNull()
     cleanup()
     await show(supplier)
-    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+    expect(quickEditItem('Handloom Dupatta')).toBeNull()
   })
 
   it('saves a count alone in quick edit, even beside a version with no price yet', async () => {
@@ -311,7 +434,7 @@ describe('the Products list', () => {
     stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
     stockApi.setStock.mockResolvedValue(undefined)
     await show(editable)
-    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    openQuickEdit('Mara Linen Shirt')
     await settle()
     const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
     fireEvent.change(panel.getByLabelText('Stock of This product'), { target: { value: '9' } })
@@ -348,7 +471,7 @@ describe('the Products list', () => {
     stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
     stockApi.setStock.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined)
     await show(editable)
-    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    openQuickEdit('Mara Linen Shirt')
     await settle()
     const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
     fireEvent.change(panel.getByLabelText('Price of This product'), { target: { value: '1399' } })
