@@ -1278,6 +1278,10 @@
     "saveNew": "Save product",
     "submit": "Submit for approval",
     "saving": "Saving…",
+    "fixBeforeSaving": {
+      "one": "1 thing to fix before saving",
+      "other": "{count} things to fix before saving"
+    },
     "banner": {
       "sentBack": "Sent back by your store owner:",
       "sentBackBody": "“{reason}” Fix it and send it again.",
