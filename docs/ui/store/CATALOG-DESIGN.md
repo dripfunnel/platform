@@ -509,7 +509,7 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     same age for every store. The server checks it too: `placeOrder` takes `ageConfirmed`, refuses
     with `AGE_CONFIRMATION_REQUIRED` without it (for every caller, the shop app included until it
     asks), and the order records when it was confirmed (`order.age_confirmed_at`). The Shop API's
-    cart carries `needsAgeConfirmation`. Built for the Classic design only; storefront
+    cart carries `needsAgeConfirmation`. Classic places the box; any other checkout gets it drawn by Place order; storefront
     ARCHITECTURE §2.1, §3.5. Verification (ID, date of birth) and other ages stay `(release: decide)`.
 44. **Barcodes (GTIN / UPC / EAN / ISBN) are per version.** Google Shopping and marketplaces
     require them for most branded goods. Validate the check digit (in the UI and in the

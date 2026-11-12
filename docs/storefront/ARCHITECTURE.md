@@ -260,7 +260,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `<AgeConfirmation>` (part `age`), a tick box "Before you order: please confirm you're 18 or over." asked once per order. `<PlaceOrder>`
   stays disabled, and `place()` sends nothing, until it is ticked; the order is then placed with `ageConfirmed: true`. The same
   age for every store, with no date of birth or ID. A theme places it above Place order, always: it renders nothing for a cart
-  that doesn't need it. Without it, Place order of such a cart never enables. The engine refuses an unconfirmed order
+  that doesn't need it. A theme that doesn't gets it anyway: `<PlaceOrder>` draws it just above the button when none is on the page. The engine refuses an unconfirmed order
   (`AGE_CONFIRMATION_REQUIRED`) whatever the page does, and the order records when it was confirmed.
 - **Placing**: `placeOrder` with the chosen way to pay. Cash on delivery and a bank transfer go straight to the order's page;
   a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:

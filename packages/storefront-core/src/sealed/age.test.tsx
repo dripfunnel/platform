@@ -8,6 +8,8 @@ import { AgeConfirmation } from './components'
 import { rootOf } from './element'
 
 const { t } = createI18n('en-US')
+
+vi.mock('../platform/store/context', () => ({ useStorefront: () => ({ t }) }))
 const words = 'Before you order: please confirm you’re 18 or over.'
 
 afterEach(cleanup)
@@ -41,6 +43,28 @@ describe('Place order with the age confirmation', () => {
     expect(button().disabled).toBe(true)
     rerender(<PlaceOrder checkout={checkout({ needsAgeConfirmation: true, ageConfirmed: true })} again="Again">Place order</PlaceOrder>)
     expect(button().disabled).toBe(false)
+  })
+
+  it('draws the box above the button when the theme did not place it, and ticking it enables the button', () => {
+    const confirmAge = vi.fn()
+    const { rerender } = render(<PlaceOrder checkout={checkout({ needsAgeConfirmation: true, confirmAge })} again="Again">Place order</PlaceOrder>)
+    expect(box()).not.toBeNull()
+    fireEvent.click(box() as HTMLElement)
+    expect(confirmAge).toHaveBeenCalledWith(true)
+    rerender(<PlaceOrder checkout={checkout({ needsAgeConfirmation: true, ageConfirmed: true, confirmAge })} again="Again">Place order</PlaceOrder>)
+    expect(button().disabled).toBe(false)
+  })
+
+  it('draws no second box when the theme placed one', () => {
+    const page = checkout({ needsAgeConfirmation: true })
+    render(
+      <>
+        <AgeConfirmation needed checked={false} onChange={() => undefined} t={t} />
+        <PlaceOrder checkout={page} again="Again">Place order</PlaceOrder>
+      </>,
+    )
+    expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
+    expect(document.querySelector('[data-df-age-fallback]')).toBeNull()
   })
 
   it('is not held for a cart without an age-restricted product', () => {
