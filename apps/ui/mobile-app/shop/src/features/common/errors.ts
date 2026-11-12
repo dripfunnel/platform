@@ -45,6 +45,8 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.OFFER_CHANGED'
     case 'CART_CHANGED':
       return 'errors.CART_CHANGED'
+    case 'AGE_CONFIRMATION_REQUIRED':
+      return 'errors.AGE_CONFIRMATION_REQUIRED'
     case 'ALREADY_PLACED':
       return 'errors.ALREADY_PLACED'
     case 'METHOD_UNAVAILABLE':

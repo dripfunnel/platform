@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { placeOrder, type Cart, type DeliveryAddress, type PlacedOrder } from '../../api/cart'
 import { useShop } from '../../api/ShopContext'
 import { t } from '../../messages'
 import { errorKey } from '../common/errors'
-import { Button } from '../common/ui'
+import { Button, ChoiceRow } from '../common/ui'
 import { PolicyLinks } from '../legal/PolicyLinks'
 import { useAction } from '../common/useAction'
 import { OrderSummary } from './OrderSummary'
@@ -40,9 +41,10 @@ export function ReviewStep({ cart, provider, onPlaced, onRefused }: Props) {
   const { client } = useShop()
   const { colors } = useTheme()
   const action = useAction(sendBack(onRefused))
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
 
   const place = async () => {
-    const done = await action.run(() => placeOrder(client, provider, appPaymentInput(provider)))
+    const done = await action.run(() => placeOrder(client, provider, appPaymentInput(provider), ageConfirmed))
     if (done) onPlaced(done.value)
   }
 
@@ -55,12 +57,13 @@ export function ReviewStep({ cart, provider, onPlaced, onRefused }: Props) {
       <OrderSummary cart={cart} title={t('checkout.review.summary')} />
       <Text style={{ color: colors.textStrong, fontSize: 13, lineHeight: 19 }}>{t('checkout.review.legal')}</Text>
       <PolicyLinks kinds={['terms', 'returns', 'privacy']} />
+      {cart.needsAgeConfirmation ? <ChoiceRow role="checkbox" label={t('checkout.review.age')} selected={ageConfirmed} onPress={() => setAgeConfirmed((on) => !on)} /> : null}
       {action.error ? (
         <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button saves label={t('checkout.review.place')} busy={action.busy} onPress={() => void place()} />
+      <Button saves label={t('checkout.review.place')} busy={action.busy} disabled={cart.needsAgeConfirmation && !ageConfirmed} onPress={() => void place()} />
     </View>
   )
 }

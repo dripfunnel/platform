@@ -1,23 +1,10 @@
 import { useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import type { Facet, ProductSort } from '../../api/catalogue'
 import { locale, t, type MessageKey } from '../../messages'
-import { Button, Sheet } from '../common/ui'
-
-function Row({ label, detail, role, selected, onPress }: { label: string; detail?: string; role: 'checkbox' | 'radio'; selected: boolean; onPress: () => void }) {
-  const { colors } = useTheme()
-  return (
-    <Pressable accessibilityRole={role} accessibilityState={{ checked: selected }} accessibilityLabel={detail ? `${label}, ${detail}` : label} onPress={onPress} style={styles.row}>
-      <View style={[styles.mark, role === 'radio' ? styles.round : styles.square, { borderColor: selected ? colors.focus : colors.fieldBorder, backgroundColor: selected ? colors.focus : colors.surface }]}>
-        {selected ? <Text style={{ color: colors.onInk, fontSize: 12, fontWeight: '800' }}>✓</Text> : null}
-      </View>
-      <Text style={{ color: colors.text, fontSize: 16, flex: 1 }}>{label}</Text>
-      {detail ? <Text style={{ color: colors.muted, fontSize: 14 }}>{detail}</Text> : null}
-    </Pressable>
-  )
-}
+import { Button, ChoiceRow, Sheet } from '../common/ui'
 
 /** The store's filters as the API offers them, with how many products each value has; chosen together, applied once. */
 export function FilterSheet({ facets, selected, onApply, onClose }: { facets: Facet[]; selected: string[]; onApply: (ids: string[]) => void; onClose: () => void }) {
@@ -41,7 +28,7 @@ export function FilterSheet({ facets, selected, onApply, onClose }: { facets: Fa
             {facet.name}
           </Text>
           {facet.values.map((value) => (
-            <Row key={value.id} role="checkbox" label={value.name} detail={formatNumber(value.count, locale)} selected={draft.includes(value.id)} onPress={() => toggle(value.id)} />
+            <ChoiceRow key={value.id} role="checkbox" label={value.name} detail={formatNumber(value.count, locale)} selected={draft.includes(value.id)} onPress={() => toggle(value.id)} />
           ))}
         </View>
       ))}
@@ -60,7 +47,7 @@ export function SortSheet({ selected, onPick, onClose }: { selected: ProductSort
   return (
     <Sheet title={t('collection.sortTitle')} onClose={onClose}>
       {sorts.map((option) => (
-        <Row key={option.label} role="radio" label={t(option.label)} selected={option.value === selected} onPress={() => onPick(option.value)} />
+        <ChoiceRow key={option.label} role="radio" label={t(option.label)} selected={option.value === selected} onPress={() => onPick(option.value)} />
       ))}
     </Sheet>
   )
@@ -69,9 +56,5 @@ export function SortSheet({ selected, onPick, onClose }: { selected: ProductSort
 const styles = StyleSheet.create({
   facet: { gap: 2, paddingTop: 8 },
   facetName: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
-  mark: { width: 22, height: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  square: { borderRadius: 5 },
-  round: { borderRadius: 11 },
   footer: { gap: 8 },
 })

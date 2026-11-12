@@ -53,6 +53,8 @@ export type Cart = {
   shippingOptions: DeliveryOption[]
   problems: string[]
   readyToPay: boolean
+  /** A product in the cart asks shoppers to confirm their age: Review shows the tick box (#1443). */
+  needsAgeConfirmation: boolean
 }
 
 export type PaymentOption = { provider: string; kind: string; instructions: string | null }
@@ -90,7 +92,7 @@ const money = z.object({ amount: z.string(), currency: z.string() }).nullable().
 const priceOf = (value: z.infer<typeof money>): Price | null => value ?? null
 
 const moneyFields = '{ amount currency }'
-const cartFields = `email phone needsShipping currency checkoutStep readyToPay problems
+const cartFields = `email phone needsShipping currency checkoutStep readyToPay needsAgeConfirmation problems
   subtotal ${moneyFields} discount ${moneyFields} shipping ${moneyFields} total ${moneyFields} tax { amount ${moneyFields} pricesIncludeTax }
   codes { code state } discounts { name amount ${moneyFields} }
   lines { id versionId productSlug productName versionName photoUrl quantity available unitPrice ${moneyFields} lineTotal ${moneyFields} problem answers { questionId question kind text amount ${moneyFields} choices { choiceId label quantity } uploads { id } } }
@@ -103,6 +105,7 @@ const cartSchema = z.object({
   needsShipping: z.boolean().nullable().optional(),
   currency: text,
   readyToPay: z.boolean().nullable().optional(),
+  needsAgeConfirmation: z.boolean().nullable().optional(),
   problems: z.array(z.string()).nullable().optional(),
   subtotal: money,
   discount: money,
@@ -147,6 +150,7 @@ const cartOf = (raw: z.infer<typeof cartSchema>): Cart => ({
   needsShipping: raw.needsShipping === true,
   currency: raw.currency ?? '',
   readyToPay: raw.readyToPay === true,
+  needsAgeConfirmation: raw.needsAgeConfirmation === true,
   problems: raw.problems ?? [],
   subtotal: priceOf(raw.subtotal),
   discount: priceOf(raw.discount),
@@ -276,12 +280,12 @@ const paymentOf = (raw: z.infer<typeof paymentSchema>): PaymentStart | null =>
     : null
 
 /** Places the order; a card or wallet provider also answers what its sheet needs, and the order stays unpaid until the provider's webhook says so. */
-export const placeOrder = async (client: ApiClient, provider: string, app?: AppPayment): Promise<PlacedOrder> => {
+export const placeOrder = async (client: ApiClient, provider: string, app?: AppPayment, ageConfirmed = false): Promise<PlacedOrder> => {
   const { placeOrder: placed } = decode(
     z.object({ placeOrder: z.object({ orderId: z.string(), number: z.string(), total: money, provider: z.string(), instructions: text, payment: paymentSchema }) }),
     await client.request<unknown>(
-      `mutation($provider: String!, $app: ShopAppPaymentInput) { placeOrder(provider: $provider, app: $app) { orderId number total { amount currency } provider instructions payment { ${paymentFields} } } }`,
-      app ? { provider, app } : { provider },
+      `mutation($provider: String!, $app: ShopAppPaymentInput, $ageConfirmed: Boolean) { placeOrder(provider: $provider, app: $app, ageConfirmed: $ageConfirmed) { orderId number total { amount currency } provider instructions payment { ${paymentFields} } } }`,
+      { provider, ...(app ? { app } : {}), ...(ageConfirmed ? { ageConfirmed } : {}) },
     ),
   )
   return { orderId: placed.orderId, number: placed.number, total: priceOf(placed.total), provider: placed.provider, instructions: placed.instructions ?? null, payment: paymentOf(placed.payment) }
