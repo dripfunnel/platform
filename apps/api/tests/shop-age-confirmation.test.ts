@@ -12,10 +12,11 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const host = 'kesari.shop.example'
-const v = { plain: '', adults: '' }
-let storeId = ''
+const v = { plain: '', adults: '', theirs: '' }
+let mine = ''
+let otherStore = ''
 
-const product = async (slug: string, ageRestricted: boolean) => {
+const product = async (slug: string, ageRestricted: boolean, storeId = mine) => {
   const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility, product_type) values (${storeId}, ${slug}, ${slug}, 'visible', 'service') returning id`
   await db.sql`update product set service_duration = '2 hours' where id = ${p?.id ?? ''}`
   if (ageRestricted) await db.sql`insert into product_flag (product_id, store_id, age_restricted, hazardous) values (${p?.id ?? ''}, ${storeId}, true, false)`
@@ -28,20 +29,22 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  storeId = (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, time_zone) values (${t.partnerA}, 'Kesari', 'kesari', 'IN', 'INR', 'active', 'Asia/Kolkata') returning id`)[0]?.id ?? ''
+  mine = (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, time_zone) values (${t.partnerA}, 'Kesari', 'kesari', 'IN', 'INR', 'active', 'Asia/Kolkata') returning id`)[0]?.id ?? ''
   v.plain = await product('plain-pack', false)
   v.adults = await product('adults-pack', true)
-  await db.sql`insert into payment_provider_account (store_id, provider, status, bank_details) values (${storeId}, 'bank_transfer', 'live', 'HDFC 1')`
+  await db.sql`insert into payment_provider_account (store_id, provider, status, bank_details) values (${mine}, 'bank_transfer', 'live', 'HDFC 1')`
+  otherStore = (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, time_zone) values (${t.partnerA}, 'Other', 'other', 'IN', 'INR', 'active', 'Asia/Kolkata') returning id`)[0]?.id ?? ''
+  v.theirs = await product('theirs-pack', true, otherStore)
 }, 60_000)
 
 afterAll(async () => {
   await db?.drop()
 })
 
-const shop = async (source: string, cart: string | null = null) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, 'shop.example')
+const shop = async (source: string, cart: string | null = null, at = host) => {
+  const found = await resolveShopper(db.sql, new Request(`https://${at}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), at, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${at}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -72,7 +75,7 @@ describe('an order with an age-restricted product', () => {
     const token = await readyCart([v.adults])
     expect((await place(token)).code).toBe('AGE_CONFIRMATION_REQUIRED')
     expect((await place(token, ', ageConfirmed: false')).code).toBe('AGE_CONFIRMATION_REQUIRED')
-    expect(await db.sql`select 1 from "order" where store_id = ${storeId} and state = 'placed' and age_confirmed_at is not null`).toHaveLength(0)
+    expect(await db.sql`select 1 from "order" where store_id = ${mine} and state = 'placed' and age_confirmed_at is not null`).toHaveLength(0)
   })
 
   it('is refused when the restricted product is only one of several', async () => {
@@ -95,5 +98,16 @@ describe('an order without one', () => {
     const second = await place(await readyCart([v.plain]), ', ageConfirmed: true')
     expect(second.code).toBeUndefined()
     expect(await confirmedAt((second.data?.['placeOrder'] as { orderId: string }).orderId)).toBeNull()
+  })
+})
+
+describe('another store', () => {
+  it('never makes this store’s cart ask for the confirmation, and its cart and product are not found here', async () => {
+    const theirs = await shop(`mutation { addToCart(versionId: "${v.theirs}", quantity: 1) { cartToken } }`, null, 'other.shop.example')
+    const token = (theirs.data?.['addToCart'] as { cartToken: string | null } | undefined)?.cartToken ?? ''
+    expect((await shop('{ cart { needsAgeConfirmation } }', token, 'other.shop.example')).data?.['cart']).toEqual({ needsAgeConfirmation: true })
+    expect((await shop('{ cart { needsAgeConfirmation } }', token)).data?.['cart'] ?? null).toBeNull()
+    expect((await shop(`mutation { addToCart(versionId: "${v.theirs}", quantity: 1) { cartToken } }`)).data?.['addToCart'] ?? null).toBeNull()
+    expect((await place(await readyCart([v.plain]))).code).toBeUndefined()
   })
 })
