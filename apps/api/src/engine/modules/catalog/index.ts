@@ -48,10 +48,11 @@ import { manualCurrencies, questionRefused, selectProductQuestions, setProductQu
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
 import { cleanQuestions, copiedQuestions, extrasPriceChanged, foreignIds, questionWrites, type CleanQuestion, type QuestionRefusal } from './questions'
-import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
+import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, textLimits, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, textLimits, type ProductInput } from './rules'
+
 export { maxChoices, maxQuestions, type QuestionInput, type QuestionRefusal } from './questions'
 export { assetsAudit, copyRepoImage, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'
@@ -112,6 +113,9 @@ export { createStoryService, storyAudit, type Story, type StoryRefusal, type Sto
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
 export { sortValueFits, sortValueOf } from '#db/scoped/catalog'
+
+/** What a duplicate's name starts with, so the copy is told from its original in lists (CATALOG-DESIGN E6). */
+const copyNamePrefix = 'Copy of '
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.
@@ -431,7 +435,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
 
-  /** A hidden copy, stock not copied (decided on #337); SKUs and barcodes stay with the original, being unique. */
+  /** A hidden copy named "Copy of …", stock not copied (decided on #337, #1446); SKUs and barcodes stay with the original, being unique. */
   const duplicate = async (id: string, options: { keepSizeChart: boolean }): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
@@ -441,7 +445,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const wanted = (await countStoreProducts(tx)) + 1
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
       const copy: Cleaned = {
-        name: source.name,
+        name: `${copyNamePrefix}${source.name}`.slice(0, textLimits.name),
         description: source.description,
         slug: sellerId !== null ? supplierSlug(source.slug.replace(/-[a-z2-9]{6}$/, '')) : source.slug,
         slugGiven: true,

@@ -124,6 +124,7 @@
             <span style="font-size:13px;color:{{ p.stockFg }};">{{ p.stock }}</span>
             <sc-if value="{{ showSupplier }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);">{{ p.supplier }}</span></sc-if>
             <span style="font-size:12px;color:{{ p.readyFg }};">{{ p.ready }}</span>
+            <sc-if value="{{ canDup }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.dup }}" style="border:1px solid var(--border,#E8E2DC);background:var(--card,#FFFFFF);border-radius:6px;height:30px;padding:0 8px;margin-right:6px;font-size:12px;color:var(--text,#1F2933);cursor:pointer;">Duplicate</button></sc-if>
             <sc-if value="{{ canQuick }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.quickToggle }}" style="border:1px solid var(--border,#E8E2DC);background:var(--card,#FFFFFF);border-radius:6px;height:30px;padding:0 8px;font-size:12px;color:{{ p.qFg }};font-weight:{{ p.qFw }};cursor:pointer;">{{ p.quickLabel }}</button></sc-if>
             <sc-if value="{{ noQuick }}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
           </div>
@@ -241,6 +242,7 @@ class Component extends DCLogic {
 
     const canSelect = c.canEdit && !c.isStaff && !c.isVendorStock && !phone;
     const canQuick = c.canEdit && !phone && !c.isStaff;
+    const canDup = c.canManage && !phone;
     const showSupplier = !c.isVendor && !phone && c.suppliersOn;
     const canApprove = c.approvalOn && !c.isVendor && !c.isStaff && c.canEdit;
     const approve = ids => { const ps = all.filter(p => ids.includes(p.id) && p.status === 'waiting'); if (!ps.length) { app.toast('None of these are waiting for approval'); return; } app.updateProducts(ps.map(p => p.id), { status: 'visible', sentBack: '' }); app.toast(ps.length === 1 ? `“${ps[0].name}” approved and live. ${ps[0].supplier} has been told.` : `${ps.length} products approved and live. Suppliers have been told.`); this.setState({ reviewId: null, sel: [], allMatching: false }); };
@@ -280,6 +282,7 @@ class Component extends DCLogic {
         cb: sel ? '✓' : '', cbBg: sel ? '#00519F' : 'var(--card,#FFFFFF)', cbBd: sel ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)', rowBg: sel ? 'var(--hover,#F7FAFD)' : (isQuick ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)'),
         toggle: () => this.setState({ allMatching: false, sel: sel ? s.sel.filter(x => x !== p.id) : [...s.sel, p.id] }),
         open: () => app.openProduct(p.id),
+        dup: () => { const copy = { ...p, id: 'p' + Date.now(), name: 'Copy of ' + p.name, status: 'hidden', stock: 0, stock2: 0, sku: (p.sku || 'PRD') + '-COPY', slug: '', updated: Date.now(), variants: (p.variants || []).map(v => ({ ...v, stock: 0, sku: v.sku + '-C' })) }; app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
         canReview, review: isReview, checks, reviewSub: 'from ' + p.supplier,
         rvApprove: () => approve([p.id]), rvBack: () => sendBack(p), rvEdit: () => app.go('product', { editId: p.id, editNonce: Date.now(), returnTo: 'products' }),
         qFg: canReview ? 'var(--link,#B8541F)' : 'var(--focus,#00519F)', qFw: canReview ? '700' : '400',
@@ -368,7 +371,7 @@ const csvP = (name, ps) => app.download(name, ['Name', 'SKU', 'Price', 'Stock', 
       noResults: list.length === 0 && !vendorEmpty, noResultsTitle: q ? `No products match “${s.search}”` : 'No products match these filters',
       showTable: !phone && list.length > 0, showCards: phone && list.length > 0,
       cols: [canSelect ? '28px' : null, 'minmax(0,2.4fr)', 'minmax(0,1.1fr)', 'minmax(0,1.1fr)', 'minmax(0,0.9fr)', showSupplier ? 'minmax(0,1.1fr)' : null, 'minmax(0,1fr)', '88px'].filter(Boolean).join(' '),
-      canSelect, canQuick, noQuick: !canQuick, rows, pageCb: { mark: pageAll ? '✓' : '', bg: pageAll ? '#00519F' : 'var(--card,#FFFFFF)', bd: pageAll ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)' },
+      canSelect, canQuick, canDup, noQuick: !canQuick, rows, pageCb: { mark: pageAll ? '✓' : '', bg: pageAll ? '#00519F' : 'var(--card,#FFFFFF)', bd: pageAll ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)' },
       pageLabel: list.length ? `Showing ${page * PER + 1}–${Math.min(list.length, page * PER + PER)} of ${list.length}` : '', prevFg: page > 0 ? 'var(--text,#14181F)' : '#B9BEC6', nextFg: page < pages - 1 ? 'var(--text,#14181F)' : '#B9BEC6',
       curCode: R.cur, whName: R.wh, quickSaveLabel: Object.keys(s.quickDraft).length ? `Save ${Object.keys(s.quickDraft).length} change${Object.keys(s.quickDraft).length > 1 ? 's' : ''}` : 'Save',
       fab: phone && c.canEdit && !c.isStaff && !c.isVendorStock && !isEmpty,

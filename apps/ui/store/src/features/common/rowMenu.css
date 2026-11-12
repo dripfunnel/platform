@@ -1,0 +1,47 @@
+.df-row-menu-button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 var(--df-space-2);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.df-row-menu-panel {
+  position: fixed;
+  z-index: 20;
+  display: grid;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+}
+
+.df-row-menu-panel [role='menuitem'] {
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--df-radius);
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-row-menu-panel [role='menuitem']:hover:not(:disabled) {
+  background: var(--df-color-hover);
+}
+
+.df-row-menu-panel [role='menuitem']:disabled {
+  color: var(--df-color-muted);
+  cursor: default;
+}

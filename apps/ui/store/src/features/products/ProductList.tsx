@@ -1,7 +1,7 @@
 import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, FilterSelect, LoadingState, SearchField, Toast, usePhone, useScreenState, type ConfirmDialogProps, type ExportJobWords } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, Link } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addToCollection,
@@ -27,6 +27,7 @@ import {
 } from '../../api/products'
 import { requestProductExport } from '../../api/imports'
 import { harnessEnabled } from '../../harness'
+import { copyProduct } from '../common/copyProduct'
 import { startListExport, useListExport } from '../common/listExport'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { productListSample, productListStates, type ProductListState } from './productListStates'
@@ -106,6 +107,7 @@ export const ProductList = () => {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const latest = useRef(0)
+  const navigate = useNavigate()
 
   const load = useCallback(() => {
     const mine = ++latest.current
@@ -168,6 +170,17 @@ export const ProductList = () => {
       setBusy(false)
       load()
     }
+  }
+
+  // One click makes one copy: the rows stay off until it has opened, or has said why it didn't.
+  const duplicate = (row: ProductRow) => {
+    if (busy) return
+    setBusy(true)
+    void copyProduct(row.id).then((made) => {
+      if (made.ok) return void navigate({ to: '/products/$productId', params: { productId: made.id } })
+      setToast(made.message)
+      setBusy(false)
+    })
   }
 
   const approve = (targets: ProductRow[]) =>
@@ -390,7 +403,7 @@ export const ProductList = () => {
           ) : (
             <>
               {phone ? (
-                <ProductCards rows={rows} access={access} selected={selected} reviewing={reviewing} busy={busy} onToggle={toggle} onTogglePage={togglePage} onReview={setReviewing} onApprove={(row) => approve([row])} onSendBack={(row) => setDialog({ kind: 'sendBack', row })} quick={null} footer={pager} />
+                <ProductCards rows={rows} access={access} selected={selected} reviewing={reviewing} busy={busy} onToggle={toggle} onTogglePage={togglePage} onReview={setReviewing} onApprove={(row) => approve([row])} onSendBack={(row) => setDialog({ kind: 'sendBack', row })} onDuplicate={access.canDuplicate && !sample ? duplicate : null} quick={null} footer={pager} />
               ) : (
                 <ProductTable
                   rows={rows}
@@ -403,6 +416,7 @@ export const ProductList = () => {
                   onReview={setReviewing}
                   onApprove={(row) => approve([row])}
                   onSendBack={(row) => setDialog({ kind: 'sendBack', row })}
+                  onDuplicate={access.canDuplicate && !sample ? duplicate : null}
                   quick={(access.quickPrice || access.quickStock) && !sample ? { open: quickId, toggle: setQuickId, done: (text) => { setQuickId(null); setToast(text); load() } } : null}
                   footer={pager}
                 />

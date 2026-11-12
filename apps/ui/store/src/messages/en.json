@@ -1226,6 +1226,12 @@
       "retry": "Try again"
     },
     "failed": "That didn’t save. Try again.",
+    "duplicate": "Duplicate",
+    "duplicateOf": "Duplicate {name}",
+    "moreActionsFor": "More actions for {name}",
+    "duplicated": "Copy made — it’s hidden, and stock starts at 0",
+    "duplicateLimit": "Your plan has no room for more products.",
+    "duplicateFailed": "The copy couldn’t be made. Try again.",
     "cancel": "Cancel",
     "quick": {
       "open": "Quick edit",
