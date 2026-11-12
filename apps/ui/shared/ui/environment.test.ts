@@ -6,11 +6,11 @@ describe('environmentFor', () => {
     expect(environmentFor(host)).toBe('prod')
   })
 
-  it.each(['dev-admin.actuateminds.com', 'dev-platform.actuateminds.com'])('is dev on %s', (host) => {
+  it.each(['dev-admin.dripfunnel.dev', 'dev-platform.dripfunnel.dev'])('is dev on %s', (host) => {
     expect(environmentFor(host)).toBe('dev')
   })
 
-  it.each(['17-admin-shell-admin.actuateminds.com', '12-offers-platform.actuateminds.com'])('is feature on %s', (host) => {
+  it.each(['17-admin-shell-admin.dripfunnel.dev', '12-offers-platform.dripfunnel.dev'])('is feature on %s', (host) => {
     expect(environmentFor(host)).toBe('feature')
   })
 

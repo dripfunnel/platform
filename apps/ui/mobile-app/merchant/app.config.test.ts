@@ -23,13 +23,13 @@ const setTo = (name: string, value: string) => (lines: string[]) => lines.map((l
 describe('app.config.ts', () => {
   it('reads the committed dev partner and builds the app config from it', () => {
     const env = readPartnerEnv(appRoot, 'dev')
-    expect(env.PARTNER_DOMAIN).toBe('dev-store.actuateminds.com')
+    expect(env.PARTNER_DOMAIN).toBe('dev-store.dripfunnel.dev')
 
     const config = buildConfig({}, env)
     expect(config.name).toBe(env.APP_NAME)
     expect(config.ios?.bundleIdentifier).toBe(env.IOS_BUNDLE_ID)
     expect(config.android?.package).toBe(env.ANDROID_PACKAGE)
-    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com' })
+    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.dripfunnel.dev' })
   })
 
   // Built, not written out: GitHub's push protection reads a literal in Google's shape as a leaked credential.
@@ -41,7 +41,7 @@ describe('app.config.ts', () => {
     editDevEnv((lines) => [...lines, `GOOGLE_WEB_CLIENT_ID=${web}`, `GOOGLE_IOS_CLIENT_ID=${ios}`])
     const config = buildConfig({}, readPartnerEnv(root, 'dev'))
     expect(config.plugins).toContainEqual(['@react-native-google-signin/google-signin', { iosUrlScheme: ['com', 'googleusercontent', 'apps', '111-ios'].join('.') }])
-    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com', google: { webClientId: web, iosClientId: ios } })
+    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.dripfunnel.dev', google: { webClientId: web, iosClientId: ios } })
     expect(googleIosUrlScheme(ios)).toBe(['com', 'googleusercontent', 'apps', '111-ios'].join('.'))
     expect(JSON.stringify(buildConfig({}, readPartnerEnv(appRoot, 'dev')).plugins)).not.toContain('google-signin')
   })
@@ -64,12 +64,12 @@ describe('app.config.ts', () => {
   })
 
   it('refuses a portal domain written as a URL', () => {
-    editDevEnv(setTo('PARTNER_DOMAIN', 'https://dev-store.actuateminds.com/'))
+    editDevEnv(setTo('PARTNER_DOMAIN', 'https://dev-store.dripfunnel.dev/'))
     expect(() => readPartnerEnv(root, 'dev')).toThrow(/PARTNER_DOMAIN/)
   })
 
   it('refuses a variable it does not know, so a typo is never ignored', () => {
-    editDevEnv((lines) => [...lines, 'PARTNER_DOMIAN=dev-store.actuateminds.com'])
+    editDevEnv((lines) => [...lines, 'PARTNER_DOMIAN=dev-store.dripfunnel.dev'])
     expect(() => readPartnerEnv(root, 'dev')).toThrow(/PARTNER_DOMIAN/)
   })
 
@@ -111,7 +111,7 @@ describe('app.config.ts', () => {
       expect(config.plugins).toEqual(expect.arrayContaining(['@react-native-firebase/app', '@react-native-firebase/crashlytics', ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }]]))
       expect(config.ios?.googleServicesFile).toBe(files.GOOGLE_SERVICE_INFO_PLIST())
       expect(config.android?.googleServicesFile).toBe(files.GOOGLE_SERVICES_JSON())
-      expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com', crashReporting: true })
+      expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.dripfunnel.dev', crashReporting: true })
     })
 
     it('fails naming each Firebase file that EAS has not provided', () => {

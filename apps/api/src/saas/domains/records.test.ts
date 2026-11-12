@@ -61,8 +61,8 @@ describe('isHouseHost', () => {
     for (const host of ['edge.dripfunnel.ai', 'portal.edge.dripfunnel.ai', 'shops.edge.dripfunnel.ai']) expect(isHouseHost(host, 'dripfunnel.ai')).toBe(false)
   })
   it('is prod-only: on the dev zone it admits no dev name and still admits dripfunnel.ai names', () => {
-    expect(isHouseHost('store.actuateminds.com', 'actuateminds.com')).toBe(false)
-    expect(isHouseHost('mystore.dripfunnel.ai', 'actuateminds.com')).toBe(true)
+    expect(isHouseHost('store.dripfunnel.dev', 'dripfunnel.dev')).toBe(false)
+    expect(isHouseHost('mystore.dripfunnel.ai', 'dripfunnel.dev')).toBe(true)
   })
 })
 

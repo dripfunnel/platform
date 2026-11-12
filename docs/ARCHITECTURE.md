@@ -68,7 +68,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 |---|---|---|
 | `admin.dripfunnel.ai/api/*` | Admin API (`src/apis/admin`) | 404 |
 | `platform.dripfunnel.ai/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding, which calls the default `fetch`; the Worker's own routes deliver only hosts in the admin host's zone (`dev-store.actuateminds.com` on dev, `store.northstar.localhost` locally) | 404 |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding, which calls the default `fetch`; the Worker's own routes deliver only hosts in the admin host's zone (`dev-store.dripfunnel.dev` on dev, `store.northstar.localhost` locally) | 404 |
 | A registered portal host `/api/v1/*` | The AI gateway (`src/apis/store/aiGateway.ts`, #950): REST, a store API key with `ai.run` only, never a cookie; SAAS §9.3 | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`); through store-proxy's `StorefrontEdge` binding only `/shop-api/*` answers, and never on our own hosts (#317) | |
 | `{slug}.<SHOP_DOMAIN>/delivery-api/*` and `/app/delivery.apk` | Delivery API (`src/apis/delivery`, built on #839), through store-proxy's `StorefrontEdge` binding only, which passes it on every store host as it does `/shop-api/*`; the Worker answers it only when the host is a store's free address, never on a preview host, a merchant's own domain, our hosts or its own routes ([api/DELIVERY.md](api/DELIVERY.md) §4) | 404 |
@@ -224,27 +224,27 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), dev,
   production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **database**: a PlanetScale database on dev and production, a Neon branch for a feature environment.
   Feature environments live in a separate Cloudflare account and Neon project, on
-  `actuateminds.com` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
+  `dripfunnel.dev` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Local**: `wrangler dev` for the API Worker with Hyperdrive pointed at the **local
   Postgres** (the local-databases-only rule), `vite dev` for the SPAs, Miniflare for R2,
   Queues and KV.
 - **Pull requests and other branches**: the gates only; Turborepo builds and tests only what
   changed.
 - **Feature branches**: every push deploys the branch's complete environment (Worker, three
-  SPAs, Neon branch with migrations applied, `<slug>-*.actuateminds.com` hostnames behind
+  SPAs, Neon branch with migrations applied, `<slug>-*.dripfunnel.dev` hostnames behind
   Cloudflare Access). It is removed when the branch is deleted or after 14 days without a
   commit ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Dev**: one long-lived environment, redeployed on every push to `dev`, so both tracks
   see their work running against a real database instead of only locally. Same shape as
   production: migrations run first over the database's direct connection, then the API Worker, then
   the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
-  `dev-store.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-admin.actuateminds.com` and
-  `dev-hooks.actuateminds.com` (decided 2026-10-01; moved from `dripfunnel.ai` to `actuateminds.com` 2026-10-26): dev runs on
-  the dev Cloudflare account, and that account holds `actuateminds.com`, not the production
+  `dev-store.dripfunnel.dev`, `dev-platform.dripfunnel.dev`, `dev-admin.dripfunnel.dev` and
+  `dev-hooks.dripfunnel.dev` (decided 2026-10-01; moved from `dripfunnel.ai` to `dripfunnel.dev` 2026-10-26): dev runs on
+  the dev Cloudflare account, and that account holds `dripfunnel.dev`, not the production
   zone. Nothing that is not production belongs on the production domain. The dev account's
-  Access applications are meant to cover these — `*.actuateminds.com` allows `@softobotics.com`,
-  and `dev-hooks` matches the `*-hooks.actuateminds.com` Bypass, so providers' test webhooks
-  reach it; webhooks verify their own signatures. `dev-hooks.actuateminds.com`'s DNS record and
+  Access applications are meant to cover these — `*.dripfunnel.dev` allows `@softobotics.com`,
+  and `dev-hooks` matches the `*-hooks.dripfunnel.dev` Bypass, so providers' test webhooks
+  reach it; webhooks verify their own signatures. `dev-hooks.dripfunnel.dev`'s DNS record and
   certificate are provisioned by its `custom_domain: true` route in `wrangler.jsonc`
   (`env.dev`), not by Access; the dashboard Access applications are what must gate the other
   three. Dashboard state that does not yet match this rule is tracked on #106, not here. A

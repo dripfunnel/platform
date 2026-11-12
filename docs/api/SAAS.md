@@ -616,7 +616,7 @@ failed; a live hostname can become expiring or broken if its records change.
    **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
    fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
    Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
-   partners are shown (`actuateminds.com` dev, `dripfunnel.ai` prod). **Two edge targets, dev and
+   partners are shown (`dripfunnel.dev` dev, `dripfunnel.ai` prod). **Two edge targets, dev and
    prod (decided 2026-10-09, #428):** `portal.edge.<zone>` for portal hosts and
    `shops.edge.<zone>` for merchant domains, both on the zone's one fallback origin; there is
    no `preview.edge`. In prod the store-proxy Worker is uploaded by `prod.yml` and promoted

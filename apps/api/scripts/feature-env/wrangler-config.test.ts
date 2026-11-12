@@ -5,7 +5,7 @@ import { featureConfig, readBaseConfig } from './wrangler-config'
 
 describe('featureConfig', () => {
   const base = readBaseConfig()
-  const config = featureConfig(base, namesFor('offers', 'actuateminds.com'), 'actuateminds.com', 'hd-123')
+  const config = featureConfig(base, namesFor('offers', 'dripfunnel.dev'), 'dripfunnel.dev', 'hd-123')
 
   it('keeps the base config and renames the Worker', () => {
     expect(config.main).toBe(base.main)
@@ -15,19 +15,19 @@ describe('featureConfig', () => {
 
   it('points the router at the feature hostnames', () => {
     expect(config.vars).toMatchObject({
-      ADMIN_HOST: 'offers-admin.actuateminds.com',
-      PLATFORM_HOST: 'offers-platform.actuateminds.com',
-      HOOKS_HOST: 'offers-hooks.actuateminds.com',
+      ADMIN_HOST: 'offers-admin.dripfunnel.dev',
+      PLATFORM_HOST: 'offers-platform.dripfunnel.dev',
+      HOOKS_HOST: 'offers-hooks.dripfunnel.dev',
       HYPERDRIVE_REQUIRED: '1',
     })
   })
 
   it('routes /api on each SPA host and the whole hooks host to the Worker', () => {
     expect(config.routes).toEqual([
-      { pattern: 'offers-admin.actuateminds.com/api/*', zone_name: 'actuateminds.com' },
-      { pattern: 'offers-platform.actuateminds.com/api/*', zone_name: 'actuateminds.com' },
-      { pattern: 'offers-store.actuateminds.com/api/*', zone_name: 'actuateminds.com' },
-      { pattern: 'offers-hooks.actuateminds.com', custom_domain: true },
+      { pattern: 'offers-admin.dripfunnel.dev/api/*', zone_name: 'dripfunnel.dev' },
+      { pattern: 'offers-platform.dripfunnel.dev/api/*', zone_name: 'dripfunnel.dev' },
+      { pattern: 'offers-store.dripfunnel.dev/api/*', zone_name: 'dripfunnel.dev' },
+      { pattern: 'offers-hooks.dripfunnel.dev', custom_domain: true },
     ])
   })
 

@@ -9,7 +9,7 @@ export type Entry = 'public' | 'portal' | 'edge'
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`)
 
-// The zone the Worker's own routes sit on: dripfunnel.ai, actuateminds.com, or localhost locally.
+// The zone the Worker's own routes sit on: dripfunnel.ai, dripfunnel.dev, or localhost locally.
 const ownZoneOf = (adminHost: string) => adminHost.slice(adminHost.indexOf('.') + 1)
 
 /** A partner's host on `/api` reaches the default fetch only over store-proxy's binding, since the Worker's own routes

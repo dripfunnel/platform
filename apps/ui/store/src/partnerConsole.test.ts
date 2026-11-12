@@ -10,7 +10,7 @@ describe('partnerConsoleUrlFor', () => {
   })
 
   it('uses the build’s https VITE_PLATFORM_URL, and production otherwise', () => {
-    expect(partnerConsoleUrlFor({ DEV: false, VITE_PLATFORM_URL: 'https://dev-platform.actuateminds.com' })).toBe('https://dev-platform.actuateminds.com')
+    expect(partnerConsoleUrlFor({ DEV: false, VITE_PLATFORM_URL: 'https://dev-platform.dripfunnel.dev' })).toBe('https://dev-platform.dripfunnel.dev')
     expect(partnerConsoleUrlFor({ DEV: false, VITE_PLATFORM_URL: 'http://platform.example' })).toBe(productionPartnerConsoleUrl)
     expect(partnerConsoleUrlFor({ DEV: false })).toBe(productionPartnerConsoleUrl)
   })

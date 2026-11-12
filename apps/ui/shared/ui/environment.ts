@@ -1,7 +1,7 @@
 export type Environment = 'prod' | 'dev' | 'feature' | 'local'
 
 const production = new Set(['admin.dripfunnel.ai', 'platform.dripfunnel.ai'])
-const dev = new Set(['dev-admin.actuateminds.com', 'dev-platform.actuateminds.com'])
+const dev = new Set(['dev-admin.dripfunnel.dev', 'dev-platform.dripfunnel.dev'])
 const local = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
 
 // The four environments by hostname (ARCHITECTURE.md §6; decided on #65). Only the two exact

@@ -96,7 +96,7 @@ docs/
     ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
   setup/
     local.md                runbook: your machine: tools, local Postgres, .env.local, setup:local, dev, dev:https, signing in
-    dev.md                  runbook: the dev environment on actuateminds.com: one-time setup, the Worker's values, deploying, checklist
+    dev.md                  runbook: the dev environment on dripfunnel.dev: one-time setup, the Worker's values, deploying, checklist
     prod.md                 runbook: production on dripfunnel.ai: what is missing, one-time setup, values, releasing, checklist
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,

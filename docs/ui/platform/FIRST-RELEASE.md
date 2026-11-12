@@ -108,7 +108,7 @@ reason; nothing is hidden.
 
 **Environment marker** (decided 2026-10-01, settling CONSOLE-DESIGN A3's *(ask)* for
 partners): **nothing in production** — partner users see the console as the prototype draws
-it. On `dev-platform.actuateminds.com`, feature hosts and localhost, the same grey Dev, Feature
+it. On `dev-platform.dripfunnel.dev`, feature hosts and localhost, the same grey Dev, Feature
 or Local strip as the admin console, from one shared `environmentFor` (#65, #111).
 
 ---

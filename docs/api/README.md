@@ -441,7 +441,7 @@ out, since nothing answered.
 2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
 3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
-   presence of each value, never a value. Dev answers the same at `https://dev-platform.actuateminds.com/api/health`.
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.dev/api/health`.
 
 ---
 
