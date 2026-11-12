@@ -11,6 +11,7 @@ import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWar
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { copyProduct } from '../common/copyProduct'
+import { RowMenu } from '../common/RowMenu'
 import { takeFlash } from '../offers/flash'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
@@ -571,9 +572,21 @@ export const ProductEditor = () => {
         <span className={`df-editor-status df-editor-status--${status}`}>{words.status[status]}</span>
         <span className="df-editor-top-gap" />
         {!isNew && access.canEdit && (
-          <button type="button" className="df-button" disabled={saving || copying} onClick={duplicate}>
-            {messages.products.duplicate}
-          </button>
+          <RowMenu label={fill(messages.products.moreActionsFor, { name: draft.name.trim() || words.untitled })}>
+            {(close) => (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={saving || copying}
+                onClick={() => {
+                  close()
+                  duplicate()
+                }}
+              >
+                {messages.products.duplicate}
+              </button>
+            )}
+          </RowMenu>
         )}
         {!isNew && access.storeFields && (
           <button type="button" className="df-button df-editor-delete" disabled={saving} onClick={remove}>

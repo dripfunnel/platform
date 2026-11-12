@@ -318,7 +318,12 @@ describe('the product editor', () => {
   })
 
   describe('Duplicate (#1446)', () => {
-    const duplicate = () => screen.queryByRole('button', { name: messages.products.duplicate }) as HTMLButtonElement | null
+    const menu = () => screen.queryByRole('button', { name: /^More actions for/ }) as HTMLButtonElement | null
+    const duplicate = () => {
+      const button = menu()
+      if (button && button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
+      return screen.queryByRole('menuitem', { name: messages.products.duplicate }) as HTMLButtonElement | null
+    }
 
     it('makes one copy from an open product, and opens it with the message', async () => {
       listApi.duplicateProduct.mockResolvedValue('p2')
@@ -363,10 +368,11 @@ describe('the product editor', () => {
       expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
     })
 
-    it('sits next to Delete, and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
+    it('is in a ⋮ menu beside Delete, not a button of its own, and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
       await show(owner)
-      const buttons = screen.getAllByRole('button').map((b) => b.textContent)
-      expect(buttons.indexOf(messages.products.duplicate)).toBe(buttons.indexOf(words.delete) - 1)
+      expect(screen.queryByRole('button', { name: messages.products.duplicate })).toBeNull()
+      expect(menu()?.getAttribute('aria-haspopup')).toBe('menu')
+      expect(duplicate()).toBeTruthy()
       cleanup()
       await show(owner, '/products/new')
       expect(duplicate()).toBeNull()

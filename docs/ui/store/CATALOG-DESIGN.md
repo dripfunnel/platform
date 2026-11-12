@@ -847,7 +847,7 @@ depend on an engine capability whose release is not yet chosen.
   version number or updated-at check on save).
 - E5. Changing the web address of a live product: warn that old links will break.
 - E6. Duplicate a product: "Copy of …", hidden by default, stock not copied (decided 2026-10-05 on #337).
-  The portal offers it (decided 2026-11-12 on #1446) as a **Duplicate** button at the top of an open product, beside Delete,
+  The portal offers it (decided 2026-11-12 on #1446) as a **Duplicate** action in the "⋮" menu at the top of an open product, beside Delete,
   and as a **Duplicate** action in the "⋮" menu on each row of the Products list (a button on a phone's card); not in the bulk bar. It shows for an existing
   product to whoever may write products (a supplier for its own, whose copy stays its own and waits for approval where the
   store asks for it), never on a new product or in a read-only store. The copy is named "Copy of {name}" (cut to the name
