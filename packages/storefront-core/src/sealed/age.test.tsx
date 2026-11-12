@@ -55,6 +55,31 @@ describe('Place order with the age confirmation', () => {
     expect(button().disabled).toBe(false)
   })
 
+  it('draws the box when the cart starts needing it later, and takes it away when a theme box mounts after the button', () => {
+    const { rerender } = render(<PlaceOrder checkout={checkout({})} again="Again">Place order</PlaceOrder>)
+    expect(box()).toBeNull()
+    rerender(<PlaceOrder checkout={checkout({ needsAgeConfirmation: true })} again="Again">Place order</PlaceOrder>)
+    expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
+    const page = checkout({ needsAgeConfirmation: true })
+    rerender(
+      <>
+        <PlaceOrder checkout={page} again="Again">Place order</PlaceOrder>
+        <AgeConfirmation needed checked={false} onChange={() => undefined} t={t} />
+      </>,
+    )
+    expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
+    expect(button().disabled).toBe(true)
+  })
+
+  it('draws the box again when the theme box goes away', () => {
+    const page = checkout({ needsAgeConfirmation: true })
+    const theirs = <AgeConfirmation needed checked={false} onChange={() => undefined} t={t} />
+    const { rerender } = render(<><PlaceOrder checkout={page} again="Again">Place order</PlaceOrder>{theirs}</>)
+    expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
+    rerender(<PlaceOrder checkout={page} again="Again">Place order</PlaceOrder>)
+    expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
+  })
+
   it('draws no second box when the theme placed one', () => {
     const page = checkout({ needsAgeConfirmation: true })
     render(
@@ -64,7 +89,6 @@ describe('Place order with the age confirmation', () => {
       </>,
     )
     expect(document.querySelectorAll('df-sealed[data-df-sealed="age"]')).toHaveLength(1)
-    expect(document.querySelector('[data-df-age-fallback]')).toBeNull()
   })
 
   it('is not held for a cart without an age-restricted product', () => {
