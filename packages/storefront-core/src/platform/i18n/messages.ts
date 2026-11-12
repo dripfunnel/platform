@@ -136,7 +136,7 @@ export const en = {
   'checkout.method.transfer': 'Bank transfer',
   'checkout.place': 'Place order',
   'checkout.age.confirm': 'Before you order: please confirm you’re 18 or over.',
-  'checkout.payAgain':'Try paying again',
+  'checkout.payAgain': 'Try paying again',
   'checkout.refused.outOfStock': 'Something in your cart has just sold out. Check your cart and try again.',
   'checkout.refused.phone': 'Add your mobile number to pay this way.',
   'checkout.refused.notReady': 'There’s something to finish before you pay. Check each step.',

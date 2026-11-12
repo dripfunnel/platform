@@ -28,7 +28,7 @@ const words: Record<string, string> = {
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
   SIGNED_OUT: 'Sign in first.',
   AGE_CONFIRMATION_REQUIRED: 'Please confirm you’re 18 or over before you order.',
-  INVALID_APP_PAYMENT:'That app payment request isn’t valid.',
+  INVALID_APP_PAYMENT: 'That app payment request isn’t valid.',
   INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
 

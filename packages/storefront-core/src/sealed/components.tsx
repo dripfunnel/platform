@@ -77,7 +77,7 @@ export const AgeConfirmation = ({ needed, checked, onChange, t, className }: Age
     </Sealed>
   ) : null
 
-export type Crumb ={ label: string; href: string }
+export type Crumb = { label: string; href: string }
 
 // A crumb clicked in the studio frame stays in it, as core's Link does (AI-STUDIO §8).
 const CrumbLink = ({ crumb }: { crumb: Crumb }) => (
