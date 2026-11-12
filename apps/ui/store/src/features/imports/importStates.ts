@@ -71,6 +71,7 @@ const sampleApi = (state: ImportScreenState): ImportApi => ({
   finishShopifyConnect: never,
   startShopifyImport: never,
   loadCatalogExports: async () => exportsSample,
+  loadCatalogExport: async () => null,
   requestProductExport: never,
   loadPlaces: async () => [
     { id: 'w1', name: 'Main location', isDefault: true, units: 0, revision: 1, address: null, latitude: null, longitude: null, supplierId: null, supplierName: null },

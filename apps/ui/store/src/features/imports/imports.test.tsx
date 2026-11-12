@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { ApiError } from '@dripfunnel/shared/graphql'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogImport } from '../../api/imports'
@@ -668,6 +668,72 @@ describe('exports', () => {
     await settle()
     expect(api.requestProductExport).toHaveBeenCalledWith({ filter: 'hidden' })
     expect(card.getByText(words.export.preparing)).toBeTruthy()
+  })
+
+  const listed = (id: string, state: 'ready' | 'failed' | 'preparing', url: string | null = null) => ({ id, state, entries: state === 'ready' ? 42 : null, url, expiresAt: null, kind: 'products' as const, requestedAt: '2026-10-06T10:00:00Z' })
+
+  it('fetches a finished export by its id for its file, and shows Download', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready'), listed('e0', 'ready', 'blob:e0')])
+    api.loadCatalogExport.mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getAllByRole('link', { name: words.export.download }).map((a) => a.getAttribute('href'))).toEqual(['blob:e1', 'blob:e0'])
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(1)
+    expect(api.loadCatalogExport).toHaveBeenCalledWith('e1')
+    expect(card.queryByText(words.export.failed)).toBeNull()
+  })
+
+  it('shows Couldn’t be made only for an export that failed, and fetches nothing for it', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'failed')])
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.failed)).toBeTruthy()
+    expect(card.queryByRole('link', { name: words.export.download })).toBeNull()
+    expect(api.loadCatalogExport).not.toHaveBeenCalled()
+  })
+
+  it('says it is getting the file while that fetch is out', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.gettingFile)).toBeTruthy()
+    expect(card.queryByText(words.export.failed)).toBeNull()
+  })
+
+  it('says the file didn’t load when fetching it fails, and Try again gets it', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.fileFailed, { exact: false })).toBeTruthy()
+    expect(card.queryByText(words.export.failed)).toBeNull()
+    fireEvent.click(card.getByRole('button', { name: words.export.retry }))
+    await settle()
+    expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1')
+    expect(card.queryByText(words.export.fileFailed, { exact: false })).toBeNull()
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the file didn’t load when the export is no longer there, and asks again only when told to', async () => {
+    api.loadCatalogExports.mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockResolvedValue(null)
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.fileFailed, { exact: false })).toBeTruthy()
+    expect(card.queryByRole('link', { name: words.export.download })).toBeNull()
+    expect(api.loadCatalogExport).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns Preparing… into Download without reloading the page', async () => {
+    api.loadCatalogExports.mockResolvedValueOnce([listed('e1', 'preparing')]).mockResolvedValue([listed('e1', 'ready')])
+    api.loadCatalogExport.mockResolvedValue(listed('e1', 'ready', 'blob:e1'))
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    expect(card.getByText(words.export.preparing)).toBeTruthy()
+    // The card polls every 1.5 s; wait for what it shows rather than for a fixed time.
+    await waitFor(() => expect(card.getByRole('link', { name: words.export.download }).getAttribute('href')).toBe('blob:e1'), { timeout: 5000 })
+    expect(card.queryByText(words.export.preparing)).toBeNull()
   })
 })
 
