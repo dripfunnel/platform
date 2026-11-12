@@ -6,7 +6,7 @@ describe('environmentFor', () => {
     expect(environmentFor(host)).toBe('prod')
   })
 
-  it.each(['dev-admin.dripfunnel.dev', 'dev-platform.dripfunnel.dev'])('is dev on %s', (host) => {
+  it.each(['admin.dripfunnel.dev', 'platform.dripfunnel.dev'])('is dev on %s', (host) => {
     expect(environmentFor(host)).toBe('dev')
   })
 

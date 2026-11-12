@@ -50,7 +50,7 @@ pnpm --filter ./apps/api session arjun@softobotics.example   # prints __Host-df_
   their second user. `navView.ts` turns this app's rows into what the shared side bar draws.
   `AppHeader`, `AppShell` and the search dialog (`search.css`) stay here.
 - **Environment**: the shared `environmentFor` and `EnvironmentBanner` (#65): Production on
-  `admin.dripfunnel.ai`, Dev on `dev-admin.dripfunnel.dev`, Feature on a feature environment's
+  `admin.dripfunnel.ai`, Dev on `admin.dripfunnel.dev`, Feature on a feature environment's
   `*.dripfunnel.dev` host and Local on localhost; a look-alike or unknown host is never
   Production. The words are this app's (`shell.environment` in `messages/en.json`).
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a

@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-01 (#1107: the API Worker placed next to the database, partner portal hosts through the default fetch, §1, §2, §6). Before: 2026-11-01 (#1086: the production database on PlanetScale, §1, §2, §6). Before: 2026-10-31 (promote.yml starts the promoted core's rollout, §6). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1107: the API Worker placed next to the database, partner portal hosts through the default fetch, §1, §2, §6). Before: 2026-11-01 (#1086: the production database on PlanetScale, §1, §2, §6). Before: 2026-10-31 (promote.yml starts the promoted core's rollout, §6). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
 `{slug}-preview.` preview, §1 and §8; no per-store Cloudflare hostnames). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
@@ -68,7 +68,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 |---|---|---|
 | `admin.dripfunnel.ai/api/*` | Admin API (`src/apis/admin`) | 404 |
 | `platform.dripfunnel.ai/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding, which calls the default `fetch`; the Worker's own routes deliver only hosts in the admin host's zone (`dev-store.dripfunnel.dev` on dev, `store.northstar.localhost` locally) | 404 |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding, which calls the default `fetch`; the Worker's own routes deliver only hosts in the admin host's zone (`store.dripfunnel.dev` on dev, `store.northstar.localhost` locally) | 404 |
 | A registered portal host `/api/v1/*` | The AI gateway (`src/apis/store/aiGateway.ts`, #950): REST, a store API key with `ai.run` only, never a cookie; SAAS §9.3 | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`); through store-proxy's `StorefrontEdge` binding only `/shop-api/*` answers, and never on our own hosts (#317) | |
 | `{slug}.<SHOP_DOMAIN>/delivery-api/*` and `/app/delivery.apk` | Delivery API (`src/apis/delivery`, built on #839), through store-proxy's `StorefrontEdge` binding only, which passes it on every store host as it does `/shop-api/*`; the Worker answers it only when the host is a store's free address, never on a preview host, a merchant's own domain, our hosts or its own routes ([api/DELIVERY.md](api/DELIVERY.md) §4) | 404 |
@@ -238,18 +238,18 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   see their work running against a real database instead of only locally. Same shape as
   production: migrations run first over the database's direct connection, then the API Worker, then
   the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
-  `dev-store.dripfunnel.dev`, `dev-platform.dripfunnel.dev`, `dev-admin.dripfunnel.dev` and
-  `dev-hooks.dripfunnel.dev` (decided 2026-10-01; moved from `dripfunnel.ai` to `actuateminds.com` 2026-10-26, then to `dripfunnel.dev` 2026-11-12, #1441): dev runs on
+  `store.dripfunnel.dev`, `platform.dripfunnel.dev`, `admin.dripfunnel.dev` and
+  `hooks.dripfunnel.dev` (decided 2026-10-01; moved from `dripfunnel.ai` to `actuateminds.com` 2026-10-26, then to `dripfunnel.dev` 2026-11-12, #1441): dev runs on
   the dev Cloudflare account, and that account holds `dripfunnel.dev`, not the production
   zone. Nothing that is not production belongs on the production domain. The dev account's
   Access applications are meant to cover these — `*.dripfunnel.dev` allows `@softobotics.com`,
-  and `dev-hooks` matches the `*-hooks.dripfunnel.dev` Bypass, so providers' test webhooks
-  reach it; webhooks verify their own signatures. `dev-hooks.dripfunnel.dev`'s DNS record and
+  and `hooks` is named in the hooks Bypass beside `*-hooks.dripfunnel.dev`, so providers' test webhooks
+  reach it; webhooks verify their own signatures. `hooks.dripfunnel.dev`'s DNS record and
   certificate are provisioned by its `custom_domain: true` route in `wrangler.jsonc`
   (`env.dev`), not by Access; the dashboard Access applications are what must gate the other
   three. Dashboard state that does not yet match this rule is tracked on #106, not here. A
   feature slug
-  always begins with its issue number, so `dev-*` can never collide with one
+  always begins with its issue number, so dev's bare `admin`, `platform`, `store` and `hooks` can never collide with one
   ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)). Seeded once on first
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
 - **Production**: migrations from `apps/api/migrations` run first against PlanetScale's direct

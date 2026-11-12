@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { isNonProdHost } from './EnvironmentStrip'
 
 describe('isNonProdHost', () => {
-  it.each(['localhost', '127.0.0.1', 'store.localhost', 'dev-store.dripfunnel.dev', '12-offers-store.dripfunnel.dev'])(
+  it.each(['localhost', '127.0.0.1', 'store.localhost', 'store.dripfunnel.dev', '12-offers-store.dripfunnel.dev'])(
     'shows the strip on %s',
     (host) => expect(isNonProdHost(host)).toBe(true),
   )

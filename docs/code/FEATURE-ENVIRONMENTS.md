@@ -11,7 +11,7 @@ It is deployed on every push and deleted when the branch goes. The workflow is
 [`.github/workflows/feature-env.yml`](../../.github/workflows/feature-env.yml). The tooling is in
 [`apps/api/scripts/feature-env/`](../../apps/api/scripts/feature-env/).
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-10-31 (#1071: the default branch is frozen, kept for feature environments). Before: 2026-09-29.
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-10-31 (#1071: the default branch is frozen, kept for feature environments). Before: 2026-09-29.
 
 ---
 
@@ -101,7 +101,8 @@ removal starts only once this workflow is merged to `main`.
 3. **Cloudflare Access** (Zero Trust on the dev account; login method: one-time PIN):
    1. Self-hosted application **`*.dripfunnel.dev`**, with an **Allow** policy for emails
       ending in `@softobotics.com`.
-   2. Self-hosted application **`*-hooks.dripfunnel.dev`**, with a **Bypass** policy for
+   2. Self-hosted application **`*-hooks.dripfunnel.dev`**, with dev's **`hooks.dripfunnel.dev`** as a
+      second domain (the wildcard doesn't match it), and a **Bypass** policy for
       everyone, so providers' test webhooks get through. The webhooks verify their own
       signatures.
    3. After the first deploy, turn on **Access for preview deployments** in each of the three

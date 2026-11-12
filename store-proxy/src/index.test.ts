@@ -27,9 +27,9 @@ describe('store proxy', () => {
 
   it('passes our own hosts through untouched', async () => {
     stubFetch()
-    await route(new Request('https://dev-admin.dripfunnel.dev/api/health'), env, null)
+    await route(new Request('https://admin.dripfunnel.dev/api/health'), env, null)
     await route(new Request('https://dripfunnel.dev/'), env, null)
-    expect(seen).toEqual(['net https://dev-admin.dripfunnel.dev/api/health', 'net https://dripfunnel.dev/'])
+    expect(seen).toEqual(['net https://admin.dripfunnel.dev/api/health', 'net https://dripfunnel.dev/'])
   })
 
   it('does not treat a lookalike host as ours', async () => {

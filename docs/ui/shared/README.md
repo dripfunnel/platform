@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
 
 ---
 
@@ -104,7 +104,7 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   the job on any screen.
   The `ExportJob` shape is the API's, in `graphql`; `csv` in `format` writes the file.
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
-  (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.dev` hosts,
+  (`prod` only on the two exact production hosts, `dev` on the `{admin,platform,store,hooks}.dripfunnel.dev` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and
   `EnvironmentBanner` draws the strip, red only for `prod`. The partner console uses both
   (#111); the admin console switches to them on #65. The merchant portal's hosts are open-ended

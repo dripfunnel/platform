@@ -59,7 +59,7 @@ describe('worker', () => {
   it('names which integrations are configured, never a value', async () => {
     const configured = {
       ...env,
-      HOOKS_HOST: 'dev-hooks.dripfunnel.dev',
+      HOOKS_HOST: 'hooks.dripfunnel.dev',
       ASSETS: {} as R2Bucket,
       ENTRA_TENANT_ID: 't',
       ENTRA_CLIENT_ID: 'c',
@@ -95,7 +95,7 @@ describe('worker', () => {
     }
     const ask = async (extra: Record<string, string | undefined>) => {
       const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
-      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'dev-hooks.dripfunnel.dev', ...extra }, ctx)).text()
+      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'hooks.dripfunnel.dev', ...extra }, ctx)).text()
       return { text, ses: JSON.parse(text).integrations.ses }
     }
     const all = await ask(ses)

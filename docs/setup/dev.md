@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.dev` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, §2.9 restored and §2.10 added). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`, §2.9 restored and §2.10 added). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -19,11 +19,11 @@ Feature environments (one per `feature` branch) are a separate setup:
 | Cloudflare account | "DripFunnel Dev", the same account as feature environments |
 | Zone | `dripfunnel.dev` |
 | API Worker | `dripfunnel-api-dev` (`wrangler.jsonc` › `env.dev`) |
-| Hosts | `dev-admin.dripfunnel.dev`, `dev-platform.dripfunnel.dev`, `dev-store.dripfunnel.dev` (each `/api/*` routes to the Worker), `dev-hooks.dripfunnel.dev` (the Worker's own custom domain) |
+| Hosts | `admin.dripfunnel.dev`, `platform.dripfunnel.dev`, `store.dripfunnel.dev` (each `/api/*` routes to the Worker), `hooks.dripfunnel.dev` (the Worker's own custom domain) |
 | Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
 | Database | PlanetScale Postgres `dripfunnel-dev` (Mumbai, AWS `ap-south-1`), database `dripfunnel`, through Hyperdrive; on Neon until 2026-10-31 (#1071) |
-| Gate | Cloudflare Access: `*.dripfunnel.dev` allows `@softobotics.com`; `*-hooks.dripfunnel.dev` is bypassed so providers' test webhooks arrive |
-| Merchant mobile app | Its `dev` profile points at `dev-store.dripfunnel.dev` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
+| Gate | Cloudflare Access: `*.dripfunnel.dev` allows `@softobotics.com`; `hooks.dripfunnel.dev` and `*-hooks.dripfunnel.dev` are bypassed so providers' test webhooks arrive |
+| Merchant mobile app | Its `dev` profile points at `store.dripfunnel.dev` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
 | Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
 | Third parties | Test mode everywhere: Stripe test keys, the SES sandbox or a test identity, the Entra registration's dev redirect |
 
@@ -53,8 +53,8 @@ checked off.
 1. Create the dev account, add `dripfunnel.dev`, set SSL to Full (strict), and create the two
    Access applications: [FEATURE-ENVIRONMENTS.md §4](../code/FEATURE-ENVIRONMENTS.md) steps 1
    and 3. Dev and feature environments share all of this.
-2. Check that the Access applications cover `dev-admin`, `dev-platform` and `dev-store`, and
-   that `dev-hooks` falls under the hooks Bypass. Dashboard state that doesn't match yet is
+2. Check that the Access applications cover `admin`, `platform` and `store`, and
+   that `hooks` falls under the hooks Bypass. Dashboard state that doesn't match yet is
    tracked on #106.
 
 ### 2.2 Cloudflare API token for deploys
@@ -143,7 +143,7 @@ Repository › Settings › Environments › *New environment* › `dev`:
 
 ### 2.7 Put the consoles on their hostnames
 
-Once the three Pages projects exist, attach `dev-store`, `dev-platform` and `dev-admin` to
+Once the three Pages projects exist, attach `store`, `platform` and `admin` to
 them and create their DNS records:
 
 ```bash
@@ -198,9 +198,9 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    write and *Metadata* read; install it on the org → `GITHUB_APP_ID`,
    `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
    For a push to a store repo's `main` to go live (#968), turn on the App's webhook with the URL
-   `https://dev-hooks.dripfunnel.dev/github` and a random secret → `GITHUB_WEBHOOK_SECRET`, and subscribe it to **Push**.
+   `https://hooks.dripfunnel.dev/github` and a random secret → `GITHUB_WEBHOOK_SECRET`, and subscribe it to **Push**.
 5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
-   redirect `https://dev-hooks.dripfunnel.dev/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
+   redirect `https://hooks.dripfunnel.dev/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
 6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
    partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
@@ -235,13 +235,13 @@ One-off, done by a person; the repo already names the new zone.
 
 One-off, done by a person; the repo already names the new zone. The steps of §2.9, on the new zone:
 1. Add `dripfunnel.dev` to the dev Cloudflare account, SSL Full (strict); create the Access
-   applications `*.dripfunnel.dev` (allow `@softobotics.com`) and the `*-hooks.dripfunnel.dev` Bypass (§2.1).
-2. Re-point the deploy token's zone scope (§2.2) and the Worker routes to the new zone; `dev-hooks` is a custom domain.
+   applications `*.dripfunnel.dev` (allow `@softobotics.com`) and the hooks Bypass on `hooks.dripfunnel.dev` and `*-hooks.dripfunnel.dev` (§2.1). Dev's hosts drop the `dev-` prefix.
+2. Re-point the deploy token's zone scope (§2.2) and the Worker routes to the new zone; `hooks` is a custom domain.
 3. Set `EDGE_ZONE`, `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST`, `CF_SAAS_ZONE_ID` and the `CF_CACHE_PURGE_TOKEN`
    zone (§3), and the repo's `FEATURE_DOMAIN` and `FEATURE_ZONE_ID` variables (FEATURE-ENVIRONMENTS.md).
 4. Create `portal.edge` and `shops.edge` on the new zone, then reset the dev domain rows so they get the new targets.
 5. Update the callbacks: Stripe webhook and Connect redirect, SES/SNS subscription, the Entra redirect URIs.
-6. Check `https://dev-platform.dripfunnel.dev/api/health` and the other `dev-` hosts.
+6. Check `https://platform.dripfunnel.dev/api/health` and the other dev hosts.
 
 ---
 
@@ -256,23 +256,23 @@ Never reuse a value from local or production.
 
 | Name | Type | Dev value | How to get it |
 |---|---|---|---|
-| `ADMIN_HOST` | Text | `dev-admin.dripfunnel.dev` | fixed |
+| `ADMIN_HOST` | Text | `admin.dripfunnel.dev` | fixed |
 | `EDGE_ZONE` | Text | `dripfunnel.dev` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>` and `shops.edge.<zone>`, SAAS.md §8); the CNAME targets partners and merchants are shown. Both are proxied records in the zone pointing at the zone's one fallback origin (#428); check with `dig +short shops.edge.dripfunnel.dev` |
 | `CF_SAAS_ZONE_ID` | Text | the id of the `dripfunnel.dev` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
-| `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.dev` | fixed |
-| `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.dev` | fixed |
+| `PLATFORM_HOST` | Text | `platform.dripfunnel.dev` | fixed |
+| `HOOKS_HOST` | Text | `hooks.dripfunnel.dev` | fixed |
 | `CODE_CHECK` | Text | `0` | Any **text (SMS)** code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). **Email codes are always checked** (#1002), because email reaches the people who test. Prod leaves it unset unless it accepts any code too (prod.md §4) |
 | `PUBLISH_CHECKS` | Text | `off` | A failing check no longer refuses a store build's publish, so a theme that breaks `sealed`, `checkout` or the others still goes live; the report keeps each check's real result (#1164, LIVE-SHOP §4 step 7). Unset or `on` restores the walls |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
-| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.dripfunnel.dev/api/auth/callback` |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://admin.dripfunnel.dev/api/auth/callback` |
 | `STRIPE_SECRET_KEY` | Secret | **test-mode** restricted key `rk_test_…` | Stripe › Developers › API keys › *Create restricted key*, with the permissions in §8 |
-| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.dripfunnel.dev/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://hooks.dripfunnel.dev/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user, SES sandbox | THIRD-PARTY-ACCESS.md §2.4. In the sandbox only verified recipients receive mail: verify the team's addresses |
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
-| `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.dev/ses` (THIRD-PARTY-ACCESS.md §2.4) |
+| `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://hooks.dripfunnel.dev/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
 | `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout, and Settings › Payout and payment in the partner console says the provider isn't switched on |
@@ -295,8 +295,8 @@ Leaving out a whole group (all of Entra, Stripe or SES) switches that feature of
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
 group whole.
 
-The consoles' build flags (`VITE_STATE_HARNESS=1`, `VITE_ADMIN_URL=https://dev-admin.dripfunnel.dev`
-and the store portal's `VITE_PLATFORM_URL=https://dev-platform.dripfunnel.dev`) are meant to be set in the
+The consoles' build flags (`VITE_STATE_HARNESS=1`, `VITE_ADMIN_URL=https://admin.dripfunnel.dev`
+and the store portal's `VITE_PLATFORM_URL=https://platform.dripfunnel.dev`) are meant to be set in the
 dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set them yet**. Until it does, dev bundles
 have no `?state=` harness, the portals' staff-session links point at production's admin console, and a
 spent support link's "Back to the partner console" points at production's partner console.
@@ -312,7 +312,7 @@ spent support link's "Back to the partner console" points at production's partne
    [ROLLBACK.md](../code/ROLLBACK.md) before trying again).
 3. Check the API. Access gates the hosts, so open this in a browser where you're signed in to
    Access:
-   `https://dev-platform.dripfunnel.dev/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
+   `https://platform.dripfunnel.dev/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
    `db: "missing"` means the Hyperdrive binding was lost; a 500 usually means a required value
    (§3) is missing.
 4. Watch the Worker's logs: `pnpm --filter ./apps/api exec wrangler tail --env dev`.
