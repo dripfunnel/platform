@@ -1936,6 +1936,7 @@
       "choiceRequired": "Add at least one choice.",
       "choiceLabelRequired": "Name this choice.",
       "priceWrong": "Type a price in {currency}.",
+      "percentWrong": "Type a percentage above 0, up to 100.",
       "quantityWrong": "Type a number from 1 to 99.",
       "lengthWrong": "Type a number from 1 to 500.",
       "filesWrong": "Type a number from 1 to 5.",

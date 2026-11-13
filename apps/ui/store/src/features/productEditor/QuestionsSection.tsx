@@ -25,7 +25,7 @@ interface Props {
   copy: { productId: string; revision: number; dirty: boolean; onCopied: (copied: CopiedQuestions) => void } | null
 }
 
-const problemText = (p: QuestionProblem, currency: string) =>
+const problemText = (p: QuestionProblem, currency: string, percent: boolean) =>
   ({
     label: p.choice ? words.choiceLabelRequired : words.labelRequired,
     choices: words.choiceRequired,
@@ -33,17 +33,17 @@ const problemText = (p: QuestionProblem, currency: string) =>
     free: words.freeWrong,
     maxLength: words.lengthWrong,
     maxFiles: words.filesWrong,
-    price: fill(words.priceWrong, { currency }),
+    price: percent ? words.percentWrong : fill(words.priceWrong, { currency }),
     quantity: words.quantityWrong,
     versions: words.versionsNone,
     versionsChanged: words.versionsChanged,
   })[p.field]
 
-const Problem = ({ problems, field, choice = null, currency }: { problems: readonly QuestionProblem[]; field: QuestionProblem['field']; choice?: string | null; currency: string }) => {
+const Problem = ({ problems, field, choice = null, currency, percent = false }: { problems: readonly QuestionProblem[]; field: QuestionProblem['field']; choice?: string | null; currency: string; percent?: boolean }) => {
   const found = problems.find((p) => p.field === field && p.choice === choice)
   return found ? (
     <p className="df-editor-problem" role="alert">
-      {problemText(found, currency)}
+      {problemText(found, currency, percent)}
     </p>
   ) : null
 }
@@ -185,7 +185,7 @@ const ChoiceRow = ({ choice, set, setPhoto, remove, move, first, last, many, cur
         </p>
       )}
       <PriceEditor price={choice.price} set={(price) => set({ ...choice, price })} kind="CHOICE_ROW" currency={currency} manual={manual} versions={versions} disabled={disabled} label={choice.label || words.choice} />
-      <Problem problems={own} field="price" choice={choice.key} currency={currency} />
+      <Problem problems={own} field="price" choice={choice.key} currency={currency} percent={choice.price?.mode === 'PERCENT'} />
       {!disabled && (
         <span className="df-question-actions">
           <button type="button" className="df-editor-link" disabled={first} aria-label={`${words.moveUp}: ${choice.label || words.choice}`} onClick={() => move(-1)}>
@@ -384,7 +384,7 @@ const QuestionCard = ({ q, index, all, setQ, patchChoice, move, remove, props, p
       {q.kind !== 'CHOICE' && (
         <>
           <PriceEditor price={q.price} set={(price) => setQ({ ...q, price })} kind={q.kind} currency={currency} manual={manual} versions={versions} disabled={disabled} label={q.label || words.question} />
-          <Problem problems={own} field="price" currency={currency} />
+          <Problem problems={own} field="price" currency={currency} percent={q.price?.mode === 'PERCENT'} />
         </>
       )}
       <label>
