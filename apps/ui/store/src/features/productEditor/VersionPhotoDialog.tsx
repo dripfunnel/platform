@@ -36,13 +36,13 @@ export const VersionPhotoDialog = ({ name, photos, usedBy, current, upload, onUs
       onConfirm={() => picked && onUse(picked)}
     >
       <p className="df-field-hint">{words.versions.photoLine}</p>
-      <ul className="df-editor-vpick" role="radiogroup" aria-label={fill(words.versions.photoTitle, { name })}>
+      <ul className="df-editor-vpick" aria-label={fill(words.versions.photoTitle, { name })}>
         {photos.map((p, i) => {
           const count = usedBy(p.assetId)
           const label = p.alt || fill(words.versions.photoName, { number: formatCount(i + 1) })
           return (
             <li key={p.assetId}>
-              <button type="button" role="radio" aria-checked={picked === p.assetId} className="df-editor-vpick-tile" onClick={() => setPicked(p.assetId)}>
+              <button type="button" aria-pressed={picked === p.assetId} className="df-editor-vpick-tile" onClick={() => setPicked(p.assetId)}>
                 <AssetImage className="df-editor-photo-img" url={p.url} alt="" placeholder="" />
                 <strong>{label}</strong>
                 <span>{count > 0 ? fill(plural(words.versions.photoUsed, count), { count: formatCount(count) }) : words.versions.photoUnused}</span>
