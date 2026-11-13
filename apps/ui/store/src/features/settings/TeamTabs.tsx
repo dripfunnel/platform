@@ -217,6 +217,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
   const invite = () =>
     setAsk({
       title: words.inviteSupplierTitle,
+      wide: true,
       target: words.step.replace('{n}', '1'),
       consequence: words.inviteSupplierBody,
       confirmLabel: words.next,
@@ -225,6 +226,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
         const name = (company ?? '').trim()
         setAsk({
           title: fill(words.whoGetsInvite, { name }),
+          wide: true,
           target: words.step.replace('{n}', '2'),
           consequence: words.firstUserBody,
           confirmLabel: words.next,
@@ -233,6 +235,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
             const to = (address ?? '').trim()
             setAsk({
               title: fill(words.whatCanCompanyDo, { name }),
+              wide: true,
               target: words.step.replace('{n}', '3'),
               consequence: words.neverCustomers,
               confirmLabel: words.sendTheInvite,

@@ -173,3 +173,21 @@ describe('the confirm dialog’s choices (#1453)', () => {
     expect(screen.getByText('Item')).toBeTruthy()
   })
 })
+
+describe('the confirm dialog’s size (#1352)', () => {
+  const Sized = ({ wide }: { wide?: boolean }) => (
+    <ConfirmDialog open title="Invite a supplier" target="Step 3 of 3" consequence="They never see your customers." confirmLabel="Send the invite" cancelLabel="Cancel" {...(wide === undefined ? {} : { wide })} onConfirm={() => undefined} onCancel={() => undefined} />
+  )
+  const dialog = () => document.querySelector('dialog') as HTMLDialogElement
+
+  it('is the usual size by default, and only wide when asked', () => {
+    render(<Sized />)
+    expect(dialog().className).toBe('df-dialog')
+    cleanup()
+    render(<Sized wide={false} />)
+    expect(dialog().className).toBe('df-dialog')
+    cleanup()
+    render(<Sized wide />)
+    expect(dialog().className).toBe('df-dialog df-dialog--wide')
+  })
+})

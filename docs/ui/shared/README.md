@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-11-13 (#1453: `ConfirmDialog` choices with hints and per-option confirm labels, §3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
+Last updated: 2026-11-13 (#1352: `ConfirmDialog` takes `wide`, Invite a supplier uses it). Before: 2026-11-13 (#1453: `ConfirmDialog` choices with hints and per-option confirm labels, §3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
 
 ---
 
@@ -98,7 +98,9 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   option's `confirmLabel` is the confirm button's label while it is picked (#1453, the merchant portal's "Stop
   selling {name}?"). `target` may be empty, and then the bold line under the title is not drawn. It also takes `children`, fields the caller keeps (the admin
   Set contract dialog, #436), and `error`, which keeps the dialog open with what was entered
-  after a refused confirm and says why.
+  after a refused confirm and says why. `wide` makes it about 720 px instead of 540 (still never wider than
+  the screen), for a pick whose longest choice is long, as Invite a supplier's access (#1352); every dialog's
+  fields stay within its width.
 - **Export jobs** (#134, the partner console's store export being the admin activity export's
   second user): `exportJob` holds the one running export outside any screen, `useExportJob`
   reads it, `startExport` puts the API's answer in it, `exportCheck` decides what one status
