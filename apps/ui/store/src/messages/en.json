@@ -1323,6 +1323,7 @@
       "gift_card": "A gift card",
       "gift_cardSub": "Sent by email",
       "merchantOnly": "Suppliers sell physical items. Downloads, services and gift cards are the store’s own.",
+      "locked": "You can’t change what you’re selling once the product is saved. To sell it another way, add a new product.",
       "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
     },
     "photos": {

@@ -24,18 +24,19 @@ export const Card = ({ title, aside, children }: { title?: string; aside?: React
   </section>
 )
 
-/** "What are you selling?": the four kinds (FIRST-RELEASE §1); a supplier's are physical only (ACCESS §7.1). */
-export const KindCard = ({ draft, disabled, supplier, onPick }: { draft: Draft; disabled: boolean; supplier: boolean; onPick: (kind: ProductKind) => void }) => (
+/** "What are you selling?": the four kinds (FIRST-RELEASE §1); a supplier's are physical only (ACCESS §7.1), and a saved physical item stays one (#1459). */
+export const KindCard = ({ draft, disabled, supplier, locked, onPick }: { draft: Draft; disabled: boolean; supplier: boolean; locked: boolean; onPick: (kind: ProductKind) => void }) => (
   <Card title={words.kind.title}>
     <div className="df-editor-kinds" role="radiogroup" aria-label={words.kind.title}>
       {productKinds.map((kind) => (
-        <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className="df-editor-kind" disabled={disabled || (supplier && kind !== 'physical')} onClick={() => onPick(kind)}>
+        <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className="df-editor-kind" disabled={disabled || ((supplier || locked) && kind !== 'physical')} onClick={() => onPick(kind)}>
           <strong>{words.kind[kind]}</strong>
           <span>{words.kind[`${kind}Sub`]}</span>
         </button>
       ))}
     </div>
     {supplier && <p className="df-editor-hint">{words.kind.merchantOnly}</p>}
+    {locked && <p className="df-editor-hint">{words.kind.locked}</p>}
   </Card>
 )
 

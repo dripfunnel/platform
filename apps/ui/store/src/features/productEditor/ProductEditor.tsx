@@ -632,7 +632,7 @@ export const ProductEditor = () => {
             <TranslationView productId={product.id} language={language} mainLanguage={view.extras.languages.main} supplier={access.side === 'supplier'} disabled={!access.canEdit} onSaved={setToast} onRows={countRows} onDirty={setTranslationDirty} />
           ) : (
             <>
-          <KindCard draft={draft} disabled={disabled} supplier={access.side === 'supplier'} onPick={pickKind} />
+          <KindCard draft={draft} disabled={disabled} supplier={access.side === 'supplier'} locked={access.side !== 'supplier' && product?.productType === 'physical'} onPick={pickKind} />
           {draft.kind === 'digital' && <DownloadCard draft={draft} update={update} disabled={disabled} problems={showProblems ? kindProblems : []} pool={product?.productType === 'digital' && view.kindView?.download?.mode === 'keys' ? { left: view.kindView.download.keysLeft, sold: view.kindView.download.keysSold } : null} />}
           {draft.kind === 'service' && <ServiceCard draft={draft} update={update} disabled={disabled} />}
           {draft.kind === 'gift_card' && (

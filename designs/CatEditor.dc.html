@@ -61,9 +61,10 @@
             <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What are you selling?</span>
             <div style="display:grid;grid-template-columns:{{ typeCols }};gap:8px;">
               <sc-for list="{{ types }}" as="t" hint-placeholder-count="4">
-                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;opacity:{{ t.op }};min-height:56px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
+                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:{{ t.cur }};opacity:{{ t.op }};min-height:56px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
               </sc-for>
             </div>
+            <sc-if value="{{ typeLocked }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--muted,#5A6472);">You can’t change what you’re selling once the product is saved. To sell it another way, add a new product.</div></sc-if>
           </div>
 
           <sc-if value="{{ kind.dl }}" hint-placeholder-val="{{ false }}">
@@ -836,9 +837,10 @@ class Component extends DCLogic {
 
     const stockTotal = (Number(d.stock) || 0) + (d.split ? Number(d.stock2) || 0 : 0);
     const saveLabel = c.isVendorStock ? 'Save stock' : (vendorApproval ? 'Submit for approval' : (d.isNew ? 'Save product' : 'Save'));
+    const typeLocked = !d.isNew && !c.isVendor && JSON.parse(this.state.orig || '{}').type === 'physical';
     const types = [['physical', 'A physical item', 'You pack and ship it'], ['download', 'A download', 'A file or a licence key'], ['service', 'A service', 'Arranged after the order'], ['giftcard', 'A gift card', 'Sent by email']].map(([k, l, sub]) => ({ label: l, sub,
-      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: 1,
-      onClick: () => { if (roMost || d.type === k) return; this.upd({ type: k, track: k === 'physical' }); if (k !== 'physical') app.toast('No weight, box, shipping or stock for this kind — those boxes are gone'); } }));
+      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: typeLocked && k !== 'physical' ? 0.5 : 1, cur: typeLocked && k !== 'physical' ? 'not-allowed' : 'pointer',
+      onClick: () => { if (roMost || d.type === k || (typeLocked && k !== 'physical')) return; this.upd({ type: k, track: k === 'physical' }); if (k !== 'physical') app.toast('No weight, box, shipping or stock for this kind — those boxes are gone'); } }));
     const IN = R.key === 'IN'; const gcAmts = d.gcAmounts || (IN ? [500, 1000, 2000, 5000] : [25, 50, 100, 200]);
     const keys = (d.keys || '').split('\n').map(x => x.trim()).filter(Boolean);
     const kind = { dl: d.type === 'download', svc: d.type === 'service', gc: d.type === 'giftcard', dlLimit: d.dlLimit || '5', dlDays: d.dlDays || '30', svcDuration: d.svcDuration || '', svcWhere: d.svcWhere || '', gcExpiry: d.gcExpiry || (IN ? '1y' : '5y'),
@@ -872,7 +874,7 @@ class Component extends DCLogic {
       multiLang: c.multiLang, langs, translating, notTranslating: !translating, banners,
       showTip: d.isNew && app.walkthrough && !c.isVendor && !phone, tip,
       ro, roMost, canEditMost, canManage: c.canManage,
-      types, kind, typeCols: app.phone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', twoCols: app.phone ? '1fr' : '1fr 1fr', photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
+      types, typeLocked, kind, typeCols: app.phone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', twoCols: app.phone ? '1fr' : '1fr 1fr', photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
       addPhotoLabel: phone ? 'Take or add photo' : 'Add photos', photoLimitText: c.isOwner ? `${limit} of ${limit} photos · ${c.P.rank < 1 ? 'Growth allows 5' : c.P.rank < 2 ? 'Growth Pro allows 25' : 'Business allows 50'}` : `${limit} of ${limit} photos`,
       photoMeter: `${d.photos.length} of ${limit} photos`, photoMeterFg: d.photos.length >= limit * 0.8 ? 'var(--wfg,#7A4B00)' : 'var(--muted,#5A6472)',
       photoHelp: readyPhotos.length ? 'The first photo is the one shoppers see in lists. Square photos look best. iPhone photos are converted for you.' : 'Products with a photo sell far better. On a phone, this opens the camera.',
