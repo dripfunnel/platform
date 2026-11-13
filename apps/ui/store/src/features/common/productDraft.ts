@@ -47,6 +47,8 @@ export interface DraftVersion {
   heightMm: number | null
   hsCode: string | null
   taxClassId: string | null
+  /** One of the product's photos this version shows, or null for the main photo (#1460). */
+  photoAssetId: string | null
   trackStock: boolean | null
   continueSelling: boolean | null
 }
@@ -55,8 +57,6 @@ export interface DraftPhoto {
   assetId: string
   url: string
   alt: string
-  /** The version this photo shows, by its choices, or null for the product's own photos. */
-  versionChoices: string[] | null
 }
 
 /** The product's one video: an upload (its asset) or a link to a video host; a link is shown and removed here, never typed (#1401). */
@@ -154,6 +154,7 @@ const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => (
   heightMm: from?.heightMm ?? null,
   hsCode: from?.hsCode ?? null,
   taxClassId: from?.taxClassId ?? null,
+  photoAssetId: null,
   trackStock: from?.trackStock ?? null,
   continueSelling: from?.continueSelling ?? null,
 })
@@ -254,6 +255,7 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
       heightMm: v.heightMm,
       hsCode: v.hsCode,
       taxClassId: v.taxClassId,
+      photoAssetId: v.photoAssetId,
       trackStock: v.trackStock,
       continueSelling: v.continueSelling,
     }
@@ -271,7 +273,7 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
     seoDescription: product.seoDescription ?? '',
     options: product.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, name: v.name })) })),
     versions: versions.length > 0 ? versions : [blankVersion([])],
-    photos: product.photos.map((p) => ({ assetId: p.assetId, url: p.url, alt: p.alt ?? '', versionChoices: p.versionId ? (product.versions.find((v) => v.id === p.versionId)?.choices ?? null) : null })),
+    photos: product.photos.map((p) => ({ assetId: p.assetId, url: p.url, alt: p.alt ?? '' })),
     units,
     weight: weightText(weights, units),
     box: boxes ? boxText(boxes, units) : '',
@@ -464,6 +466,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       heightMm: !physical ? null : changed.box ? (Array.isArray(box) ? box[2] : null) : v.heightMm,
       hsCode: !physical ? null : changed.hsCode ? draft.hsCode.trim() || null : v.hsCode,
       ...(side === 'merchant' ? { taxClassId: draft.taxClassId } : {}),
+      photoAssetId: draft.photos.some((p) => p.assetId === v.photoAssetId) ? v.photoAssetId : null,
       trackStock: physical ? (draft.trackStock ?? v.trackStock) : null,
       continueSelling: physical ? (draft.continueSelling ?? v.continueSelling) : null,
     }
@@ -482,12 +485,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
     // Left out for a product that never had questions, so its save writes nothing about them (CATALOG U1).
     ...(draft.hadQuestions || draft.questions.length > 0 ? { questions: questionsInputOf(draft.questions, currency, live.map((v) => keyOf(v.choices))) } : {}),
     ...(draft.video?.uploaded && draft.video.assetId ? { video: { assetId: draft.video.assetId } } : draft.video ? { video: { url: draft.video.url } } : draft.hadVideo ? { video: null } : {}),
-    // A photo of a version no longer made goes with it.
-    photos: draft.photos.flatMap((p) => {
-      const at = indexOf(p.versionChoices)
-      if (p.versionChoices !== null && at < 0) return []
-      return [{ assetId: p.assetId, ...(p.alt.trim() ? { alt: p.alt.trim() } : {}), ...(at >= 0 ? { version: at } : {}) }]
-    }),
+    photos: draft.photos.map((p) => ({ assetId: p.assetId, ...(p.alt.trim() ? { alt: p.alt.trim() } : {}) })),
     ...listingInputOf(draft, shown, side, indexOf),
   }
 }

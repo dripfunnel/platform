@@ -39,6 +39,13 @@ const signInOf = (ctx: ShopContext) => {
   return createShopperSignIn({ sql, storeId: shopper.context.storeId, partnerId: shopper.context.partnerId, activity: ctx.activity, facts: ctx.facts, allowAttempt: ctx.allowAttempt ?? (async () => false), codeCheck: ctx.codeCheck, now: ctx.now })
 }
 
+/** The signed-in shopper's own id, from the session the server resolved; never from an argument. */
+const customerOf = (ctx: ShopContext) => {
+  const { caller } = shopOf(ctx).shopper.context
+  if (caller.kind !== 'shopper' || !caller.customerId) throw refuse('SIGNED_OUT')
+  return caller.customerId
+}
+
 const accountOf = (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
   return createShopperAccount({ sql, context: shopper.context, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
@@ -172,6 +179,30 @@ export const registerAccounts = ({ builder }: ShopBuilder) => {
       extensions: { access: { ...access, audit: 'customer.signed_out' } },
       resolve: async (_, __, ctx) => {
         return signInOf(ctx).signOut(ctx.sessionToken ?? '')
+      },
+    }),
+    // A code texted to a new number, for the signed-in shopper; the same answer whether or not another account holds it (ACCESS §2.1).
+    requestPhoneCode: t.boolean({
+      args: { to: t.arg.string({ required: true }) },
+      extensions: { access: { ...access, audit: shopperSignInAudit.codeRequested } },
+      resolve: async (_, args, ctx) => {
+        long(args.to)
+        const signIn = signInOf(ctx)
+        const asked = await signIn.requestPhoneChange(customerOf(ctx), args.to)
+        if (!asked.ok) throw refuse(asked.reason)
+        return true
+      },
+    }),
+    // The code proves the new number: it becomes the account's, verified, and the shop's guest orders with it link.
+    confirmPhone: t.boolean({
+      args: { to: t.arg.string({ required: true }), code: t.arg.string({ required: true }) },
+      extensions: { access: { ...access, audit: shopperAccountAudit.updated } },
+      resolve: async (_, args, ctx) => {
+        long(args.to, args.code)
+        const signIn = signInOf(ctx)
+        const changed = await signIn.changePhone(customerOf(ctx), args.to, args.code)
+        if (!changed.ok) throw refuse(changed.reason)
+        return true
       },
     }),
     updateAccount: t.boolean({

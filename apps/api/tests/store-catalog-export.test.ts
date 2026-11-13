@@ -62,12 +62,12 @@ const create = async (who: Who, input: Record<string, unknown>) => {
 }
 const inr = (amount: string, compareAtAmount?: string) => ({ currency: 'INR', amount, ...(compareAtAmount ? { compareAtAmount } : {}) })
 
-type Job = { id: string; kind: string; state: string; rows: number | null; truncated: boolean; csv: string | null; expiresAt: string | null }
+type Job = { id: string; kind: string; state: string; rows: number | null; products: number | null; truncated: boolean; csv: string | null; expiresAt: string | null }
 const ask = async (who: Who, kind: 'products' | 'stock', filter?: Record<string, unknown>) => {
   const result = await gql('mutation E($k: CatalogExportKind!, $f: CatalogExportFilterInput) { requestCatalogExport(kind: $k, filter: $f) }', who, { k: kind, f: filter })
   return { id: result.data?.['requestCatalogExport'] as string | undefined, code: result.code }
 }
-const job = async (who: Who, id: string) => (await gql('query J($id: ID!) { catalogExport(id: $id) { id kind state rows truncated csv expiresAt } }', who, { id })).data?.['catalogExport'] as Job | null
+const job = async (who: Who, id: string) => (await gql('query J($id: ID!) { catalogExport(id: $id) { id kind state rows products truncated csv expiresAt } }', who, { id })).data?.['catalogExport'] as Job | null
 const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
 const exported = async (who: Who, kind: 'products' | 'stock', filter?: Record<string, unknown>) => {
   const { id } = await ask(who, kind, filter)
@@ -173,6 +173,47 @@ describe('product exports', () => {
     expect(mine.lines.slice(1).map((l) => l.split(',')[1])).toEqual(['Supplier mug'])
     expect(mine.csv).not.toContain('KU-S')
     expect(mine.csv).not.toContain('BOWL')
+  })
+})
+
+describe('the products and versions of an export (#1445)', () => {
+  it('records both counts: the filter’s products, a supplier’s own, and none for a stock export', async () => {
+    expect(await exported('owner', 'products')).toMatchObject({ products: 4, rows: 5 })
+    expect(await exported('owner', 'products', { filter: 'hidden' })).toMatchObject({ products: 1, rows: 1 })
+    expect(await exported('staff', 'products', { search: 'kurta' })).toMatchObject({ products: 1, rows: 2 })
+    expect(await exported('supplier', 'products')).toMatchObject({ products: 1, rows: 1 })
+    expect((await exported('owner', 'stock')).products).toBeNull()
+  })
+
+  it('shows them in the recent list too, to the one who asked only', async () => {
+    const { id } = await ask('owner', 'products', { filter: 'hidden' })
+    await relay()
+    const recent = (await gql('{ catalogExports { id rows products } }', 'owner')).data?.['catalogExports'] as { id: string; rows: number; products: number | null }[]
+    expect(recent.find((e) => e.id === id)).toEqual({ id, rows: 1, products: 1 })
+    const others = (await gql('{ catalogExports { id } }', 'supplier')).data?.['catalogExports'] as { id: string }[]
+    expect(others.map((e) => e.id)).not.toContain(id)
+  })
+})
+
+describe('the product counts (#1445)', () => {
+  const counts = async (who: Who) => (await gql('{ productCounts { all hidden versions hiddenVersions } }', who)).data?.['productCounts']
+
+  it('count versions beside products, the hidden products’ own apart, and a supplier’s own products only', async () => {
+    expect(await counts('owner')).toEqual({ all: 4, hidden: 1, versions: 5, hiddenVersions: 1 })
+    expect(await counts('supplier')).toEqual({ all: 1, hidden: 0, versions: 1, hiddenVersions: 0 })
+    expect(await counts('bOwner')).toEqual({ all: 1, hidden: 0, versions: 1, hiddenVersions: 0 })
+  })
+
+  it('count a product with no versions as one, and leave out a removed version', async () => {
+    const bare = (await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility, product_type) values (${t.storeA1}, 'Bare', 'bare', 'hidden', 'service') returning id`)[0]?.id ?? ''
+    await db.sql`update product_version set deleted_at = now() where sku = 'KU-M' and store_id = ${t.storeA1}`
+    try {
+      expect(await counts('owner')).toEqual({ all: 5, hidden: 2, versions: 5, hiddenVersions: 2 })
+    } finally {
+      await db.sql`update product_version set deleted_at = null where sku = 'KU-M' and store_id = ${t.storeA1}`
+      await db.sql`delete from product where id = ${bare}`
+    }
+    expect(await counts('owner')).toEqual({ all: 4, hidden: 1, versions: 5, hiddenVersions: 1 })
   })
 })
 

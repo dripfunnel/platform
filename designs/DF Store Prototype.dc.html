@@ -776,7 +776,7 @@ class Component extends DCLogic {
 
     const m = s.modal;
     const modal = m ? {
-      tag: m.tag || '', title: m.title, body: m.body || '', confirm: m.confirm || 'OK', cancel: m.cancel === undefined ? 'Cancel' : m.cancel, alt: m.alt || '',
+      tag: m.tag || '', title: m.title, body: m.body || '', confirm: ((m.choices || []).find(c => c.value === s.modalChoice) || {}).confirm || m.confirm || 'OK', cancel: m.cancel === undefined ? 'Cancel' : m.cancel, alt: m.alt || '',
       btnBg: m.danger ? '#B8541F' : (m.navy ? 'var(--navy,#0A2A4A)' : '#EC844F'), w: m.wide ? '620px' : '480px',
       hasInput: !!m.input, inputLabel: m.input ? m.input.label : '', placeholder: m.input ? m.input.placeholder : '', inputErr: s.modalErr,
       choices: (m.choices || []).map(ch => ({ label: ch.label, sub: ch.sub || '', bd: s.modalChoice === ch.value ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: s.modalChoice === ch.value ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', dot: s.modalChoice === ch.value ? '5px solid var(--focus,#00519F)' : '1.5px solid var(--faint,#9AA1AB)', onClick: () => this.setState({ modalChoice: ch.value }) }))

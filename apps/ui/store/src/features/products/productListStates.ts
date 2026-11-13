@@ -54,6 +54,8 @@ const counts = (list: ProductRow[]): ProductCounts => ({
   missingInfo: list.filter((r) => !r.photoUrl).length,
   fromSuppliers: list.filter((r) => r.supplier).length,
   outOfStock: list.filter((r) => r.productType === 'physical' && r.stock <= 0).length,
+  versions: list.length,
+  hiddenVersions: list.filter((r) => !r.visible).length,
 })
 
 const suppliers = [

@@ -27,6 +27,7 @@ const versionSchema = z.object({
   heightMm: z.number().int().nullable(),
   hsCode: z.string().nullable(),
   taxClassId: z.string().nullable(),
+  photoAssetId: z.string().nullable(),
   trackStock: z.boolean().nullable(),
   continueSelling: z.boolean().nullable(),
 })
@@ -103,7 +104,7 @@ const productFields = `id revision name description productType visible approval
   photos { id assetId url alt versionId }
   video { assetId uploaded url }
   options { id name values { id name } }
-  versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock continueSelling }
+  versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId photoAssetId trackStock continueSelling }
   listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds related { id name } badgeIds compliance { region field value } ageRestricted hazardous }
   filterValues { valueId versionId } sizeChartId
   questions { id kind label help required minPicks maxPicks freePicks maxLength multiline example accept maxFiles versionIds shownIf { questionId choiceId }
@@ -180,10 +181,12 @@ export interface ProductInput {
     heightMm: number | null
     hsCode: string | null
     taxClassId?: string | null
+    /** One of `photos`; null shows the main photo. */
+    photoAssetId: string | null
     trackStock: boolean | null
     continueSelling: boolean | null
   }[]
-  photos: { assetId: string; alt?: string; version?: number }[]
+  photos: { assetId: string; alt?: string }[]
   /** Left out keeps the product's video; null removes it (CATALOG S7). */
   video?: { assetId?: string; url?: string } | null
   /** Each section named replaces the product's; one left out stays as it is (CATALOG S9). */

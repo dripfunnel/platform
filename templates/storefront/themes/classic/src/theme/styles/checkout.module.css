@@ -407,6 +407,11 @@
   --df-sealed-size: 15px;
 }
 
+.age {
+  color: var(--ink);
+  font-size: 15px;
+}
+
 .pay {
   align-self: stretch;
 }

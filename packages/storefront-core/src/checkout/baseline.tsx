@@ -5,7 +5,7 @@ import { Link } from '../platform/browser/link'
 import type { MessageKey } from '../platform/i18n/messages'
 import { useStorefront } from '../platform/store/context'
 import { formatMoney, isZero } from '../pricing/money'
-import { PreviewBanner } from '../sealed/components'
+import { AgeConfirmation, PreviewBanner } from '../sealed/components'
 import { PaymentElement } from '../sealed/payment'
 import { OrderSummary } from '../sealed/summary'
 import { Checkbox } from '../ui/headless/fields'
@@ -62,7 +62,7 @@ const stepWord: Record<CheckoutStepId, MessageKey> = { contact: 'checkout.contac
 const methodWord = (provider: string): MessageKey =>
   provider === 'cod' ? 'checkout.method.cod' : provider === 'bank_transfer' ? 'checkout.method.transfer' : provider === 'razorpay' || provider === 'cashfree' ? 'checkout.method.upi' : provider === 'phonepe' ? 'checkout.method.phonepe' : provider === 'paypal' ? 'checkout.method.paypal' : 'checkout.method.card'
 const refusalWord = (code: string): MessageKey =>
-  code === 'OUT_OF_STOCK' ? 'checkout.refused.outOfStock' : code === 'PHONE_REQUIRED' ? 'checkout.refused.phone' : code === 'NOT_READY' ? 'checkout.refused.notReady' : code === 'CART_CHANGED' ? 'checkout.refused.changed' : 'checkout.refused.other'
+  code === 'OUT_OF_STOCK' ? 'checkout.refused.outOfStock' : code === 'PHONE_REQUIRED' ? 'checkout.refused.phone' : code === 'NOT_READY' ? 'checkout.refused.notReady' : code === 'CART_CHANGED' ? 'checkout.refused.changed' : code === 'AGE_CONFIRMATION_REQUIRED' ? 'checkout.refused.age' : 'checkout.refused.other'
 
 export const BaselineCheckout = () => {
   style()
@@ -167,6 +167,7 @@ export const BaselineCheckout = () => {
     return (
       <>
         <PaymentElement t={t} />
+        <AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} />
         <PlaceOrder checkout={c} again={t('checkout.payAgain')}>
           {t('checkout.place')}
         </PlaceOrder>

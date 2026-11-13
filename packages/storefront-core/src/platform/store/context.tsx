@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { AgeBoxScope } from '../../sealed/ageBox'
 import { setProblemReporter, shopProblemReporter } from '../../sealed/report'
 import type { ShopClient } from '../api/client'
 import { AddressProvider, useLocation } from '../browser/router'
@@ -44,7 +45,7 @@ export const StorefrontProvider = ({ value, address = '/', children }: { value: 
     <StorefrontContext.Provider value={{ ...value, t: value.t ?? createI18n(value.locale).t }}>
       <AddressProvider address={address}>
         <StoreHead store={value.store} mode={value.mode} />
-        {children}
+        <AgeBoxScope>{children}</AgeBoxScope>
       </AddressProvider>
     </StorefrontContext.Provider>
   )

@@ -104,24 +104,29 @@ export const finishShopifyConnect = async (key: string): Promise<string> => (awa
 export const startShopifyImport = async (productIds: string[] | null): Promise<string> =>
   (await query('mutation S($ids: [ID!], $all: Boolean) { startShopifyImport(productIds: $ids, all: $all) }', z.object({ startShopifyImport: z.string() }), productIds ? { ids: productIds } : { all: true })).startShopifyImport
 
-const catalogExportSchema = exportJobSchema.extend({ kind: z.enum(['products', 'stock']), requestedAt: z.string() })
-export type CatalogExport = ExportJob & { kind: 'products' | 'stock'; requestedAt: string }
+const catalogExportSchema = exportJobSchema.extend({ kind: z.enum(['products', 'stock']), products: z.number().int().nullable(), requestedAt: z.string() })
+/** `entries` is the file's rows, one for each version; `products` is a product export's own count. */
+export type CatalogExport = ExportJob & { kind: 'products' | 'stock'; products: number | null; requestedAt: string }
 
 const readCatalogExport = (job: z.infer<typeof catalogExportSchema> | null): CatalogExport | null => {
   const read = readExportJob(job)
-  return read && job ? { ...read, kind: job.kind, requestedAt: job.requestedAt } : null
+  return read && job ? { ...read, kind: job.kind, products: job.products, requestedAt: job.requestedAt } : null
 }
 
 export const loadCatalogExport = async (id: string): Promise<CatalogExport | null> =>
-  readCatalogExport((await query(`query E($id: ID!) { catalogExport(id: $id) { ${exportJobFields} kind requestedAt } }`, z.object({ catalogExport: catalogExportSchema.nullable() }), { id })).catalogExport)
+  readCatalogExport((await query(`query E($id: ID!) { catalogExport(id: $id) { ${exportJobFields} kind products requestedAt } }`, z.object({ catalogExport: catalogExportSchema.nullable() }), { id })).catalogExport)
 
-/** The caller's own recent exports, newest first. */
+// The list comes without files, so a finished export is ready with no link yet; loadCatalogExport(id) brings its file (#1444).
+const readListed = (job: z.infer<typeof catalogExportSchema>): CatalogExport | null =>
+  job.state === 'done' && job.csv === null ? { id: job.id, state: 'ready', entries: job.rows, url: null, expiresAt: job.expiresAt, truncated: job.truncated ?? false, kind: job.kind, products: job.products, requestedAt: job.requestedAt } : readCatalogExport(job)
+
+/** The caller's own recent exports, newest first, without their files. */
 export const loadCatalogExports = async (): Promise<CatalogExport[]> =>
-  ((await query(`{ catalogExports { ${exportJobFields} kind requestedAt } }`, z.object({ catalogExports: z.array(catalogExportSchema).nullable() }))).catalogExports ?? []).flatMap((job) => readCatalogExport(job) ?? [])
+  ((await query(`{ catalogExports { ${exportJobFields} kind products requestedAt } }`, z.object({ catalogExports: z.array(catalogExportSchema).nullable() }))).catalogExports ?? []).flatMap((job) => readListed(job) ?? [])
 
 /** The caller's products as the list shows them: all, one filter, a search, a supplier. */
 export const requestProductExport = async (filter: Partial<Pick<ProductQuery, 'filter' | 'search' | 'supplier'>> = {}): Promise<CatalogExport> => {
   const f = { ...(filter.filter && filter.filter !== 'all' ? { filter: filter.filter } : {}), ...(filter.search ? { search: filter.search } : {}), ...(filter.supplier ? { supplier: filter.supplier } : {}) }
   const { requestCatalogExport: id } = await query('mutation E($f: CatalogExportFilterInput) { requestCatalogExport(kind: products, filter: $f) }', z.object({ requestCatalogExport: z.string() }), { f })
-  return { id, state: 'preparing', entries: null, url: null, expiresAt: null, kind: 'products', requestedAt: new Date().toISOString() }
+  return { id, state: 'preparing', entries: null, url: null, expiresAt: null, kind: 'products', products: null, requestedAt: new Date().toISOString() }
 }

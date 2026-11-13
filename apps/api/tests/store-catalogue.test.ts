@@ -217,11 +217,36 @@ describe('the merchant side', () => {
     ])
   })
 
-  it('duplicates into a hidden copy with its prices and no product codes', async () => {
+  it('duplicates into a hidden copy named "Copy of …", with its prices, no product codes and no stock', async () => {
     const { saved } = await create('owner', simple('Silk scarf', { versions: [{ choices: [], sku: 'SCARF-1', prices: [price('250000')] }] }))
-    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
+    const home = (await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA1} and seller_id is null and is_default and deleted_at is null`)[0]?.id ?? ''
+    const original = (await db.sql<{ id: string }[]>`select id from product_version where product_id = ${saved?.id ?? ''}`)[0]?.id ?? ''
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand, reserved) values (${original}, ${home}, ${t.storeA1}, 5, 0)`
+    const make = async () => (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
+    const copy = await make()
     expect(copy.slug).toBe('silk-scarf-2')
-    expect(await detail('owner', copy.id)).toMatchObject({ visible: false, versions: [{ sku: null, prices: [{ amount: '250000' }] }] })
+    expect(await detail('owner', copy.id)).toMatchObject({ name: 'Copy of Silk scarf', visible: false, versions: [{ sku: null, prices: [{ amount: '250000' }] }] })
+    expect(await detail('owner', saved?.id ?? '')).toMatchObject({ name: 'Silk scarf', slug: saved?.slug })
+    expect(await db.sql`select 1 from stock_level where version_id in (select id from product_version where product_id = ${copy.id})`).toHaveLength(0)
+    // Each copy has its own web address.
+    const second = await make()
+    expect(new Set([saved?.slug, copy.slug, second.slug]).size).toBe(3)
+  })
+
+  it('keeps a copy’s name within the limit, however long the original’s is', async () => {
+    const { saved } = await create('owner', simple('x'.repeat(255)))
+    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string }
+    const made = await detail('owner', copy.id)
+    expect(made?.name).toHaveLength(255)
+    expect(made?.name.startsWith('Copy of x')).toBe(true)
+  })
+
+  it('makes a supplier’s copy its own, named the same way, and lets Staff do nothing', async () => {
+    const mine = (await create('supplier', simple('Supplier jar'))).saved
+    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'supplier', { id: mine?.id })).data?.['duplicateProduct'] as { id: string }
+    expect(await detail('supplier', copy.id)).toMatchObject({ name: 'Copy of Supplier jar', shared: true, supplier: { id: t.sellerA1First } })
+    expect((await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'staff', { id: mine?.id })).code).toBe('FORBIDDEN')
+    await gql(`mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }`, 'supplier', { ids: [mine?.id, copy.id] })
   })
 
   it('shows and hides in bulk, and counts each chip', async () => {
@@ -284,15 +309,20 @@ describe('the merchant side', () => {
     const owner2 = await user(t.partnerA, 'owner2@a.example', 'Owner Two')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner2}, ${t.storeA2}, 'owner', 'active')`
     const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: owner2, partnerId: t.partnerA }, now))
-    const asOwner2 = async (name: string) => {
+    const ownerTwo = async (source: string, variableValues: Record<string, unknown>) => {
       const facts = { requestId: 'r', ip: null, userAgent: null }
       const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers: { cookie: `${storeCookieName}=${cookie}`, [storeHeader]: t.storeA2 } }), t.partnerA, now, activityLog, facts)
-      const result = await graphql({ schema: storeSchema as GraphQLSchema, source: save, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext, variableValues: { input: simple(name) } })
+      const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext, variableValues })
       return result.errors?.[0]?.extensions ?? null
     }
+    const asOwner2 = (name: string) => ownerTwo(save, { input: simple(name) })
     expect(await asOwner2('One')).toBeNull()
     expect(await asOwner2('Two')).toBeNull()
     expect(await asOwner2('Three')).toMatchObject({ code: 'PLAN_LIMIT', key: 'products', limit: 2, unlockedBy: { id: bigger?.id } })
+    // A copy is a product too: at the limit it is refused, and nothing is made (#1446).
+    const first = (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA2} and deleted_at is null order by created_at limit 1`)[0]?.id ?? ''
+    expect(await ownerTwo('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', { id: first })).toMatchObject({ code: 'PLAN_LIMIT', key: 'products', limit: 2 })
+    expect(await db.sql`select 1 from product where store_id = ${t.storeA2} and deleted_at is null`).toHaveLength(2)
     expect(smallStorePlan).not.toBe('')
   })
 })
@@ -414,16 +444,17 @@ describe('photos, video and files', () => {
     expect(await upload('staff')).toMatchObject({ status: 403, code: 'FORBIDDEN' })
   })
 
-  it('links photos in order, one to a version, and shows them with the product', async () => {
+  it('links photos in order, shows them with the product, and lets an older client name a version’s photo by place', async () => {
     const [a, b] = [await upload('owner'), await upload('owner')]
     const options = [{ name: 'Colour', values: [{ name: 'Red' }, { name: 'Blue' }] }]
     const versions = [{ choices: ['Red'], prices: [price('100')] }, { choices: ['Blue'], prices: [price('100')] }]
     const { saved } = await create('owner', { name: 'Photographed', description: 'Soft.', options, versions, photos: [{ assetId: a.asset?.id, alt: 'Front' }, { assetId: b.asset?.id, version: 1 }], video: { url: 'https://www.youtube.com/watch?v=x' } })
-    const shown = (await gql(`query P($id: ID!) { product(id: $id) { versions { id } photos { assetId url alt versionId width } video { url uploaded } } }`, 'owner', { id: saved?.id })).data?.['product'] as { versions: { id: string }[]; photos: { assetId: string; url: string; alt: string | null; versionId: string | null; width: number }[]; video: { url: string; uploaded: boolean } }
+    const shown = (await gql(`query P($id: ID!) { product(id: $id) { versions { id photoAssetId } photos { assetId url alt versionId width } video { url uploaded } } }`, 'owner', { id: saved?.id })).data?.['product'] as { versions: { id: string; photoAssetId: string | null }[]; photos: { assetId: string; url: string; alt: string | null; versionId: string | null; width: number }[]; video: { url: string; uploaded: boolean } }
     expect(shown.photos).toEqual([
       { assetId: a.asset?.id, url: `/api/assets/${a.asset?.id}`, alt: 'Front', versionId: null, width: 640 },
-      { assetId: b.asset?.id, url: `/api/assets/${b.asset?.id}`, alt: null, versionId: shown.versions[1]?.id, width: 640 },
+      { assetId: b.asset?.id, url: `/api/assets/${b.asset?.id}`, alt: null, versionId: null, width: 640 },
     ])
+    expect(shown.versions.map((v) => v.photoAssetId)).toEqual([null, b.asset?.id])
     expect(shown.video).toEqual({ url: 'https://www.youtube.com/watch?v=x', uploaded: false })
     const nodes = (await gql('{ products(filter: "missing_info") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }
     expect(nodes.nodes.some((n) => n.id === saved?.id)).toBe(false)
@@ -441,6 +472,40 @@ describe('photos, video and files', () => {
       { assetId: a.asset?.id, versionId: null },
       { assetId: b.asset?.id, versionId: null },
     ])
+  })
+
+  it('lets several versions show one of the product’s photos, and refuses any other (#1460)', async () => {
+    const [front, back, other] = [await upload('owner'), await upload('owner'), await upload('owner')]
+    const foreign = await upload('bOwner')
+    const options = [{ name: 'Colour', values: [{ name: 'Red' }, { name: 'Blue' }, { name: 'Green' }] }]
+    const versions = (photo: (string | null | undefined)[]) => ['Red', 'Blue', 'Green'].map((c, i) => ({ choices: [c], prices: [price('100')], photoAssetId: photo[i] }))
+    const both = [{ assetId: front.asset?.id }, { assetId: back.asset?.id }]
+    const { saved } = await create('owner', { name: 'Shared photo', description: 'Soft.', options, versions: versions([front.asset?.id, front.asset?.id, null]), photos: both })
+    const read = async (id: string | undefined) => (await gql('query P($id: ID!) { product(id: $id) { versions { photoAssetId } photos { assetId versionId } } }', 'owner', { id })).data?.['product'] as { versions: { photoAssetId: string | null }[]; photos: { assetId: string; versionId: string | null }[] }
+    const shown = await read(saved?.id)
+    expect(shown.versions.map((v) => v.photoAssetId)).toEqual([front.asset?.id, front.asset?.id, null])
+    expect(shown.photos.map((p) => p.assetId)).toEqual([front.asset?.id, back.asset?.id])
+
+    const copy = (await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string }
+    expect((await read(copy.id)).versions.map((v) => v.photoAssetId)).toEqual([front.asset?.id, front.asset?.id, null])
+
+    const input = (ids: (string | null | undefined)[], photos = both) => ({ name: 'Shared photo', description: 'Soft.', options, versions: versions(ids), photos })
+    expect((await gql(save, 'owner', { id: saved?.id, revision: saved?.revision, input: input([other.asset?.id, null, null]) })).code).toBe('FILE_REFUSED')
+    expect((await gql(save, 'owner', { id: saved?.id, revision: saved?.revision, input: input([foreign.asset?.id, null, null]) })).code).toBe('FILE_REFUSED')
+    expect((await read(saved?.id)).versions.map((v) => v.photoAssetId)).toEqual([front.asset?.id, front.asset?.id, null])
+
+    // Taking a photo out of Photos sends the versions that showed it back to the main photo.
+    const dropped = await gql(save, 'owner', { id: saved?.id, revision: saved?.revision, input: input([undefined, undefined, undefined], [{ assetId: back.asset?.id }]) })
+    expect(dropped.code).toBeUndefined()
+    expect((await read(saved?.id)).versions.map((v) => v.photoAssetId)).toEqual([null, null, null])
+  })
+
+  it('lets a supplier pick one of its product’s photos for a version (#1460)', async () => {
+    const mine = await upload('supplier')
+    const { saved } = await create('supplier', { ...simple('Supplier shared photo'), photos: [{ assetId: mine.asset?.id }], versions: [{ choices: [], prices: [price('100')], photoAssetId: mine.asset?.id }] })
+    expect(saved?.id).toBeDefined()
+    const shown = (await gql('query P($id: ID!) { product(id: $id) { versions { photoAssetId } } }', 'supplier', { id: saved?.id })).data?.['product'] as { versions: { photoAssetId: string | null }[] }
+    expect(shown.versions[0]?.photoAssetId).toBe(mine.asset?.id)
   })
 
   it('stores a description with only the formatting it allows, and an empty editor as no description (#1216)', async () => {
