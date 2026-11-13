@@ -222,6 +222,7 @@ describe('the product editor', () => {
     }
     expect(screen.getByText('2 versions', { selector: 'strong' }).parentElement?.textContent).toBe('2 versions from Size (2)')
     fireEvent.click(screen.getByRole('button', { name: 'Create 2 versions' }))
+    fireEvent.click(within(document.querySelector('dialog') as HTMLElement).getByRole('button', { name: words.choices.createConfirm }))
     expect(field('Price of S').value).toBe('1299.00')
     fireEvent.change(field('Price of M'), { target: { value: '1499' } })
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
@@ -233,6 +234,64 @@ describe('the product editor', () => {
       [['M'], [{ currency: 'INR', amount: '149900' }]],
     ])
     expect(api.saveProduct.mock.calls[0]?.[1]).toBe(2)
+  })
+
+  describe('the window before the first versions are made (#1450)', () => {
+    const sizes = (names: string[]) => {
+      fireEvent.click(screen.getByRole('button', { name: words.choices.add }))
+      const values = screen.getByLabelText(`Size: ${words.choices.valuePlaceholder}`)
+      for (const size of names) {
+        fireEvent.change(values, { target: { value: size } })
+        fireEvent.keyDown(values, { key: 'Enter' })
+      }
+    }
+    const dialog = () => document.querySelector('dialog') as HTMLElement
+
+    it('warns about the price and the stock that won’t carry over, and makes nothing on Cancel', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '10' } })
+      sizes(['S', 'M', 'L'])
+      fireEvent.click(screen.getByRole('button', { name: 'Create 3 versions' }))
+      const text = within(dialog())
+      expect(text.getByText('Create 3 versions?')).toBeTruthy()
+      expect(dialog().textContent).toContain(`${fill(words.choices.createBody, { price: '₹1,299.00' })} ${fill(words.choices.createStockLost, { count: '10' })}`)
+      fireEvent.click(text.getByRole('button', { name: messages.editor.cancel }))
+      expect(screen.queryByLabelText('Price of S')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Create 3 versions' })).toBeTruthy()
+      expect(field('Stock at Jaipur studio').value).toBe('10')
+    })
+
+    it('makes the versions on Create versions, as before', async () => {
+      await show(owner)
+      sizes(['S', 'M'])
+      fireEvent.click(screen.getByRole('button', { name: 'Create 2 versions' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.choices.createConfirm }))
+      expect(field('Price of S').value).toBe('1299.00')
+      expect(field('Price of M').value).toBe('1299.00')
+    })
+
+    it('leaves the stock sentence out when there is no stock, and says “1 version” for one', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '0' } })
+      sizes(['One size'])
+      fireEvent.click(screen.getByRole('button', { name: 'Create 1 version' }))
+      expect(within(dialog()).getByText('Create 1 version?')).toBeTruthy()
+      expect(dialog().textContent).toContain(fill(words.choices.createBody, { price: '₹1,299.00' }))
+      expect(dialog().textContent).not.toContain('in stock now')
+    })
+
+    it('doesn’t ask again for Update versions', async () => {
+      await show(owner)
+      sizes(['S', 'M'])
+      fireEvent.click(screen.getByRole('button', { name: 'Create 2 versions' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.choices.createConfirm }))
+      const values = screen.getByLabelText(`Size: ${words.choices.valuePlaceholder}`)
+      fireEvent.change(values, { target: { value: 'L' } })
+      fireEvent.keyDown(values, { key: 'Enter' })
+      fireEvent.click(screen.getByRole('button', { name: words.choices.update }))
+      expect(document.querySelector('dialog[open]')).toBeNull()
+      expect(screen.getByLabelText('Price of L')).toBeTruthy()
+    })
   })
 
   it('blocks a save while choices changed and the versions weren’t updated', async () => {
