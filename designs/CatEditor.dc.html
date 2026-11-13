@@ -397,6 +397,7 @@
                     <div style="border:1px solid var(--border,#EDEAE5);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--okfg,#1D6B47);">{{ seo.url }}</span><span style="font-size:17px;color:#1A0DAB;">{{ seo.title }}</span><span style="font-size:13px;color:var(--text2,#434A55);">{{ seo.desc }}</span></div>
                     <input value="{{ d.seoTitle }}" onChange="{{ on.seoTitle }}" readOnly="{{ roMost }}" placeholder="{{ seo.title }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;font-size:14px;outline:none;">
                     <textarea value="{{ d.seoDesc }}" onChange="{{ on.seoDesc }}" readOnly="{{ roMost }}" rows="2" placeholder="{{ seo.desc }}" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;resize:vertical;"></textarea>
+                    <span style="font-size:12px;color:var(--muted,#5A6472);">Leave these empty to use the product’s name and description.</span>
                   </sc-if>
 
                   <sc-if value="{{ sec.isMore }}" hint-placeholder-val="{{ false }}">
@@ -801,7 +802,7 @@ class Component extends DCLogic {
     if (c.on('faqs')) sections.push(mkSec('faqs', 'FAQs', (d.faqs || []).length ? `${d.faqs.length} question${d.faqs.length > 1 ? 's' : ''}` : 'Answer what shoppers ask before they buy', { action: 'Add' }));
     if (c.on('related')) sections.push(mkSec('related', 'Related products', d.relatedAuto ? 'Automatic — from the same collection' : (d.related || []).length ? `${d.related.length} picked` : 'Show similar products under this one', { action: 'Choose' }));
     sections.push(mkSec('legal', 'Legal & safety', notReady.length ? `${notReady.length} ${notReady.length > 1 ? 'countries need' : 'country needs'} more: ${notReady.map(m => m.code).join(', ')}` : 'Using your store’s details · nothing missing', { action: 'Review', tag: 'never a paid feature', tagBg: 'var(--okbg,#EEF7F2)', tagFg: 'var(--okfg,#1D6B47)', bd: notReady.length && open.legalHi ? 'var(--wbd,#D9B872)' : 'var(--border,#E8E2DC)' }));
-    sections.push(mkSec('seo', 'Search engine listing', (d.seoTitle || d.name || 'Filled in for you') + ' — from the name and description', { action: 'Edit' }));
+    sections.push(mkSec('seo', 'Search engine listing', (d.seoTitle.trim() || d.name || 'Filled in for you') + (d.seoTitle.trim() ? (d.seoDesc.trim() ? ' — your own title and description' : ' — your own title, description from the product') : d.seoDesc.trim() ? ' — title from the product name, your own description' : ' — uses the product’s name and description'), { action: 'Edit' }));
     sections.push(mkSec('more', 'More options', 'Product code, web address, stock tracking, age check, where it ships', { action: 'Open', ...(err.sku ? { bd: '#B8541F', tag: 'code already used', tagBg: 'var(--pbg,#FDF0E8)', tagFg: 'var(--link,#B8541F)' } : {}) }));
 
     const facetRows = app.facets.map(f => ({ name: f.name + (f.private ? ' 🔒' : ''),
