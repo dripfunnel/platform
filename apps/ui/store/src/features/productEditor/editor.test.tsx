@@ -174,6 +174,43 @@ describe('the product editor', () => {
     expect(api.saveProduct.mock.calls.map((c) => [c[0], c[1]])).toEqual([['p1', 2], ['p1', 3]])
   })
 
+  describe('the line beside Create versions (#1451)', () => {
+    const type = (label: string, entries: string[]) => {
+      const input = screen.getByLabelText(`${label}: ${words.choices.valuePlaceholder}`)
+      for (const entry of entries) {
+        fireEvent.change(input, { target: { value: entry } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+      }
+    }
+    const line = (count: string, from: string) => {
+      const strong = screen.getByText(count, { selector: 'strong' })
+      expect(strong.parentElement?.textContent).toBe(`${count} from ${from}`)
+      expect(screen.getByRole('button', { name: `Create ${count}` })).toBeTruthy()
+    }
+
+    it('puts the number of versions first, then each choice as “Name (count)”, for one, two and three kinds, and for the merchant’s own name', async () => {
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: words.choices.add }))
+      type('Size', ['0–3 m', '3–6 m', '6–12 m'])
+      line('3 versions', 'Size (3)')
+      fireEvent.click(screen.getByRole('button', { name: '+ Colour' }))
+      type('Colour', ['Sky blue', 'Oatmeal'])
+      line('6 versions', 'Size (3) × Colour (2)')
+      fireEvent.click(screen.getByRole('button', { name: words.choices.custom }))
+      fireEvent.change(within(document.querySelector('dialog') as HTMLElement).getByLabelText(words.choices.customLabel), { target: { value: 'Pack of' } })
+      fireEvent.click(within(document.querySelector('dialog') as HTMLElement).getByRole('button', { name: words.apply }))
+      type('Pack of', ['1', '3'])
+      line('12 versions', 'Size (3) × Colour (2) × Pack of (2)')
+    })
+
+    it('says “1 version” for one, and keeps the line’s number the same as the button’s', async () => {
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: words.choices.add }))
+      type('Size', ['One size'])
+      line('1 version', 'Size (1)')
+    })
+  })
+
   it('makes versions from the choices and saves each with its own price', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     await show(owner)
@@ -183,7 +220,7 @@ describe('the product editor', () => {
       fireEvent.change(values, { target: { value: size } })
       fireEvent.keyDown(values, { key: 'Enter' })
     }
-    expect(screen.getByText('2 size makes 2 versions.')).toBeTruthy()
+    expect(screen.getByText('2 versions', { selector: 'strong' }).parentElement?.textContent).toBe('2 versions from Size (2)')
     fireEvent.click(screen.getByRole('button', { name: 'Create 2 versions' }))
     expect(field('Price of S').value).toBe('1299.00')
     fireEvent.change(field('Price of M'), { target: { value: '1499' } })

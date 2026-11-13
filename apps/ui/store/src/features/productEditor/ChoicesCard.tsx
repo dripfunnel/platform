@@ -373,7 +373,7 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
   const combos = combinationsOf(draft.options).length
   const fresh = newVersionCount(draft)
   const made = draft.versions.some((v) => v.choices.length === draft.options.length && draft.options.length > 0)
-  const parts = draft.options.filter((o) => o.values.length > 0).map((o) => `${o.values.length} ${o.name.toLowerCase()}`).join(' × ')
+  const parts = draft.options.filter((o) => o.values.length > 0).map((o) => fill(words.choices.makesPart, { name: o.name, count: formatCount(o.values.length) })).join(' × ')
   const suggestions = words.choices.suggest.filter((s) => !draft.options.some((o) => sameName(o.name, s))).slice(0, 5)
   const generate = () => update((d) => ({ ...d, versions: syncVersions(d) }))
   return (
@@ -414,7 +414,7 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
       ) : (
         parts !== '' && (
           <div className={fresh > 0 ? 'df-editor-generate df-editor-generate--ok' : 'df-editor-generate'}>
-            <span>{!made ? fill(combos === 1 ? words.choices.makesOne : words.choices.makes, { parts, count: formatCount(combos) }) : fresh > 0 ? fill(plural(words.choices.newOnes, fresh), { count: formatCount(fresh) }) : words.choices.upToDate}</span>
+            <span>{!made ? <><strong>{fill(plural(words.choices.makesCount, combos), { count: formatCount(combos) })}</strong> {fill(words.choices.makesFrom, { parts })}</> : fresh > 0 ? fill(plural(words.choices.newOnes, fresh), { count: formatCount(fresh) }) : words.choices.upToDate}</span>
             {!disabled && fresh > 0 && (
               <button type="button" className="df-button df-button--primary" onClick={generate}>
                 {made ? words.choices.update : fill(combos === 1 ? words.choices.createOne : words.choices.create, { count: formatCount(combos) })}

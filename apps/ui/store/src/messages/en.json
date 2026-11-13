@@ -1458,8 +1458,12 @@
       "custom": "Custom…",
       "customTitle": "Name this kind of choice",
       "customLabel": "e.g. Length, Finish, Engraving",
-      "makes": "{parts} makes {count} versions.",
-      "makesOne": "{parts} makes 1 version.",
+      "makesCount": {
+        "one": "1 version",
+        "other": "{count} versions"
+      },
+      "makesFrom": "from {parts}",
+      "makesPart": "{name} ({count})",
       "create": "Create {count} versions",
       "createOne": "Create 1 version",
       "update": "Update versions",
