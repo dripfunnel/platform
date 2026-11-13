@@ -19,8 +19,8 @@ const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
   options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
   versions: [
-    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
-    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', photoAssetId: null, trackStock: true, continueSelling: false },
+    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', photoAssetId: null, trackStock: true, continueSelling: false },
   ],
   readiness: [],
   ...p,
@@ -84,13 +84,14 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(problemsOf({ ...blankDraft(), name: 'x', options: [many(1), many(2), many(3)] }, 'INR')).toContain('tooMany')
   })
 
-  it('builds the save: minor units, shipping on every version, nothing a supplier may not set, a photo by its version’s place', () => {
-    const d = draftOf(product({ photos: [{ id: 'ph1', assetId: 'a1', url: '', alt: 'Front', versionId: null }, { id: 'ph2', assetId: 'a2', url: '', alt: '', versionId: 'ver-m' }] }), 'INR')
+  it('builds the save: minor units, shipping on every version, nothing a supplier may not set, a version’s photo by its place among the photos', () => {
+    const base = product()
+    const d = draftOf(product({ photos: [{ id: 'ph1', assetId: 'a1', url: '', alt: 'Front', versionId: null }, { id: 'ph2', assetId: 'a2', url: '', alt: '', versionId: null }], versions: base.versions.map((v) => (v.id === 'ver-m' ? { ...v, photoAssetId: 'a2' } : v)) }), 'INR')
     const merchant = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, removed: true } : v)) }, 'INR', 'merchant')
     expect(merchant.versions).toEqual([
-      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', photoAssetId: 'a2', trackStock: true, continueSelling: false },
     ])
-    expect(merchant.photos).toEqual([{ assetId: 'a1', alt: 'Front' }, { assetId: 'a2', version: 0 }])
+    expect(merchant.photos).toEqual([{ assetId: 'a1', alt: 'Front' }, { assetId: 'a2' }])
     expect(merchant.visible).toBe(true)
     const supplier = inputOf(d, 'INR', 'supplier')
     expect('visible' in supplier).toBe(false)

@@ -225,6 +225,8 @@ export interface VersionRow {
   visibility: 'visible' | 'hidden'
   hs_code: string | null
   tax_class_id: string | null
+  /** One of the product's photos (migration 0397); null shows the main photo. */
+  photo_asset_id: string | null
   customs_description: string | null
   weight_grams: number | null
   length_mm: number | null
@@ -306,7 +308,7 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
         from product_option o where o.product_id = p.id), '[]'::json) as options,
       coalesce((
         select json_agg(json_build_object(
-          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code, 'tax_class_id', v.tax_class_id,
+          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code, 'tax_class_id', v.tax_class_id, 'photo_asset_id', v.photo_asset_id,
           'customs_description', v.customs_description, 'weight_grams', v.weight_grams, 'length_mm', v.length_mm,
           'width_mm', v.width_mm, 'height_mm', v.height_mm, 'cost_amount', v.cost_amount::text, 'cost_currency', v.cost_currency,
           'track_stock', v.track_stock, 'continue_selling', v.continue_selling, 'position', v.position,
@@ -579,7 +581,6 @@ export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionField
 export const softDeleteVersions = async (tx: ScopedSql, ids: readonly string[], now: Date): Promise<void> => {
   if (ids.length === 0) return
   await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`
-  await tx`update product_photo set version_id = null where version_id = any(${pgArray(ids)}::uuid[])`
   await tx`delete from product_filter_value where version_id = any(${pgArray(ids)}::uuid[])`
 }
 
@@ -716,13 +717,25 @@ export const deleteAsset = async (tx: ScopedSql, storeId: string, id: string): P
 }
 
 /** The product's photos in order, replacing what it had; each names a file the caller can read (migration 0042). */
-export const setProductPhotos = async (tx: ScopedSql, storeId: string, productId: string, photos: readonly { assetId: string; alt: string | null; versionId: string | null }[]): Promise<void> => {
+export const setProductPhotos = async (tx: ScopedSql, storeId: string, productId: string, photos: readonly { assetId: string; alt: string | null }[]): Promise<void> => {
   await tx`delete from product_photo where product_id = ${productId}`
-  if (photos.length === 0) return
+  if (photos.length > 0) {
+    await tx`
+      insert into product_photo (product_id, store_id, asset_id, position, alt)
+      select ${productId}, ${storeId}, x."assetId", x.position, x.alt
+      from jsonb_to_recordset(${rowsOf(tx, photos.map((p, position) => ({ ...p, position })))}) as x("assetId" uuid, position int, alt text)
+    `
+  }
+  await tx`update product_version set photo_asset_id = null where product_id = ${productId} and photo_asset_id is not null and photo_asset_id <> all(${pgArray(photos.map((p) => p.assetId))}::uuid[])`
+}
+
+/** Each version's photo, one of the product's own (migration 0397's trigger refuses any other); null shows the main photo. */
+export const setVersionPhotos = async (tx: ScopedSql, rows: readonly { versionId: string; assetId: string | null }[]): Promise<void> => {
+  if (rows.length === 0) return
   await tx`
-    insert into product_photo (product_id, version_id, store_id, asset_id, position, alt)
-    select ${productId}, x."versionId", ${storeId}, x."assetId", x.position, x.alt
-    from jsonb_to_recordset(${rowsOf(tx, photos.map((p, position) => ({ ...p, position })))}) as x("versionId" uuid, "assetId" uuid, position int, alt text)
+    update product_version v set photo_asset_id = x."assetId"
+    from jsonb_to_recordset(${rowsOf(tx, rows)}) as x("versionId" uuid, "assetId" uuid)
+    where v.id = x."versionId" and v.photo_asset_id is distinct from x."assetId"
   `
 }
 
@@ -738,7 +751,7 @@ export const setProductVideo = async (tx: ScopedSql, storeId: string, productId:
 
 /** A photo or video naming a file the caller can't use (migration 0042's triggers). */
 export const fileRefused = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (no such file|that file is another owner|that file is the wrong kind)/.test(error.message)
+  typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (no such file|that file is another owner|that file is the wrong kind|that photo is not one of the product)/.test(error.message)
 
 /** Two options or two values of one, renamed onto each other in one save (the name indexes aren't deferrable). */
 export const nameClash = (error: unknown): 'DUPLICATE_OPTION' | 'DUPLICATE_VALUE' | null =>

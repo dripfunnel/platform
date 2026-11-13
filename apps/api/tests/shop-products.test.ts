@@ -5,6 +5,7 @@ import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import type { TenantContext } from '#core/tenancy'
 import { pgArray, withScope } from '#db/scoped/index'
+import { selectShopProductRows } from '#db/scoped/shop'
 import { encodeValueCursor } from '#core/cursor'
 import { activityLog } from '#saas/activity/index'
 import type { PictureCopies } from '#saas/storefronts/index'
@@ -346,6 +347,21 @@ describe('recording the catalogue for a live build', () => {
   it('records nothing for a host that serves no open store', async () => {
     expect(await record('nobody.shop.example')).toBeNull()
     expect(await recorder().store('nobody.shop.example')).toBeNull()
+  })
+
+  // Card #1460: a version shows one of the product's photos, and the live read names it once for each version that shows it.
+  it('lists a version’s photo with that version, a shared one for each version', async () => {
+    const file = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]
+    if (!file) throw new Error('no asset')
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${ids.kurta}, ${t.storeA1}, ${file.id}, 0)`
+    await db.sql`update product_version set photo_asset_id = ${file.id} where product_id = ${ids.kurta}`
+    const [row] = await db.sql.begin((tx) => selectShopProductRows(tx, t.storeA1, [ids.kurta], 'en'))
+    const versions = row?.versions.map((v) => v.id) ?? []
+    expect(versions.length).toBeGreaterThan(0)
+    expect(row?.photos.filter((p) => p.version_id === null).map((p) => p.asset_id)).toEqual([file.id])
+    expect(row?.photos.flatMap((p) => (p.version_id === null ? [] : [p.version_id])).sort()).toEqual([...versions].sort())
+    await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
+    await db.sql`delete from product_photo where product_id = ${ids.kurta}`
   })
 
   // Card #1105: the pictures a live build names are copied to the asset host, only this store's and only what shoppers see.

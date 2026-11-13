@@ -17,6 +17,7 @@ import {
   selectProduct,
   selectProducts,
   setProductPhotos,
+  setVersionPhotos,
   setProductsTaxClass,
   setProductsVisibility,
   setProductVideo,
@@ -277,8 +278,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at),
     ])
     if (clean.photos !== null) {
-      await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
+      await setProductPhotos(tx, storeId, productId, clean.photos)
     }
+    await setVersionPhotos(tx, versions.flatMap((v) => (v.clean.photoAssetId === undefined ? [] : [{ versionId: v.id, assetId: v.clean.photoAssetId }])))
     if (clean.video !== undefined) await setProductVideo(tx, storeId, productId, clean.video)
     if (clean.filterValues !== null) {
       const known = await knownFacetValues(tx, storeId, clean.filterValues.map((f) => f.valueId))
@@ -473,10 +475,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           customsDescription: v.customs_description,
           trackStock: v.track_stock,
           taxClassId: v.tax_class_id,
+          photoAssetId: v.photo_asset_id,
           continueSelling: v.continue_selling,
         })),
-        // The same files, on the copy's own photos; the copy's versions are in the source's order.
-        photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt, version: p.version_id === null ? null : source.versions.findIndex((v) => v.id === p.version_id) })).map((p) => ({ ...p, version: p.version === -1 ? null : p.version })),
+        // The same files, on the copy's own photos, which its versions show as the source's did.
+        photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt })),
         video: source.video ? { assetId: source.video.asset_id, url: source.video.url } : null,
         filterValues: source.filter_values.map((f) => ({ valueId: f.value_id, version: f.version_id === null ? null : source.versions.findIndex((v) => v.id === f.version_id) })).filter((f) => f.version !== -1),
         // The copy keeps the listing it was made from, and the chart, which is the same owner's.
