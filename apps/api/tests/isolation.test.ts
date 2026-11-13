@@ -816,6 +816,7 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it here and to DATA-MODEL §5.3's app_definer row, with its filter.
     expect(owned.map((f) => f.proname)).toEqual([
       'acting_store_main_language',
+      'asset_is_product_photo',
       'current_order_token_hash',
       'decide_support_write',
       'end_partner_user_sessions',

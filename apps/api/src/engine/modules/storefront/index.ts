@@ -34,7 +34,7 @@ import {
   type ShopStoreRow,
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
-import { selectCartVersions } from '#db/scoped/cart'
+import { selectCartLineDisplays, selectCartVersions } from '#db/scoped/cart'
 import { textLimits } from '#engine/modules/catalog/index'
 import { selectProductQuestions, selectQuestionWords } from '#db/scoped/questions'
 import { shopQuestionsOf, type ShopQuestion } from './questions'
@@ -61,6 +61,13 @@ export interface CartItem {
   hasQuestions: boolean
   /** Its product asks shoppers to confirm their age at checkout (#1443). */
   ageRestricted: boolean
+}
+
+/** What a cart line shows when its version can't be bought: its product's name, its version and a photo, for display only (#1465). */
+export interface CartLineDisplay {
+  productName: string
+  versionLabel: string | null
+  photoAssetId: string | null
 }
 
 export interface StorefrontDeps {
@@ -329,6 +336,13 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
   }
   const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> => inScope((tx) => cartItemsIn(tx, versionIds))
 
+  /**
+   * What names these versions on a cart line, whatever their product's state, so an unavailable line still says what it was
+   * (#1465). The shop role reads only visible products, so this reads in system scope, for the caller's own cart's versions only.
+   */
+  const cartLineDisplays = async (versionIds: readonly string[]): Promise<Map<string, CartLineDisplay>> =>
+    new Map((await withSystemScope(sql, (tx) => selectCartLineDisplays(tx, storeId, versionIds, language))).map((r) => [r.id, { productName: r.product_name, versionLabel: versionLabelOf(r.version_name, r.choices), photoAssetId: r.photo_asset_id }]))
+
   /** These products' questions as the shopper sees them: translated, priced in the cart's currency and market (#1368). */
   const questionsIn = async (tx: ScopedSql, productIds: readonly string[]): Promise<Map<string, ShopQuestion[]>> => {
     if (productIds.length === 0) return new Map()
@@ -368,5 +382,5 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     }))
   }
 
-  return { store, menu, collections, collection, asset, products, facets, priceBounds, product, cartItems, cartItemsIn, productsByIds, offers, questions, questionsIn }
+  return { store, menu, collections, collection, asset, products, facets, priceBounds, product, cartItems, cartItemsIn, cartLineDisplays, productsByIds, offers, questions, questionsIn }
 }
