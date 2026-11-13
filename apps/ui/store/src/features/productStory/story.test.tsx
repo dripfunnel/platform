@@ -221,6 +221,30 @@ describe('the A+ Video block’s upload (#1448)', () => {
     expect(await save()).toEqual({ assetId: 'v1' })
   })
 
+  it('keeps the link box still while a video uploads, so a link typed then isn’t erased', async () => {
+    let finish: (v: { ok: true; assetId: string }) => void = () => undefined
+    editorApi.uploadVideo.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    await show(owner)
+    addBlock()
+    await pick(film())
+    expect((screen.getByLabelText(words.panel.video) as HTMLInputElement).readOnly).toBe(true)
+    await act(async () => finish({ ok: true, assetId: 'v1' }))
+    expect((screen.getByLabelText(words.panel.video) as HTMLInputElement).readOnly).toBe(false)
+  })
+
+  it('says why a save was refused for a video over the limits, and for files being unavailable', async () => {
+    api.saveProductStory.mockRejectedValueOnce(new ApiError('VIDEO_LIMIT', 'limit')).mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    addBlock()
+    await pick(film())
+    fireEvent.click(screen.getByRole('button', { name: words.saveDraft }))
+    await settle()
+    expect(screen.getByText(words.refused.VIDEO_LIMIT)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.saveDraft }))
+    await settle()
+    expect(screen.getByText(words.refused.NOT_CONNECTED)).toBeTruthy()
+  })
+
   it('shows a saved upload again when the story is reopened', async () => {
     api.loadProductStory.mockResolvedValue(story({ revision: 1, modules: [{ id: 'a', kind: 'video', title: 'Film', body: null, side: null, photo: null, items: null, photos: null, productIds: null, blockId: null, video: { assetId: 'v9', url: null } }] }))
     await show(owner)

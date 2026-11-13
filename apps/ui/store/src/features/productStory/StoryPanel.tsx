@@ -35,7 +35,7 @@ const VideoField = ({ m, set, disabled, gaps }: { m: DraftModule; set: (change: 
   return (
     <div className="df-story-field">
       <label htmlFor={urlId}>{panel.video}</label>
-      <input id={urlId} type="url" maxLength={500} placeholder={panel.videoPlaceholder} value={m.videoUrl} readOnly={disabled} onChange={(e) => (setFailed(null), set({ videoUrl: e.target.value, videoAssetId: null }))} />
+      <input id={urlId} type="url" maxLength={500} placeholder={panel.videoPlaceholder} value={m.videoUrl} readOnly={disabled || busy} onChange={(e) => (setFailed(null), set({ videoUrl: e.target.value, videoAssetId: null }))} />
       {m.videoAssetId && <AssetVideo className="df-story-video" url={`/api/assets/${m.videoAssetId}`} label={panel.videoUploaded} placeholder={panel.videoUploaded} />}
       {!disabled && (
         <span className="df-story-row">
