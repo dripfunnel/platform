@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { createStoryService, storyAudit, type Story, type StoryModule, type StoryRefusal, type StoryResult } from '#engine/modules/catalog/index'
+import { createAssetService, createStoryService, storyAudit, type Story, type StoryModule, type StoryRefusal, type StoryResult } from '#engine/modules/catalog/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -36,6 +36,19 @@ export const registerStory = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
     return createStoryService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  }
+
+  /** An uploaded video a story newly names must pass the product video's 4 MB and 30 s check, whichever route stored it (#1448, #1401). */
+  const checkVideos = async (ctx: StoreContext, productId: string, modules: readonly { kind: string; video?: { assetId?: string | null | undefined } | null | undefined }[]) => {
+    const named = modules.flatMap((m) => (m.kind === 'video' && m.video?.assetId ? [String(m.video.assetId).toLowerCase()] : []))
+    if (named.length === 0) return
+    const kept = new Set(((await service(ctx).story(productId))?.modules ?? []).flatMap((m) => (m.kind === 'video' && m.video.assetId ? [m.video.assetId.toLowerCase()] : [])))
+    const fresh = [...new Set(named)].filter((id) => !kept.has(id))
+    if (fresh.length === 0) return
+    if (!ctx.sql || !ctx.files) throw new GraphQLError('Files aren’t available right now.', { extensions: { code: 'NOT_CONNECTED' } })
+    const caller = actingCaller(ctx)
+    const files = createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files })
+    for (const id of fresh) if (!(await files.isProductVideo(id))) throw new GraphQLError('A video is an MP4 or WebM of at most 30 seconds and 4 MB.', { extensions: { code: 'VIDEO_LIMIT' } })
   }
 
   const PhotoType = builder.objectRef<Photo>('StoryPhoto').implement({
@@ -168,6 +181,7 @@ export const registerStory = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: storyAudit.saved } },
       resolve: async (_, args, ctx) => {
         await requireFeature(ctx, actingCaller(ctx), 'aplus')
+        await checkVideos(ctx, String(args.productId), args.input.modules)
         return answered(await service(ctx).save(String(args.productId), args.revision, args.input))
       },
     }),

@@ -4,7 +4,7 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, uploadVideo, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
+import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
 import { addLicenceKeys, loadProductKind, maxKeyLength, maxKeysPerSave, saveProductKind, type ProductKindView } from '../../api/productKinds'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
@@ -22,7 +22,7 @@ import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCard
 import { GiftCardsIssued } from './GiftCardsIssued'
 import { type VersionPhotoUpload } from './VersionPhotoDialog'
 import { BasicsCard, KindCard, maxPhotos, PhotosCard, photosTaken, PriceCard, type PendingPhoto } from './EditorCards'
-import { maxVideoBytes, maxVideoSeconds, videoSeconds } from '../common/videoLength'
+import { uploadCheckedVideo } from '../common/videoUpload'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
 import { signed, StockCard, type StockHistoryView } from './StockCard'
@@ -283,11 +283,8 @@ export const ProductEditor = () => {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'uploading', message: null } : p)))
     if (draft.video?.uploaded || (videoBusy.current !== null && videoBusy.current !== id)) return fail(words.photos.videoSecond)
     videoBusy.current = id
-    if (file.size > maxVideoBytes) return fail(words.photos.videoTooBig)
-    const seconds = await videoSeconds(file)
-    if (seconds !== null && seconds > maxVideoSeconds) return fail(words.photos.videoTooLong)
-    const result = await uploadVideo(file)
-    if (!result.ok) return fail(words.photos.videoRefused[result.code])
+    const result = await uploadCheckedVideo(file)
+    if (!result.ok) return fail(result.message)
     videoBusy.current = null
     files.current.delete(id)
     setPending((list) => list.filter((p) => p.id !== id))

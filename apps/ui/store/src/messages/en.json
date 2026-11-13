@@ -2233,7 +2233,12 @@
       "fromFaqs": "questions",
       "video": "Video link",
       "videoPlaceholder": "https://www.youtube.com/watch?v=…",
-      "videoHint": "A YouTube or Vimeo link.",
+      "videoHint": "Upload an MP4 or WebM video of up to 30 seconds and 4 MB, or paste a YouTube or Vimeo link. One replaces the other.",
+      "videoUpload": "Upload a video",
+      "videoReplace": "Replace the video",
+      "videoRemove": "Remove the video",
+      "videoRetry": "Try again",
+      "videoUploaded": "Uploaded video",
       "brandFailed": "We couldn’t load your brand stories. Try again in a moment.",
       "compareGone": "A product no longer here"
     },
@@ -2260,6 +2265,8 @@
       "INVALID_STORY": "Something in a module isn’t valid.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can look at A+ content but not change it.",
+      "VIDEO_LIMIT": "A video here can be up to 30 seconds and 4 MB, an MP4 or WebM. Use a shorter or smaller one, or paste a link.",
+      "NOT_CONNECTED": "Files aren’t available right now. Your changes are still here; try again in a moment.",
       "other": "That didn’t save. Your changes are still here; try again."
     },
     "viewOnly": "You can look at A+ content but not change it.",
