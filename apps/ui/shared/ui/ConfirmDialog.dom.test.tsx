@@ -191,3 +191,59 @@ describe('the confirm dialog’s size (#1352)', () => {
     expect(dialog().className).toBe('df-dialog df-dialog--wide')
   })
 })
+
+describe('where the confirm dialog puts the cursor, and Enter (#1470)', () => {
+  const open = (extra: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    render(<ConfirmDialog open title="Add to Fabric" target="Fabric" consequence="" confirmLabel="Add" cancelLabel="Cancel" onConfirm={onConfirm} onCancel={onCancel} {...extra} />)
+    return { onConfirm, onCancel }
+  }
+  const value = { label: 'New value', type: 'text' as const, initial: '', error: (v: string) => (v.trim() === '' ? 'Type a value.' : null) }
+
+  it('starts in the text box, and Enter adds a valid value as the button does', () => {
+    const { onConfirm } = open({ input: value })
+    const box = screen.getByLabelText('New value') as HTMLInputElement
+    expect(document.activeElement).toBe(box)
+    fireEvent.change(box, { target: { value: 'Bamboo' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onConfirm).toHaveBeenCalledWith(null, 'Bamboo', {})
+  })
+
+  it('keeps the window open on Enter with an empty value, with the message the button waits on', () => {
+    const { onConfirm } = open({ input: value })
+    const box = screen.getByLabelText('New value')
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(screen.getByText('Type a value.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('still closes on Cancel and on Escape without confirming', () => {
+    const { onConfirm, onCancel } = open({ input: value })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.keyDown(screen.getByLabelText('New value'), { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalled()
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('starts on Cancel with no text box, so Enter never confirms by accident', () => {
+    open()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }))
+  })
+
+  it('starts in the reason box or the type-to-confirm box, and Enter there confirms nothing', () => {
+    const { onConfirm } = open({ reason: { label: 'Why', hint: 'Say why' }, typeToConfirm: { label: 'Type it', hint: 'Type Fabric', expected: 'Fabric' } })
+    const why = screen.getByLabelText('Why')
+    expect(document.activeElement).toBe(why)
+    fireEvent.change(why, { target: { value: 'Because' } })
+    fireEvent.keyDown(why, { key: 'Enter' })
+    const typed = screen.getByLabelText('Type it')
+    fireEvent.change(typed, { target: { value: 'Fabric' } })
+    fireEvent.keyDown(typed, { key: 'Enter' })
+    expect(onConfirm).not.toHaveBeenCalled()
+    cleanup()
+    open({ typeToConfirm: { label: 'Type it', hint: 'Type Fabric', expected: 'Fabric' } })
+    expect(document.activeElement).toBe(screen.getByLabelText('Type it'))
+  })
+})

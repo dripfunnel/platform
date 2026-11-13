@@ -414,6 +414,21 @@ describe('filters', () => {
     expect(f.loadFilters).toHaveBeenCalledTimes(2)
   })
 
+  it('starts the Add value window in its box, adds on Enter, and keeps it open on an empty value (#1470)', async () => {
+    await show(owner, '/collections?tab=filters')
+    const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Add a value to Fabric' }))
+    const box = dialog().getByLabelText(words.filters.addValue)
+    expect(document.activeElement).toBe(box)
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(f.saveFilter).not.toHaveBeenCalled()
+    expect(dialog().getByText(words.filters.addMissing)).toBeTruthy()
+    fireEvent.change(box, { target: { value: 'Bamboo' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
+  })
+
   it('adds, renames and deletes values, keeping every other value by its id', async () => {
     await show(owner, '/collections?tab=filters')
     const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
