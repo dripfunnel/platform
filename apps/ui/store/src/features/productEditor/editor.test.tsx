@@ -1649,6 +1649,51 @@ describe('the description (#1216)', () => {
     expect((screen.getByLabelText(words.sections.seoDescription) as HTMLTextAreaElement).placeholder).toBe('Soft cotton & linen Hand wash')
   })
 
+  describe('the search listing’s line', () => {
+    const line = () => screen.getByRole('button', { name: (n) => n.startsWith(words.sections.seo) }).textContent ?? ''
+    const own = 'Organic Cotton Block-print Cushion | Home'
+
+    it.each([
+      ['both of its own', { seoTitle: own, seoDescription: 'Soft and warm.' }, `${own} — your own title and description`],
+      ['neither', { seoTitle: null, seoDescription: null }, 'Block-print Cushion — uses the product’s name and description'],
+      ['only the title', { seoTitle: own, seoDescription: null }, `${own} — your own title, description from the product`],
+      ['only the description', { seoTitle: null, seoDescription: 'Soft and warm.' }, 'Block-print Cushion — title from the product name, your own description'],
+      ['spaces alone, which the server saves as empty', { seoTitle: '   ', seoDescription: '  ' }, 'Block-print Cushion — uses the product’s name and description'],
+    ])('says where the listing comes from with %s', async (_, saved, expected) => {
+      api.loadProduct.mockResolvedValue(cushion(saved))
+      await show(owner)
+      expect(line()).toContain(expected)
+      expect(line()).not.toContain('from the name and description')
+    })
+
+    it('follows the two boxes as they are filled and emptied, and says under them that empty ones use the product’s', async () => {
+      api.loadProduct.mockResolvedValue(cushion())
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.seo) }))
+      expect(screen.getByText(words.sections.seoHint).textContent).toBe('Leave these empty to use the product’s name and description.')
+      fireEvent.change(screen.getByLabelText(words.sections.seoTitle), { target: { value: own } })
+      expect(line()).toContain(`${own} — your own title, description from the product`)
+      fireEvent.change(screen.getByLabelText(words.sections.seoDescription), { target: { value: 'Soft and warm.' } })
+      expect(line()).toContain(`${own} — your own title and description`)
+      fireEvent.change(screen.getByLabelText(words.sections.seoTitle), { target: { value: '' } })
+      expect(line()).toContain('Block-print Cushion — title from the product name, your own description')
+      fireEvent.change(screen.getByLabelText(words.sections.seoDescription), { target: { value: '' } })
+      expect(line()).toContain('Block-print Cushion — uses the product’s name and description')
+    })
+
+    it('still sends the boxes’ own words, trimmed, and nothing for an empty one', async () => {
+      api.loadProduct.mockResolvedValue(cushion({ seoTitle: own, seoDescription: 'Soft and warm.' }))
+      api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.seo) }))
+      fireEvent.change(screen.getByLabelText(words.sections.seoTitle), { target: { value: '  A new title  ' } })
+      fireEvent.change(screen.getByLabelText(words.sections.seoDescription), { target: { value: '' } })
+      fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+      await settle()
+      expect(api.saveProduct.mock.calls[0]?.[2]).toMatchObject({ seoTitle: 'A new title', seoDescription: '' })
+    })
+  })
+
   it('is the same editor for a translation, and saves its formatting', async () => {
     api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
     const rows = [{ entity: 'product', entityId: 'p1', field: 'description', main: '<p>Soft <strong>cotton</strong></p>', text: null, status: 'missing' }]
