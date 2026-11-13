@@ -20,6 +20,7 @@ import {
   selectProvenOrderAddresses,
   selectShopperBy,
   setCodeHash,
+  setShopperPhone,
   spendCode,
   touchShopperSession,
 } from '#db/scoped/shopper'
@@ -45,6 +46,8 @@ export type CodeAsked =
   | { ok: true; codeId: string; channel: ShopperChannel; target: string; code: string | null }
   | { ok: false; reason: 'METHOD_OFF' | 'INVALID_INPUT' | 'RATE_LIMITED' }
 export type SignedIn = { ok: true; token: string; customerId: string; created: boolean } | { ok: false; reason: 'METHOD_OFF' | 'INVALID_INPUT' | 'CODE_REFUSED' | 'SIGN_IN_REFUSED' | 'RATE_LIMITED' | 'WEAK_PASSWORD' }
+
+export type PhoneChanged = { ok: true } | { ok: false; reason: 'METHOD_OFF' | 'INVALID_INPUT' | 'CODE_REFUSED' | 'RATE_LIMITED' }
 
 export interface ShopperAuthDeps {
   sql: postgres.Sql
@@ -159,6 +162,18 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
     return token
   }
 
+  /** Spends the live code for this email or number when `code` is it; a wrong one costs an attempt, and 5 end the code. */
+  const spendMatching = async (tx: ScopedSql, channel: ShopperChannel, target: string, code: string): Promise<boolean> => {
+    const live = await selectLiveCode(tx, storeId, channel, target, now())
+    if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return false
+    if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code)), codeCheck, channel === 'email' ? 'email' : 'text')) {
+      await countCodeAttempt(tx, live.id)
+      return false
+    }
+    await spendCode(tx, live.id, now())
+    return true
+  }
+
   /**
    * A code proves the email or number: an account is made for one that has none, signed in for one that has. A password
    * given with an email's code becomes the account's (sign-up, or a forgotten one).
@@ -172,18 +187,12 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       if (!facts.ip || !(await allowAttempt(`shop:${storeId}:verify-ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:verify:${channel}:${await limiterKeyOf(target)}`))) return { ok: false, reason: 'RATE_LIMITED' }
       if (extra.password && (extra.password.length < minPasswordLength || extra.password.length > 200)) return { ok: false, reason: 'WEAK_PASSWORD' }
       if (!(await allowed(tx, channel))) return { ok: false, reason: 'METHOD_OFF' }
-      const live = await selectLiveCode(tx, storeId, channel, target, now())
       const refused = async (): Promise<SignedIn> => {
         // Recorded as a failed sign-in with no address, as signIn's are (LOGGING §3).
         await activity.record(tx, entry('customer.sign_in_failed', null, 'failed'))
         return { ok: false, reason: 'CODE_REFUSED' }
       }
-      if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
-      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())), codeCheck, channel === 'email' ? 'email' : 'text')) {
-        await countCodeAttempt(tx, live.id)
-        return refused()
-      }
-      await spendCode(tx, live.id, now())
+      if (!(await spendMatching(tx, channel, target, code.trim()))) return refused()
       const passwordHash = channel === 'email' && extra.password ? await hashPassword(extra.password) : null
       const found = await selectShopperBy(tx, storeId, channel, target)
       if (found?.status === 'deleted') return refused()
@@ -202,6 +211,31 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       await linkOrders(tx, customerId)
       await activity.record(tx, entry('customer.signed_in', customerId))
       return { ok: true, token: await startSession(tx, customerId), customerId, created: !found }
+    })
+
+  /**
+   * A code at the new number proves it: it becomes the signed-in account's number, verified, and the store's guest orders
+   * with it link (ACCESS §2.1). A number another account holds is refused as a wrong code is, so nothing says it has one.
+   */
+  const changePhone = (customerId: string, raw: string, code: string): Promise<PhoneChanged> =>
+    withSystemScope(sql, async (tx): Promise<PhoneChanged> => {
+      const target = shopperTarget('phone', raw)
+      if (!target || !/^\d{6}$/.test(code.trim())) return { ok: false, reason: 'INVALID_INPUT' }
+      if (!facts.ip || !(await allowAttempt(`shop:${storeId}:verify-ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:verify:phone:${await limiterKeyOf(target)}`))) return { ok: false, reason: 'RATE_LIMITED' }
+      if (!(await allowed(tx, 'phone'))) return { ok: false, reason: 'METHOD_OFF' }
+      const updated = (result: 'success' | 'failed'): ActivityEntry => ({ ...entry('customer.updated', customerId, result), reason: 'phone' })
+      const refused = async (): Promise<PhoneChanged> => {
+        await activity.record(tx, updated('failed'))
+        return { ok: false, reason: 'CODE_REFUSED' }
+      }
+      // One change at a time per number, so two accounts can't both pass the holder check below.
+      await serialise(tx, `customer_phone:${storeId}:${target}`)
+      if (!(await spendMatching(tx, 'phone', target, code.trim()))) return refused()
+      const holder = await selectShopperBy(tx, storeId, 'phone', target)
+      if ((holder && holder.id !== customerId) || !(await setShopperPhone(tx, storeId, customerId, target, now()))) return refused()
+      await linkOrders(tx, customerId)
+      await activity.record(tx, updated('success'))
+      return { ok: true }
     })
 
   /** Email and password: one refusal for an unknown email, a wrong password and an account without one (ACCESS §2). */
@@ -230,7 +264,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       return true as const
     })
 
-  return { askCode, verifyCode, signIn, signOut }
+  return { askCode, verifyCode, changePhone, signIn, signOut }
 }
 
 /** The signed-in shopper a session token names in this store, its session moved on; null for any other. */

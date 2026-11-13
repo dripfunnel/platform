@@ -126,7 +126,7 @@ export const useSignIn = (): SignInPage => {
 }
 
 const addressFields = 'id name line1 line2 city region postalCode country phone isDefault latitude longitude'
-const accountQuery = `query Account { account { id name email phone emailVerified phoneVerified addresses { ${addressFields} } } store { markets { countries } } }`
+const accountQuery = `query Account { account { id name email phone emailVerified phoneVerified addresses { ${addressFields} } } store { markets { countries } } signInOptions { phone } }`
 const text = z.string().nullable().optional()
 const accountSchema = z.object({
   account: z
@@ -141,10 +141,13 @@ const accountSchema = z.object({
     })
     .nullable(),
   store: z.object({ markets: z.array(z.object({ countries: z.array(z.string()).nullable().optional() })).nullable().optional() }).nullable().optional(),
+  signInOptions: z.object({ phone: z.boolean().nullable().optional() }).nullable().optional(),
 })
 const renameMutation = `mutation Rename($name: String) { updateAccount(name: $name) }`
 const saveAddressMutation = `mutation SaveAddress($id: ID, $address: ShopSavedAddressInput!, $isDefault: Boolean) { saveAddress(id: $id, address: $address, isDefault: $isDefault) }`
 const deleteAddressMutation = `mutation DeleteAddress($id: ID!) { deleteAddress(id: $id) }`
+const phoneCodeMutation = `mutation RequestPhoneCode($to: String!) { requestPhoneCode(to: $to) }`
+const confirmPhoneMutation = `mutation ConfirmPhone($to: String!, $code: String!) { confirmPhone(to: $to, code: $code) }`
 
 export type SavedAddress = AddressDraft & { id: string; isDefault: boolean }
 
@@ -166,9 +169,19 @@ export type AccountPage = {
   countries: string[]
   retry: () => void
   busy: boolean
-  /** The last change's refusal: INVALID_INPUT, TOO_MANY, NOT_FOUND, … A session that ended (SIGNED_OUT) is `signedOut` instead. */
-  error: { code: string; of: 'details' | 'addresses' } | null
+  /** The last change's refusal: INVALID_INPUT, TOO_MANY, NOT_FOUND, … A session that ended (SIGNED_OUT) is `signedOut` instead. `phone` is the mobile number's: CODE_REFUSED, RATE_LIMITED, METHOD_OFF, … */
+  error: { code: string; of: 'details' | 'addresses' | 'phone' } | null
   rename: (name: string) => Promise<boolean>
+  /** The shop signs shoppers in by mobile, so a number can be added or changed here (ACCESS §2.1). */
+  phoneAllowed: boolean
+  /** A code was texted to this new number and waits to be entered; null before one is asked for, and once the number is saved. */
+  phoneCodeFor: string | null
+  /** Texts a code to the new number; the account keeps its own until the code proves it. `{}` once sent, `null` when the Shop API refused (see `error`). */
+  sendPhoneCode: (to: string) => Promise<Partial<Record<'to', FieldProblem>> | null>
+  /** The code proves the new number: it becomes the account's and the account is read again. `{}` once saved, `null` when refused. */
+  confirmPhone: (code: string) => Promise<Partial<Record<'code', FieldProblem>> | null>
+  /** Back to the number as it is, dropping the code that was asked for. */
+  cancelPhone: () => void
   saveAddress: (input: { id: string | null; address: AddressDraft; isDefault: boolean }) => Promise<Partial<Record<AddressField, FieldProblem>> | null>
   /** The saved address becomes the default, sent as it was saved. */
   makeDefault: (id: string) => Promise<boolean>
@@ -183,6 +196,7 @@ export const useAccount = (): AccountPage => {
   const loaded = useShopData(signedIn ? 'account' : null, (c) => c.query(accountQuery, accountSchema))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<AccountPage['error']>(null)
+  const [phoneCodeFor, setPhoneCodeFor] = useState<string | null>(null)
   const raw = loaded.data?.account ?? null
   const account: Account | null = raw
     ? {
@@ -195,12 +209,12 @@ export const useAccount = (): AccountPage => {
       }
     : null
 
-  const change = async (of: 'details' | 'addresses', operation: string, variables: Record<string, unknown>): Promise<boolean> => {
+  const change = async (of: NonNullable<AccountPage['error']>['of'], operation: string, variables: Record<string, unknown>, reload = true): Promise<boolean> => {
     setBusy(true)
     setError(null)
     try {
       await client.request(operation, variables)
-      loaded.retry()
+      if (reload) loaded.retry()
       return true
     } catch (e) {
       const code = codeOf(e)
@@ -222,6 +236,27 @@ export const useAccount = (): AccountPage => {
     busy,
     error,
     rename: (name) => change('details', renameMutation, { name: name.trim() || null }),
+    phoneAllowed: loaded.data?.signInOptions?.phone === true,
+    phoneCodeFor,
+    sendPhoneCode: async (to) => {
+      const value = to.trim()
+      if (!value) return { to: 'required' }
+      if (!isPhone(value)) return { to: 'invalid' }
+      if (!(await change('phone', phoneCodeMutation, { to: value }, false))) return null
+      setPhoneCodeFor(value)
+      return {}
+    },
+    confirmPhone: async (code) => {
+      if (!phoneCodeFor) return {}
+      if (!/^\d{6}$/.test(code.trim())) return { code: code.trim() ? 'invalid' : 'required' }
+      if (!(await change('phone', confirmPhoneMutation, { to: phoneCodeFor, code: code.trim() }))) return null
+      setPhoneCodeFor(null)
+      return {}
+    },
+    cancelPhone: () => {
+      setPhoneCodeFor(null)
+      setError(null)
+    },
     saveAddress: async ({ id, address, isDefault }) => {
       const problems = addressProblems(address)
       if (Object.keys(problems).length > 0) return problems
