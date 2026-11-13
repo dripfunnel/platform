@@ -563,6 +563,16 @@
   font-size: 12px;
 }
 
+.df-studio-count {
+  margin: 4px 0 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-studio-count--over {
+  color: var(--df-color-danger);
+}
+
 .df-studio-actions {
   display: flex;
   flex-wrap: wrap;

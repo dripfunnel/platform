@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { readdirSync, readFileSync } from 'node:fs'
+import { googleFontsImport } from './fonts.js'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { compile, __unstable__loadDesignSystem } from 'tailwindcss'
@@ -177,8 +178,8 @@ export const themeStylesheet = async (files: ReadonlyMap<string, string>): Promi
   const { classes, themeCss } = await judged(files, noStore)
   if (classes.length === 0 && !files.has(themeCssPath)) return { ok: true, css: reducedMotionCss }
   const compiler = await compile(entry(themeCss), { base: '/', loadStylesheet })
-  // Tailwind's licence banner names its site, and nothing in a store's CSS names an address.
-  return { ok: true, css: `${reducedMotionCss}${compiler.build(classes).replace(/^\/\*![^*]*\*\/\s*/, '')}` }
+  // Tailwind's licence banner names its site; the only address in a store's CSS is Google Fonts' (fonts.ts).
+  return { ok: true, css: `${googleFontsImport(themeCss)}${reducedMotionCss}${compiler.build(classes).replace(/^\/\*![^*]*\*\/\s*/, '')}` }
 }
 
 /** The theme's code and theme.css in the repo at `root`, as they are on disk: what Tailwind builds classes from. */

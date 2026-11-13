@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-11-11 (#1359: Buy now no longer adds a version the cart already holds, §2.1). Before: 2026-11-11 (#1416: the upgrade bot's commit refreshes a store repo's template files from its new core, §2.2, §7, §7.1). Before: 2026-11-11 (#1415: a live push's images are copied into Storefront › Assets, §3.4). Before: 2026-11-11 (#1414: a clone's `next dev` maps a CSS Module's `url()` asset id and `url(media/…)`, §3.4). Before: 2026-11-11 (#1405: a theme's own images in `src/theme/media/`, `ThemeImage`, §2.1, §3.4). Before: 2026-11-10 (#1326: the product page's size chart, `<SizeChart>`, §2.1). Before: 2026-11-10 (#1395: the page weight budget is 1,200 KB until #1396, §9). Before: 2026-11-10 (#1391: `<PriceRange>` loads in its own chunk, §2.1). Before: 2026-11-10 (#1372: the customisation modal built, `<LineAnswers>` and `<EditAnswers>`, §3.5). Before: 2026-11-10 (#1385: a listing's price range, `<PriceRange>` and `useLoadOnScroll`, §2.1). Before: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-11-13 (the design rules relaxed: words in code with claims still checked, any property may animate, more elements, `lucide-react` icons, Google Fonts by `--google-fonts`, budgets 200 KB JS and 120 KB CSS, §3.4, §3.5, §9). Before: 2026-11-12 (the sample site in up to 4 slices, and a whole-shop redesign like it answered with a plan, §6.2). Before: 2026-11-11 (#1359: Buy now no longer adds a version the cart already holds, §2.1). Before: 2026-11-11 (#1416: the upgrade bot's commit refreshes a store repo's template files from its new core, §2.2, §7, §7.1). Before: 2026-11-11 (#1415: a live push's images are copied into Storefront › Assets, §3.4). Before: 2026-11-11 (#1414: a clone's `next dev` maps a CSS Module's `url()` asset id and `url(media/…)`, §3.4). Before: 2026-11-11 (#1405: a theme's own images in `src/theme/media/`, `ThemeImage`, §2.1, §3.4). Before: 2026-11-10 (#1326: the product page's size chart, `<SizeChart>`, §2.1). Before: 2026-11-10 (#1395: the page weight budget is 1,200 KB until #1396, §9). Before: 2026-11-10 (#1391: `<PriceRange>` loads in its own chunk, §2.1). Before: 2026-11-10 (#1372: the customisation modal built, `<LineAnswers>` and `<EditAnswers>`, §3.5). Before: 2026-11-10 (#1385: a listing's price range, `<PriceRange>` and `useLoadOnScroll`, §2.1). Before: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -629,8 +629,9 @@ theme keeps naming `media/<name>` (LIVE-SHOP §4 "A push to `main`" step 7; #141
 **Code** (type-aware, using the TypeScript checker):
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
   API), relative paths inside `src/theme`, and the library allowlist: `motion` (only inside
-  `components/interactive/`, loaded lazily; its scroll, layout, presence, spring and stagger APIs since #1245) and `clsx` (decided 2026-10-08 on #470; each
-  addition goes into the sandbox image). Tailwind v4 (`tailwindcss`, pinned exactly by core, #1239) is on the list as
+  `components/interactive/`, loaded lazily; its scroll, layout, presence, spring and stagger APIs since #1245), `clsx` (decided 2026-10-08 on #470; each
+  addition goes into the sandbox image) and, since 2026-11-12, `lucide-react`'s icons, bundled into the theme so only
+  those used load (the sandbox's `bundledModules`). Tailwind v4 (`tailwindcss`, pinned exactly by core, #1239) is on the list as
   the build's CSS compiler, never imported by a theme. No dynamic `import()` or `require`, no `import.meta`, no
   `document.currentScript` and no other way to learn a script's own URL: core's chunk loader is
   the only code that handles chunk URLs, which inside the studio frame carry the session id.
@@ -678,13 +679,13 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   element typed `any` would escape these checks. An element (an event's target included) is never cast or handed to a type that
   isn't an element, the walking names are refused on any value, and a computed key must be written
   out or typed as a list of names.
-- **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
-  from an allowlist on each. No `style` attribute (motion's own `style` only with the properties "CSS" lets animate),
+- **JSX**: elements from an allowlist of layout, text, table and SVG elements (widened 2026-11-12 with `label`, `code`,
+  `pre`, `progress`, `meter`, `cite` and the like, and SVG text, masks, clip paths, patterns and filters), and attributes
+  from an allowlist on each. No `style` attribute (motion's own `style` with values written out),
   no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
   banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
-  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only what "CSS" lets animate, in camelCase,
-  with motion's own transform names (`x`, `y`, `scale`, `rotate`, …) and its path drawing (`pathLength`,
-  `pathOffset`); `layout` and `layoutId` animate by transform, so they pass (#1245).
+  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name any property since 2026-11-12, with values
+  written out, never worked out at run time (`jsx/animated-property`); `layout` and `layoutId` pass (#1245).
 - **Commerce types**: a value is never cast to `Money`, `Stock`, `Rating` or `Badge` (#481): they
   come only from core's hooks.
 - **Product pictures** (#1244, `jsx/product-image`): a product's picture is its own photo, `<Image image={product.photo}>`.
@@ -695,12 +696,11 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   Two cases the static check can't tell apart stay with the AI's rules (§6.2): a picture on the product page drawn
   outside such a function (from `useProduct()` in the page itself, where a banner is allowed), and a Tailwind class
   reading a custom property that an ancestor's module class sets to a `url()`.
-- **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
-  variables, lists, lookups and the theme's own functions; numbers rendered as written; values
-  given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
-  string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
-  Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
-  and any copied brand field are refused too.
+- **Words** (relaxed 2026-11-12): words and numbers may be written in the code, in JSX text, attributes and strings,
+  as well as in `content/{language}/*.json` (a shop in more than one language keeps them there, so each language gets
+  them). Every literal piece of text in the code is read for **invented claims** exactly as content is
+  (`content/price`, `content/scarcity`, `content/urgency`, `content/rating`, `content/countdown`, `guard/claims.ts`), and
+  any address (`https:`, `//`, `javascript:`, `url(`) and any copied brand field are still refused.
 - **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, or is typed as
   a list of written names (`const slides = ['hero.one', 'hero.two'] as const`), and each name is checked like a
   written key; `t` isn't passed on as another type, and every key exists in every language the store offers.
@@ -709,14 +709,15 @@ As built on #480 *(decided there, the stricter reading where the list above is s
 **CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
 module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids and, since #1405, the theme's own images; no selector naming a core
-class or a `df-` element; `z-index` below core's layer; animation only of `transform` (and its `translate`,
-`scale` and `rotate`), `opacity`, `filter`, the paint-only colour properties (`color`, `background`, `background-color`,
-`border-color`, `outline-color`, `text-decoration-color`, `fill`, `stroke`), and since #1245 `background-position`,
-`background-size`, `box-shadow`, `text-shadow`, `clip-path`, `mask-position`, `mask-size` and `stroke-dashoffset`, never
-one that moves layout: `width`, `height`, `top`, `left`, `right`, `bottom`, `inset`, `margin*`, `padding*`, `gap`,
-`font-size`, `line-height`, `letter-spacing` and grid tracks stay refused, since they stutter and shift the page on
-phones, and the message says to get the same look with transform or `clip-path`. The same list holds in a CSS Module,
-in `theme.css`'s `@keyframes`, in what Tailwind writes for a class (`transition-[height]` is refused) and in motion.
+class or a `df-` element; `z-index` below core's layer. **Any property may animate** (relaxed 2026-11-12; until then only
+transform, opacity, filter and paint), in a CSS Module, `theme.css`'s `@keyframes`, Tailwind's classes and motion,
+`transition: all` included; motion's values are still written out, never worked out at run time
+(`jsx/animated-property`), and `animate()` still acts only on the theme's own elements (`code/animate-target`).
+**Fonts** (decided 2026-11-12): a theme lists Google fonts in `theme.css`'s `@theme { --google-fonts: 'Bebas Neue'; }`,
+from core's list (`guard/fonts.ts`, with each family's weights), and core puts one `@import` of fonts.googleapis.com
+first in the stylesheet; §3.5's CSP lets `fonts.googleapis.com` styles and `fonts.gstatic.com` fonts load. *Note:*
+loading them sends each shopper's IP address to Google, which data-protection law (GDPR, DPDP) may require the
+merchant to disclose or ask consent for; a store that lists none loads none.
 **Scroll-driven animation** is allowed (#1245): `animation-timeline` with `scroll()` and `view()`, `scroll-timeline`,
 `view-timeline` and `animation-range`, so parallax and reveals need no JavaScript. Reduced motion is core's (§2.1): a
 theme needn't write its own `prefers-reduced-motion` rule, and can't undo core's. As built on #480 *(decided there)*: `url()` names a media id from the
@@ -880,7 +881,8 @@ their own cards.
 - **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
   consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
-  hosts; images from the store's media, the payment providers and those analytics hosts (Meta
+  hosts; styles and fonts also from Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`, §3.4 "Fonts", since
+  2026-11-12); images from the store's media, the payment providers and those analytics hosts (Meta
   Pixel sends by image request); fonts from the store's build; `form-action` only the store and
   the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
   with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
@@ -919,9 +921,10 @@ their own cards.
   before.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
   - **`default-src 'none'`**, so every directive not listed below is closed;
-  - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
-    origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
-    build's style hashes (so the studio's page has no inline script);
+  - `script-src` and `connect-src` are `'self'` only: the frame's own origin, which means
+    `/__studio/{session}/`, its `/shop-api` and its WebSocket; `style-src` and `font-src` are `'self'` with the
+    build's style hashes, plus `fonts.googleapis.com` and `fonts.gstatic.com` for §3.4's Google Fonts since 2026-11-12
+    (so the studio's page has no inline script);
   - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
     core's `<Video>`), never another party's;
   - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
@@ -1211,8 +1214,9 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 
 - **The model's working context**: the store's theme files (or the parts the change touches),
   core's theme API and the rules of §3.4, the page and screen size the merchant is looking at,
-  their last four requests, **the store summary**, and, when given, the merchant's image or a
-  screenshot of the sample site. *Built on #1242* (`saas/ai-designer/summary.ts`, `db/scoped/storeSummary.ts`):
+  their last four requests with the AI's replies and what each changed, **the store summary**, and, when given, the merchant's image or the
+  sample site, screenshotted top down in up to 4 screen-tall slices (`integrations/cloudflare/screenshot.ts`: one
+  image of a whole page would shrink unreadably; a slice past the page's end is one flat colour and is dropped). *Built on #1242* (`saas/ai-designer/summary.ts`, `db/scoped/storeSummary.ts`):
   - **The store summary**, in every prompt: the store's name, city and country, languages, currencies, whether prices
     include tax, delivery (free never, always or over an amount; a flat charge; pickup; couriers), the live payment
     methods, the brand (tagline, description, voice; colours only as a hint), how many products and collections, the
@@ -1235,20 +1239,26 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     'best-selling' })` when the store has best sellers), to give tiles to the collections it has (`useCollections`), to
     take palette hints from its photos, and to show a banner only for a real offer, through `useOffers()`; never a
     product, price, rating, collection, offer, discount, sales figure or city in theme code or content (§3.4).
+- **A studio change runs as an agent** (decided 2026-11-12, [AI-STUDIO.md](AI-STUDIO.md) §4 step 2 "The agent"): it reads
+  the files it needs, edits them with the edits below, checks them with the sandbox, can picture a page, and finishes
+  with whole files for the gate. The one-answer form below is what core upgrades still use.
 - **The answer is edits, not whole files** (decided 2026-11-04 on #1238): for a file the theme has, a list of exact
   search-and-replace edits, each search found **exactly once** in the file as it is (edits to one file apply in order);
   a new file is sent whole; a deleted file is named (`{path, delete: true}`). The reply is read with a strict schema, so
-  an unknown field makes it no usable answer. A whole file for a path the theme has is still taken as a replacement.
+  an unknown field makes it no usable answer, which is repaired like a gate failure from what was wrong with its shape
+  (`answer/shape`), never taken as nothing to change. A whole file for a path the theme has is still taken as a replacement.
+  An answer in words with no JSON object is asked for once more, outside a repair; if it is words again, they are
+  shown as the AI's reply and nothing changes, so the merchant sees why (`saas/ai-designer/model.ts`).
   The runner (`saas/studio/patches.ts`) applies the edits to the theme it holds and gives the sandbox whole files, as
   before; an edit whose search is missing, repeated or empty, or names a file that isn't there, is a problem like the
   gate's (`patch/not-found`, `patch/not-unique`, `patch/empty-search`, `patch/missing-file`, naming the file, the edit
-  and why), sent back to the model with no sandbox run, and counts as one of the three repairs. A repair answers the
+  and why), sent back to the model with no sandbox run, and counts as one of the five repairs (three until 2026-11-12). A repair answers the
   whole change again as edits against the same theme, never on top of a failed answer.
 - **The prompt's order, for the cache** (#1238): core's rules (the system prompt, the same for every store), then the
   shop and its summary (rebuilt at most every 10 minutes), then the theme's files sorted by path (new with each change),
   each ending a cached prefix (Anthropic's `cache_control`; OpenAI caches the same prefix itself). Everything that
-  changes per request comes after them: the merchant's image and the screenshot, the worked carousel when the request
-  asks for one, the no-photo-tools note, the page and device, the last four requests, a repair's last answer and
+  changes per request comes after them: the merchant's image and the sample's slices, the worked carousel when the request
+  asks for one, the no-photo-tools note, the page and device, the last four requests with the AI's replies, a repair's last answer and
   errors, and the request. The shop goes before the theme because it changes less often, so a new theme still reads
   the rules and the shop from the cache. The first ask and its repairs offer the same tools on every turn (a repair's
   calls are refused, a call past a limit is answered with it), so a repair reads the whole prefix from the cache.
@@ -1256,8 +1266,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   ask may be answered `{"questions":[{text, options}], reply}` (at most 3, 2 to 4 options each, written from the store
   summary) or `{"plan":{header, footer, pages:[{page, title, sections}]}, reply}` (home first, at most 6 pages of 1 to 6
   sections) instead of edits, each read with a strict schema (`saas/ai-designer/plan.ts`). The rules say when: a short or
-  vague request for a new look with facts missing (the mood, what the home page leads with, the language); a clear request is
-  changed at once. A build's page and a repair add, after the cached prefix, that it may not ask, and an answer of questions
+  vague request for a new look with facts missing (the mood, what the home page leads with, the language), and a request for
+  the whole shop to look like a sample site, whose plan lists that site's sections top down; a clear request is changed at once. A build's page and a repair add, after the cached prefix, that it may not ask, and an answer of questions
   there is no usable answer. The plan from the answers, and a changed plan, is a call of its own (`planRules`, the shop and
   summary as its cached context). **Each page of a build** is a change like any other, its request (after the prefix) naming
   the page of how many, its sections, the whole plan, the first request and the answers; the header and footer go with home.
@@ -1265,7 +1275,7 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   rules of `../ARCHITECTURE.md` §7), never by the container. The AI takes its layout, spacing,
   colour and mood, **never its logo, photos or words**.
 - **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
-  the byte budgets (§9) and the content checks. On failure the model gets the exact errors
+  the byte budgets (§9), the content checks and, on the full lane, one render of every page (AI-STUDIO §4 step 3). On failure the model gets the exact errors
   and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown
   its last answer's files as it sent them (its edits, #1238), so it corrects them rather than rewriting blind (#1083).
   Decided 2026-11-04 on #1240 (`apps/sandbox/src/gate/`, `saas/studio/streamed.ts`):
@@ -1412,8 +1422,8 @@ decides whether to tighten them)*:
 | Largest Contentful Paint (lab) | ≤ 2.0 s | Google's "good" is 2.5 s at p75 in the field |
 | Cumulative Layout Shift (lab) | ≤ 0.05 | Google's "good" is 0.1 |
 | Total Blocking Time (lab); Interaction to Next Paint (field) | ≤ 150 ms; ≤ 200 ms | 200 ms is Google's "good" INP |
-| JavaScript on first load, gzipped | ≤ 90 KB (checkout excluded) | |
-| CSS, gzipped | ≤ 50 KB | |
+| JavaScript on first load, gzipped | ≤ 200 KB (checkout excluded; 90 KB until 2026-11-12) | |
+| CSS, gzipped | ≤ 120 KB (50 KB until 2026-11-12) | |
 | The main image at phone width | ≤ 200 KB | |
 | Page weight on phones | ≤ 1,200 KB for now (#1395, to unblock the dev deploy; back to 1 MB on #1396); video capped separately | |
 

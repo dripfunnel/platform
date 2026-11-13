@@ -1,5 +1,4 @@
 import { find, ident, parse, walk, type CssNode, type Declaration, type Selector, type WalkContext } from 'css-tree'
-import { animatedProperties as animated, animationAdvice } from './animation.js'
 import { mediaIdPattern, problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 
 /** The highest z-index a theme may use, so core's own layers stay above it (ARCHITECTURE §3.4 "CSS"). */
@@ -20,10 +19,6 @@ const atRules: Record<Kind['kind'], ReadonlySet<string>> = {
   // `@property` only for Tailwind's own `--tw-*` names, checked below.
   class: new Set(['media', 'supports', 'container', 'property']),
 }
-// Tailwind's transition classes also name its gradient stops, which it registers as colours.
-const classAnimated = new Set([...animated, '--tw-gradient-from', '--tw-gradient-via', '--tw-gradient-to'])
-const keyframeProperties = new Set([...animated, 'animation-timing-function'])
-const transitionWords = new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'start', 'end', 'jump-start', 'jump-end', 'jump-none', 'jump-both', 'normal', 'allow-discrete', 'auto', 'none'])
 // Properties that put words on the page (ARCHITECTURE §3.4 "No text in code"); Tailwind's content classes write --tw-content.
 const textProperties = new Set(['content', 'quotes', 'list-style', 'list-style-type', 'text-overflow', 'text-emphasis', 'text-emphasis-style', 'hyphenate-character', '--tw-content'])
 const functions = new Set([
@@ -60,24 +55,6 @@ const namesCore = (node: CssNode): boolean => {
   return name === 'class' || name === 'id' || name.startsWith('data-df')
 }
 
-/** The properties a transition or will-change names; a transition naming none animates `all`. */
-const transitioned = (decl: Declaration, shorthand: boolean): string[] => {
-  if (decl.value.type !== 'Value') return ['a value that can\'t be read']
-  const lists: string[][] = [[]]
-  decl.value.children.forEach((node) => {
-    if (node.type === 'Operator' && node.value === ',') lists.push([])
-    else if (node.type === 'Identifier') lists.at(-1)?.push(plain(node.name))
-    else if (node.type === 'Function') lists.at(-1)?.push(`${plain(node.name)}()`)
-  })
-  return lists.flatMap((names) => {
-    if (names.includes('none')) return []
-    // initial, unset and the other CSS-wide keywords reset transition-property to all, so they stay named and are refused.
-    const named = names.filter((n) => !transitionWords.has(n) && !n.endsWith('()'))
-    const worked = names.filter((n) => n === 'var()')
-    return [...(shorthand && named.length === 0 && worked.length === 0 ? ['all'] : named), ...worked]
-  })
-}
-
 /** Exactly `var(--tw-content)`: what Tailwind's before: and after: write, holding only what a checked content class set. */
 const isTailwindContent = (decl: Declaration) => {
   const only = decl.value.type === 'Value' && decl.value.children.size === 1 ? decl.value.children.first : null
@@ -87,14 +64,6 @@ const isTailwindContent = (decl: Declaration) => {
 
 const declarationProblem = (decl: Declaration, inKeyframes: boolean, siblings: readonly CssNode[], kind: Kind): [RuleId, string] | undefined => {
   const property = unprefixed(plain(decl.property))
-  if (inKeyframes && !keyframeProperties.has(property)) return ['css/animated-property', `Keyframes may ${animationAdvice([property])}.`]
-  const namesProperty = siblings.some((d) => d.type === 'Declaration' && ['transition', 'transition-property'].includes(unprefixed(plain(d.property))))
-  const allowed = kind.kind === 'class' ? classAnimated : animated
-  const bad =
-    property === 'transition' || property === 'transition-property' || property === 'will-change'
-      ? transitioned(decl, property === 'transition').filter((p) => !allowed.has(p))
-      : property === 'transition-duration' && !namesProperty ? ['all'] : []
-  if (bad.length > 0) return ['css/animated-property', `Transitions may ${animationAdvice(bad)}; name each in transition-property.`]
   if (property === 'z-index') {
     const only = decl.value.type === 'Value' && decl.value.children.size === 1 ? decl.value.children.first : null
     const fine = only?.type === 'Identifier' ? plain(only.name) === 'auto' : only?.type === 'Number' && /^-?\d+$/.test(only.value) && Number(only.value) <= maxThemeZIndex

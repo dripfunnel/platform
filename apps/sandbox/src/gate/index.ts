@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
+import { dirname, join } from 'node:path'
 import { validateTheme, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, WarmBundle, type ClientBundle } from './bundle'
 import { overBudget, weigh, type Weight } from './budgets'
 import type { Lane } from './lanes'
 import type { GateProblem } from './problems'
+import { renderCheck } from './render'
 import { typecheck, warmTypecheck, type WarmCheck } from './typecheck'
 
 export type { ClientBundle } from './bundle'
@@ -73,11 +75,13 @@ export class WarmGate {
     return this.types(theme)
   }
 
-  /** The gate after the validator: the typecheck unless the lane skips it, then the bundle and the byte budgets. */
-  async build(theme: ReadonlyMap<string, string>, lane: Lane): Promise<GateResult & { checked: string[] | null }> {
+  /** The gate after the validator: the typecheck unless the lane skips it, the bundle and the byte budgets, then the full lane's render. */
+  async build(theme: ReadonlyMap<string, string>, lane: Lane, context: GuardContext): Promise<GateResult & { checked: string[] | null }> {
     const types = lane === 'full' ? this.types(theme) : null
     if (types && types.problems.length > 0) return { ok: false, problems: types.problems, checked: types.checked }
-    return { ...(await weighed(await this.bundler.run(), this.out)), checked: types?.checked ?? null }
+    const gated = await weighed(await this.bundler.run(), this.out)
+    const thrown = gated.ok && lane === 'full' ? await renderCheck(this.repo, join(dirname(this.out), 'render'), context) : []
+    return { ...(thrown.length > 0 ? { ok: false, problems: thrown } : gated), checked: types?.checked ?? null }
   }
 
   /** The bundle alone, for a loaded draft's first frame. */

@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-11 (#1415: a live push's theme images are copied into Assets, §8). Before: 2026-11-07 (a named collection is matched by meaning and shown live with `useListing`, or asked about when the shop has no clear match, §8). Before: 2026-11-06 (#1317: the sealed breadcrumbs stay in the studio frame too, §8). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named; it searches in one to three subject words, §8). Before: 2026-11-05 (#1296: in the studio frame, core's `Link` keeps a clicked store path under the session's prefix, §8). Before: 2026-11-05 (#1295: the AI uses a web photo when the merchant asks for one, and every design gets quiet motion, a `Reveal` scroll fade that shows with scripts off, hover effects and a hero fade, §8). Before: 2026-11-05 (#1279: the studio shows the merchant's message at once and the AI's real steps: an `intro` sentence, then one plain "making your changes" step and a friendly line that changes every 3 seconds, §4 "Live progress"; the suggestion chips are gone; the assets picker scrolls and pages, §8). Before: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-12 (a change runs as an agent with tools and pictures of its own pages, §4 step 2). Before: 2026-11-12 (the full lane renders every page once, §4 step 3; the frame reports a page that threw, §8). Before: 2026-11-11 (#1415: a live push's theme images are copied into Assets, §8). Before: 2026-11-07 (a named collection is matched by meaning and shown live with `useListing`, or asked about when the shop has no clear match, §8). Before: 2026-11-06 (#1317: the sealed breadcrumbs stay in the studio frame too, §8). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named; it searches in one to three subject words, §8). Before: 2026-11-05 (#1296: in the studio frame, core's `Link` keeps a clicked store path under the session's prefix, §8). Before: 2026-11-05 (#1295: the AI uses a web photo when the merchant asks for one, and every design gets quiet motion, a `Reveal` scroll fade that shows with scripts off, hover effects and a hero fade, §8). Before: 2026-11-05 (#1279: the studio shows the merchant's message at once and the AI's real steps: an `intro` sentence, then one plain "making your changes" step and a friendly line that changes every 3 seconds, §4 "Live progress"; the suggestion chips are gone; the assets picker scrolls and pages, §8). Before: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -121,11 +121,34 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    search-and-replace edits for a file the theme has, a new file whole, a deleted file named (#1238), so a one-line
    change costs a few lines of output. **The answer streams** (#1240): each file it lists is handed to the Durable Object
    over the Worker's call as soon as it is whole, while the model writes the next one and then its reply.
-   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (§8 "The AI's own photos"), and the Worker runs them, never the model and never the container.
+   *Why:* the diff is data until the gates accept it. The model can't run anything: it asks the Worker for its tools
+   (below, and §8 "The AI's own photos"), and the Worker runs them, never the model and never the container.
+
+   **The agent** (decided 2026-11-12; `saas/ai-designer/agent.ts`): a merchant's change and each page of a build run as
+   an agent, as Claude Code does in an editor, on any model (Haiku too, at lower quality). It gets the shop, the theme's
+   file list with sizes and `theme.css`, not every file, and works on a copy of the theme held in the Worker with tools:
+   `list_files`, `read_file`, `edit_file` (the same exact search-and-replace edits), `write_file`, `delete_file`,
+   `check` (the sandbox's warm pre-check, validator and typecheck, nothing written), `screenshot_page` and `finish`.
+   It may not finish a change it never checked, and is refused once when its last check named problems.
+   **The frame follows the work** (decided 2026-11-13): each `check` that passes is bundled by the sandbox (validator
+   first, nothing committed, the working copy reset after) and reaches the frame by the hot reload of step 5, so the
+   merchant watches the page change; a run that saves nothing puts the frame back on the draft.
+   `screenshot_page` draws one page with the working copy **inside the sandbox**, only after the validator passed it:
+   a scratch copy of the draft, rendered with the publish renderer and no shop data (lists and photos show
+   empty), drawn by the image's Chromium with every request but `data:` refused, so no session address or theme leaves
+   the platform; up to 3 slices, 3 pictures a change. `finish` hands the runner whole files, and steps 3–8 follow as
+   before: the full gate is still the judge, and a refused change is repaired from the copy that failed. Limits: 40
+   tool calls a run; one clock and 1.5 M billed input tokens (a cached token counts a tenth; each turn marks its newest
+   tool result for the cache) for the whole change, repairs included: 8 minutes for a change,
+   15 for a build, while the merchant's tab waits. Tools stop 90 s before the clock ends, a repair past it asks the
+   model nothing (the change is refused), and the portal waits the clock plus 4 minutes; closing the tab ends the run,
+   with nothing saved. Out of calls, tokens or time, its last turn is told to say what it changed, so a kept change
+   always has a reply and its Undo. A model that ignores its tools and answers in the one-answer form is taken as that answer. The feed shows only `reading`, `editing` and `checking` steps and the model's plain sentences,
+   never a file's name or content. Core upgrades (§6) stay one answer.
 3. **The Durable Object applies the edits** to the theme it holds, and **the container runs the fast gate** on the
    whole files (ARCHITECTURE §6.2): the allowlist, the validator, the typecheck, the bundle, the byte budgets and the
    content checks. An edit that doesn't apply (its search not found exactly once) and a gate failure are both repaired
-   from the exact errors, at most three times; after that, "I couldn't make that change" and nothing changes. An edit
+   from the exact errors, at most five times (three until 2026-11-12); after that, "I couldn't make that change" and nothing changes. An edit
    that doesn't apply shows as "Fixing a problem" with no check before it.
    - **Checked as they stream** (#1240): each streamed file is applied to the theme and the change so far is
      pre-checked by the container (the validator, then the typecheck), one pre-check at a time and only the newest state.
@@ -139,6 +162,10 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    - **Lanes, chosen by the container from the diff, never by the model** (#1240): only CSS files changed, or besides
      them only class strings in `.tsx` files (a `className` string of an element, a `clsx()` string argument), skip the
      typecheck. The allowlist, the validator with its class rules, the bundle and the byte budgets run in every lane.
+   - **The full lane renders every page once** (`gate/render.ts`): the theme's pages bundled for Node as the publish
+     renders them, with the store's name and languages and no shop data, so each shows its empty state. A page that
+     throws fails the change with its error, which the repair reads. A throw that needs real data or the browser is
+     caught in the frame instead (§8).
 4. **On a pass, the container commits the change locally**, with the request as the message.
    These per-change commits, and their messages, stay in the private draft for ever: they never
    reach the public repo (§6 step 4).
@@ -220,7 +247,7 @@ unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and 
    statement, so two tabs can't both.
 4. **Build it** (`buildDesignPlan`). The store's object runs the pages in one turn: home first (with the header and footer),
    then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8 (its own four photo
-   calls, at most 20 in the build, #1244), the gate, up to three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
+   calls, at most 20 in the build, #1244), the gate, up to five repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
    shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay, and a build that built no page leaves the plan open to build again, at most twice (`PLAN_BUILDS_USED` after).
 5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
    lists each page as built, not built, or refused.
@@ -373,12 +400,15 @@ before, and reads the result when `askDesign` answers.
   **Built on #319 (part 4)** *(decided there)*: the studio accepts a frame address only when it is https, under
   `/__studio/`, and not on the portal's origin. It shows another page by setting the frame's address under the
   session's path, never by reading or writing the frame's DOM. It hears a message only from the frame's own window and
-  the frame's origin, and only `{ type: 'df-studio:page', path }` (the page the frame moved to) and
-  `{ type: 'df-studio:text', key }` (the words picked for Edit text, keyed like `pages:home.lead`); it posts only
+  the frame's origin, and only `{ type: 'df-studio:page', path }` (the page the frame moved to),
+  `{ type: 'df-studio:text', key }` (the words picked for Edit text, keyed like `pages:home.lead`) and
+  `{ type: 'df-studio:problem', section }` (a page that threw, by its route's name, never the error); it posts only
   `{ type: 'df-studio:edit', on }`, to the frame's origin.
   **The frame's side, built on #679** *(decided there)*: only in core's `studio` render mode, core's `connectStudioFrame`
   posts `df-studio:page` with the page's path (the session's prefix taken off) for the first page and after every
-  navigation, and hears `df-studio:edit` only from `window.parent` at the portal's origin. The sandbox writes that origin
+  navigation, and `df-studio:problem` each time a section's boundary catches (the sandbox wraps the frame's page in
+  `SectionBoundary` with an empty fallback, so the portal can say the page couldn't show until the next page or change),
+  and hears `df-studio:edit` only from `window.parent` at the portal's origin. The sandbox writes that origin
   into the frame's page as `<meta name="df-studio-portal">` from the same value its CSP's `frame-ancestors` lists, and
   every message goes only to it, never `'*'`; a page with no `<head>` to carry it is refused, so the feature never fails silently. While Edit text is on, core outlines hovered words (a dark dashed ring on a white
   halo, so one of the two shows at 3:1 on any theme's background) and a click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
@@ -424,7 +454,10 @@ before, and reads the result when `askDesign` answers.
   each build's source under `sources/`, which only the platform writes and hands out as 15-minute
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
-  the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
+  the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7). *Since 2026-11-13* a site named
+  only in the words (`https://…` or `www.…`, the first one) is pictured too when none is attached; one that can't be
+  pictured doesn't stop the change, since it may be a link rather than a sample. A plan keeps the site in its request,
+  and "Build it" pictures it once for every page.
 - **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `store_photos` (#1244: the
   store's own Assets images, newest first, at most 24, with their size), `list_collections`, `find_products`,
   `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by the Worker for the

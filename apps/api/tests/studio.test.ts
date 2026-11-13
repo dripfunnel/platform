@@ -244,6 +244,21 @@ describe('an answer of edits (#1238)', () => {
     expect(seen[2]?.problems.map((p) => p.rule)).toEqual(['patch/not-unique'])
   })
 
+  it('repairs an answer in no usable shape from its problems, never taking it as nothing to change', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const seen: { rule: string }[][] = []
+    const shape = { step: 'validator' as const, file: null, line: null, rule: 'answer/shape', message: 'changed: Too big' }
+    const model: DesignModel = {
+      propose: async (input) => {
+        seen.push(input.problems)
+        const base = { model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+        return seen.length === 1 ? { files: [], summary: null, problems: [shape], ...base } : { files: [maroon], ...base }
+      },
+    }
+    expect(await runner.change({ request: 'Make the text maroon', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'changed', repairs: 1 })
+    expect(seen[1]?.map((p) => p.rule)).toEqual(['answer/shape'])
+  })
+
   it('refuses after three repairs of edits that never apply, with the draft unchanged and each repair metered', async () => {
     const { runner } = await runnerFor(t.storeA2)
     await runner.open()

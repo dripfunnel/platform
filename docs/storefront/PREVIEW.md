@@ -68,8 +68,7 @@ The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these step
 
 | Path | Holds | Why |
 |---|---|---|
-| `storefront-sites`: `stores/{id}/preview/{change id}/` | One folder per accepted change: `index.html` and the theme's own chunks | A folder per change makes undo and "back to the previous draft" a pointer move. |
-| `storefront-assets`: `core/{version}/` | React, core and the allowed libraries for each core version, built once per release | Shared by every store, so a store's preview upload is only its theme, about 100–300 KB. |
+| `storefront-sites`: `stores/{id}/preview/{change id}/` | One folder per accepted change: `index.html`, the theme's own chunks and core's runtime under `assets/core/` (React, core and the allowed libraries, about 1.1 MB) | A folder per change makes undo and "back to the previous draft" a pointer move. The runtime is copied into each folder (decided 2026-11-13): the edge Worker serves a preview from its folder alone, and nothing hosted a shared copy, so previews were blank. |
 | `design_draft.preview_deploy_ref` (Postgres, DATA-MODEL §7) | Which change folder the preview link shows | The pointer is state the studio shows, kept beside the draft it belongs to. |
 
 - Preview folders are deleted once a publish has made the draft live, except the current one.

@@ -40,9 +40,9 @@ describe('openai-responses request', () => {
     expect(() => translate({ ...base, reasoningEffort: 'low' }, bare)).toThrow(UnsupportedFeature)
     expect(() => translate({ ...base, structuredOutput: { name: 'out', schema: {} } }, bare)).toThrow(UnsupportedFeature)
   })
-  it('refuses a tool result error flag', () => {
+  it('says a failed tool result is an error in its output, which the format has no flag for', () => {
     const failing = { ...withTools, messages: [...withTools.messages.slice(0, 2), { role: 'tool' as const, content: [{ type: 'tool_result' as const, callId: 'c1', content: 'x', isError: true }] }] }
-    expect(() => translate(failing)).toThrow(UnsupportedFeature)
+    expect(translate(failing).input.at(-1)).toEqual({ type: 'function_call_output', call_id: 'c1', output: 'Error: x' })
   })
 })
 

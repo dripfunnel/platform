@@ -3,7 +3,8 @@ import type { LibraryAsset } from '../../api/assetLibrary'
 import type { DesignMessage, StockPhoto } from '../../api/studio'
 import { fill, formatCount, formatList, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { askRefusal, noteText, sampleAddress } from './studioRules'
+import { askRefusal, countFrom, maxRequest, noteText, sampleAddress } from './studioRules'
+import { shrinkImage } from './shrinkImage'
 import { StudioFeed } from './StudioFeed'
 import type { LiveRun } from './useStudioLive'
 import type { StorefrontApi } from './storefrontApi'
@@ -129,7 +130,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     const mine = ++uploads.current
     const preview = URL.createObjectURL(file)
     setImage({ assetId: null, name: file.name || words.imageName, preview })
-    api.uploadImage(file).then(
+    shrinkImage(file).then(api.uploadImage).then(
       (answer) => {
         if (mine !== uploads.current) return
         if (answer.ok) return setImage({ assetId: answer.assetId, name: file.name || words.imageName, preview })
@@ -227,7 +228,9 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const [picked, setPicked] = useState(() => readModel())
   const model = picked && models.includes(picked) ? picked : (models[0] ?? null)
   const pick = (next: string) => (setPicked(next), writeModel(next))
-  const ready = !locked && (image === null || image.assetId !== null) && (prompt.trim() !== '' || image !== null || site !== null)
+  const length = prompt.trim().length
+  const tooLong = length > maxRequest
+  const ready = !locked && !tooLong && (image === null || image.assetId !== null) && (prompt.trim() !== '' || image !== null || site !== null)
   const send = (text: string, withAttached: boolean) => {
     if (locked) return
     const attached = withAttached && (image !== null || site !== null)
@@ -244,7 +247,8 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
       setSending(null)
       if (taken || !withAttached) return
       setPrompt(text)
-      setImage(image)
+      // Clearing the chip revoked its in-memory preview, so the uploaded copy is shown instead.
+      setImage(image && { assetId: image.assetId, name: image.name })
       setSite(site)
     })
   }
@@ -411,7 +415,12 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
               </div>
             )}
             {urlOpen && <AddressRow id={`${siteId}-image`} label={words.imageUrlLabel} value={urlIn} error={urlErr} onChange={(v) => (setUrlIn(v), setUrlErr(null))} onAdd={addImageUrl} onCancel={() => (setUrlOpen(false), setUrlErr(null))} />}
-            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : openFlow?.role === 'plan' ? words.placeholderPlan : words.placeholder} value={prompt} readOnly={locked} onFocus={onActivity} onChange={(e) => (setPrompt(e.target.value), onActivity())} onKeyDown={onKey} onPaste={onPaste} />
+            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : openFlow?.role === 'plan' ? words.placeholderPlan : words.placeholder} value={prompt} readOnly={locked} aria-invalid={tooLong || undefined} aria-describedby={length >= countFrom ? `${siteId}-count` : undefined} onFocus={onActivity} onChange={(e) => (setPrompt(e.target.value), onActivity())} onKeyDown={onKey} onPaste={onPaste} />
+            {length >= countFrom && (
+              <p id={`${siteId}-count`} className={tooLong ? 'df-studio-count df-studio-count--over' : 'df-studio-count'} aria-live="polite">
+                {tooLong ? fill(words.tooLong, { count: formatCount(length - maxRequest), max: formatCount(maxRequest) }) : fill(words.count, { count: formatCount(length), max: formatCount(maxRequest) })}
+              </p>
+            )}
             <div className="df-studio-actions">
               <div className="df-studio-tools">
               <input ref={fileRef} type="file" accept={imageTypes.join(',')} hidden tabIndex={-1} onChange={(e) => (take(e.target.files?.[0]), (e.target.value = ''))} />

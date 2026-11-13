@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { googleFontsCss, googleFontsFiles } from '../../guard/fonts.js'
 
 // The CSP of storefront ARCHITECTURE §3.5: built per store from hashes, never a nonce, written into the
 // build's manifest and sent as headers by the edge Worker (LIVE-SHOP §4 step 8, §5 step 5; PREVIEW §5 step 4).
@@ -87,8 +88,9 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): stri
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
-    ['style-src', [...build, ...hashes.styles]],
-    ['font-src', build],
+    // Google Fonts, when the theme names one (guard/fonts.ts; ARCHITECTURE §3.5).
+    ['style-src', [...build, ...hashes.styles, googleFontsCss]],
+    ['font-src', [...build, googleFontsFiles]],
     // The asset host too: a theme's CSS url(media/…) names its image beside the stylesheet there (#1405).
     ['img-src', [...build, ...p.mediaOrigins, ...from('img')]],
     ['media-src', ["'self'", ...p.mediaOrigins]],
@@ -109,8 +111,8 @@ export const studioCsp = (input: StudioCsp, { styles }: Pick<InlineHashes, 'styl
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', ["'self'"]],
-    ['style-src', ["'self'", ...styles]],
-    ['font-src', ["'self'"]],
+    ['style-src', ["'self'", ...styles, googleFontsCss]],
+    ['font-src', ["'self'", googleFontsFiles]],
     ['connect-src', ["'self'"]],
     ['img-src', ["'self'", p.mediaOrigin]],
     ['media-src', ["'self'", p.mediaOrigin]],

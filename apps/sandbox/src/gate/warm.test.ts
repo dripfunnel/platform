@@ -6,6 +6,7 @@ import type { GuardContext } from '@dripfunnel/storefront-core/guard'
 import { Workspace, type ChangeResult } from '../workspace'
 import { build, validate } from './index'
 import { laneOf } from './lanes'
+import { chromiumPath } from '../browser'
 
 // #1240: the warm checks and the lanes, on the baseline starting theme (Tailwind classes in clsx constants).
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 })
@@ -87,6 +88,66 @@ describe('the warm gate in a slot', () => {
     await ws.loadFiles(files, 'Start again')
     const fresh = passed(await ws.change([edit(home, '<section className={styles.hero}>', '<section className={styles.hero} id="top">')], 'One again', context))
     expect(fresh.typechecked?.length).toBeGreaterThan(20)
+  })
+
+  it('bundles lucide-react icons into the theme, only those it uses', async () => {
+    const ws = await loaded('icons')
+    const perks = (body: string, imports: string) => ({ path: 'src/theme/components/Perks.tsx', content: `${imports}export const Perks = () => <p className="flex gap-2">${body}</p>\n` })
+    const used = edit(home, '<section className={styles.hero}>', '<section className={styles.hero}>\n        <Perks />')
+    const page = { ...used, content: `import { Perks } from '../components/Perks'\n${used.content}` }
+    const jsBytes = (r: ChangeResult) => (r.ok ? r.bundle.files.filter((f) => f.path.endsWith('.js')).reduce((n, f) => n + f.bytes, 0) : 0)
+    const plain = jsBytes(passed(await ws.change([perks('Free delivery', ''), page], 'Plain', context)))
+    const icons = jsBytes(passed(await ws.change([perks('<Truck aria-hidden /> <ShieldCheck aria-hidden /> Free delivery', "import { ShieldCheck, Truck } from 'lucide-react'\n\n")], 'Icons', context)))
+    expect(icons - plain).toBeGreaterThan(0)
+    expect(icons - plain).toBeLessThan(20 * 1024)
+  })
+
+  it('refuses a full-lane change whose page throws while rendering, naming the page and the error', async () => {
+    const ws = await loaded('render')
+    const thrown = await ws.change([edit(home, '<section className={styles.hero}>', '<section className={styles.hero}>{([] as number[]).reduce((a, b) => a + b)}')], 'Sum', context)
+    expect(thrown.ok).toBe(false)
+    expect(!thrown.ok && thrown.problems).toEqual([expect.objectContaining({ step: 'render', rule: 'render/throws', message: expect.stringMatching(/^The home page threw while rendering: .*empty array/) })])
+  })
+
+  it('renders each change afresh: a throwing page refused, then its fix passes, then a new throw is refused', async () => {
+    const ws = await loaded('render-twice')
+    const throwing = edit(home, '<section className={styles.hero}>', '<section className={styles.hero}>{([] as number[]).reduce((a, b) => a + b)}')
+    expect((await ws.change([throwing], 'Sum', context)).ok).toBe(false)
+    passed(await ws.change([edit(home, '<section className={styles.hero}>', '<section className={styles.hero} id="top">')], 'Anchor', context))
+    expect((await ws.change([{ path: home, content: throwing.content.replace('<section className={styles.hero} id="top">', '<section className={styles.hero}>') }], 'Sum again', context)).ok).toBe(false)
+  })
+
+  it.skipIf(chromiumPath() === null)('pictures a page with a working copy from a scratch copy, leaving the draft as it was', async () => {
+    const ws = await loaded('picture')
+    const before = await ws.theme()
+    const maroon = edit(themeCss, '#2f5d50', '#7a1f2b')
+    const shot = await ws.picture([maroon], 'home', 'desktop', context)
+    expect(shot.problem).toBeNull()
+    expect(shot.images.length).toBeGreaterThan(0)
+    expect(Buffer.from(shot.images[0] ?? '', 'base64').subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]))
+    expect(await ws.theme()).toEqual(before)
+    expect((await ws.picture([], 'nowhere', 'desktop', context)).problem).toContain('no page')
+    const thrown = await ws.picture([edit(home, '<section className={styles.hero}>', '<section className={styles.hero}>{([] as number[]).reduce((a, b) => a + b)}')], 'home', 'phone', context)
+    expect(thrown).toMatchObject({ images: [], problem: expect.stringContaining('threw while rendering') })
+    expect((await ws.picture([{ path: '../outside.txt', content: 'x' }], 'home', 'desktop', context)).problem).toContain('outside the theme')
+    const unchecked = { path: 'src/theme/components/Leak.tsx', content: "export const Leak = () => { void fetch('https://example.com'); return null }\n" }
+    expect(await ws.picture([unchecked], 'home', 'desktop', context)).toEqual({ images: [], problem: 'Call check and fix what it names first.' })
+  })
+
+  it('shows passing work in the frame without committing it, and the head again on no files, refusing what the validator refuses', async () => {
+    const ws = new Workspace(join(root, 'show'))
+    const first = await ws.loadFiles(files, 'Start from the baseline template')
+    const before = await ws.theme()
+    const shown = await ws.show([edit(themeCss, '#2f5d50', '#7a1f2b')], context)
+    expect(shown).toMatchObject({ ok: true, swap: 'stylesheet' })
+    expect(shown.ok && shown.bundle.id).not.toBe(first.bundle?.id)
+    expect(await ws.head()).toBe(first.head)
+    expect(await ws.theme()).toEqual(before)
+    const leak = { path: 'src/theme/components/Leak.tsx', content: "export const Leak = () => { void fetch('https://example.com'); return null }\n" }
+    expect(await ws.show([leak], context)).toEqual({ ok: false })
+    expect(await ws.show([{ path: '../outside.txt', content: 'x' }], context)).toEqual({ ok: false })
+    const back = await ws.show([], context)
+    expect(back.ok && back.bundle.id).toBe(first.bundle?.id)
   })
 
   it('takes a CSS-only change without the typecheck, swapping only the stylesheet, and still refuses a forbidden function or file', async () => {

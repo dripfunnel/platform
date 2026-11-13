@@ -20,7 +20,16 @@ export const setProblemReporter = (next: Reporter | null) => {
   held.forEach(reportProblem)
 }
 
+const watchers = new Set<Reporter>()
+
+/** Hears every problem as it is caught, a repeat too, alongside the reporter (the studio frame, AI-STUDIO §8); returns the stop. */
+export const watchProblems = (watcher: Reporter): (() => void) => {
+  watchers.add(watcher)
+  return () => void watchers.delete(watcher)
+}
+
 export const reportProblem = (problem: StorefrontProblem) => {
+  watchers.forEach((watch) => watch(problem))
   const key = `${problem.kind}|${problem.subject}|${problem.detail ?? ''}`
   if (sent.has(key)) return
   sent.add(key)

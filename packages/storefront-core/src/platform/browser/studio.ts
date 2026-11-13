@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { watchProblems } from '../../sealed/report'
 import { studioPagePath } from '../render/studio'
 import { watchAddress } from './router'
 
@@ -98,10 +99,13 @@ export const connectStudioFrame = ({ base, portalOrigin, keyOf, parent = window.
   addEventListener('mouseout', onOut, true)
   addEventListener('click', onClick, true)
   const unwatch = watchAddress(page)
+  // Names only, as reportProblem sends them: a section of the theme that threw and shows the baseline's in its place.
+  const unwatchProblems = watchProblems((p) => p.kind === 'section' && post({ type: 'df-studio:problem', section: p.subject }))
   page()
   return () => {
     unoutline()
     unwatch()
+    unwatchProblems()
     removeEventListener('message', onMessage)
     removeEventListener('mouseover', onOver, true)
     removeEventListener('mouseout', onOut, true)

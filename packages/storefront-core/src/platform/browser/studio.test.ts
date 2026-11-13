@@ -4,6 +4,7 @@ import { createTextKeys } from '../i18n/i18n'
 import { studioFramePage, studioPortalOrigin } from '../render/studio'
 import { navigate, setRouterBase } from './router'
 import { contrastRatio } from '../../guard/contrast'
+import { reportProblem } from '../../sealed/report'
 import { connectStudioFrame, studioHoverColors } from './studio'
 
 const base = '/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/'
@@ -55,6 +56,20 @@ describe('the studio frame’s messages (AI-STUDIO §8)', () => {
     dispatchEvent(new PopStateEvent('popstate'))
     expect(posted()).toHaveLength(3)
     expect(posted().every(([message, origin]) => (message as { type: string }).type === 'df-studio:page' && origin === portal)).toBe(true)
+  })
+
+  it('names each section that threw, every time, and stops once disconnected', () => {
+    connect()
+    reportProblem({ kind: 'section', subject: 'home' })
+    reportProblem({ kind: 'section', subject: 'home' })
+    reportProblem({ kind: 'checkout', subject: 'checkout' })
+    expect(posted().slice(1)).toEqual([
+      [{ type: 'df-studio:problem', section: 'home' }, portal],
+      [{ type: 'df-studio:problem', section: 'home' }, portal],
+    ])
+    disconnect()
+    reportProblem({ kind: 'section', subject: 'home' })
+    expect(posted()).toHaveLength(3)
   })
 
   it('with Edit text on, turns a click on words into their key and doesn’t follow it', () => {

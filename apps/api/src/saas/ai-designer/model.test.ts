@@ -8,7 +8,7 @@ import { carouselExample, designModel, revealExample, maxBuildToolCalls, maxLook
 import type { StoreLookups, StoreSummary } from './summary'
 import type { FileEdit } from '#saas/studio/index'
 
-const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', languages: [] }, summary: null, image: null, screenshot: null }
+const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', languages: [] }, summary: null, image: null, screenshots: [] }
 const spent = { tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD', model: 'fake' }
 const final = JSON.stringify({ files: [], reply: 'Done.', changed: [], page: 'home' })
 const call = (id: string, name: string, args: unknown) => ({ id, name, arguments: typeof args === 'string' ? args : JSON.stringify(args) })
@@ -201,6 +201,86 @@ describe('the store lookups', () => {
   })
 })
 
+describe('the agent, when the runner can check', () => {
+  const theme = [
+    { path: 'src/theme/styles/theme.css', content: ':root { --c: red; }' },
+    { path: 'src/theme/pages/HomePage.tsx', content: 'export const HomePage = () => null // SECRET-BODY' },
+  ]
+  const turnOf = (text: string, calls: { id: string; name: string; arguments: string }[] = []): AiTurn => ({ text, toolCalls: calls, wantsTools: calls.length > 0, ...spent })
+
+  it('works with tools on a file list instead of the whole theme, under its own rules, and hands back whole files', async () => {
+    const seen: { system: string; messages: readonly CanonicalMessage[] }[] = []
+    const turns = [
+      turnOf('', [call('e', 'edit_file', { path: 'src/theme/styles/theme.css', edits: [{ search: 'red', replace: 'maroon' }] })]),
+      turnOf('', [call('c', 'check', {})]),
+      turnOf('', [call('f', 'finish', { reply: 'Maroon now.', changed: ['Colour'], page: 'home' })]),
+    ]
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async (c) => (seen.push({ system: c.system, messages: [...c.messages] }), turns.shift() ?? turnOf('Done.')) }
+    const steps: string[] = []
+    const proposal = await designModel(provider, brief).propose({ request: 'make it maroon', theme, problems: [], check: async () => [], onStep: (s) => steps.push(s) })
+    expect(proposal.files).toEqual([{ path: 'src/theme/styles/theme.css', content: ':root { --c: maroon; }' }])
+    expect(proposal.summary).toEqual({ reply: 'Maroon now.', changed: ['Colour'], page: 'home' })
+    const opening = JSON.stringify(seen[0]?.messages[0])
+    expect(opening).toContain('src/theme/pages/HomePage.tsx')
+    expect(opening).not.toContain('SECRET-BODY')
+    expect(seen[0]?.system).toContain('How you work')
+    expect(seen[0]?.system).not.toContain('Answer with only one JSON object')
+    expect(steps).toEqual(['editing', 'checking'])
+  })
+
+  it('takes an answer in the one-shot format from a model that ignored its tools', async () => {
+    const oneShot = JSON.stringify({ files: [{ path: 'src/theme/styles/theme.css', edits: [{ search: 'red', replace: 'maroon' }] }], reply: 'Maroon.', changed: ['Colour'], page: 'home' })
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => turnOf(oneShot) }
+    const proposal = await designModel(provider, brief).propose({ request: 'make it maroon', theme, problems: [], check: async () => [] })
+    expect(proposal).toMatchObject({ files: [{ path: 'src/theme/styles/theme.css', edits: [{ search: 'red', replace: 'maroon' }] }], summary: { reply: 'Maroon.', changed: ['Colour'], page: 'home' } })
+  })
+
+  it('asks the model nothing for a repair once the change’s clock has run out, so the gate’s problems stand', async () => {
+    let asked = 0
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => ((asked += 1), turnOf('', [call('f', 'finish', { reply: 'x', changed: [], page: null })])) }
+    const designer = designModel(provider, brief, null, () => undefined, undefined, null, 1)
+    await designer.propose({ request: 'x', theme, problems: [], check: async () => [] })
+    await new Promise((r) => setTimeout(r, 5))
+    const failed = [{ step: 'typecheck' as const, file: 'a.tsx', line: 1, rule: 'ts', message: 'm' }]
+    const repair = await designer.propose({ request: 'x', theme, problems: failed, check: async () => [] })
+    expect(asked).toBe(1)
+    expect(repair).toMatchObject({ files: [], summary: null, problems: failed, tokensIn: 0, model: 'fake' })
+  })
+
+  it('still answers a vague first ask with a plan, calling no tool', async () => {
+    const plan = JSON.stringify({ plan: { header: 'h', footer: 'f', pages: [{ page: 'home', title: 'Home', sections: ['hero'] }] }, reply: 'Here is a plan.' })
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => turnOf(plan) }
+    const proposal = await designModel(provider, { ...brief, mayAsk: true }).propose({ request: 'redesign it', theme, problems: [], check: async () => [] })
+    expect(proposal).toMatchObject({ asked: true, files: [], summary: { reply: 'Here is a plan.' } })
+  })
+})
+
+describe('an answer in words with no JSON', () => {
+  const prose = 'I can’t copy another shop’s site, but I can give yours a similar layout of its own.'
+  const words = (t: string): AiTurn => ({ ...turn([]), text: t })
+
+  it('asks once more for the JSON, keeping the cached prefix, and takes the second answer', async () => {
+    const r = await run([words(prose), turn([])])
+    expect(r.seen).toHaveLength(2)
+    expect(JSON.stringify(r.seen[1]?.messages[0]?.content.at(-1))).toContain('with no JSON object')
+    expect(r.seen[1]?.messages[0]?.content.slice(0, -1)).toEqual(r.seen[0]?.messages[0]?.content.slice(0, -1))
+    expect(r.proposal.summary?.reply).toBe('Done.')
+    expect(r.proposal.tokensIn).toBe(20)
+  })
+
+  it('shows its words as the reply when the second answer is words too, changing nothing', async () => {
+    const r = await run([words(prose), words(prose)])
+    expect(r.proposal.files).toEqual([])
+    expect(r.proposal.summary).toEqual({ reply: prose, changed: [], page: null })
+  })
+
+  it('never asks again in a repair', async () => {
+    const r = await run([words(prose)], {}, [{ file: 'a.tsx', message: 'x' }])
+    expect(r.seen).toHaveLength(1)
+    expect(r.proposal.summary).toBeNull()
+  })
+})
+
 describe('a repair', () => {
   const ask = async (input: { problems: never[]; previous?: FileEdit[] }) => {
     const completed: string[] = []
@@ -259,6 +339,12 @@ describe('the answer as edits, and the cached prefix (#1238)', () => {
     expect(one?.system).toBe(rules)
   })
 
+  it('sends the conversation so far, the AI replies included, after the cached prefix', async () => {
+    const { seen } = await turns([{ request: 'make it bigger', recent: ['Merchant: add a banner', 'You: I added a banner. (changed: Hero)'], theme }])
+    const tail = seen[0]?.messages[0]?.content.at(-1)
+    expect(tail).toMatchObject({ text: expect.stringContaining('The conversation so far, oldest first:\n- Merchant: add a banner\n- You: I added a banner. (changed: Hero)') })
+  })
+
   it('reads an answer with an unknown field, or a file with both content and edits, as no usable answer', async () => {
     const provider = (text: string): AiProvider => ({ complete: async () => ({ text, ...spent }) })
     const odd = [
@@ -268,14 +354,38 @@ describe('the answer as edits, and the cached prefix (#1238)', () => {
     ]
     for (const text of odd) expect((await designModel(provider(text), brief).propose({ request: 'x', theme: [], problems: [] })).summary).toBeNull()
   })
+
+  it('hands an answer in no usable shape back as problems for its repair, naming what was wrong and never its text', async () => {
+    const provider = (text: string): AiProvider => ({ complete: async () => ({ text, ...spent }) })
+    const extra = await designModel(provider(JSON.stringify({ files: [], reply: 'secret words', changed: ['a', 'b', 'c', 'd', 'e', 'f'], page: null })), brief).propose({ request: 'x', theme: [], problems: [] })
+    expect(extra.problems).toEqual([expect.objectContaining({ step: 'validator', rule: 'answer/shape', message: expect.stringMatching(/^changed: /) })])
+    expect(JSON.stringify(extra.problems)).not.toContain('secret words')
+    const cut = await designModel(provider('{"files":[{"path":"a.tsx","content":"x'), brief).propose({ request: 'x', theme: [], problems: [{ file: 'a.tsx', line: null, rule: 'r', message: 'm', step: 'typecheck' }] })
+    expect(cut.problems).toEqual([expect.objectContaining({ rule: 'answer/shape', message: expect.stringContaining('cut off') })])
+  })
 })
 
 describe('the rules the AI is given', () => {
-  it('state the two checks a carousel kept failing: words only through t() keys, and named transitions of layout-free properties', () => {
-    expect(rules).toMatch(/no words in the values passed to t\(\)/)
-    expect(rules).toMatch(/t\('file\.key'\)/)
-    expect(rules).toMatch(/transform, opacity, filter and colours/)
-    expect(rules).toMatch(/Never\s+transition: all/)
+  it('answer a whole-shop redesign like a given site with a plan of that site’s sections, top down, copying none of it', () => {
+    expect(rules).toMatch(/look like a site the merchant gave[\s\S]*answer with\s+a plan, never files/)
+    expect(rules).toMatch(/follow that site's sections from the top down/)
+    expect(rules).toMatch(/Copy none of its words, logos\s+or photos/)
+  })
+
+  it('tell the model how many screenshots of the sample site follow, in order', async () => {
+    const shot = { mediaType: 'image/jpeg' as const, base64: 'AA==' }
+    const sent: string[] = []
+    const provider: AiProvider = { complete: async (c) => (sent.push(c.text), { text: final, ...spent }) }
+    await designModel(provider, { ...brief, screenshots: [shot, shot, shot] }).propose({ request: 'like this', theme: [], problems: [] })
+    expect(sent[0]).toContain('The last 3 images are one site the merchant gave as inspiration, screenshotted from its top down, in order.')
+  })
+
+  it('say words may be written in code but an invented claim never, any property may animate, and icons come from lucide-react', () => {
+    expect(rules).toMatch(/may write words shoppers see\s+straight in the code/)
+    expect(rules).toMatch(/Never write an invented claim anywhere, in code or content/)
+    expect(rules).toMatch(/may animate any property, transition: all included/)
+    expect(rules).toMatch(/lucide-react/)
+    expect(rules).toMatch(/--google-fonts/)
   })
 
   it('refuse next/* imports, keep use client under components/interactive/, and keep every existing content key', () => {
@@ -382,15 +492,12 @@ describe('the rules the prompt states against the validator', () => {
     [component('NextImage', "import Image from 'next/image'\nexport const X = () => <Image src=\"/a\" alt=\"\" />\n"), 'code/import-not-allowed'],
     [component('DefaultReact', "import React from 'react'\nexport const X = () => <div />\n"), 'code/import-not-allowed'],
     [component('Anchor', "export const X = () => <div><a href=\"/a\">x</a></div>\n"), 'jsx/element-not-allowed'],
-    [component('Label', "export const X = () => <label>x</label>\n"), 'jsx/element-not-allowed'],
     [component('OnChange', "export const X = () => <div onChange={() => undefined} />\n"), 'jsx/attribute-not-allowed'],
     [component('StyleAttr', "export const X = () => <div style={{ opacity: 1 }} />\n"), 'jsx/attribute-not-allowed'],
     [component('Untyped', "export function f(x) { return x }\n"), 'code/dom-walking'],
     [component('Clock', "export const f = () => Date.now()\n"), 'code/browser-global'],
     [component('ClientInPage', "'use client'\nexport const X = () => <div />\n", false), 'code/use-client-outside-interactive'],
     [component('OpenKeys', `${"import { useStorefront } from '@dripfunnel/storefront-core/theme'"}\n${keys}\nexport const X = () => { const { t } = useStorefront(); return <div>{slides.map((s) => <p key={s.title}>{t(s.title)}</p>)}</div> }\n`), 'code/t-key-not-literal'],
-    [styles('Width', '.a { transition: width 1s; }\n'), 'css/animated-property'],
-    [styles('All', '.a { transition: all 1s; }\n'), 'css/animated-property'],
     [styles('Bare', '.a { opacity: 1; }\nh2 { margin: 0; }\n'), 'css/selector-not-scoped'],
     [styles('Layer', '.a { z-index: 100; }\n'), 'css/z-index'],
     [styles('Import', '@import "x.css";\n.a { opacity: 1; }\n'), 'css/at-rule-not-allowed'],
@@ -401,14 +508,18 @@ describe('the rules the prompt states against the validator', () => {
     [component('ClassBody', 'export const X = () => <div className="[body_&]:hidden" />\n', false), 'css/selector-not-scoped'],
     [component('ClassChildren', 'export const X = () => <div className="*:p-2" />\n', false), 'css/selector-not-scoped'],
     [component('ClassLayer', 'export const X = () => <div className="z-[100]" />\n', false), 'css/z-index'],
-    [component('ClassTransition', 'export const X = () => <div className="transition duration-300" />\n', false), 'css/animated-property'],
     [component('ClassWords', "export const X = () => <div className=\"after:content-['Next']\" />\n", false), 'css/text'],
-    [component('ClassVariable', "export const card = 'flex gap-4'\n", false), 'code/text-in-string'],
+    [component('Scarcity', 'export const X = () => <p>Only 3 left in stock</p>\n', false), 'content/scarcity'],
   ]
   const allowed: ThemeFile[] = [
     component('Slides', `${"import { useStorefront } from '@dripfunnel/storefront-core/theme'"}\n${keys} as const\nexport const X = () => { const { t } = useStorefront(); return <div>{slides.map((s) => <p key={s.title}>{t(s.title)}</p>)}</div> }\n`),
     component('Classes', "import { clsx } from 'clsx'\nexport const X = ({ open }: { open: boolean }) => <div className={clsx('flex gap-4 p-6 group md:grid min-[720px]:p-8 transition-colors [transition:opacity_300ms] z-[99] [&::part(price)]:text-[#222] m-0 border-0 size-6', open && 'bg-[#222] text-white group-hover:opacity-90')} />\n", false),
     styles('Colours', '.a { transition: transform 300ms, opacity 300ms, background-color 300ms, box-shadow 300ms; }\n.a:hover { opacity: .9; }\n.a::before { content: ""; }\n@media (min-width: 900px) { .a > h2 { margin: 0; } }\n.b { z-index: 99; }\n'),
+    component('Label', 'export const X = () => <label>Size guide</label>\n'),
+    styles('Width', '.a { transition: width 1s; }\n.b { transition: all 1s; }\n'),
+    component('ClassTransition', 'export const X = () => <div className="transition duration-300" />\n', false),
+    component('ClassVariable', "export const card = 'flex gap-4'\n", false),
+    component('Icons', "import { Truck } from 'lucide-react'\nexport const X = () => <p><Truck aria-hidden /> Free delivery</p>\n", false),
   ]
 
   it('refuses each thing the prompt says is refused, and allows each thing it says is allowed', async () => {

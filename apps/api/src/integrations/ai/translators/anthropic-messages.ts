@@ -14,7 +14,7 @@ type ContentBlock =
   | TextBlock
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-  | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: true }
+  | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: true; cache_control?: CacheControl }
 
 export interface AnthropicMessagesBody {
   model: string
@@ -48,7 +48,7 @@ export const anthropicMessagesRequest: RequestTranslator<AnthropicMessagesBody> 
       if (turn.role === 'assistant') {
         return { role: 'assistant', content: turn.parts.map((part): ContentBlock => (part.type === 'text' ? { type: 'text', text: part.text } : { type: 'tool_use', id: part.id, name: part.name, input: argumentsObject(part.arguments) })) }
       }
-      const results = turn.results.map((r): ContentBlock => ({ type: 'tool_result', tool_use_id: r.callId, content: r.content, ...(r.isError ? { is_error: true as const } : {}) }))
+      const results = turn.results.map((r): ContentBlock => ({ type: 'tool_result', tool_use_id: r.callId, content: r.content, ...(r.isError ? { is_error: true as const } : {}), ...(r.cache ? { cache_control: { type: 'ephemeral' as const } } : {}) }))
       const content = turn.content.map((part): ContentBlock => (part.type === 'text' ? textBlock(part.text, part.cache) : { type: 'image', source: { type: 'base64', media_type: part.mediaType, data: part.base64 } }))
       return { role: 'user', content: [...results, ...content] }
     })

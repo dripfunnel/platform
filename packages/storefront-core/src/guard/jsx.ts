@@ -1,8 +1,7 @@
 import ts from 'typescript'
-import { animationAdvice, motionProperties } from './animation.js'
 import { importedFrom, inTheme, isOpen, literalStrings, parts } from './program.js'
 import type { RuleId } from './rules.js'
-import { isVisible, showsWrittenText } from './text.js'
+import { claimMessage, claimsIn, literalTexts } from './claims.js'
 
 export type Found = { node: ts.Node; rule: RuleId; message: string }
 
@@ -12,6 +11,10 @@ const elements = new Set([
   ...['figure', 'figcaption', 'blockquote', 'strong', 'em', 'b', 'i', 'small', 's', 'del', 'ins', 'mark', 'br', 'hr', 'button', 'details', 'summary'],
   ...['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'time', 'abbr', 'sub', 'sup'],
   ...['svg', 'g', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'defs', 'linearGradient', 'radialGradient', 'stop'],
+  // Widened 2026-11-12 (ARCHITECTURE §3.4 "JSX"): none loads, submits or reaches the top layer, which is core's banners'.
+  ...['label', 'address', 'cite', 'q', 'u', 'code', 'pre', 'kbd', 'samp', 'var', 'wbr', 'bdi', 'bdo', 'data', 'output', 'progress', 'meter', 'hgroup', 'search', 'menu'],
+  ...['clipPath', 'mask', 'pattern', 'symbol', 'text', 'tspan', 'textPath', 'title', 'desc', 'marker', 'filter', 'feGaussianBlur', 'feOffset', 'feBlend', 'feColorMatrix'],
+  ...['feComposite', 'feFlood', 'feMerge', 'feMergeNode', 'feMorphology', 'feTurbulence', 'feDisplacementMap', 'feDropShadow'],
 ])
 const instead = new Map([
   ['a', "core's <Link>"],
@@ -31,20 +34,20 @@ const attributes = new Set([
   ...['viewBox', 'd', 'fill', 'fillRule', 'clipRule', 'stroke', 'strokeWidth', 'strokeLinecap', 'strokeLinejoin', 'strokeDasharray', 'strokeDashoffset', 'pathLength'],
   ...['cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'width', 'height', 'points', 'transform', 'focusable', 'opacity', 'offset'],
   ...['stopColor', 'stopOpacity', 'gradientUnits', 'gradientTransform', 'preserveAspectRatio'],
+  ...['htmlFor', 'value', 'min', 'max', 'low', 'high', 'optimum', 'cite', 'start', 'reversed', 'inert', 'draggable', 'translate', 'spellCheck'],
+  ...['onDoubleClick', 'onContextMenu', 'onDragStart', 'onDrag', 'onDragEnd', 'onDragEnter', 'onDragLeave', 'onDragOver', 'onDrop', 'onAnimationStart', 'onAnimationIteration', 'onTransitionStart'],
+  ...['clipPath', 'mask', 'filter', 'fillOpacity', 'strokeOpacity', 'strokeMiterlimit', 'textAnchor', 'dominantBaseline', 'fontSize', 'fontWeight', 'fontFamily', 'letterSpacing', 'patternUnits'],
+  ...['patternContentUnits', 'maskUnits', 'maskContentUnits', 'clipPathUnits', 'filterUnits', 'primitiveUnits', 'stdDeviation', 'dx', 'dy', 'in', 'in2', 'result', 'mode', 'values', 'operator'],
+  ...['floodColor', 'floodOpacity', 'k1', 'k2', 'k3', 'k4', 'radius', 'baseFrequency', 'numOctaves', 'seed', 'scale', 'xChannelSelector', 'yChannelSelector', 'markerWidth', 'markerHeight', 'refX', 'refY', 'orient', 'markerStart', 'markerMid', 'markerEnd', 'vectorEffect', 'paintOrder', 'shapeRendering'],
 ])
-// What a shopper reads, or hears from a screen reader, on any element or component.
-const textAttributes = new Set(['alt', 'title', 'label', 'placeholder', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'caption', 'heading', 'description', 'text', 'children'])
 const loadingHints = new Set(['loading', 'fetchPriority', 'fetchpriority', 'priority'])
 
 // motion's props; what they animate is held to ARCHITECTURE §3.4 "CSS", the same names a theme's CSS may animate.
 const animationProps = new Set(['initial', 'animate', 'exit', 'whileHover', 'whileTap', 'whileFocus', 'whileInView', 'whileDrag', 'variants', 'style'])
 const motionProps = new Set([...animationProps, 'transition', 'viewport', 'layout', 'layoutId', 'drag', 'dragConstraints', 'dragElastic', 'dragMomentum', 'onAnimationStart', 'onAnimationComplete', 'onDragStart', 'onDrag', 'onDragEnd'])
 /** What motion's `animate` (the prop, or the function on a theme's own element) may name. */
-export const animatable: ReadonlySet<string> = new Set([...motionProperties, 'transition', 'transitionEnd'])
-const styleKeys = motionProperties
 const constraintKeys = new Set(['top', 'left', 'right', 'bottom'])
 
-const textMessage = "Words shoppers see or hear come from content/{language}/*.json through t('file.key'), never from the code."
 
 type Kind = 'element' | 'motion' | 'theme' | 'component'
 
@@ -96,21 +99,13 @@ const writtenStrings = (checker: ts.TypeChecker, attr: ts.JsxAttribute): string[
   return value ? literalStrings(checker.getTypeAtLocation(value)) : undefined
 }
 
-/** A theme component's prop written as words, unless the prop is declared as a choice such as 'warm' | 'cool'. */
-const writesWords = (checker: ts.TypeChecker, attr: ts.JsxAttribute, strings: string[] | undefined): boolean => {
-  if (attr.name.getText() === 'key' || attr.name.getText() === 'className' || !strings?.some(isVisible)) return false
-  const at = attr.initializer && ts.isStringLiteral(attr.initializer) ? attr.initializer : valueOf(attr)
-  const declared = at && checker.getContextualType(at)
-  return !declared || literalStrings(checker.getNonNullableType(declared)) === undefined
-}
-
-/** The names an animation's value holds that `keys` doesn't list; with `nested`, the names inside each of its variants. */
-export const animated = (checker: ts.TypeChecker, at: ts.Node, type: ts.Type, keys: ReadonlySet<string>, nested: boolean): string[] =>
+/** What in an animation's value can't be checked: a value worked out at run time, or a list of non-strings; with `nested`, inside each variant. Any property name is fine (ARCHITECTURE §3.4 "Motion"). */
+export const animated = (checker: ts.TypeChecker, at: ts.Node, type: ts.Type, nested: boolean): string[] =>
   parts(checker.getNonNullableType(type)).flatMap((t) => {
     if (t.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.BooleanLike)) return []
     if (isOpen(t) || t.getCallSignatures().length > 0) return ['a value worked out at run time']
     if (checker.isArrayType(t)) return checker.getTypeArguments(t as ts.TypeReference).every((e) => e.flags & ts.TypeFlags.StringLike) ? [] : ['a list of values']
-    return t.getProperties().flatMap((p) => (nested ? animated(checker, at, checker.getTypeOfSymbolAtLocation(p, at), keys, false) : keys.has(p.name) ? [] : [p.name]))
+    return nested ? t.getProperties().flatMap((p) => animated(checker, at, checker.getTypeOfSymbolAtLocation(p, at), false)) : []
   })
 
 const boundsOnly = (type: ts.Type) => parts(type).every((t) => t.getCallSignatures().length === 0 && (t.flags & ts.TypeFlags.Object) !== 0 && t.getProperties().every((p) => constraintKeys.has(p.name)))
@@ -128,8 +123,9 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
   if ((name === 'className' || name === 'id') && [...(strings ?? []), ...writtenParts(attr)].some((s) => s.split(/\s+/).some((token) => token.startsWith('df-')))) {
     found.push({ node: attr, rule: 'jsx/core-marker', message: "df- class names and ids belong to core; use this theme's CSS Module classes." })
   }
-  if (textAttributes.has(name) ? strings?.some(isVisible) || (value !== undefined && showsWrittenText(checker, value)) : kind === 'theme' && writesWords(checker, attr, strings)) {
-    found.push({ node: attr, rule: 'jsx/text-literal', message: textMessage })
+  // Words may be written in the code (decided 2026-11-12, ARCHITECTURE §3.4 "Words"); an invented claim may not.
+  for (const words of [...(strings ?? []), ...(value ? literalTexts(value) : [])]) {
+    for (const { rule, what } of claimsIn(words)) found.push({ node: attr, rule, message: claimMessage(words, what) })
   }
   if (kind === 'theme' || kind === 'component') return found
   if (name === 'style' && kind === 'element') return [...found, { node: attr, rule: 'jsx/attribute-not-allowed', message: "Style elements through this theme's CSS Modules, never a style attribute." }]
@@ -137,8 +133,8 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
   if (!allowed) return [...found, { node: attr, rule: 'jsx/attribute-not-allowed', message: `"${name}" isn't an allowed attribute on <${tag}>.` }]
   if (name === 'type' && (tag !== 'button' || strings?.length !== 1 || strings[0] !== 'button')) found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: 'A theme button is always type="button"; forms come from core.' })
   if (kind === 'motion' && animationProps.has(name) && value) {
-    const bad = animated(checker, value, checker.getTypeAtLocation(value), name === 'style' ? styleKeys : animatable, name === 'variants')
-    if (bad.length) found.push({ node: attr, rule: 'jsx/animated-property', message: `With motion, ${animationAdvice([...new Set(bad)])}.` })
+    const bad = animated(checker, value, checker.getTypeAtLocation(value), name === 'variants')
+    if (bad.length) found.push({ node: attr, rule: 'jsx/animated-property', message: `With motion, write the values out: not ${[...new Set(bad)].join(', ')}.` })
   }
   if (name === 'dragConstraints' && (!value || !boundsOnly(checker.getTypeAtLocation(value)))) {
     found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: 'dragConstraints takes { top, left, right, bottom } in pixels, never a ref to another element.' })
@@ -174,12 +170,12 @@ const openingProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | t
   return [{ node, rule: 'jsx/element-not-allowed', message: use ? `<${tag}> isn't allowed in a theme; use ${use}.` : `<${tag}> isn't allowed in a theme.` }, ...found]
 }
 
-const childProblems = (checker: ts.TypeChecker, children: ts.NodeArray<ts.JsxChild>): Found[] =>
+const childProblems = (children: ts.NodeArray<ts.JsxChild>): Found[] =>
   children.flatMap((child): Found[] => {
-    const written = ts.isJsxText(child) ? isVisible(child.text) : ts.isJsxExpression(child) && child.expression !== undefined && showsWrittenText(checker, child.expression)
-    return written ? [{ node: child, rule: 'jsx/text-literal', message: textMessage }] : []
+    const texts = ts.isJsxText(child) ? [child.text] : ts.isJsxExpression(child) && child.expression !== undefined ? literalTexts(child.expression) : []
+    return texts.flatMap((words) => claimsIn(words).map(({ rule, what }) => ({ node: child, rule, message: claimMessage(words, what) })))
   })
 
 /** The JSX rules of ARCHITECTURE §3.4 for one node: an element's tag and attributes, or the text among its children. */
 export const jsxProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement | ts.JsxElement | ts.JsxFragment, images: ReadonlySet<string>): Found[] =>
-  ts.isJsxElement(node) || ts.isJsxFragment(node) ? childProblems(checker, node.children) : openingProblems(checker, node, images)
+  ts.isJsxElement(node) || ts.isJsxFragment(node) ? childProblems(node.children) : openingProblems(checker, node, images)

@@ -35,8 +35,6 @@ describe('the class rules (ARCHITECTURE §3.4 "Classes")', () => {
     ['[&~div]:hidden', 'css/selector-not-scoped'],
     ['has-[.df-price]:hidden', 'css/core-selector'],
     ['[&_#cart]:hidden', 'css/core-selector'],
-    ['transition-all', 'css/animated-property'],
-    ['transition-[width]', 'css/animated-property'],
     ["after:content-['Only_2_left']", 'css/text'],
     ['content-(--words)', 'css/text'],
     ['[&:visited]:underline', 'css/pseudo-not-allowed'],
@@ -56,9 +54,9 @@ describe('the class rules (ARCHITECTURE §3.4 "Classes")', () => {
     expect(at(await validateTheme([...baseline, card('bg-ink')], context))).toEqual([{ file: 'src/theme/components/Note.tsx', line: 7, rule: 'class/not-tailwind' }])
   })
 
-  it('reads several classes in a string as classes, not words, only where a class goes', async () => {
+  it('lets a string of classes stand outside a class position, now that words may be written in code', async () => {
     const words = { path: 'src/theme/components/Words.tsx', content: "export const lead = 'flex gap-4 p-4'\n" }
-    expect(at(await validateTheme([...baseline, words], context))).toEqual([{ file: 'src/theme/components/Words.tsx', line: 1, rule: 'code/text-in-string' }])
+    expect(at(await validateTheme([...baseline, words], context))).toEqual([])
   })
 })
 
@@ -67,6 +65,14 @@ describe('themeStylesheet: the CSS a bundle carries', () => {
     expect(validateChange(baseline, context).problems).toEqual([])
     expect((await validateTheme(baseline, context)).problems).toEqual([])
     expect(await themeStylesheet(asMap(baseline))).toEqual({ ok: true, css: reducedMotionCss })
+  })
+
+  it('loads the Google fonts theme.css lists in --google-fonts, first as CSS requires, and none it only names', async () => {
+    const withFonts = (css: string) => asMap([...baseline.filter((f) => f.path !== 'src/theme/styles/theme.css'), { path: 'src/theme/styles/theme.css', content: css }])
+    const listed = await themeStylesheet(withFonts("@theme {\n  --google-fonts: 'Bebas Neue', 'Barlow', 'Not A Font';\n  --font-heading: 'Bebas Neue', sans-serif;\n}\n"))
+    expect(listed.ok && listed.css.split('\n')[0]).toBe('@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@100;200;300;400;500;600;700;800;900&display=swap");')
+    const named = await themeStylesheet(withFonts("@theme {\n  --font-heading: 'Lora', serif;\n}\n"))
+    expect(named.ok && named.css.includes('fonts.googleapis.com')).toBe(false)
   })
 
   it('starts with core’s reduced-motion rule, so its layer comes before Tailwind’s', async () => {

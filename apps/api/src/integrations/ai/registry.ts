@@ -22,7 +22,14 @@ export const modelCapabilities: readonly ModelCapability[] = [
   { provider: 'openai', id: 'gpt-5-mini', maxOutputTokens: 32_000, temperature: [0, 2], centsPerMillion: { input: 25, output: 200, cacheRead: 2.5, cacheWrite: 25 } },
 ]
 
-export const capabilityOf = (provider: GatewayProvider, model: string): ModelCapability | null => modelCapabilities.find((m) => m.provider === provider && m.id === model) ?? null
+// Models a key listed itself (DeepInfra's, deepinfra.ts), known to this isolate once listed; never a model a caller names.
+const listedModels = new Map<string, ModelCapability>()
+export const registerModels = (models: readonly ModelCapability[]): void => {
+  for (const m of models) listedModels.set(`${m.provider}:${m.id}`, m)
+}
+
+export const capabilityOf = (provider: GatewayProvider, model: string): ModelCapability | null =>
+  modelCapabilities.find((m) => m.provider === provider && m.id === model) ?? listedModels.get(`${provider}:${model}`) ?? null
 
 export const modelsOf = (provider: GatewayProvider): readonly string[] => modelCapabilities.filter((m) => m.provider === provider).map((m) => m.id)
 

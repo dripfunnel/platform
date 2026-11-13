@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { UnsupportedFeature, type CanonicalFinish, type CanonicalRequest, type CanonicalResponse, type CanonicalStreamEvent, type CanonicalToolChoice, type ProviderCapabilities } from '../canonical'
 import { GatewayError } from '../gateway'
-import { checkRequest, checkToolPairing, clampTemperature, dataUrl, refuseErrorFlags, turnsOf } from './shared'
+import { checkRequest, checkToolPairing, clampTemperature, dataUrl, resultText, turnsOf } from './shared'
 import { advanceToolCall, endToolCall, errorEvent, guardedStream, newToolCall, openaiErrorCode, parseOrThrow, usageOf, type ToolCallState } from './streams'
 import type { RequestTranslator, ResponseTranslator, StreamTranslatorFactory } from './types'
 
@@ -38,7 +38,6 @@ export const openaiChatRequest: RequestTranslator<OpenAiChatBody> = {
     checkRequest(request, capabilities)
     if ((request.stop?.length ?? 0) > maxStop) throw new UnsupportedFeature(`more than ${maxStop} stop sequences`)
     const turns = turnsOf(request.messages)
-    refuseErrorFlags(turns)
     checkToolPairing(turns)
     const messages: ChatMessage[] = [
       ...(request.system ? [{ role: 'system' as const, content: request.system }] : []),
@@ -51,7 +50,7 @@ export const openaiChatRequest: RequestTranslator<OpenAiChatBody> = {
         messages.push({ role: 'assistant', content: text === '' ? null : text, ...(calls.length > 0 ? { tool_calls: calls } : {}) })
         continue
       }
-      for (const result of turn.results) messages.push({ role: 'tool', tool_call_id: result.callId, content: result.content })
+      for (const result of turn.results) messages.push({ role: 'tool', tool_call_id: result.callId, content: resultText(result) })
       const only = turn.content[0]
       if (!only) continue
       messages.push({

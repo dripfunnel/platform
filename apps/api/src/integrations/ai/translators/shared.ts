@@ -100,10 +100,8 @@ export const clampTemperature = (temperature: number, max: number): number => {
   return Math.min(max, Math.max(0, temperature))
 }
 
-/** The OpenAI formats have no flag for a failed tool result; refusing beats showing the model a failure as a success. */
-export const refuseErrorFlags = (turns: readonly Turn[]): void => {
-  if (turns.some((turn) => turn.role === 'user' && turn.results.some((result) => result.isError))) throw new UnsupportedFeature('tool result error flag')
-}
+/** The OpenAI formats have no flag for a failed tool result, so the failure is said in its text, never passed off as a success. */
+export const resultText = (result: { content: string; isError?: boolean }): string => (result.isError ? `Error: ${result.content}` : result.content)
 
 export const dataUrl = (part: ImagePart): string => `data:${part.mediaType};base64,${part.base64}`
 

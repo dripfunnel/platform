@@ -1,6 +1,7 @@
 export { AiDeclined, SignInExpired, routedDesignerProvider, anthropicOAuthDesignerModel, anthropicOAuthDesignerProvider, anthropicProvider, checkAnthropicKey, costCents, designerModel, localAiProvider, type AiAnswer, type AiCall, type AiImage, type AiProvider, type AiTurn, type KeyCheck } from './provider'
 export { anthropicChat } from './anthropicChat'
 export { openaiChat, openaiOptions } from './openaiChat'
+export { deepinfraModels, isDeepInfraKey } from './deepinfra'
 export { gatewayProviders, gatewayErrorCodes, GatewayError, transientCodes, type ChatAnswer, type ChatChunk, type ChatMessage, type ChatProvider, type ChatRequest, type GatewayErrorCode, type GatewayProvider } from './gateway'
 export { capabilityOf, costOf, modelCapabilities, modelsOf, type ModelCapability } from './registry'
 export { withRetry } from './retry'

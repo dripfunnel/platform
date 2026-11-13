@@ -57,11 +57,11 @@ describe('pnpm check', () => {
     expect(lines[0]).toMatch(/^src\/theme\/media\/haldi-home\.png {2}files\/media-type-mismatch {2}/)
   })
 
-  it('refuses words typed in JSX, naming the file, line and rule', async () => {
-    const root = repoWith((r) => rewrite(r, 'src/theme/pages/HomePage.tsx', (text) => text.replace("{t('pages.home.lead')}", 'Big Bang Diwali sale')))
+  it('refuses an invented claim typed in JSX, naming the file, line and rule', async () => {
+    const root = repoWith((r) => rewrite(r, 'src/theme/pages/HomePage.tsx', (text) => text.replace("{t('pages.home.lead')}", 'Only 3 left in stock')))
     const { code, lines } = await runCheck(root)
     expect(code).toBe(1)
-    expect(lines[0]).toMatch(/^src\/theme\/pages\/HomePage\.tsx:10 {2}jsx\/text-literal {2}/)
+    expect(lines[0]).toMatch(/^src\/theme\/pages\/HomePage\.tsx:10 {2}content\/scarcity {2}/)
     expect(lines).toContain('1 problem(s): the build would refuse this push.')
   })
 
@@ -82,12 +82,12 @@ describe('pnpm check', () => {
   it('checks a theme folder named like a build folder, such as out/', async () => {
     const root = repoWith((r) => {
       mkdirSync(join(r, 'src/theme/components/out'))
-      writeFileSync(join(r, 'src/theme/components/out/Note.tsx'), 'export const Note = () => <p>Typed words</p>\n')
+      writeFileSync(join(r, 'src/theme/components/out/Note.tsx'), 'export const Note = () => <p>Only 3 left in stock</p>\n')
       git(r, 'add', '-A')
     })
     const { code, lines } = await runCheck(root)
     expect(code).toBe(1)
-    expect(lines[0]).toMatch(/^src\/theme\/components\/out\/Note\.tsx:1 {2}jsx\/text-literal/)
+    expect(lines[0]).toMatch(/^src\/theme\/components\/out\/Note\.tsx:1 {2}content\/scarcity/)
   })
 
   it('names a file whose copy on disk is not the staged one, since a commit would carry the staged one', async () => {

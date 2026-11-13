@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
 import { catalogueSnapshotSchema } from '@dripfunnel/storefront-core/guard'
+import { chromiumPath } from '../browser'
 import { secretLikeNames } from '../env'
 import { lockdown } from '../lockdown'
 import { buildRuntime } from '../runtime/build'
@@ -19,7 +19,6 @@ const runnerName = /^(?:GITHUB_|ACTIONS_|RUNNER_|INPUT_)/
 
 export const refusedEnvironment = (env: NodeJS.ProcessEnv): string[] => [...new Set([...secretLikeNames(env), ...Object.keys(env).filter((k) => runnerName.test(k))])].sort()
 
-const browserPaths = [process.env['CHROME_PATH'], '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
 
 const options = {
   source: { type: 'string' },
@@ -60,7 +59,7 @@ export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv, d
     return 0
   }
   const built = required(values.built, 'built')
-  const executablePath = browserPaths.find((p): p is string => p !== undefined && p !== '' && existsSync(p))
+  const executablePath = chromiumPath()
   if (!executablePath) throw new Error('The check step needs Chromium; set CHROME_PATH.')
   // The container is the boundary (no network, no capabilities, a non-root user): Chromium's own sandbox can't create
   // its namespaces there, so it is off, as Playwright launches it by default; said here so nobody turns it on unawares.
