@@ -275,6 +275,57 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
+  it('shows no stock line for a version whose stock isn’t tracked, and keeps it for one that is (#1278)', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-stock-line`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const size = { id: 'o1', name: 'Size', values: [{ id: 's', name: 'Small' }, { id: 'm', name: 'Medium' }, { id: 'l', name: 'Large' }] }
+    const kit = productWith([size], [
+      { values: ['s'], inStock: true, available: 5 },
+      { values: ['m'], inStock: false, available: 0 },
+      { values: ['l'], inStock: true, available: null },
+    ])
+    const stockLine = (page: Page) => page.getByText(/^(In stock|Sold out|Choose a Size to see stock)$/)
+    const lines = async (page: Page) => (await stockLine(page).allTextContents()).map((s) => s.trim())
+    const addable = async (page: Page) => ({
+      add: await page.getByRole('button', { name: 'Add to cart' }).first().isDisabled(),
+      buy: await page.getByRole('button', { name: 'Buy now' }).first().isDisabled(),
+    })
+    const page = await openProduct(browser, out, kit)
+    try {
+      const at = async (version: string) => {
+        await page.goto(`https://k7f3q9f2xa.webpreview.store/products/kit/${version}/`)
+        await page.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+      }
+      await page.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+      expect(await lines(page)).toEqual(['Choose a Size to see stock'])
+      await at('v0')
+      expect(await lines(page)).toEqual(['In stock'])
+      expect(await addable(page)).toEqual({ add: false, buy: false })
+      await at('v1')
+      expect(await lines(page)).toEqual(['Sold out'])
+      expect((await addable(page)).add).toBe(true)
+      await at('v2')
+      expect(await lines(page)).toEqual([])
+      expect(await addable(page)).toEqual({ add: false, buy: false })
+      await expect(page.locator('p[role="status"]').filter({ hasText: /stock|Sold out/ }).count()).resolves.toBe(0)
+    } finally {
+      await page.context().close()
+    }
+    // A product with no options is one version: untracked, it says nothing; tracked, it says so.
+    const single = (available: number | null) => productWith([], [{ values: [], inStock: available !== 0, available }])
+    for (const [available, expected] of [[null, []], [4, ['In stock']], [0, ['Sold out']]] as const) {
+      const alone = await openProduct(browser, out, single(available))
+      try {
+        await alone.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+        expect(await lines(alone)).toEqual(expected)
+      } finally {
+        await alone.context().close()
+      }
+    }
+  })
+
   it('disables a choice that is out of stock with the other choices made, and says so (#1360)', async ({ skip }) => {
     if (!browser || key !== 'classic') return skip()
     const out = join(root, `${key}-choices`)

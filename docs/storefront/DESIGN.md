@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-11-11 (#1360: Classic disables out-of-stock choices, §6). Before: 2026-11-09 (#1367: the customisation modal among the sealed components, *proposed*). Before: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-13 (#1278: the product page's stock line, §6). Before: 2026-11-11 (#1360: Classic disables out-of-stock choices, §6). Before: 2026-11-09 (#1367: the customisation modal among the sealed components, *proposed*). Before: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
@@ -142,6 +142,8 @@ Design floors the gates check, whatever the look:
 | **Account** | Layout and styling of every account page | Authentication, data shown, what can be changed |
 
 **Classic's product page, out-of-stock choices** (#1360, decided 2026-11-09). A choice that can't be bought with the other choices made (core's `available`; a version set to keep selling when out of stock is not one) is greyed, crossed out and disabled: it stays focusable and is announced as "{value}, out of stock", but click, tap, Enter and Space do nothing, so the selected choice never moves to it. On a wide screen with a mouse, hovering or tabbing to it shows "Out of stock"; on a phone the words sit on the choice itself. With two options a choice is disabled only for the other choices already made. When every version is out of stock every choice is disabled and the page says "Sold out". This departs from `DF Storefront Prototype`, where a sold-out size can still be picked; the baseline and market designs are unchanged.
+
+**The product page's stock line** (#1278, decided 2026-11-05). Under the price, the starting themes say "In stock" or "Sold out" only for a version whose stock the store tracks (core's `stock.available` is a number); a version with Track stock off has no stock line, and Add to cart and Buy now work as always. Until every option is chosen the line says "Choose a {option} to see stock", as before. A theme follows the same rule: an untracked version is always on sale, so saying "In stock" for it tells the shopper nothing the store keeps true.
 
 ## 7. White label and brand rules
 

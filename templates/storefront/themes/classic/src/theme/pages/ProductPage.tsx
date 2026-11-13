@@ -59,9 +59,11 @@ export const ProductPage = () => {
             ) : null}
             <Options page={page} />
             <SizeChart chart={product.sizeChart} className={styles.sizeLink} />
-            <p className={styles.stock} role="status">
-              {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
-            </p>
+            {firstMissing || typeof page.stock?.available === 'number' ? (
+              <p className={styles.stock} role="status">
+                {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
+              </p>
+            ) : null}
             <BuyButtons page={page} />
             {product.highlights.length ? (
               <ul className={styles.highlights}>
