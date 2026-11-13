@@ -5,7 +5,7 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 import { editorAccessOf } from '../common/access'
 
 // CatEditor driven as each seat would (FIRST-RELEASE §11): what loads, what a save sends, what each refusal says.
@@ -1231,11 +1231,65 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
     expect(more('S').getByText(words.price.compareLow)).toBeTruthy()
   })
 
+  describe('the window that stops selling a version (#1453)', () => {
+    const open = (name: string) => {
+      fireEvent.click(screen.getByRole('button', { name: `Hide ${name}` }))
+      return within(dialog())
+    }
+
+    it('asks “Stop selling {name}?”, with the line under it and each choice’s own line, and Hide first', async () => {
+      await show(owner)
+      const box = open('M')
+      expect(box.getByRole('heading', { name: fill(words.versions.stopTitle, { name: 'M' }) })).toBeTruthy()
+      expect(box.getByText(words.versions.stopLine)).toBeTruthy()
+      expect((box.getByRole('radio', { name: new RegExp(words.versions.hideIt) }) as HTMLInputElement).checked).toBe(true)
+      expect(box.getByText(words.versions.hideItSub)).toBeTruthy()
+      expect(box.getByText(fill(words.versions.notMakeSub, { name: 'M' }))).toBeTruthy()
+      const button = box.getByRole('button', { name: words.versions.hideConfirm }) as HTMLButtonElement
+      expect(button.className).not.toContain('danger')
+      expect(box.queryByRole('button', { name: words.apply })).toBeNull()
+    })
+
+    it('the button reads Remove once “We don’t make this” is picked', async () => {
+      await show(owner)
+      const box = open('M')
+      fireEvent.click(box.getByRole('radio', { name: new RegExp(words.versions.notMake) }))
+      expect(box.getByRole('button', { name: words.versions.notMakeConfirm })).toBeTruthy()
+      expect(box.queryByRole('button', { name: words.versions.hideConfirm })).toBeNull()
+      fireEvent.click(box.getByRole('radio', { name: new RegExp(words.versions.hideIt) }))
+      expect(box.getByRole('button', { name: words.versions.hideConfirm })).toBeTruthy()
+    })
+
+    it('hides the version on Hide, marks it “We don’t make this” on Remove, and changes nothing on Cancel or before Save', async () => {
+      await show(owner)
+      fireEvent.click(open('S').getByRole('button', { name: words.cancel }))
+      expect(screen.queryByText(words.versions.notMade)).toBeNull()
+      expect((saveButton() as HTMLButtonElement).disabled).toBe(true)
+      fireEvent.click(open('S').getByRole('button', { name: words.versions.hideConfirm }))
+      expect(screen.getByRole('button', { name: 'Show S' })).toBeTruthy()
+      expect(screen.queryByText(words.versions.notMade)).toBeNull()
+      fireEvent.click(open('M').getByRole('radio', { name: new RegExp(words.versions.notMake) }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.versions.notMakeConfirm }))
+      expect(screen.getAllByText(words.versions.notMade)).toHaveLength(1)
+      expect(api.saveProduct).not.toHaveBeenCalled()
+    })
+
+    it('still opens the “hide the whole product” window for the last visible version', async () => {
+      await show(owner)
+      fireEvent.click(open('S').getByRole('button', { name: words.versions.hideConfirm }))
+      fireEvent.click(open('M').getByRole('button', { name: words.versions.hideConfirm }))
+      const box = open('L')
+      expect(box.getByText(words.versions.allHidden)).toBeTruthy()
+      expect(box.queryByRole('radio')).toBeNull()
+      expect(box.getByRole('button', { name: words.apply })).toBeTruthy()
+    })
+  })
+
   it('sets the values filled in on every version made, keeping the rest as they are', async () => {
     await show(owner)
     fireEvent.click(screen.getByRole('button', { name: 'Hide L' }))
-    fireEvent.change(within(dialog()).getByLabelText('L'), { target: { value: 'remove' } })
-    fireEvent.click(within(dialog()).getByRole('button', { name: messages.editor.apply }))
+    fireEvent.click(within(dialog()).getByRole('radio', { name: new RegExp(words.versions.notMake) }))
+    fireEvent.click(within(dialog()).getByRole('button', { name: words.versions.notMakeConfirm }))
     expect((screen.getByRole('button', { name: 'Add a photo for L' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: words.versions.setPrice }))
     const box = within(dialog())
@@ -1267,8 +1321,8 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
     const applyBox = (box: ReturnType<typeof openBox>) => box.getByRole('button', { name: words.apply }) as HTMLButtonElement
     const notMake = (name: string) => {
       fireEvent.click(screen.getByRole('button', { name: `Hide ${name}` }))
-      fireEvent.change(within(dialog()).getByLabelText(name), { target: { value: 'remove' } })
-      fireEvent.click(within(dialog()).getByRole('button', { name: words.apply }))
+      fireEvent.click(within(dialog()).getByRole('radio', { name: new RegExp(words.versions.notMake) }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.versions.notMakeConfirm }))
     }
 
     it('lists Stock after what it costs you, and shows the title and the hint once each', async () => {
