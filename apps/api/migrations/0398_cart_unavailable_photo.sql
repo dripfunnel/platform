@@ -1,14 +1,15 @@
 -- #1465: a cart line whose product was hidden or deleted still shows its photo, so the file stays fetchable by its id.
 -- Backward-compatible: it only adds a way to read; the previous release's reads are unchanged (DATA-MODEL §7.11).
-grant select (asset_id) on product_photo to app_definer;
+grant select (asset_id, store_id) on product_photo to app_definer;
 
 create function asset_is_product_photo(file uuid) returns boolean
 language sql
 stable
 security definer
 set search_path = public
-as $$ select exists (select 1 from product_photo x where x.asset_id = file) $$;
+as $$ select exists (select 1 from product_photo x where x.asset_id = file and x.store_id = app_setting_uuid('app.store_id')) $$;
 alter function asset_is_product_photo(uuid) owner to app_definer;
+revoke all on function asset_is_product_photo(uuid) from public;
 grant execute on function asset_is_product_photo(uuid) to app_shop;
 
 alter policy asset_shop on asset using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and (

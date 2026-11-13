@@ -339,9 +339,9 @@ describe('a line that can’t be bought any more keeps what names it (#1465)', (
     await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${productId}, ${stores.india}, ${asset}, 0)`
     const added = await gql(`mutation { addToCart(versionId: "${version ?? ''}", quantity: 2) { cartToken } }`)
     const held = (added.data?.['addToCart'] as { cartToken: string }).cartToken
-    await state(productId, version ?? '')
+    const changed = await state(productId, version ?? '')
     const lines = ((await gql('{ cart { lines { productName productSlug versionName photoUrl unitPrice { amount } lineTotal { amount } problem } subtotal { amount } problems readyToPay } }', { token: held })).data?.['cart'] as { lines: Record<string, unknown>[]; subtotal: { amount: string }; problems: string[]; readyToPay: boolean })
-    return { asset, ...lines }
+    return { asset, changed, ...lines }
   }
 
   const keepsItsName = (result: Awaited<ReturnType<typeof seen>>) => {
@@ -377,8 +377,7 @@ describe('a line that can’t be bought any more keeps what names it (#1465)', (
       await db.sql`update product set visibility = 'hidden' where id = ${p}`
       return own
     })
-    const own = (await db.sql<{ photo_asset_id: string }[]>`select photo_asset_id from product_version where photo_asset_id is not null order by created_at desc limit 1`)[0]?.photo_asset_id ?? ''
-    expect(String(result.lines[0]?.['photoUrl'])).toContain(own)
+    expect(String(result.lines[0]?.['photoUrl'])).toContain(String(result.changed))
     expect(String(result.lines[0]?.['photoUrl'])).not.toContain(result.asset)
   })
 
@@ -388,6 +387,24 @@ describe('a line that can’t be bought any more keeps what names it (#1465)', (
     const loose = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${stores.india}, ${`stores/${stores.india}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'2'.repeat(64)}) returning id`)[0]?.id ?? ''
     expect((await withScope(db.sql, asShopper, (tx) => selectShopAsset(tx, stores.india, result.asset)))?.mime).toBe('image/png')
     expect(await withScope(db.sql, asShopper, (tx) => selectShopAsset(tx, stores.india, loose))).toBeNull()
+  })
+
+  it('never lets the shop read another store’s hidden product photo, nor answer for it', async () => {
+    const asShopper = (storeId: string): TenantContext => ({ caller: { kind: 'shopper', customerId: null, orderTokenHash: null }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+    const photoOf = async (storeId: string) => {
+      const [version] = await productWithChoices(db.sql, storeId, `Hidden ${crypto.randomUUID().slice(0, 8)}`, ['Size'], [{ choices: ['M'] }])
+      const productId = (await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${version ?? ''}`)[0]?.product_id ?? ''
+      const asset = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'3'.repeat(64)}) returning id`)[0]?.id ?? ''
+      await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${productId}, ${storeId}, ${asset}, 0)`
+      await db.sql`update product set visibility = 'hidden' where id = ${productId}`
+      return asset
+    }
+    const mine = await photoOf(stores.india)
+    const theirs = await photoOf(stores.other)
+    const answers = (asset: string) => withScope(db.sql, asShopper(stores.india), async (tx) => (await tx<{ x: boolean }[]>`select asset_is_product_photo(${asset}) as x`)[0]?.x)
+    expect(await answers(mine)).toBe(true)
+    expect(await answers(theirs)).toBe(false)
+    expect(await withScope(db.sql, asShopper(stores.india), (tx) => selectShopAsset(tx, stores.india, theirs))).toBeNull()
   })
 
   it('never names another store’s version', async () => {
