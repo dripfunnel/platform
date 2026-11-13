@@ -118,6 +118,20 @@ describe('size charts, the merchant’s', () => {
     expect(charts.loadSizeChart).toHaveBeenLastCalledWith('c2')
   })
 
+  it('says the store’s unit in the Start window as a whole line: cm for a metric store, inches for an imperial one (#1474)', async () => {
+    await show(owner, merchant)
+    fireEvent.click(screen.getByRole('button', { name: words.new }))
+    expect(dialog().getByText(words.startBodyCm)).toBeTruthy()
+    expect(words.startBodyCm).toBe('Numbers are in cm — you can switch to inches.')
+    cleanup()
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'USD', unitSystem: 'imperial', features: [{ key: 'sizeCharts', enabled: true, inPlan: true }] })
+    await show(owner, merchant)
+    fireEvent.click(screen.getByRole('button', { name: words.new }))
+    expect(dialog().getByText(words.startBodyIn)).toBeTruthy()
+    expect(words.startBodyIn).toBe('Numbers are in inches — you can switch to cm.')
+    expect(dialog().queryByText(words.startBodyCm)).toBeNull()
+  })
+
   it('starts one from a template in the store’s unit, and adds empty size-system columns', async () => {
     charts.saveSizeChart.mockResolvedValue({ id: 'c3', revision: 1 })
     await show(owner, merchant)
