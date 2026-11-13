@@ -40,9 +40,29 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
     notes: [
       'A theme may now hold its own PNG, JPEG and WebP images in `src/theme/media/` (#1405) and draw them with `<ThemeImage src="<name>" alt={…} ratio={…} />` (width over height) or name them in CSS as `url(media/<name>)`.',
       'A product\'s size chart is available (#1326): `useProduct().product.sizeChart` (null when the product has none) and `<SizeChart>` to show it.',
-      'Both are optional; no theme has to change.',
+      'Both are optional; no theme has to change. The codemods place the size chart link under the options of a Classic product page that still has the shipped markup (#1462); a theme that changed it places `<SizeChart chart={product.sizeChart} />` itself.',
     ].join('\n'),
-    codemods: [],
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: 'RichText, useProduct, useStorefront }',
+        replace: 'RichText, SizeChart, useProduct, useStorefront }',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: '<Options page={page} />\n            <p className={styles.stock} role="status">',
+        replace: '<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            <p className={styles.stock} role="status">',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/product.module.css'],
+        find: '\n.stock {',
+        replace:
+          '\n.sizeLink {\n  align-self: flex-start;\n  min-height: 24px;\n  padding: 0;\n  border: 0;\n  background: none;\n  color: var(--ink);\n  font: inherit;\n  font-size: 14px;\n  text-decoration: underline;\n  cursor: pointer;\n}\n\n.sizeLink:focus-visible {\n  outline: 2px solid var(--focus);\n  outline-offset: 2px;\n}\n\n.stock {',
+      },
+    ],
   },
   {
     version: '0.13.0',

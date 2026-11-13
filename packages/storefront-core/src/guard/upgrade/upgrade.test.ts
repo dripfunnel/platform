@@ -61,6 +61,20 @@ describe('the codemods', () => {
     expect(changesBetween(theme, after)).toEqual([])
   })
 
+  it('puts the size chart link into a Classic product page made before 0.14.0, once (#1462)', () => {
+    const file = 'src/theme/pages/ProductPage.tsx'
+    const page = "import { Breadcrumbs, Price, RichText, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'\n<Options page={page} />\n            <p className={styles.stock} role=\"status\">\n"
+    const css = '.price { color: var(--ink); }\n\n.stock {\n  color: var(--muted);\n}\n'
+    const old = new Map([[file, page], ['src/theme/styles/product.module.css', css]])
+    const codemods = notesBetween('0.13.0', '0.14.0', coreUpgradeNotes).flatMap((n) => n.codemods)
+    const once = applyCodemods(old, codemods)
+    const upgraded = once.get(file) ?? ''
+    expect(upgraded).toContain('RichText, SizeChart, useProduct')
+    expect(upgraded).toContain('<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            <p className={styles.stock}')
+    expect(once.get('src/theme/styles/product.module.css')).toMatch(/\.sizeLink \{[^}]*\}\n\n\.sizeLink:focus-visible \{[^}]*\}\n\n\.stock \{/)
+    expect(applyCodemods(new Map([[file, upgraded]]), codemods).get(file)).toBe(upgraded)
+  })
+
   it('pins core exactly and keeps the rest of package.json', () => {
     const pinned = JSON.parse(pinCore('{"name":"sf-x","dependencies":{"@dripfunnel/storefront-core":"1.0.0","react":"19"},"private":true}', '1.1.0')) as Record<string, unknown>
     expect(pinned).toEqual({ name: 'sf-x', dependencies: { '@dripfunnel/storefront-core': '1.1.0', react: '19' }, private: true })
