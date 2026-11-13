@@ -1,7 +1,7 @@
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
-import { minorOf } from '@dripfunnel/shared/format'
+import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { Fragment, useId, useState } from 'react'
-import { fill, formatCount, messages, plural } from '../../messages'
+import { fill, formatCount, locale, messages, plural } from '../../messages'
 import type { StockLevel, Warehouse } from '../../api/stock'
 import { AssetImage } from '../common/AssetImage'
 import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from '../common/productDraft'
@@ -390,7 +390,21 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
   const made = draft.versions.some((v) => v.choices.length === draft.options.length && draft.options.length > 0)
   const parts = draft.options.filter((o) => o.values.length > 0).map((o) => fill(words.choices.makesPart, { name: o.name, count: formatCount(o.values.length) })).join(' × ')
   const suggestions = words.choices.suggest.filter((s) => !draft.options.some((o) => sameName(o.name, s))).slice(0, 5)
-  const generate = () => update((d) => ({ ...d, versions: syncVersions(d) }))
+  const create = () => update((d) => ({ ...d, versions: syncVersions(d) }))
+  // The first versions start at the first price and at stock 0, so the stock typed now is lost (#1450).
+  const generate = () => {
+    if (draft.versions.some((v) => v.choices.length > 0)) return create()
+    const price = minorOf(draft.versions.find((v) => !v.removed)?.price ?? '', currency)
+    const typed = stock?.canStock && stock.warehouse ? quantityOf(draft.stock[versionKey([])]?.[stock.warehouse.id] ?? '') : null
+    const body = typeof price === 'number' && price > 0 ? fill(words.choices.createBody, { price: formatMoney({ amount: price, currency }, locale) }) : words.choices.createBodyUnpriced
+    ask({
+      title: fill(plural(words.choices.createTitle, combos), { count: formatCount(combos) }),
+      target: '',
+      consequence: typeof typed === 'number' && typed > 0 ? `${body} ${fill(words.choices.createStockLost, { count: formatCount(typed) })}` : body,
+      confirmLabel: words.choices.createConfirm,
+      onConfirm: create,
+    })
+  }
   return (
     <Card title={words.choices.title} aside={<span className="df-editor-meter">{words.choices.limits}</span>}>
       {draft.options.map((o, i) => (

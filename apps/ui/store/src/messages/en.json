@@ -1467,6 +1467,14 @@
       "makesPart": "{name} ({count})",
       "create": "Create {count} versions",
       "createOne": "Create 1 version",
+      "createTitle": {
+        "one": "Create 1 version?",
+        "other": "Create {count} versions?"
+      },
+      "createBody": "Each version gets its own price, starting at {price}, and its own stock, starting at 0.",
+      "createBodyUnpriced": "Each version gets its own price and its own stock, starting at 0.",
+      "createStockLost": "The {count} in stock now won’t carry over.",
+      "createConfirm": "Create versions",
       "update": "Update versions",
       "newOnes": {
         "one": "1 new version to create — pre-filled from the first one.",

@@ -511,10 +511,15 @@ class Component extends DCLogic {
 
   combos(options) { return options.filter(o => o.choices.length).reduce((acc, o) => acc.flatMap(a => o.choices.map(c => [...a, c])), [[]]); }
 
-  generate() {
+  generate(confirmed) {
     const { d } = this.state; const app = this.props.app;
     const opts = d.options.filter(o => o.choices.length);
     const combos = this.combos(opts);
+    if (!confirmed && !d.variants.length && combos.length) {
+      const lost = Number(d.stock) || 0;
+      app.modal({ title: combos.length === 1 ? 'Create 1 version?' : `Create ${combos.length} versions?`, body: `Each version gets its own price, starting at ${app.fmt(Number(d.price) || 0)}, and its own stock, starting at 0.${lost > 0 ? ` The ${lost} in stock now won’t carry over.` : ''}`, confirm: 'Create versions', onConfirm: () => this.generate(true) });
+      return;
+    }
     const prefix = (d.sku || this.autoSku(d.name, app)).split('-')[0];
     const oldByKey = {}; d.variants.forEach(v => { oldByKey[v.key] = v; });
     const sib = d.variants[0];
