@@ -527,6 +527,16 @@
   font-size: 12px;
 }
 
+/* Every box in the versions table keeps the width it had; the table scrolls sideways before one is squeezed, which only a store with hand-priced currencies needs at desktop width (#1349). */
+.df-editor-versions-table .df-editor-cell {
+  min-width: 60px;
+}
+
+.df-editor-money > .df-editor-cell {
+  flex: 1 1 84px;
+  min-width: 84px;
+}
+
 .df-editor-breakdown {
   display: flex;
   flex-wrap: wrap;

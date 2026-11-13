@@ -5,7 +5,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 import type { StockLevel, Warehouse } from '../../api/stock'
 import { AssetImage } from '../common/AssetImage'
 import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from '../common/productDraft'
-import { Card, exampleOf, PriceField, priceProblemOf, Profit, type PriceKey, type Update } from './EditorCards'
+import { Card, exampleOf, Money, PriceField, priceProblemOf, Profit, type PriceKey, type Update } from './EditorCards'
 import { reservedLine, StockHistory, type StockHistoryView } from './StockCard'
 import { VersionPhotoDialog, type VersionPhotoUpload } from './VersionPhotoDialog'
 
@@ -314,11 +314,15 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
                     </td>
                     <td>{name}</td>
                     <td>
-                      <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
+                      <Money currency={currency}>
+                        <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
+                      </Money>
                     </td>
                     {manual.map((c) => (
                       <td key={c}>
-                        <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.manualOf, { currency: c, name })} value={v.manualPrices[c] ?? ''} readOnly={disabled || v.removed} onChange={(event) => set(i, { manualPrices: { ...v.manualPrices, [c]: event.target.value } })} />
+                        <Money currency={c}>
+                          <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.manualOf, { currency: c, name })} value={v.manualPrices[c] ?? ''} readOnly={disabled || v.removed} onChange={(event) => set(i, { manualPrices: { ...v.manualPrices, [c]: event.target.value } })} />
+                        </Money>
                       </td>
                     ))}
                     {where && (

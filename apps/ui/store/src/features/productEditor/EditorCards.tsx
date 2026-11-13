@@ -245,14 +245,21 @@ const priceLabels: Record<PriceKey, { label: ReactNode; placeholder: string }> =
   cost: { label: <>{words.price.cost} <span className="df-editor-hint-inline">{words.price.costHint}</span></>, placeholder: words.price.costPlaceholder },
 }
 
+/** A money box with its currency written outside it, on its left: decoration, the box keeps its own name. The Price field and the versions table share it (#1349). */
+export const Money = ({ currency, children }: { currency: string; children: ReactNode }) => (
+  <span className="df-editor-money">
+    <span aria-hidden="true">{currency}</span>
+    {children}
+  </span>
+)
+
 /** One money field of the Price card, also a version's and the bulk box's. */
 export const PriceField = ({ id, field, value, currency, problem, readOnly, onChange }: { id: string; field: PriceKey; value: string; currency: string; problem: string | null; readOnly: boolean; onChange: (value: string) => void }) => (
   <div className="df-editor-field">
     <label htmlFor={id}>{priceLabels[field].label}</label>
-    <span className="df-editor-money">
-      <span aria-hidden="true">{currency}</span>
+    <Money currency={currency}>
       <input id={id} inputMode="decimal" value={value} readOnly={readOnly} placeholder={priceLabels[field].placeholder} aria-invalid={problem !== null} aria-describedby={problem ? `${id}-p` : undefined} onChange={(event) => onChange(event.target.value)} />
-    </span>
+    </Money>
     {problem && <Problem id={`${id}-p`} text={problem} />}
   </div>
 )
