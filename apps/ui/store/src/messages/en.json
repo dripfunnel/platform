@@ -1331,6 +1331,10 @@
       "main": "Main photo",
       "makeMain": "Make main photo",
       "remove": "Remove {name}",
+      "removeUsed": {
+        "one": "1 version shows this photo. It goes back to the main photo.",
+        "other": "{count} versions show this photo. They go back to the main photo."
+      },
       "add": "Add a photo",
       "addMore": "Add more",
       "uploading": "Uploading…",
@@ -1482,8 +1486,20 @@
       "photo": "Photo",
       "photoAdd": "Add a photo for {name}",
       "photoChange": "Change the photo of {name}",
-      "photoBody": "Choose what shoppers see when they pick this version.",
-      "photoUpload": "Upload a new photo",
+      "photoTitle": "Photo for {name}",
+      "photoLine": "Pick from this product’s photos. Shoppers see it when they choose this version.",
+      "photoProducts": "Product photos · {count}",
+      "photoFrom": "From the Photos section",
+      "photoName": "Photo {number}",
+      "photoUsed": {
+        "one": "Used by 1 version",
+        "other": "Used by {count} versions"
+      },
+      "photoUnused": "Not used yet",
+      "photoUploadNew": "Upload new photo",
+      "photoUploadHint": "Not here? It’s added to Photos too",
+      "photoUse": "Use this photo",
+      "photoPick": "Pick a photo to use.",
       "photoMain": "Use the main photo",
       "version": "Version",
       "price": "Price",

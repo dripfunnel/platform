@@ -972,8 +972,8 @@ class Component extends DCLogic {
     const app = this.props.app; const d = this.state.d;
     const ready = d.photos.filter(p => !p.uploading && !p.failed);
     const current = d.variants.find(match);
-    const choices = [...ready.map((p, i) => ({ label: 'Photo ' + (i + 1) + (i === 0 ? ' · main photo' : ''), sub: p.alt || 'No description yet', value: p.id })), { label: 'Upload a new photo', sub: 'Adds it to the product’s photos too', value: '__new' }, ...(current && current.photoId ? [{ label: 'Use the main photo', sub: 'Remove this version’s own photo', value: '__none' }] : [])];
-    app.modal({ title: 'Photo for ' + label, body: 'Shoppers see this photo when they pick ' + label + '.', choices, confirm: 'Use this photo',
+    const choices = [...ready.map((p, i) => ({ label: 'Photo ' + (i + 1) + (i === 0 ? ' · main photo' : ''), sub: (() => { const n = d.variants.filter(v => !v.removed && v.photoId === p.id).length; return (p.alt || 'No description yet') + ' · ' + (n === 0 ? 'Not used yet' : n === 1 ? 'Used by 1 version' : 'Used by ' + n + ' versions'); })(), value: p.id })), { label: 'Upload new photo', sub: 'Not here? It’s added to Photos too', value: '__new' }, ...(current && current.photoId ? [{ label: 'Use the main photo', sub: 'Remove this version’s own photo', value: '__none' }] : [])];
+    app.modal({ title: 'Photo for ' + label, body: 'Pick from this product’s photos. Shoppers see it when they choose ' + label + '.', choices, confirm: 'Use this photo',
       onConfirm: val => {
         if (val === '__new') {
           const id = 'ph' + Date.now();

@@ -1,6 +1,7 @@
 import { formatMoney, minorOf } from '@dripfunnel/shared/format'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useRef, type ReactNode } from 'react'
-import { fill, locale, messages } from '../../messages'
+import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { AssetVideo } from '../common/AssetVideo'
 import { isVideoFile } from '../common/videoLength'
@@ -63,10 +64,12 @@ export const PhotosCard = ({
   onVideo,
   onRetry,
   onDismiss,
+  ask,
 }: {
   draft: Draft
   update: Update
   disabled: boolean
+  ask: (props: Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>) => void
   pending: readonly PendingPhoto[]
   onFiles: (files: File[]) => void
   /** The store's plan has video and it is switched on: the picker takes one MP4 or WebM, handed to `onVideo`. */
@@ -77,8 +80,7 @@ export const PhotosCard = ({
 }) => {
   const input = useRef<HTMLInputElement>(null)
   const altId = useId()
-  const own = draft.photos.filter((p) => p.versionChoices === null)
-  // Versions' own photos count too: the API's limit is on every photo of the product.
+  const own = draft.photos
   const count = draft.photos.length
   const taken = photosTaken(count, pending)
   const full = count >= maxPhotos
@@ -86,7 +88,12 @@ export const PhotosCard = ({
   const videoShown = videoOn || draft.video !== null
   const canAdd = !noRoom || (videoOn && draft.video === null)
   const move = (assetId: string) => update((d) => ({ ...d, photos: [...d.photos.filter((p) => p.assetId === assetId), ...d.photos.filter((p) => p.assetId !== assetId)] }))
-  const remove = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId) }))
+  const drop = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId), versions: d.versions.map((v) => (v.photoAssetId === assetId ? { ...v, photoAssetId: null } : v)) }))
+  const remove = (assetId: string, name: string) => {
+    const using = draft.versions.filter((v) => !v.removed && v.photoAssetId === assetId).length
+    if (using === 0) return drop(assetId)
+    ask({ title: fill(words.photos.remove, { name }), target: name, consequence: fill(plural(words.photos.removeUsed, using), { count: formatCount(using) }), confirmLabel: words.photos.dismiss, danger: true, onConfirm: () => drop(assetId) })
+  }
   return (
     <Card title={words.photos.title} aside={<span className="df-editor-meter">{videoShown ? fill(words.photos.meterVideo, { count: String(count), limit: String(maxPhotos), videos: draft.video ? '1' : '0' }) : fill(words.photos.meter, { count: String(count), limit: String(maxPhotos) })}</span>}>
       <ul className="df-editor-photos">
@@ -101,7 +108,7 @@ export const PhotosCard = ({
                     ★
                   </button>
                 )}
-                <button type="button" aria-label={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} title={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} onClick={() => remove(photo.assetId)}>
+                <button type="button" aria-label={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} title={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} onClick={() => remove(photo.assetId, photo.alt || String(i + 1))}>
                   ×
                 </button>
               </span>

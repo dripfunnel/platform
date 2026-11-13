@@ -259,6 +259,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       hsCode: t.exposeString('hs_code', { nullable: true }),
       // Null: the store's default class (CATALOG fact 38).
       taxClassId: t.exposeID('tax_class_id', { nullable: true }),
+      // One of the product's photos (#1460); null shows the main photo.
+      photoAssetId: t.exposeID('photo_asset_id', { nullable: true }),
       customsDescription: t.exposeString('customs_description', { nullable: true }),
       trackStock: t.exposeBoolean('track_stock', { nullable: true }),
       continueSelling: t.exposeBoolean('continue_selling', { nullable: true }),
@@ -403,7 +405,7 @@ export const registerProducts = (builder: StoreBuilder) => {
   })
 
   const PhotoInput = builder.inputType('ProductPhotoInput', {
-    // `version` is the photo's version by its place in `versions`, so a new version can have one.
+    // `version` is for older clients: that version (by its place in `versions`) shows this photo. New ones set `photoAssetId` on the version.
     fields: (t) => ({ assetId: t.string({ required: true }), alt: t.string(), version: t.int() }),
   })
   const VideoInput = builder.inputType('ProductVideoInput', { fields: (t) => ({ assetId: t.string(), url: t.string() }) })
@@ -453,6 +455,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       heightMm: t.int(),
       hsCode: t.string(),
       taxClassId: t.id(),
+      // One of the product's photos; left out keeps it, null shows the main photo.
+      photoAssetId: t.string(),
       customsDescription: t.string(),
       trackStock: t.boolean(),
       continueSelling: t.boolean(),

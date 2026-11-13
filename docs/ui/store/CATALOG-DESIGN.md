@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -819,8 +819,11 @@ depend on an engine capability whose release is not yet chosen.
 - D10. Rename an option or a choice ("Red" → "Maroon") without touching stock or prices.
 - D11. Reorder options and choices. This changes the order the shopper sees.
 - D12. Per-version photo ("Show this photo when Red is picked"), usually set per colour rather
-  than per version. Built on #1117 as one photo per version; "Photo for all {colour}" waits for a
-  photo shared by several versions (`product_photo_asset_key` allows one).
+  than per version. Built on #1117 as one upload per version; #1460 made it a pick from the product's own
+  photos (`product_version.photo_asset_id`), so one photo can serve several versions. The window
+  "Photo for {version}" shows every photo of the Photos section as a tile with "Used by N versions",
+  **Upload new photo** (added to Photos too) and **Use the main photo**. "Photo for all {colour}"
+  (one click for every version of a colour) is still to build.
 - D13. Per-version tax class, classification code, barcode and weight, defaulting from the
   product and overridable. For example, a children's size can be zero-rated in the UK while
   the adult sizes are not.

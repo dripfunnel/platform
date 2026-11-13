@@ -20,6 +20,7 @@ import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChan
 import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
 import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
 import { GiftCardsIssued } from './GiftCardsIssued'
+import { type VersionPhotoUpload } from './VersionPhotoDialog'
 import { BasicsCard, KindCard, maxPhotos, PhotosCard, photosTaken, PriceCard, type PendingPhoto } from './EditorCards'
 import { maxVideoBytes, maxVideoSeconds, videoSeconds } from '../common/videoLength'
 import { EditorSections, SidePanel } from './EditorSections'
@@ -149,7 +150,6 @@ export const ProductEditor = () => {
   const [problemTick, setProblemTick] = useState(0)
   const [failure, setFailure] = useState<{ text: string; stale: boolean } | null>(null)
   const [pending, setPending] = useState<PendingPhoto[]>([])
-  const [versionUploads, setVersionUploads] = useState<ReadonlySet<string>>(new Set())
   const [ask, setAsk] = useState<Parameters<Ask>[0] | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [copying, setCopying] = useState(false)
@@ -272,7 +272,7 @@ export const ProductEditor = () => {
       if (!result.ok) return setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'failed', message: words.photos.refused[result.code] } : p)))
       files.current.delete(id)
       setPending((list) => list.filter((p) => p.id !== id))
-      update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '', versionChoices: null }] }))
+      update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '' }] }))
     })
   }
   const sendVideo = async (id: string, file: File) => {
@@ -303,7 +303,7 @@ export const ProductEditor = () => {
     const file = files.current.get(id)
     if (!file) return
     if (pending.find((p) => p.id === id)?.kind === 'video') void sendVideo(id, file)
-    else if (photosTaken(draft.photos.length, pending) + versionUploads.size >= maxPhotos) setToast(words.photos.limit)
+    else if (photosTaken(draft.photos.length, pending) >= maxPhotos) setToast(words.photos.limit)
     else upload(id, file)
   }
   const dismiss = (id: string) => {
@@ -317,16 +317,13 @@ export const ProductEditor = () => {
     setPending((list) => [...list, ...added.map((a) => ({ id: a.id, name: a.file.name, state: 'uploading' as const, message: null }))])
     for (const a of added) upload(a.id, a.file)
   }
-  const ofVersion = (key: string) => (p: Draft['photos'][number]) => p.versionChoices !== null && versionKey(p.versionChoices) === key
-  const uploadVersionPhoto = (choices: string[], file: File) => {
-    const key = versionKey(choices)
-    if (!draft.photos.some(ofVersion(key)) && photosTaken(draft.photos.length, pending) + versionUploads.size >= maxPhotos) return setToast(words.photos.limit)
-    setVersionUploads((s) => new Set([...s, key]))
-    void uploadPhoto(file).then((result) => {
-      setVersionUploads((s) => new Set([...s].filter((k) => k !== key)))
-      if (!result.ok) return setToast(words.photos.refused[result.code])
-      update((d) => ({ ...d, photos: [...d.photos.filter((p) => !ofVersion(key)(p)), { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '', versionChoices: choices }] }))
-    })
+  /** "Upload new photo" in a version's window: added to Photos like any upload, then picked there. */
+  const uploadForVersion: VersionPhotoUpload = async (file) => {
+    if (photosTaken(draft.photos.length, pending) >= maxPhotos) return { ok: false, message: words.photos.limit }
+    const result = await uploadPhoto(file)
+    if (!result.ok) return { ok: false, message: words.photos.refused[result.code] }
+    update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '' }] }))
+    return { ok: true, assetId: result.assetId }
   }
 
   const idsOf = (p: EditorProduct | null) => new Map((p?.versions ?? []).map((v) => [versionKey(v.choices), v.id]))
@@ -364,7 +361,7 @@ export const ProductEditor = () => {
       return
     }
     // A photo still on its way isn't in the product yet; saving now would leave it out.
-    if (pending.some((p) => p.state === 'uploading') || versionUploads.size > 0) {
+    if (pending.some((p) => p.state === 'uploading')) {
       setToast(words.photos.waitUpload)
       return
     }
@@ -646,7 +643,7 @@ export const ProductEditor = () => {
               {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
             </GiftCardCard>
           )}
-          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} videoOn={view.videoOn} onVideo={addVideo} onRetry={retry} onDismiss={dismiss} />
+          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} videoOn={view.videoOn} onVideo={addVideo} onRetry={retry} onDismiss={dismiss} ask={setAsk} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
           {!made && draft.kind !== 'gift_card' && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
@@ -655,7 +652,7 @@ export const ProductEditor = () => {
                 </PriceCard>
               )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
-          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} photos={{ uploading: versionUploads, onFile: uploadVersionPhoto }} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
+          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} photos={{ upload: uploadForVersion }} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
           <QuestionsSection
             draft={draft}
             update={update}

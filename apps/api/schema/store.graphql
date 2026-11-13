@@ -2278,6 +2278,7 @@ type ProductVersion {
   id: ID
   lengthMm: Int
   name: String
+  photoAssetId: ID
   prices: [VersionPrice!]
   sku: String
   taxClassId: ID
@@ -2298,6 +2299,7 @@ input ProductVersionInput {
   id: ID
   lengthMm: Int
   name: String
+  photoAssetId: String
   prices: [VersionPriceInput!]!
   sku: String
   taxClassId: ID

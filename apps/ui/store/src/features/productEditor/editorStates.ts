@@ -42,7 +42,7 @@ const version = (id: string, choices: string[], amount: string, visible = true) 
   widthMm: 200,
   heightMm: 30,
   hsCode: '620520',
-  taxClassId: null,
+  taxClassId: null, photoAssetId: null,
   trackStock: true, continueSelling: false,
 })
 

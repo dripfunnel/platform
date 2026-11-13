@@ -1,12 +1,13 @@
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { minorOf } from '@dripfunnel/shared/format'
-import { Fragment, useId, useRef, useState } from 'react'
+import { Fragment, useId, useState } from 'react'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { StockLevel, Warehouse } from '../../api/stock'
 import { AssetImage } from '../common/AssetImage'
 import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from '../common/productDraft'
 import { Card, exampleOf, PriceField, priceProblemOf, Profit, type PriceKey, type Update } from './EditorCards'
 import { reservedLine, StockHistory, type StockHistoryView } from './StockCard'
+import { VersionPhotoDialog, type VersionPhotoUpload } from './VersionPhotoDialog'
 
 /** The versions' stock at the default location, for a physical product (null otherwise). */
 export interface VersionStock {
@@ -121,10 +122,9 @@ const OptionRow = ({ draft, index, update, disabled, ask, onToast }: { draft: Dr
   )
 }
 
-/** A version's own photo, set one version at a time (#1117). */
+/** A version's photo is one of the product's photos; a new one is uploaded into Photos as well (#1460). */
 export interface VersionPhotos {
-  uploading: ReadonlySet<string>
-  onFile: (choices: string[], file: File) => void
+  upload: VersionPhotoUpload
 }
 
 type BulkValues = Record<PriceKey | 'stock', string>
@@ -188,8 +188,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
   const [search, setSearch] = useState('')
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
   const [bulk, setBulk] = useState(false)
-  const picker = useRef<HTMLInputElement>(null)
-  const picking = useRef<string[] | null>(null)
+  const [choosing, setChoosing] = useState<number | null>(null)
   const live = draft.versions.filter((v) => !v.removed)
   const q = search.trim().toLowerCase()
   const shown = draft.versions.map((v, i) => ({ v, i })).filter(({ v }) => !q || v.choices.join(' ').toLowerCase().includes(q))
@@ -220,23 +219,9 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
       return { ...d, versions: d.versions.map((v) => (v.removed ? v : { ...v, ...filled })), stock: counted }
     })
   }
-  const photoOf = (v: DraftVersion) => draft.photos.find((p) => p.versionChoices !== null && versionKey(p.versionChoices) === versionKey(v.choices)) ?? null
-  const openPicker = (v: DraftVersion) => {
-    picking.current = v.choices
-    picker.current?.click()
-  }
-  const pickPhoto = (v: DraftVersion) => {
-    if (!photoOf(v)) return openPicker(v)
-    const name = v.choices.join(' / ')
-    ask({
-      title: name,
-      target: name,
-      consequence: words.versions.photoBody,
-      confirmLabel: messages.editor.apply,
-      choices: [{ key: 'photo', label: words.versions.photo, options: [{ value: 'upload', label: words.versions.photoUpload }, { value: 'main', label: words.versions.photoMain }], initial: 'upload', error: () => null }],
-      onConfirm: (_, __, picks) => (picks['photo'] === 'main' ? update((d) => ({ ...d, photos: d.photos.filter((p) => p.versionChoices === null || versionKey(p.versionChoices) !== versionKey(v.choices)) })) : openPicker(v)),
-    })
-  }
+  const photoOf = (v: DraftVersion) => draft.photos.find((p) => p.assetId === v.photoAssetId) ?? null
+  const usedBy = (assetId: string) => live.filter((v) => v.photoAssetId === assetId).length
+  const choose = choosing === null ? null : (draft.versions[choosing] ?? null)
   const toggleMore = (key: string) => setOpened((s) => (s.has(key) ? new Set([...s].filter((k) => k !== key)) : new Set([...s, key])))
   const columns = 6 + manual.length + (where ? 1 : 0)
   return (
@@ -250,19 +235,24 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
         )}
       </div>
       {bulk && <BulkDialog count={live.length} currency={currency} canStock={where !== null && stock?.canStock === true} onApply={setAll} onCancel={() => setBulk(false)} />}
-      <input
-        ref={picker}
-        className="df-visually-hidden"
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif,image/heic"
-        tabIndex={-1}
-        aria-hidden="true"
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file && picking.current) photos.onFile(picking.current, file)
-          event.target.value = ''
-        }}
-      />
+      {choose && choosing !== null && (
+        <VersionPhotoDialog
+          name={choose.choices.join(' / ')}
+          photos={draft.photos}
+          usedBy={usedBy}
+          current={photoOf(choose)?.assetId ?? null}
+          upload={photos.upload}
+          onUse={(assetId) => {
+            set(choosing, { photoAssetId: assetId })
+            setChoosing(null)
+          }}
+          onMain={() => {
+            set(choosing, { photoAssetId: null })
+            setChoosing(null)
+          }}
+          onCancel={() => setChoosing(null)}
+        />
+      )}
       {stock && where && (
         <div className="df-editor-stock-summary">
           <span>{fill(messages.editor.stock.versionsTotal, { count: formatCount(live.reduce((sum, v) => sum + (Number(typedAt(v)) || 0), 0)) })}</span>
@@ -302,14 +292,13 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
               const costProblem = v.removed ? null : priceProblemOf(v, 'cost', currency, problems)
               const open = opened.has(key) || compareProblem !== null || costProblem !== null
               const photo = photoOf(v)
-              const uploading = photos.uploading.has(key)
               const photoLabel = fill(photo ? words.versions.photoChange : words.versions.photoAdd, { name })
               return (
                 <Fragment key={name || i}>
                   <tr className={v.removed ? 'df-editor-version--removed' : undefined}>
                     <td>
-                      <button type="button" className={photo && !uploading ? 'df-editor-vphoto' : 'df-editor-vphoto df-editor-vphoto--empty'} aria-label={photoLabel} title={photoLabel} disabled={disabled || v.removed || uploading} onClick={() => pickPhoto(v)}>
-                        {uploading ? '…' : photo ? <AssetImage className="df-editor-photo-img" url={photo.url} alt="" placeholder="" /> : '+'}
+                      <button type="button" className={photo ? 'df-editor-vphoto' : 'df-editor-vphoto df-editor-vphoto--empty'} aria-label={photoLabel} title={photoLabel} disabled={disabled || v.removed} onClick={() => setChoosing(i)}>
+                        {photo ? <AssetImage className="df-editor-photo-img" url={photo.url} alt="" placeholder="" /> : '+'}
                       </button>
                     </td>
                     <td>{name}</td>
