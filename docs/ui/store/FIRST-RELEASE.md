@@ -575,7 +575,10 @@ asking, as the API can't make a file without a currency.
   that answered (`saveProductKind`), then any keys; when the kind's card fails after the product saved, what was typed
   stays on the page and the bar says so (a new product's carries to its own page, never its keys). A supplier's
   kinds are physical only (the API refuses `SUPPLIER_FIELD`); Staff and a read-only store see the cards and the
-  counts with nothing to change.
+  counts with nothing to change. **A product saved as a physical item stays one** (#1459): the other three cards
+  are greyed out under "You can't change what you're selling once the product is saved. To sell it another way, add
+  a new product." A new product picks any kind, and a saved download, service or gift card can still switch; the
+  server doesn't refuse a change of kind.
   Decided here: a download's file is named by its type and size, as the API keeps no file name; a download without
   its file can't be saved; a gift card's amounts are **one kind of choice, "Amount"**, a value per amount named as it
   is shown ("₹500"), and none for a single amount; switching a product to a gift card makes its prices its amounts

@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -568,7 +568,8 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     different tax rules (EU and UK digital VAT is charged where the shopper lives). The engine's
     product type (PLATFORM-PROMPT §3.3) covers physical, digital, services and gift cards, all in
     the first release (FIRST-RELEASE §1). Design the "What are you selling?" choice
-    (Physical · Digital · Service · Gift card).
+    (Physical · Digital · Service · Gift card). Once a product is saved as a physical item the choice is
+    locked to it (#1459); a new product, or a saved download, service or gift card, can still pick any kind.
 
 ### Questions the shopper answers (product customisation)
 

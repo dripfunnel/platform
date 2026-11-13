@@ -526,11 +526,14 @@ describe('the product editor', () => {
   it('saves no counts for a product that is no longer physical', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     kindApi.saveProductKind.mockResolvedValue({ productId: 'p1', productType: 'service', revision: 4, download: null, service: { duration: null, location: null } })
-    await show(owner)
+    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'service', service: { duration: null, location: null } }))
+    await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Tailoring' } })
+    fireEvent.change(field(words.price.price), { target: { value: '499' } })
     fireEvent.change(field('Stock at Jaipur studio'), { target: { value: 'many' } })
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.service) }))
     api.loadProduct.mockResolvedValue(cushion({ productType: 'service' }))
-    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
     await settle()
     expect(api.saveProduct).toHaveBeenCalled()
     expect(stockApi.setStock).not.toHaveBeenCalled()
@@ -1045,6 +1048,8 @@ describe('downloads, services and gift cards in the editor', () => {
   })
 
   it('turns a product’s price into a gift card’s one amount, and keeps at least one', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'service' }))
+    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'service', service: { duration: null, location: null } }))
     await show(owner)
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.gift_card) }))
     expect(screen.getByText('₹1,299')).toBeTruthy()
@@ -1147,6 +1152,36 @@ describe('downloads, services and gift cards in the editor', () => {
     expect(api.saveProduct).toHaveBeenCalled()
     expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(kinds.refused.EXPIRY_TOO_SHORT)).toBeTruthy()
     expect((screen.getByLabelText(kinds.giftCard.expiry) as HTMLSelectElement).value).toBe('84')
+  })
+
+  it('locks a saved physical item to physical, and says why (#1459)', async () => {
+    await show(owner)
+    for (const kind of ['digital', 'service', 'gift_card'] as const) {
+      const card = screen.getByRole('radio', { name: new RegExp(words.kind[kind]) }) as HTMLButtonElement
+      expect(card.disabled).toBe(true)
+      fireEvent.click(card)
+    }
+    expect((screen.getByRole('radio', { name: new RegExp(words.kind.physical) }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByText(words.kind.locked)).toBeTruthy()
+    expect(screen.queryByText(words.kind.gone)).toBeNull()
+  })
+
+  it('lets a new product pick any kind, with no lock hint (#1459)', async () => {
+    await show(owner, '/products/new')
+    for (const kind of ['physical', 'digital', 'service', 'gift_card'] as const) expect((screen.getByRole('radio', { name: new RegExp(words.kind[kind]) }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.queryByText(words.kind.locked)).toBeNull()
+  })
+
+  it('lets a saved download, service or gift card switch kind (#1459)', async () => {
+    for (const [productType, details] of [['digital', { download: { mode: 'file', file: null, limit: 5, days: 30, keysLeft: 0, keysSold: 0 } }], ['service', { service: { duration: null, location: null } }], ['gift_card', { giftCard: { expiryMonths: 12, shortestMonths: 12 } }]] as const) {
+      api.loadProduct.mockResolvedValue(cushion({ productType }))
+      kindApi.loadProductKind.mockResolvedValue(kindView({ productType, ...details }))
+      kindApi.loadGiftCards.mockResolvedValue({ rows: [], next: null })
+      await show(owner)
+      for (const kind of ['physical', 'digital', 'service', 'gift_card'] as const) expect((screen.getByRole('radio', { name: new RegExp(words.kind[kind]) }) as HTMLButtonElement).disabled).toBe(false)
+      expect(screen.queryByText(words.kind.locked)).toBeNull()
+      cleanup()
+    }
   })
 
   it('keeps a supplier to physical items, and never reads a kind for it', async () => {
