@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Checkbox, Form, Link, Price, SubmitButton, TextField, addressDraft, navigate, useAccount, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Checkbox, Form, Link, PhoneField, Price, SubmitButton, TextField, addressDraft, navigate, useAccount, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { Retry } from './Retry'
@@ -18,7 +18,9 @@ const pathOf: Record<Section, string> = { orders: '/account/orders/', details: '
 export const AccountView = ({ section }: { section: Section }) => {
   const { t } = useStorefront()
   const page = useAccount()
+  const [phoneSaved, setPhoneSaved] = useState(false)
   const here = pathOf[section]
+  useEffect(() => setPhoneSaved(false), [section])
   useEffect(() => {
     if (page.status === 'signedOut') navigate(`/sign-in/?next=${here}`, { replace: true })
   }, [page.status, here])
@@ -61,7 +63,7 @@ export const AccountView = ({ section }: { section: Section }) => {
           {tab(pathOf.wishlist, t('shop.wishlist.title'), section === 'wishlist')}
         </nav>
         <div className={styles.body}>
-          {page.error ? (
+          {page.error && page.error.of !== 'phone' ? (
             <p className={styles.alert} role="alert">
               {page.error.of === 'details'
                 ? t('shop.account.refused.details')
@@ -72,7 +74,7 @@ export const AccountView = ({ section }: { section: Section }) => {
                     : t('shop.account.refused.other')}
             </p>
           ) : null}
-          {section === 'orders' ? <Orders /> : section === 'details' ? <Details page={page} /> : section === 'wishlist' ? <WishlistList /> : <Addresses page={page} />}
+          {section === 'orders' ? <Orders /> : section === 'details' ? <Details page={page} phoneSaved={phoneSaved} setPhoneSaved={setPhoneSaved} /> : section === 'wishlist' ? <WishlistList /> : <Addresses page={page} />}
         </div>
       </div>
     </section>
@@ -151,7 +153,7 @@ const Orders = () => {
   )
 }
 
-const Details = ({ page }: { page: AccountPage }) => {
+const Details = ({ page, phoneSaved, setPhoneSaved }: { page: AccountPage; phoneSaved: boolean; setPhoneSaved: (saved: boolean) => void }) => {
   const { t } = useStorefront()
   const account = page.account
   const [name, setName] = useState<string | null>(null)
@@ -171,14 +173,122 @@ const Details = ({ page }: { page: AccountPage }) => {
             {account.email ?? t('shop.account.none')} {account.email && account.emailVerified ? <span className={styles.pill}>{t('shop.account.verified')}</span> : null}
           </dd>
         </div>
-        <div>
-          <dt>{t('shop.checkout.phone')}</dt>
-          <dd>
-            {account.phone ?? t('shop.account.none')} {account.phone && account.phoneVerified ? <span className={styles.pill}>{t('shop.account.verified')}</span> : null}
-          </dd>
-        </div>
+        <MobileNumber page={page} saved={phoneSaved} setSaved={setPhoneSaved} />
       </dl>
+      {phoneSaved ? (
+        <p className={styles.note} role="status">
+          {t('shop.account.phoneSaved')}
+        </p>
+      ) : null}
     </Card>
+  )
+}
+
+/** Mobile number as the prototype draws it (Account › Your details), with Add or Change: a number, then the code texted to it, open under it (#1404). */
+const MobileNumber = ({ page, saved, setSaved }: { page: AccountPage; saved: boolean; setSaved: (saved: boolean) => void }) => {
+  const { t, locale, store } = useStorefront()
+  const account = page.account
+  const [open, setOpen] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const [errors, setErrors] = useState<Partial<Record<'to' | 'code', FieldProblem>>>({})
+  const trigger = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  const savedBefore = useRef(saved)
+  // Focus follows the shopper: each field takes it as it appears (autoFocus), and Add or Change takes it back when the form closes or the account reloads after a save (WCAG 2.4.3).
+  useEffect(() => {
+    if (!open && wasOpen.current) trigger.current?.focus()
+    wasOpen.current = open
+  }, [open])
+  useEffect(() => {
+    if (savedBefore.current) trigger.current?.focus()
+  }, [])
+  if (!account) return null
+  const problem = (p: FieldProblem | undefined, field?: 'code') => (p === 'required' ? t('shop.checkout.required') : p === 'invalid' ? (field === 'code' ? t('shop.account.codeRule') : t('shop.checkout.invalid')) : null)
+  const refusal = (reason: string) =>
+    reason === 'CODE_REFUSED' ? t('shop.account.refused.code') : reason === 'RATE_LIMITED' ? t('shop.account.refused.tooMany') : reason === 'METHOD_OFF' ? t('shop.account.refused.methodOff') : reason === 'NETWORK' ? t('shop.account.refused.offline') : t('shop.account.refused.other')
+  const refused = page.error?.of === 'phone' ? refusal(page.error.code) : null
+  const reset = () => {
+    page.cancelPhone()
+    setCode('')
+    setErrors({})
+  }
+  const close = () => {
+    reset()
+    setPhone('')
+    setOpen(false)
+  }
+  const alert = refused ? (
+    <p className={styles.alert} role="alert">
+      {refused}
+    </p>
+  ) : null
+  return (
+    <div>
+      <dt>{t('shop.checkout.phone')}</dt>
+      <dd>
+        <span className={styles.between}>
+          <span>
+            {account.phone ?? t('shop.account.none')} {account.phone && account.phoneVerified ? <span className={styles.pill}>{t('shop.account.verified')}</span> : null}
+          </span>
+          {page.phoneAllowed && !open ? (
+            <button
+              ref={trigger}
+              type="button"
+              className={styles.link}
+              onClick={() => {
+                setSaved(false)
+                setOpen(true)
+              }}
+            >
+              {account.phone ? t('shop.account.changePhone') : t('shop.account.addPhone')}
+            </button>
+          ) : null}
+        </span>
+        {page.phoneAllowed && !open ? <small className={styles.note}>{t('shop.account.phoneUse')}</small> : null}
+        {open && page.phoneAllowed ? (
+          page.phoneCodeFor ? (
+            <Form
+              className={styles.form}
+              onSubmit={() =>
+                void page.confirmPhone(code).then((done) => {
+                  setErrors(done ?? {})
+                  if (done && Object.keys(done).length === 0) {
+                    setSaved(true)
+                    close()
+                  }
+                })
+              }
+            >
+              <p className={styles.note}>{t('shop.account.codeSent', { to: page.phoneCodeFor })}</p>
+              <TextField label={t('shop.account.code')} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={setCode} error={problem(errors.code, 'code')} className={styles.field} />
+              {alert}
+              <div className={styles.row}>
+                <SubmitButton className={shop.primary} disabled={page.busy}>
+                  {t('shop.account.savePhone')}
+                </SubmitButton>
+                <button type="button" className={styles.link} onClick={reset}>
+                  {t('shop.account.anotherNumber')}
+                </button>
+              </div>
+            </Form>
+          ) : (
+            <Form className={styles.form} onSubmit={() => void page.sendPhoneCode(phone).then((sent) => setErrors(sent ?? {}))}>
+              <PhoneField label={t('shop.checkout.phone')} codeLabel={t('shop.checkout.countryCode')} country={store.address?.country ?? ''} locale={locale} autoFocus value={phone} onChange={setPhone} hint={t('shop.account.phoneTextHint')} error={problem(errors.to)} className={styles.field} groupClassName={styles.phone} />
+              {alert}
+              <div className={styles.row}>
+                <SubmitButton className={shop.primary} disabled={page.busy}>
+                  {page.busy ? t('shop.account.sending') : t('shop.account.sendCode')}
+                </SubmitButton>
+                <button type="button" className={styles.link} onClick={close}>
+                  {t('shop.account.cancel')}
+                </button>
+              </div>
+            </Form>
+          )
+        ) : null}
+      </dd>
+    </div>
   )
 }
 

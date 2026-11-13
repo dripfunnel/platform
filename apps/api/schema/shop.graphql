@@ -10,6 +10,7 @@ type Mutation {
   applyGiftCard(number: String!): ShopCartChange
   checkout: ShopCart
   confirmPayment(orderId: ID!): ShopOrder
+  confirmPhone(code: String!, to: String!): Boolean
   deleteAddress(id: ID!): Boolean
   payOrder(app: ShopAppPaymentInput, orderId: ID!): ShopPaymentStart
   placeOrder(ageConfirmed: Boolean, app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
@@ -17,6 +18,7 @@ type Mutation {
   removeCode(code: String!): ShopCartChange
   removeFromWishlist(productId: ID!): Boolean
   removeGiftCard: ShopCartChange
+  requestPhoneCode(to: String!): Boolean
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   restoreCart(token: String!): ShopRestoredCart
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
