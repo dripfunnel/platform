@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 import { blankDraft, type Draft } from '../common/productDraft'
 import { QuestionsSection } from './QuestionsSection'
 
@@ -133,6 +133,66 @@ describe('the questions section', () => {
     const kind = screen.getByRole('combobox', { name: words.priceKind }) as HTMLSelectElement
     fireEvent.change(kind, { target: { value: 'PER_CHARACTER' } })
     expect(screen.getByRole('combobox', { name: words.priceKind })).toBe(kind)
+  })
+
+  describe('a price that needs fixing (#1457)', () => {
+    const fixed = (currency: string) => `Type a price in ${currency}.`
+    const percentage = 'Type a percentage above 0, up to 100.'
+    const kind = () => screen.getByRole('combobox', { name: words.priceKind })
+    const alerts = () => screen.queryAllByRole('alert').map((a) => a.textContent)
+    const typePercent = (value: string) => fireEvent.change(screen.getByLabelText(words.percent), { target: { value } })
+    const addTextQuestionPrice = () => {
+      render(<Harness />)
+      open()
+      fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addText }))
+      fireEvent.change(screen.getByRole('textbox', { name: words.question }), { target: { value: 'Gift note' } })
+      fireEvent.click(screen.getByRole('button', { name: `${words.priceAdd}: Gift note` }))
+    }
+
+    it('asks for a percentage, not a price, when the price is a percentage: empty, 0, 150 or text', () => {
+      addTextQuestionPrice()
+      fireEvent.change(kind(), { target: { value: 'PERCENT' } })
+      for (const value of ['', '0', '150', 'abc']) {
+        typePercent(value)
+        expect(alerts()).toEqual([percentage])
+      }
+      typePercent('25')
+      expect(alerts()).toEqual([])
+    })
+
+    it('still asks for a price in the currency for a fixed amount, empty or text', () => {
+      addTextQuestionPrice()
+      expect(alerts()).toEqual([fixed('INR')])
+      fireEvent.change(screen.getByLabelText(fill(words.amount, { currency: 'INR' })), { target: { value: 'abc' } })
+      expect(alerts()).toEqual([fixed('INR')])
+    })
+
+    it('changes the message with the price’s kind', () => {
+      addTextQuestionPrice()
+      expect(alerts()).toEqual([fixed('INR')])
+      fireEvent.change(kind(), { target: { value: 'PERCENT' } })
+      expect(alerts()).toEqual([percentage])
+      fireEvent.change(kind(), { target: { value: 'PER_CHARACTER' } })
+      expect(alerts()).toEqual([fixed('INR')])
+      fireEvent.change(kind(), { target: { value: 'FIXED' } })
+      expect(alerts()).toEqual([fixed('INR')])
+    })
+
+    it('says the same on a choice’s own price', () => {
+      render(<Harness />)
+      open()
+      fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addChoice }))
+      fireEvent.change(screen.getByRole('textbox', { name: words.question }), { target: { value: 'Wrapping' } })
+      fireEvent.change(screen.getByRole('textbox', { name: words.choice }), { target: { value: 'Yes, gift wrap' } })
+      fireEvent.click(screen.getByRole('button', { name: `${words.priceAdd}: Yes, gift wrap` }))
+      expect(alerts()).toEqual([fixed('INR')])
+      fireEvent.change(kind(), { target: { value: 'PERCENT' } })
+      expect(alerts()).toEqual([percentage])
+      typePercent('150')
+      expect(alerts()).toEqual([percentage])
+      fireEvent.change(kind(), { target: { value: 'FIXED' } })
+      expect(alerts()).toEqual([fixed('INR')])
+    })
   })
 
   it('offers nothing to change to a seat that can’t edit', () => {
