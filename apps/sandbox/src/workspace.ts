@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, join, normalize } from 'node:path'
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join, normalize, sep } from 'node:path'
 import { applyCodemods, baselineWithOwn, changesBetween, mediaFolder, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder, type ClientBundle } from './gate/bundle'
 import { WarmGate, type GateProblem, type Lane, type ThemeImages } from './gate/index'
 import { imageThemeFiles } from './gate/media'
 import { laneOf } from './gate/lanes'
+import { pagePicture, type Device, type Picture } from './gate/picture'
 import { gitIn, type Git } from './git'
 import { isRepoPath, isRefreshedPath, isThemePath } from './paths'
 
@@ -24,6 +26,7 @@ export type ChangeResult =
 export type Prechecked = { lane: Lane; problems: GateProblem[] }
 
 export type Loaded = { head: string; bundle: ClientBundle | null; problems: GateProblem[] }
+export type Shown = { ok: true; bundle: ClientBundle; swap: Swap } | { ok: false }
 
 /** The upgrade bot's commit: every file it wrote or removed, package.json included, and the notes it applied. */
 export type Upgraded = { commit: string; files: FileChange[]; notes: Pick<UpgradeNote, 'version' | 'kind' | 'notes'>[] }
@@ -140,6 +143,28 @@ export class Workspace {
     return { lane, problems: lane === 'full' ? [...problems, ...this.gate.typecheck(theme).problems] : problems }
   }
 
+  /** The agent's passing work, bundled for the frame and never committed (AI-STUDIO §4 "The agent"); no `files` shows the head again. */
+  async show(files: readonly FileChange[], context: GuardContext): Promise<Shown> {
+    if (studioImageProblems(files).length > 0 || !files.every((f) => isThemePath(f.path))) return { ok: false }
+    const theme = withChange(await this.theme(), files)
+    if ((await this.gate.validate(theme, context, await this.headImages())).length > 0) return { ok: false }
+    const next = join(this.client, 'next')
+    try {
+      for (const f of files) {
+        if (f.content === null) await rm(join(this.repo, f.path), { force: true })
+        else await this.write(f.path, f.content)
+      }
+      const bundled = await this.gate.bundle()
+      if (!bundled.ok) return { ok: false }
+      const swap: Swap = this.current && scripts(this.current) === scripts(bundled.bundle) ? 'stylesheet' : 'modules'
+      await this.promote(next, bundled.bundle)
+      return { ok: true, bundle: bundled.bundle, swap }
+    } finally {
+      await this.discard()
+      await rm(next, { recursive: true, force: true })
+    }
+  }
+
   /** Checks the loaded theme once, so the first change's typecheck is already warm. */
   async prime(): Promise<void> {
     if (this.loaded) this.gate.typecheck(await this.theme())
@@ -162,7 +187,7 @@ export class Workspace {
       else await this.write(f.path, f.content)
     }
     const next = join(this.client, 'next')
-    const gated = await this.gate.build(theme, lane)
+    const gated = await this.gate.build(theme, lane, context)
     if (!gated.ok) {
       await this.discard()
       await rm(next, { recursive: true, force: true })
@@ -251,7 +276,7 @@ export class Workspace {
       try {
         const theme = await this.theme()
         const refused = await this.gate.validate(theme, context, await this.headImages())
-        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full')
+        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full', context)
         if (!gated.ok) {
           await this.git(['reset', '--quiet', '--hard', before])
           await rm(next, { recursive: true, force: true })
@@ -326,13 +351,15 @@ export class Workspace {
     return readFile(file).catch(() => null)
   }
 
-  /** The current bundle's own files with their hashes, for the preview folder (PREVIEW §4 step 2). */
-  async previewFiles(): Promise<{ id: string; files: { path: string; sha256: string; base64: string }[] } | null> {
+  /** The current bundle's own files and core's runtime under assets/core/, with their hashes, for the preview folder (PREVIEW §3, §4 step 2). */
+  async previewFiles(runtimeDir: string): Promise<{ id: string; files: { path: string; sha256: string; base64: string }[] } | null> {
     if (!this.current) return null
+    const runtime = (await readdir(runtimeDir)).map((name) => ({ path: `${runtimeFolder}${name}`, file: join(runtimeDir, name) }))
+    const own = this.current.files.map((f) => ({ path: f.path, file: join(this.client, 'current', f.path) }))
     const files = await Promise.all(
-      this.current.files.map(async (f) => {
-        const bytes = await readFile(join(this.client, 'current', f.path))
-        return { path: f.path, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') }
+      [...own, ...runtime].map(async ({ path, file }) => {
+        const bytes = await readFile(file)
+        return { path, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') }
       }),
     )
     return { id: this.current.id, files }
@@ -369,6 +396,32 @@ export class Workspace {
   private async discard() {
     await this.git(['reset', '--quiet', '--hard', 'HEAD'])
     await this.git(['clean', '--quiet', '-fd'])
+  }
+
+  /**
+   * A picture of one page with `files` over the head (AI-STUDIO §4 "The agent"), drawn from a copy: the draft, its commits
+   * and its warm gate are never touched, and the copy is gone afterwards.
+   */
+  async picture(files: readonly FileChange[], page: string, device: Device, context: GuardContext): Promise<Picture> {
+    if (!files.every((f) => isThemePath(f.path))) return { images: [], problem: 'A path in the change is outside the theme.' }
+    // Nothing reaches the disk, or runs, before every path and line passed the validator (as in change and precheck).
+    if ((await this.gate.validate(withChange(await this.theme(), files), context, await this.headImages())).length > 0) return { images: [], problem: 'Call check and fix what it names first.' }
+    const scratch = await mkdtemp(join(tmpdir(), 'df-picture-'))
+    try {
+      const copy = join(scratch, 'repo')
+      await cp(this.repo, copy, { recursive: true, filter: (from) => !from.split(sep).includes('.git') })
+      for (const f of files) {
+        const at = join(copy, normalize(f.path))
+        if (f.content === null) await rm(at, { force: true })
+        else {
+          await mkdir(dirname(at), { recursive: true })
+          await writeFile(at, f.content)
+        }
+      }
+      return await pagePicture(copy, join(scratch, 'work'), page, device, context)
+    } finally {
+      await rm(scratch, { recursive: true, force: true })
+    }
   }
 
   private async write(path: string, content: string) {

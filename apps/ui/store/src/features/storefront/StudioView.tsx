@@ -74,6 +74,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [shownPath, setShownPath] = useState('/')
   const [editing, setEditing] = useState(false)
   const [textKey, setTextKey] = useState<string | null>(null)
+  const [pageFailed, setPageFailed] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [published, setPublished] = useState<PublishRun | null>(null)
@@ -154,7 +155,11 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     if (!session) return
     const onMessage = (event: MessageEvent) => {
       const message = frameMessage(event, session.origin, frameRef.current?.contentWindow ?? null)
-      if (message?.type === 'df-studio:page') setShownPath(message.path)
+      if (message?.type === 'df-studio:page') {
+        setShownPath(message.path)
+        setPageFailed(false)
+      }
+      if (message?.type === 'df-studio:problem') setPageFailed(true)
       if (message?.type === 'df-studio:text' && editing) setTextKey(message.key)
     }
     window.addEventListener('message', onMessage)
@@ -251,6 +256,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     if (locked) return false
     setBusy(true)
     setError(null)
+    setPageFailed(false)
     try {
       await work()
     } catch (e) {
@@ -377,6 +383,12 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     <li>
       <div className="df-studio-refused" role="alert">
         <span>{rolledBackText(ended, Math.max(1, (ended.version ?? next) - 1))}</span>
+      </div>
+    </li>
+  ) : pageFailed ? (
+    <li>
+      <div className="df-studio-refused" role="alert">
+        <span>{words.sandbox.pageFailed}</span>
       </div>
     </li>
   ) : null

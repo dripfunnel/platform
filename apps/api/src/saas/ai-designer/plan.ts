@@ -34,7 +34,7 @@ export const askAnswerSchema = z.union([
   z.strictObject({ plan: planSchema, reply: z.string().max(2000) }),
 ])
 
-const request = z.string().max(2000)
+const request = z.string().max(10_000)
 /** When a request moved the flow on to work on it; null once given back. */
 const claimedAt = z.iso.datetime().nullable().optional()
 const answers = z.array(z.strictObject({ question: words(160), answer: z.string().max(maxAnswer).nullable() })).max(maxQuestions)

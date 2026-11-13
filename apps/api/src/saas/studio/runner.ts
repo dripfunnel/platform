@@ -691,6 +691,15 @@ export class StudioRunner {
     const progress = input.progress ?? (() => undefined)
     let summarised = false
     const editing = firstOnly(() => progress({ type: 'step', step: 'editing' }))
+    const shownSteps = new Set<'reading' | 'editing' | 'checking'>()
+    // The frame follows the agent's passing work, and goes back to the draft when none of it is saved (AI-STUDIO §4 "The agent").
+    let showing = false
+    const show = async (changes: Parameters<SandboxClient['show']>[0]) => {
+      const shown = await this.recovering((client) => client.show(changes, context)).catch(() => null)
+      if (!shown?.ok) return
+      this.deps.onBundle(shown.bundle, shown.swap)
+      showing = changes.length > 0
+    }
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
@@ -699,7 +708,32 @@ export class StudioRunner {
           if (!this.client) return []
           return (await this.client.precheck(changes, context)).problems
         })
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: (file) => (editing(), streamed.add(file)), onIntro: (text) => progress({ type: 'thought', text }) }), stopping])
+        const proposal = await Promise.race([
+          input.model.propose({
+            request: input.request,
+            theme: [...theme].map(([path, content]) => ({ path, content })),
+            problems,
+            previous,
+            onFile: (file) => (editing(), streamed.add(file)),
+            onIntro: (text) => progress({ type: 'thought', text }),
+            // The agent's own checks (AI-STUDIO §4 "The agent"): the warm pre-check, nothing written or kept.
+            check: async (changes) => {
+              const { problems } = await this.recovering((client) => client.precheck(changes, context))
+              if (problems.length === 0) await show(changes)
+              return problems
+            },
+            screenshot: async (changes, page) => {
+              const picture = await this.recovering((client) => client.picture(changes, page, 'desktop', context))
+              return picture && picture.images.length > 0 ? picture.images.map((base64) => ({ mediaType: 'image/jpeg' as const, base64 })) : null
+            },
+            onStep: (step) => {
+              if (shownSteps.has(step)) return
+              shownSteps.add(step)
+              progress({ type: 'step', step })
+            },
+          }),
+          stopping,
+        ])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         if (proposal.summary?.reply && !summarised) {
           summarised = true
@@ -713,6 +747,11 @@ export class StudioRunner {
           return { outcome: 'unchanged', commit: before, repairs: 0, runId, summary: proposal.summary ?? null }
         }
         previous = proposal.files
+        if (proposal.problems && proposal.problems.length > 0) {
+          made.result = { ok: false, problems: proposal.problems }
+          problems = proposal.problems
+          continue
+        }
         // Edits that don't apply are a repair like a gate failure, with no sandbox run (ARCHITECTURE §6.2).
         const applied = applyEdits(theme, proposal.files)
         if (!applied.ok) {
@@ -741,6 +780,7 @@ export class StudioRunner {
       }
     } catch (error) {
       // The asks already made cost tokens and repairs are the platform's (SAAS §9.2), so they're metered as `failed`.
+      if (showing) await show([])
       await this.record(input, attempts, 'failed')
       throw error
     } finally {
@@ -748,6 +788,7 @@ export class StudioRunner {
     }
     const last = attempts.at(-1)?.result
     const repairs = attempts.length - 1
+    if (showing && !(last?.ok && saved)) await show([])
     if (!last?.ok) {
       const runId = await this.record(input, attempts, 'refused')
       return { outcome: 'refused', problems, repairs, runId }

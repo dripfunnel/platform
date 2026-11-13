@@ -214,6 +214,15 @@ describe('asking for a change', () => {
     expect(await db.sql`select kind, billed_to, outcome from ai_run where store_id = ${t.storeA1}`).toEqual([{ kind: 'design', billed_to: 'plan', outcome: 'changed' }])
   })
 
+  it('takes a whole brief of 10,000 characters, in a script of three bytes a character too, and gives the model all of it', async () => {
+    script.answers = [reply([lead('Warm linen, cut slowly.')])]
+    const brief = 'क'.repeat(9_999) + '।'
+    expect((await ask('owner', brief)).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    expect(script.sent.at(-1)).toContain(brief)
+    const [saved] = await db.sql<{ n: number }[]>`select char_length(text) as n from design_message where store_id = ${t.storeA1} and role = 'user' order by created_at desc limit 1`
+    expect(saved?.n).toBe(10_000)
+  })
+
   it('repairs a failing change from the exact errors; the repairs are the platform’s and don’t count on the meter', async () => {
     script.answers = [reply([refusedPage]), reply([lead('Repaired lead.')])]
     expect((await ask('owner', 'A change needing one repair')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
@@ -613,7 +622,7 @@ describe('asking for a change', () => {
 
   it('screenshots a sample site only at a public https address, refused before the budget and the model', async () => {
     const taken: string[] = []
-    design.screenshots = { take: async (url) => (taken.push(url.href), new Uint8Array([0xff, 0xd8, 0xff, 0xd9])) }
+    design.screenshots = { take: async (url) => (taken.push(url.href), [new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), new Uint8Array([0xff, 0xd8, 0xff, 0xd9])]) }
     try {
       const sent = script.sent.length
       const used = await usage(t.storeA1)
@@ -632,6 +641,7 @@ describe('asking for a change', () => {
       expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBeUndefined()
       expect(taken).toEqual(['https://shop.example.com/'])
       expect(script.sent.length).toBe(sent + 1)
+      expect(script.sent.at(-1)).toContain('The last 2 images are one site the merchant gave as inspiration, screenshotted from its top down')
     } finally {
       design.screenshots = null
     }
@@ -826,7 +836,7 @@ describe('the live progress socket (#1237)', () => {
     expect(events.filter((e) => e.type === 'text').map((e) => (e.type === 'text' ? e.text : '')).join('')).toBe('Linen reads best in calm, natural tones.')
     expect(events.at(-1)).toMatchObject({ type: 'done', outcome: 'unchanged' })
     const before = local.live.length
-    expect((await ask('owner', 'x'.repeat(2001))).code).toBe('INVALID_INPUT')
+    expect((await ask('owner', 'x'.repeat(10_001))).code).toBe('INVALID_INPUT')
     expect(local.live.length).toBe(before)
   })
 

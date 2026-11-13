@@ -14,7 +14,7 @@ import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
-import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
+import { checkAnthropicKey, isDeepInfraKey, openaiChat, type KeyCheck } from '#integrations/ai/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
@@ -46,8 +46,9 @@ export interface PlatformContextDeps {
   billingStripe?: Pick<StoreBillingStripe, 'cancelNow'> | null
 }
 
-/** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
-const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
+/** OpenAI's own keys are saved "Not tested" (#950); a DeepInfra key (`sk-di-`) is tested against DeepInfra. */
+const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> =>
+  provider === 'anthropic' ? checkAnthropicKey(key) : isDeepInfraKey(key) ? openaiChat(key).validateCredentials() : Promise.resolve(null)
 
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 

@@ -6,7 +6,7 @@ import type { ComponentType } from 'react'
 import { build, type Plugin } from 'esbuild'
 import type { AnsweredPage, RecordedAnswer, ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
 import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
-import { mediaUrlPlugin, readContent, routesSchema, runtimeModules, stylesheetModule, stylesheetPlugin } from '../gate/bundle'
+import { bundledModules, mediaUrlPlugin, readContent, routesSchema, runtimeModules, stylesheetModule, stylesheetPlugin } from '../gate/bundle'
 import { imageMapSource, readImages, themeImagePlugin } from '../gate/media'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
@@ -30,7 +30,7 @@ const resolveOwn = (): Plugin => ({
     const fromHere = createRequire(join(ownPackages, 'render.js'))
     b.onResolve({ filter: /^df:server-entry$/ }, () => ({ path: entryName, namespace: 'df' }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
-      const allowed = args.namespace === 'df' || Object.hasOwn(runtimeModules, args.path) || !args.importer.includes('/src/theme/')
+      const allowed = args.namespace === 'df' || Object.hasOwn(runtimeModules, args.path) || bundledModules.has(args.path) || !args.importer.includes('/src/theme/')
       if (!allowed) return { errors: [{ text: `${args.path} isn't a module a theme may import.` }] }
       if (isBuiltin(args.path)) return { path: args.path, external: true }
       try {
@@ -95,5 +95,8 @@ export const serverTheme = async (repo: string, work: string, imageBase: string)
       { name: 'df-server-entry', setup: (b) => void b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: source, loader: 'js', resolveDir: repo })) },
     ],
   })
-  return createRequire(import.meta.url)(outfile) as ServerTheme
+  // A studio slot builds here again for every change: drop the last build from Node's module cache so this one loads.
+  const load = createRequire(import.meta.url)
+  Reflect.deleteProperty(load.cache, load.resolve(outfile))
+  return load(outfile) as ServerTheme
 }

@@ -22,6 +22,7 @@ const changeSchema = z.strictObject({
   context: z.unknown(),
 })
 const precheckSchema = z.strictObject({ files: changeSchema.shape.files, context: z.unknown() })
+const pictureSchema = z.strictObject({ files: changeSchema.shape.files, page: z.string().min(1).max(200), device: z.enum(['desktop', 'tablet', 'phone']), context: z.unknown() })
 const semver = z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/)
 // Core only moves forward; the baseline may be written on the version the store is already on.
 const upgradeSchema = z
@@ -137,6 +138,14 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
       const body = await json(req, precheckSchema)
       return send(res, 200, await inTurn(slot, () => ws().precheck(body.files, asContext(body.context))))
     }
+    if (method === 'POST' && op === 'show') {
+      const body = await json(req, precheckSchema)
+      return send(res, 200, await inTurn(slot, () => ws().show(body.files, asContext(body.context))))
+    }
+    if (method === 'POST' && op === 'picture') {
+      const body = await json(req, pictureSchema)
+      return send(res, 200, await inTurn(slot, () => ws().picture(body.files, body.page, body.device, asContext(body.context))))
+    }
     if (method === 'POST' && op === 'changes') {
       const body = await json(req, changeSchema)
       return send(res, 200, await inTurn(slot, () => ws().change(body.files, body.message, asContext(body.context))))
@@ -174,7 +183,7 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
       return res.end(bytes)
     }
     if (method === 'GET' && op === 'preview') {
-      const files = await inTurn(slot, () => ws().previewFiles())
+      const files = await inTurn(slot, () => ws().previewFiles(runtimeDir))
       return files ? send(res, 200, files) : send(res, 404, { error: 'NO_BUNDLE' })
     }
     if (method === 'GET' && op === 'client') {

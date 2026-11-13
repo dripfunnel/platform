@@ -8,7 +8,7 @@ import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectSealedStoreKey } from '#db/scoped/storeAiAccount'
 import { logEvent } from '#core/log'
-import { anthropicChat, anthropicOAuthDesignerModel, buildRoute, chatgptSignInRoute, createRouter, designerModel, openaiChat, openaiResponsesChat, routedDesignerProvider, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, NoExecutorError, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type ExecutorOptions, type GatewayProvider, type ResolvedConnection, type Route } from '#integrations/ai/index'
+import { anthropicChat, anthropicOAuthDesignerModel, buildRoute, deepinfraModels, isDeepInfraKey, chatgptSignInRoute, createRouter, designerModel, openaiChat, openaiResponsesChat, routedDesignerProvider, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, NoExecutorError, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type ExecutorOptions, type GatewayProvider, type ResolvedConnection, type Route } from '#integrations/ai/index'
 import { createAiConnections } from '#saas/aiConnections/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
@@ -246,6 +246,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
 export type AiGateway = ReturnType<typeof createAiGateway>
 
 const openaiDesignerModel = 'gpt-5'
+const deepInfra = (found: { provider: string; auth: AuthMethod; key: string }) => found.provider === 'openai' && found.auth === 'api_key' && isDeepInfraKey(found.key)
 
 type DesignerDeps = Omit<GatewayDeps, 'actor' | 'now'>
 
@@ -258,6 +259,7 @@ const credentialFor = async (deps: DesignerDeps, billed: Billed) => {
 export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Promise<readonly string[]> => {
   const found = await credentialFor(deps, billed)
   if (found?.provider === 'anthropic' && found.auth === 'oauth') return [anthropicOAuthDesignerModel, ...modelsOf('anthropic').filter((model) => model !== anthropicOAuthDesignerModel)]
+  if (found && deepInfra(found)) return (await deepinfraModels(found.key).catch(() => [])).map((m) => m.id)
   return found ? modelsOf(found.provider) : []
 }
 
@@ -269,7 +271,9 @@ export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requeste
   const found = await credentialFor(deps, billed)
   if (!found) return null
   const anthropicOAuth = found.provider === 'anthropic' && found.auth === 'oauth'
-  const model = requested ?? defaultModel(found.provider, anthropicOAuth)
+  // A DeepInfra key's models are its own list, read (and so known to `capabilityOf`) before one is picked.
+  const listed = deepInfra(found) ? await deepinfraModels(found.key).catch(() => []) : null
+  const model = requested ?? listed?.[0]?.id ?? defaultModel(found.provider, anthropicOAuth)
   if (!capabilityOf(found.provider, model)) return null
 
   const connections = createAiConnections({ sql: deps.sql, context: deps.context, secrets: deps.secrets, oauth: deps.oauth ?? null, now: () => new Date() })

@@ -132,8 +132,11 @@ export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date
     order by number desc limit ${limit}`
 
 /** The merchant's last requests, newest first, for the model's context (storefront ARCHITECTURE §6.2: the last four). */
-export const selectRecentRequests = async (tx: ScopedSql, storeId: string, limit: number): Promise<string[]> =>
-  (await tx<{ text: string }[]>`select text from design_message where store_id = ${storeId} and role = 'user' order by created_at desc, id desc limit ${limit}`).map((r) => r.text)
+export type RecentTurn = Pick<MessageRow, 'role' | 'text' | 'changed' | 'undone' | 'sample_url'>
+
+/** The merchant's requests and the AI's replies, newest first. */
+export const selectRecentTurns = (tx: ScopedSql, storeId: string, limit: number): Promise<RecentTurn[]> =>
+  tx<RecentTurn[]>`select role, text, to_jsonb(changed) as changed, undone, sample_url from design_message where store_id = ${storeId} and role in ('user', 'ai') order by created_at desc, id desc limit ${limit}`
 
 export const selectMessage = async (tx: ScopedSql, storeId: string, id: string): Promise<MessageRow | null> =>
   (await tx<MessageRow[]>`select ${messageColumns(tx)} from design_message where store_id = ${storeId} and id = ${id}`)[0] ?? null

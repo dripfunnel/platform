@@ -13,6 +13,7 @@ import {
   previewClosedCode,
   PreviewClosed,
   setRouterBase,
+  SectionBoundary,
   ShopApiError,
   guestShopState,
   storedShopState,
@@ -39,6 +40,8 @@ let store: Promise<ShopStoreSettings | null> | null = null
 let closed = false
 // The words the frame's current bundle shows, for Edit text (AI-STUDIO §8); a new bundle starts a new map.
 let shown = createTextKeys()
+// A new bundle or page remounts the studio's boundary, so a fixed page shows again.
+let renders = 0
 
 // Once a preview's session ends, every page shows core's closed screen and no store data (PREVIEW §5 step 3).
 const close = () => {
@@ -81,7 +84,15 @@ const render = async (pages: ThemePages): Promise<void> => {
   const { t } = createI18n(settings.language, pages.content as Record<string, Catalogue>, base ? shown : undefined)
   root.render(
     <StorefrontProvider value={{ client, store: settings, locale: settings.language, t, mode: base ? 'studio' : 'preview', poweredBy: null }}>
-      <ThemeMediaProvider media={pages.media}>{routed(Page, route)}</ThemeMediaProvider>
+      <ThemeMediaProvider media={pages.media}>
+        {base ? (
+          <SectionBoundary key={(renders += 1)} name={route ?? 'page'} baseline={null}>
+            {routed(Page, route)}
+          </SectionBoundary>
+        ) : (
+          routed(Page, route)
+        )}
+      </ThemeMediaProvider>
     </StorefrontProvider>,
   )
 }

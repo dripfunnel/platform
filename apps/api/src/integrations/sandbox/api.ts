@@ -21,7 +21,7 @@ export type GuardContext = {
   brand: { name: string; tagline: string | null; email: string | null; phone: string | null; address: string[]; socialLinks: string[] }
 }
 
-const problemSchema = z.object({ step: z.enum(['validator', 'typecheck', 'bundle', 'budget']), file: z.string().nullable(), line: z.number().int().nullable(), rule: z.string().max(100), message: z.string().max(2000) })
+const problemSchema = z.object({ step: z.enum(['validator', 'typecheck', 'bundle', 'budget', 'render']), file: z.string().nullable(), line: z.number().int().nullable(), rule: z.string().max(100), message: z.string().max(2000) })
 const bundleSchema = z.object({ id: z.string().regex(/^[0-9a-f]{16}$/), entry: z.string(), files: z.array(z.object({ path: z.string(), bytes: z.number().int() })) })
 // A sandbox image older than #1240 names no lane or swap, and its frame reloads the modules as before.
 const laneSchema = z.enum(['css', 'class', 'full'])
@@ -30,6 +30,9 @@ const changeSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(false), problems: z.array(problemSchema).max(500) }),
 ])
 const precheckedSchema = z.object({ lane: laneSchema, problems: z.array(problemSchema).max(500) })
+const shownSchema = z.discriminatedUnion('ok', [z.object({ ok: z.literal(true), bundle: bundleSchema, swap: z.enum(['stylesheet', 'modules']) }), z.object({ ok: z.literal(false) })])
+const pictureSchema = z.object({ images: z.array(z.string().max(6_000_000)).max(3), problem: z.string().max(1000).nullable() })
+export type Picture = z.infer<typeof pictureSchema>
 const loadedSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema.nullable(), problems: z.array(problemSchema).max(500) })
 const themeSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.object({ path: z.string(), content: z.string() })).max(2000) })
 const upgradedSchema = z.object({
@@ -47,6 +50,13 @@ export type PreviewFiles = z.infer<typeof previewSchema>
 type Prechecked = z.infer<typeof precheckedSchema>
 export type Upgraded = z.infer<typeof upgradedSchema>
 /** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files, and `to`'s skeleton. */
+/** The sandbox's limit on a commit message (apps/sandbox server.ts); a longer request is kept whole in the chat, not here. */
+const maxMessage = 2000
+const commitMessage = (message: string): string => {
+  const cut = message.slice(0, maxMessage)
+  return /[\ud800-\udbff]$/.test(cut) ? cut.slice(0, -1) : cut
+}
+
 export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null; skeleton: { path: string; content: string | null }[] }
 
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */
@@ -79,13 +89,24 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
   return {
     /** `at` checks the bundle out at that commit: a live build's source bundle may hold commits past its own. */
     loadBundle: async (bytes: ArrayBuffer, at: string | null = null): Promise<Loaded> => json(await call('PUT', at ? `draft?at=${at}` : 'draft', bytes, 'application/x-git-bundle'), loadedSchema),
-    loadFiles: async (files: readonly { path: string; content: string }[], message: string): Promise<Loaded> => json(await call('PUT', 'draft', JSON.stringify({ files, message })), loadedSchema),
+    loadFiles: async (files: readonly { path: string; content: string }[], message: string): Promise<Loaded> => json(await call('PUT', 'draft', JSON.stringify({ files, message: commitMessage(message) })), loadedSchema),
     /** The theme at the head, or at `at`, an earlier commit of the draft. */
     theme: async (at: string | null = null) => json(await call('GET', at ? `theme?at=${at}` : 'theme'), themeSchema),
-    change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message, context })), changeSchema),
+    change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message: commitMessage(message), context })), changeSchema),
     /** The change so far, checked while the model still writes it (#1240): the validator and the warm typecheck, nothing kept. */
     precheck: async (files: readonly FileChange[], context: GuardContext): Promise<Prechecked> => json(await call('POST', 'precheck', JSON.stringify({ files, context })), precheckedSchema),
-    undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
+    /** `files` over the head bundled for the frame, never committed; no `files` shows the head again. */
+    show: async (files: readonly FileChange[], context: GuardContext) => json(await call('POST', 'show', JSON.stringify({ files, context })), shownSchema),
+    /** A picture of one page with `files` over the head, drawn in the sandbox from a copy; null on an image without it. */
+    picture: async (files: readonly FileChange[], page: string, device: 'desktop' | 'tablet' | 'phone', context: GuardContext): Promise<Picture | null> => {
+      try {
+        return await json(await call('POST', 'picture', JSON.stringify({ files, page, device, context })), pictureSchema)
+      } catch (error) {
+        if (error instanceof SandboxRefused) return null
+        throw error
+      }
+    },
+    undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message: commitMessage(message), context })), changeSchema),
     upgrade: async (request: UpgradeRequest): Promise<Upgraded> => json(await call('POST', 'upgrade', JSON.stringify(request)), upgradedSchema),
     /** AI-STUDIO §6 step 2: the draft onto the upgrade's commit, whose bundle goes first. */
     rebase: async (onto: { commit: string; bundle: ArrayBuffer }, context: GuardContext): Promise<ChangeResult> => {

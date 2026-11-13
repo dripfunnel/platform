@@ -4,10 +4,10 @@ import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
 import { actingHeaders, actingStore } from '../acting'
 import { query } from './client'
 
-// A change waits on the model, up to 180 s a try (SAAS §9.3); the 15 s default would show a failure while it still runs.
-const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 200_000 }))
-// A plan's build is up to six such changes one after another (#1243); the live feed shows each page meanwhile.
-const buildQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 6 * 200_000 }))
+// The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it.
+const afterClockMs = 4 * 60_000
+const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 8 * 60_000 + afterClockMs }))
+const buildQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 15 * 60_000 + afterClockMs }))
 
 // The AI studio (PortalStorefront › studio; FIRST-RELEASE §14, §19 "Built on #318 (part 2)"; storefront AI-STUDIO §3–§5):
 // `storefront.read` reads, `publish` (the Owner) changes.

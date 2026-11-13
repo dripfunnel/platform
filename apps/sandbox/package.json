@@ -16,6 +16,7 @@
     "axe-core": "~4.13.0",
     "clsx": "^2.1.1",
     "esbuild": "^0.28.2",
+    "lucide-react": "~1.63.0",
     "motion": "^14.1.0",
     "playwright-core": "~1.63.0",
     "react": "^19.3.0",

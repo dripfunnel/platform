@@ -21,7 +21,7 @@ describe('storeCsp', () => {
 
   it('names no analytics or payment host a store hasn’t set up, and no goog#html without Google', () => {
     const csp = storeCsp({ ...store, analytics: ['meta'], payments: [] }, none)
-    expect(csp).not.toContain('google')
+    expect(csp.replaceAll('https://fonts.googleapis.com', '').replaceAll('https://fonts.gstatic.com', '')).not.toContain('google')
     expect(csp).not.toContain('stripe')
     expect(directive(csp, 'frame-src')).toBe("frame-src 'none'")
     expect(directive(csp, 'trusted-types')).toBe('trusted-types df-core default')
@@ -69,8 +69,8 @@ describe('studioCsp', () => {
       [
         "default-src 'none'",
         "script-src 'self'",
-        "style-src 'self' 'sha256-s='",
-        "font-src 'self'",
+        "style-src 'self' 'sha256-s=' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
         "connect-src 'self'",
         "img-src 'self' https://media.dripfunnel.ai",
         "media-src 'self' https://media.dripfunnel.ai",
@@ -100,5 +100,15 @@ describe('inlineHashes and pageHeaders', () => {
     expect(Object.keys(headers)).toEqual(['index.html', 'cart/index.html'])
     expect(headers['index.html']?.['content-security-policy']).toContain(await hashSource('self.a=1'))
     expect(headers['cart/index.html']?.['content-security-policy']).not.toContain('sha256')
+  })
+})
+
+describe('Google Fonts in the CSP (ARCHITECTURE §3.5, decided 2026-11-12)', () => {
+  it('lets the fonts’ stylesheet and files load on a live page and in the studio, and nothing else of Google', () => {
+    const csp = storeCsp({ ...store, analytics: [], payments: [] }, none)
+    expect(directive(csp, 'style-src')).toContain('https://fonts.googleapis.com')
+    expect(directive(csp, 'font-src')).toContain('https://fonts.gstatic.com')
+    expect(directive(csp, 'script-src')).not.toContain('google')
+    expect(directive(csp, 'connect-src')).not.toContain('google')
   })
 })

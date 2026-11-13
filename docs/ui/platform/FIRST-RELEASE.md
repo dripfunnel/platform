@@ -754,7 +754,7 @@ the tab is not shown to other roles and the API refuses them (`integrations.writ
 at most 20 keys per partner. In a staff setup session the tab works as the partner's own
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
-Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
+Anthropic key with one `models.list` call; OpenAI keys save as Not tested, except a DeepInfra key (`sk-di-…`, saved under OpenAI), tested with DeepInfra's `/models`. Add, Make default and Remove are
 refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, support chat. Google sign-in is built below.
 
 **Built on #193, straight onto #199's API.**
