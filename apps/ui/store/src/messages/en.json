@@ -2987,6 +2987,7 @@
       "title": "Main menu",
       "add": "+ Add a collection",
       "addLabel": "Add a collection to the menu",
+      "noneToAdd": "Every collection is already in the menu. Create a collection first to add more.",
       "added": "Added to the menu",
       "removed": "Removed from the menu. The collection is still there.",
       "products": {

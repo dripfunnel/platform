@@ -540,6 +540,17 @@ describe('the main menu', () => {
     expect(screen.getByText(words.menus.added)).toBeTruthy()
   })
 
+  it('says why the add control is disabled when every collection is already in the menu, and says nothing while one is left to add (#1403)', async () => {
+    await show(owner, '/collections?tab=menus')
+    const add = () => screen.getByRole('combobox', { name: words.menus.addLabel }) as HTMLSelectElement
+    expect(add().disabled).toBe(true)
+    expect(add().parentElement?.getAttribute('title')).toBe(words.menus.noneToAdd)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Staff picks' }))
+    await settle()
+    expect(add().disabled).toBe(false)
+    expect(add().parentElement?.hasAttribute('title')).toBe(false)
+  })
+
   it('moves what was under a removed item up a level, never under the item above', async () => {
     await show(owner, '/collections?tab=menus')
     fireEvent.click(screen.getByRole('button', { name: 'Remove Men' }))

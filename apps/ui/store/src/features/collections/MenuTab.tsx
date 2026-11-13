@@ -170,22 +170,25 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
         <div className="df-menu-head">
           <h1 id="df-menu-title">{words.title}</h1>
           {canEdit && (
-            <select
-              aria-label={words.addLabel}
-              value=""
-              disabled={busy || addable.length === 0}
-              onChange={(e) => {
-                const c = collections.find((x) => x.id === e.target.value)
-                if (c) void apply([...rows, { key: `m${++rowKey}`, kind: 'collection', label: c.name, collectionId: c.id, url: null, depth: 0 }], words.added)
-              }}
-            >
-              <option value="">{words.add}</option>
-              {addable.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            // The title is on the wrapper: a disabled select shows no tooltip in some browsers.
+            <span title={addable.length === 0 ? words.noneToAdd : undefined}>
+              <select
+                aria-label={words.addLabel}
+                value=""
+                disabled={busy || addable.length === 0}
+                onChange={(e) => {
+                  const c = collections.find((x) => x.id === e.target.value)
+                  if (c) void apply([...rows, { key: `m${++rowKey}`, kind: 'collection', label: c.name, collectionId: c.id, url: null, depth: 0 }], words.added)
+                }}
+              >
+                <option value="">{words.add}</option>
+                {addable.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </span>
           )}
         </div>
         {busy && (
