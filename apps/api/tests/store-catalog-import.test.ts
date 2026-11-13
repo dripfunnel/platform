@@ -69,6 +69,8 @@ const fetched: string[] = []
 const fakeFetch = (async (input: RequestInfo | URL) => {
   const url = String(input)
   fetched.push(url)
+  // A photo of its own for each address named /ok-…, so a product can hold many of them; any other address is missing.
+  if (/[/]ok-/.test(url)) return new Response(new Uint8Array([...png, ...new TextEncoder().encode(url)]), { headers: { 'content-type': 'image/png' } })
   return url.endsWith('/front.png') ? new Response(png.slice(), { headers: { 'content-type': 'image/png' } }) : new Response('no', { status: 404 })
 }) as typeof fetch
 
@@ -572,6 +574,53 @@ describe('a supplier’s import', () => {
     } finally {
       await db.sql`update membership set status = 'active' where user_id = ${people.owner} and store_id = ${t.storeA1}`
     }
+  })
+
+  // A product's photos are the first 20 that download, in the file's order; one that fails is replaced, at its place, by the next (#1348).
+  describe('photos, with a spare for one that fails', () => {
+    const photoRun = async (handle: string, count: number, broken: number[]) => {
+      const rows = Array.from({ length: count }, (_, i) => {
+        const url = broken.includes(i) ? `https://cdn.example/gone-${handle}-${i}.png` : `https://cdn.example/ok-${handle}-${i}.png`
+        return i === 0 ? `${handle},${handle},10,${url},p${i}` : `${handle},,,${url},p${i}`
+      })
+      const { id } = await upload('owner', ['handle,name,price,image,image alt', ...rows].join('\n'))
+      const job = (await confirm('owner', id)).job
+      const [product] = await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA1} and slug = ${handle}`
+      const photos = await db.sql<{ alt: string }[]>`select alt from product_photo where product_id = ${product?.id ?? ''} order by position, alt`
+      return { job, alts: photos.map((p) => p.alt), problems: (job?.problems ?? []).map((p) => [p.line, p.code]) }
+    }
+    const names = (indexes: number[]) => indexes.map((i) => `p${i}`)
+    const upTo = (n: number) => Array.from({ length: n }, (_, i) => i)
+
+    it('uses the 21st photo, at the broken one’s place, when one of the first 20 fails, and lists the broken one', async () => {
+      const run = await photoRun('spare-one', 21, [2])
+      expect(run.job).toMatchObject({ state: 'done', created: 1 })
+      expect(run.alts).toEqual(names([0, 1, 20, ...upTo(20).slice(3)]))
+      expect(run.problems).toEqual([[4, 'PHOTO_UNAVAILABLE']])
+    })
+
+    it('tries the next spare when the spare fails too, and leaves the product short when none is left', async () => {
+      const second = await photoRun('spare-two', 22, [0, 20])
+      expect(second.alts).toEqual(names([21, ...upTo(20).slice(1)]))
+      expect(second.problems).toEqual([[2, 'PHOTO_UNAVAILABLE'], [22, 'PHOTO_UNAVAILABLE']])
+      const none = await photoRun('spare-none', 20, [4])
+      expect(none.alts).toEqual(names(upTo(20).filter((i) => i !== 4)))
+      expect(none.problems).toEqual([[6, 'PHOTO_UNAVAILABLE']])
+    })
+
+    it('takes the first 20 when more than 20 all download, and lists the photos left out', async () => {
+      const run = await photoRun('spare-many', 23, [])
+      expect(run.alts).toEqual(names(upTo(20)))
+      expect(run.problems).toEqual([[22, 'TOO_MANY_PHOTOS']])
+      expect(run.job?.problemsCsv).toContain('the first 20 that download')
+    })
+
+    it('replaces several failures with the spares in the file’s order, never going past 20', async () => {
+      const run = await photoRun('spare-several', 24, [1, 5, 9])
+      expect(run.alts).toHaveLength(20)
+      expect(new Set(run.alts)).toEqual(new Set(names([...upTo(24).filter((i) => ![1, 5, 9].includes(i)).slice(0, 20)])))
+      expect(run.problems.map((p) => p[1])).toEqual(['PHOTO_UNAVAILABLE', 'PHOTO_UNAVAILABLE', 'PHOTO_UNAVAILABLE', 'TOO_MANY_PHOTOS'])
+    })
   })
 
   it('is purged after its day', async () => {

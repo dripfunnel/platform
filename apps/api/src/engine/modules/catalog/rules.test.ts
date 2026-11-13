@@ -72,9 +72,17 @@ describe('a product before it is written', () => {
 describe('photos and video', () => {
   const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 
-  it('keeps photos in order, each for the product or one of its versions', () => {
-    expect(cleanProduct(simple({ photos: [{ assetId: id(1), alt: ' Front ' }, { assetId: id(2), version: 0 }] }), 'INR')).toMatchObject({ photos: [{ assetId: id(1), alt: 'Front', version: null }, { assetId: id(2), alt: null, version: 0 }] })
+  it('keeps photos in order, and a version’s photo as given (#1460)', () => {
+    expect(cleanProduct(simple({ photos: [{ assetId: id(1), alt: ' Front ' }, { assetId: id(2) }] }), 'INR')).toMatchObject({ photos: [{ assetId: id(1), alt: 'Front' }, { assetId: id(2), alt: null }], versions: [{ photoAssetId: undefined }] })
     expect(cleanProduct(simple(), 'INR')).toMatchObject({ photos: null, video: undefined })
+    const withPhoto = (photoAssetId: string | null | undefined) => cleanProduct({ ...simple({ photos: [{ assetId: id(1) }] }), versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }], photoAssetId }] }, 'INR')
+    expect(withPhoto(id(1).toUpperCase())).toMatchObject({ versions: [{ photoAssetId: id(1) }] })
+    expect(withPhoto(null)).toMatchObject({ versions: [{ photoAssetId: null }] })
+    expect(withPhoto('not-an-id')).toBe('INVALID_PHOTO')
+  })
+
+  it('lets an older client name a version’s photo by its place, unless the version names one', () => {
+    expect(cleanProduct(simple({ photos: [{ assetId: id(1) }, { assetId: id(2), version: 0 }] }), 'INR')).toMatchObject({ photos: [{ assetId: id(1), alt: null }, { assetId: id(2), alt: null }], versions: [{ photoAssetId: id(2) }] })
   })
 
   it('refuses more than twenty photos, one twice, a version that isn’t there, and a bad id', () => {
@@ -116,7 +124,7 @@ describe('what sends an approved supplier product back for review (ACCESS §7.2)
   const after = (patch: Partial<Pick<CleanProduct, 'name' | 'versions' | 'photos'>> = {}): Pick<CleanProduct, 'name' | 'versions' | 'photos'> => {
     const product = cleanProduct({ name: 'Linen shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'USD', amount: '59', compareAtAmount: '79' }, { currency: 'INR', amount: '4900' }] }] }, 'INR')
     if (typeof product === 'string') throw new Error(product)
-    return { name: product.name, versions: product.versions.map((v) => ({ ...v, id: v1 })), photos: [{ assetId: a2, alt: null, version: null }, { assetId: a1, alt: 'Back', version: null }], ...patch }
+    return { name: product.name, versions: product.versions.map((v) => ({ ...v, id: v1 })), photos: [{ assetId: a2, alt: null }, { assetId: a1, alt: 'Back' }], ...patch }
   }
 
   it('lets everything else through, the photos’ order and alt text included', () => {
@@ -130,6 +138,6 @@ describe('what sends an approved supplier product back for review (ACCESS §7.2)
     if (!version) throw new Error('no version')
     expect(reviewedChanges(before, after({ versions: [{ ...version, prices: version.prices.map((p) => (p.currency === 'USD' ? { ...p, compareAt: '99' } : p)) }] }))).toEqual(['price'])
     expect(reviewedChanges(before, after({ versions: [version, { ...version, id: null }] }))).toEqual(['price'])
-    expect(reviewedChanges(before, after({ photos: [{ assetId: a1, alt: null, version: null }] }))).toEqual(['photos'])
+    expect(reviewedChanges(before, after({ photos: [{ assetId: a1, alt: null }] }))).toEqual(['photos'])
   })
 })

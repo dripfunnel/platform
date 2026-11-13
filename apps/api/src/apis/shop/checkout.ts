@@ -27,6 +27,7 @@ const words: Record<string, string> = {
   CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
   SIGNED_OUT: 'Sign in first.',
+  AGE_CONFIRMATION_REQUIRED: 'Please confirm you’re 18 or over before you order.',
   INVALID_APP_PAYMENT: 'That app payment request isn’t valid.',
   INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
@@ -255,14 +256,14 @@ export const registerCheckout = (shop: ShopBuilder) => {
     // "Pay": a ready cart becomes an order paid this way; refused as NOT_READY with `problems` until checkout is complete.
     placeOrder: t.field({
       type: Placed,
-      args: { provider: t.arg.string({ required: true }), app: t.arg({ type: AppPayment }) },
+      args: { provider: t.arg.string({ required: true }), app: t.arg({ type: AppPayment }), ageConfirmed: t.arg.boolean() },
       extensions: { access: { ...access, audit: checkoutAudit.placed } },
       resolve: async (_, args, ctx) => {
         if (args.provider.length > 40) {
           logRefusal(ctx, 'placeOrder', 'METHOD_UNAVAILABLE')
           throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
         }
-        return answered(ctx, 'placeOrder', await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(ctx, 'placeOrder', args.app)))
+        return answered(ctx, 'placeOrder', await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(ctx, 'placeOrder', args.app), args.ageConfirmed === true))
       },
     }),
     // Back from paying: the card payment read back from its provider, and the order as it is now.

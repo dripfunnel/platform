@@ -95,7 +95,7 @@ export const stockCsv = (rows: readonly ExportStockRow[], truncatedAt: number | 
   ].join('\n')
 
 /** The scan stops at the cap as well as the rows do, so products with no stock can't walk the whole catalogue in one delivery. */
-export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; truncated: boolean; csv: string }> => {
+export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; products?: number; truncated: boolean; csv: string }> => {
   const filter = catalogExportFilter.parse(job.filter)
   // A store with no currency has no prices to list; never one in a currency it didn't choose.
   const currency = await selectPricingCurrency(tx)
@@ -133,7 +133,7 @@ export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, m
     rows += size
   }
   const { main, active } = await selectLanguages(tx, job.store_id)
-  return { rows, truncated, csv: productsCsv(kept, { currency, languages: active.filter((l) => l !== main), truncatedAt: truncated ? rows : null }) }
+  return { rows, products: kept.length, truncated, csv: productsCsv(kept, { currency, languages: active.filter((l) => l !== main), truncatedAt: truncated ? rows : null }) }
 }
 
 export type CatalogExportRefusal = 'INVALID_INPUT'
@@ -142,7 +142,10 @@ export interface CatalogExportDto {
   id: string
   kind: CatalogExportKind
   state: 'queued' | 'done' | 'failed' | 'expired'
+  /** The file's rows: one a version. */
   rows: number | null
+  /** A product export's products; null for a stock export. */
+  products: number | null
   truncated: boolean
   csv: string | null
   requestedAt: Date
@@ -152,7 +155,7 @@ export interface CatalogExportDto {
 /** A job as the screen reads it: its file until it expires. */
 export const exportDtoOf = (job: Omit<CatalogExportRow, 'csv'> & { csv?: string | null }, now: Date): CatalogExportDto => {
   const expired = job.expires_at !== null && job.expires_at <= now
-  return { id: job.id, kind: job.kind, state: expired ? 'expired' : job.state, rows: job.rows, truncated: job.truncated, csv: expired ? null : (job.csv ?? null), requestedAt: job.created_at, expiresAt: job.expires_at }
+  return { id: job.id, kind: job.kind, state: expired ? 'expired' : job.state, rows: job.rows, products: job.products, truncated: job.truncated, csv: expired ? null : (job.csv ?? null), requestedAt: job.created_at, expiresAt: job.expires_at }
 }
 
 export interface CatalogExportDeps {

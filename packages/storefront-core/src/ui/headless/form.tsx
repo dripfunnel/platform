@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useId, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { addressFields, fillFromPlace, type AddressDraft, type MapFilled, type AddressField, type FieldProblem } from '../../checkout/address'
 import { countryOptions, joinPhone, splitPhone } from '../../checkout/phone'
 import type { Translate } from '../../platform/i18n/i18n'
@@ -46,11 +46,23 @@ export type TextFieldProps = Styled & {
   /** What's wrong with it, in the theme's words; the field is marked invalid while it is set. */
   error?: string | null | undefined
   maxLength?: number
+  /** Takes focus when it appears, for a field that opens after the shopper pressed something (WCAG 2.4.3). */
+  autoFocus?: boolean
+}
+
+/** Moves focus into the field it is given on mount, when asked. */
+const useFocusOnMount = (wanted: boolean | undefined) => {
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (wanted) input.current?.focus()
+  }, [wanted])
+  return input
 }
 
 /** A labelled text field with its hint and its error, each tied to it for screen readers. */
-export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, className }: TextFieldProps) => {
+export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, className }: TextFieldProps) => {
   const id = useId()
+  const input = useFocusOnMount(autoFocus)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
   return (
     <span className={className}>
@@ -58,7 +70,7 @@ export const TextField = ({ label, value, onChange, type = 'text', autoComplete,
         {label}
         {note ? <small> {note}</small> : null}
       </label>
-      <input id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
+      <input ref={input} id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (
         <small id={`${id}-error`} role="alert">
@@ -90,8 +102,9 @@ const CountryOptions = memo(({ locale, chosen }: { locale: string; chosen: strin
 )
 
 /** A mobile number as a country code dropdown and the number; it hands back one value, `+` and the code first. */
-export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, className, groupClassName }: PhoneFieldProps) => {
+export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, autoFocus, className, groupClassName }: PhoneFieldProps) => {
   const id = useId()
+  const input = useFocusOnMount(autoFocus)
   const [picked, setPicked] = useState<string | null>(null)
   const split = splitPhone(value, picked ?? country)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
@@ -113,7 +126,7 @@ export const PhoneField = ({ label, value, onChange, country, codeLabel, locale,
           {split.country ? null : <option value="">+</option>}
           <CountryOptions locale={locale} chosen={split.country} />
         </select>
-        <input id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
+        <input ref={input} id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
       </span>
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (

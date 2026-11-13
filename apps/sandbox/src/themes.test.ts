@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, type Browser, type Page } from 'playwright-core'
+import { chromium, type Browser, type Locator, type Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { coreRoutes, routeAddresses, themeRoutesSchema } from '@dripfunnel/storefront-core'
@@ -432,5 +432,198 @@ describe.each(keys)('the %s theme', (key) => {
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics })
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
     expect(report.passed).toBe(true)
+  })
+})
+
+type AccountState = { phone: string | null; verified: boolean; takesMobile: boolean; refuseCode: boolean; offline: boolean; sentTo: string[] }
+
+/** The signed-in account page (live mode, as a built page carries it in `df-page`), its shop answering from `state`. */
+const openAccount = async (b: Browser, out: string, state: AccountState, width = 1440): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width, height: 900 } })
+  await context.addInitScript(() => sessionStorage.setItem('df-session', 'sess-1'))
+  const live = JSON.stringify({ route: 'account', custom: null, path: '/account/', store: snapshot.store, poweredBy: null }).replaceAll('<', '\\u003c')
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.origin !== origin) return route.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      if (state.offline) return route.abort('failed')
+      const body = route.request().postData() ?? ''
+      const asked = JSON.parse(body) as { query: string; variables?: { to?: string } }
+      const answer = /query Account\b/.test(asked.query)
+        ? { data: { account: { id: 'cu-1', name: 'Asha Rao', email: 'asha@example.com', phone: state.phone, emailVerified: true, phoneVerified: state.verified, addresses: [] }, store: { markets: [] }, signInOptions: { phone: state.takesMobile } } }
+        : asked.query.includes('requestPhoneCode')
+          ? (state.sentTo.push(asked.variables?.to ?? ''), { data: { requestPhoneCode: true } })
+          : asked.query.includes('confirmPhone')
+            ? state.refuseCode
+              ? { errors: [{ message: 'no', extensions: { code: 'CODE_REFUSED' } }] }
+              : ((state.phone = asked.variables?.to ?? null), (state.verified = true), { data: { confirmPhone: true } })
+            : shopFixture(snapshot, [])(body)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return route.fulfill({ status: 404 })
+    if (file.rel.endsWith('.html')) return route.fulfill({ status: 200, contentType: 'text/html', body: Buffer.from(file.bytes).toString('utf8').replace(/<body[^>]*>/, (m) => `${m}<script id="df-page" type="application/json">${live}</script>`) })
+    return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}/account/`)
+  await page.getByRole('heading', { name: 'Your details' }).waitFor()
+  return page
+}
+
+// Card #1404: Account › Your details lets a shopper add or change their mobile number, proved by a text code.
+describe.each(['baseline', 'classic'])('the %s theme’s account, mobile number', (key) => {
+  let out = ''
+  const fresh = (over: Partial<AccountState> = {}): AccountState => ({ phone: null, verified: false, takesMobile: true, refuseCode: false, offline: false, sentTo: [], ...over })
+  const mobileRow = (page: Page) => page.locator('dl > div').filter({ has: page.locator('dt', { hasText: 'Mobile number' }) })
+
+  beforeAll(async () => {
+    if (!browser) return
+    out = join(root, `${key}-account`)
+    const built = await bundle(join(themesDir, key), out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+  })
+
+  it('adds a number: Add beside “Not given”, the number, the texted code, then the number with Verified', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh()
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await expect(row.getByText('Used to sign in with a text code and for delivery updates.').isVisible()).resolves.toBe(true)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await expect(page.getByText('We\'ll text a code to the new number.').isVisible()).resolves.toBe(true)
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByText(/Enter the code we sent to/).waitFor()
+      expect(state.sentTo).toEqual(['+919845022113'])
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await row.getByText('Verified').waitFor()
+      await expect(row.textContent()).resolves.toContain('+919845022113')
+      await expect(row.getByRole('button', { name: 'Change' }).isVisible()).resolves.toBe(true)
+      await expect(page.getByText('Your mobile number is saved.').count()).resolves.toBe(1)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('keeps focus with the shopper at every step, by keyboard: each field as it opens, back to Add on Cancel, and to Change once the number is saved', async ({ skip }) => {
+    if (!browser) return skip()
+    const page = await openAccount(browser, out, fresh())
+    const focused = (target: Locator) => target.evaluate((el) => el === document.activeElement)
+    try {
+      const row = mobileRow(page)
+      const number = page.getByLabel('Mobile number')
+      const code = page.getByLabel('6-digit code')
+      const add = row.getByRole('button', { name: 'Add' })
+      await add.focus()
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await expect.poll(() => focused(code)).toBe(true)
+      await page.getByRole('button', { name: 'Use another number' }).click()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect.poll(() => focused(add)).toBe(true)
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await page.keyboard.type('123456')
+      await page.keyboard.press('Enter')
+      const change = row.getByRole('button', { name: 'Change' })
+      await change.waitFor()
+      await expect.poll(() => focused(change)).toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('changes a number: Change, and the old number stays on screen until the new one is proved', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh({ phone: '+919811100001', verified: true })
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await expect(row.getByRole('button', { name: 'Add' }).count()).resolves.toBe(0)
+      await row.getByRole('button', { name: 'Change' }).click()
+      await page.getByLabel('Mobile number').fill('98550 00005')
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').waitFor()
+      await expect(row.textContent()).resolves.toContain('+919811100001')
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await row.getByRole('button', { name: 'Change' }).waitFor()
+      await expect(row.textContent()).resolves.toContain('+919855000005')
+      await expect(row.textContent()).resolves.not.toContain('+919811100001')
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('says what went wrong and changes nothing: a number to check, a shop that can’t be reached, a refused code', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh({ refuseCode: true })
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await expect(page.getByRole('alert').first().isVisible()).resolves.toBe(true)
+      expect(state.sentTo).toEqual([])
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      state.offline = true
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByText(/couldn.t reach the shop/).waitFor()
+      state.offline = false
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await page.getByText(/That code didn.t work/).waitFor()
+      await expect(page.getByLabel('6-digit code').isVisible()).resolves.toBe(true)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await page.getByRole('button', { name: 'Use another number' }).click()
+      await expect(page.getByLabel('Mobile number').isVisible()).resolves.toBe(true)
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(row.getByRole('button', { name: 'Add' }).isVisible()).resolves.toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('offers no Add or Change in a shop that takes no mobile sign-in', async ({ skip }) => {
+    if (!browser) return skip()
+    const page = await openAccount(browser, out, fresh({ takesMobile: false }))
+    try {
+      const row = mobileRow(page)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await expect(row.getByRole('button').count()).resolves.toBe(0)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it.each([390, 1440])('fits the screen at %i px, with the number field and the code field open', async (width) => {
+    if (!browser) return
+    const page = await openAccount(browser, out, fresh(), width)
+    try {
+      const row = mobileRow(page)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true)
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').waitFor()
+      await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true)
+    } finally {
+      await page.context().close()
+    }
   })
 })

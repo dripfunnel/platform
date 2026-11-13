@@ -1,6 +1,7 @@
 import { formatMoney, minorOf } from '@dripfunnel/shared/format'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useRef, type ReactNode } from 'react'
-import { fill, locale, messages } from '../../messages'
+import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { AssetVideo } from '../common/AssetVideo'
 import { isVideoFile } from '../common/videoLength'
@@ -49,6 +50,9 @@ export interface PendingPhoto {
 
 export const maxPhotos = 20
 
+/** Photos that count toward the limit: those uploaded and those still uploading. A failed one doesn't (#1348). */
+export const photosTaken = (photos: number, pending: readonly PendingPhoto[]): number => photos + pending.filter((p) => p.kind !== 'video' && p.state === 'uploading').length
+
 /** Photos: the main one first, made main with a tap; uploads show while they run, and a failed one says why. A product's one video sits in the grid after them (#1401). */
 export const PhotosCard = ({
   draft,
@@ -60,10 +64,12 @@ export const PhotosCard = ({
   onVideo,
   onRetry,
   onDismiss,
+  ask,
 }: {
   draft: Draft
   update: Update
   disabled: boolean
+  ask: (props: Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>) => void
   pending: readonly PendingPhoto[]
   onFiles: (files: File[]) => void
   /** The store's plan has video and it is switched on: the picker takes one MP4 or WebM, handed to `onVideo`. */
@@ -74,14 +80,20 @@ export const PhotosCard = ({
 }) => {
   const input = useRef<HTMLInputElement>(null)
   const altId = useId()
-  const own = draft.photos.filter((p) => p.versionChoices === null)
-  // Versions' own photos count too: the API's limit is on every photo of the product.
-  const count = draft.photos.length + pending.filter((p) => p.kind !== 'video').length
+  const own = draft.photos
+  const count = draft.photos.length
+  const taken = photosTaken(count, pending)
   const full = count >= maxPhotos
+  const noRoom = taken >= maxPhotos
   const videoShown = videoOn || draft.video !== null
-  const canAdd = !full || (videoOn && draft.video === null)
+  const canAdd = !noRoom || (videoOn && draft.video === null)
   const move = (assetId: string) => update((d) => ({ ...d, photos: [...d.photos.filter((p) => p.assetId === assetId), ...d.photos.filter((p) => p.assetId !== assetId)] }))
-  const remove = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId) }))
+  const drop = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId), versions: d.versions.map((v) => (v.photoAssetId === assetId ? { ...v, photoAssetId: null } : v)) }))
+  const remove = (assetId: string, name: string) => {
+    const using = draft.versions.filter((v) => !v.removed && v.photoAssetId === assetId).length
+    if (using === 0) return drop(assetId)
+    ask({ title: fill(words.photos.remove, { name }), target: name, consequence: fill(plural(words.photos.removeUsed, using), { count: formatCount(using) }), confirmLabel: words.photos.dismiss, danger: true, onConfirm: () => drop(assetId) })
+  }
   return (
     <Card title={words.photos.title} aside={<span className="df-editor-meter">{videoShown ? fill(words.photos.meterVideo, { count: String(count), limit: String(maxPhotos), videos: draft.video ? '1' : '0' }) : fill(words.photos.meter, { count: String(count), limit: String(maxPhotos) })}</span>}>
       <ul className="df-editor-photos">
@@ -96,7 +108,7 @@ export const PhotosCard = ({
                     ★
                   </button>
                 )}
-                <button type="button" aria-label={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} title={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} onClick={() => remove(photo.assetId)}>
+                <button type="button" aria-label={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} title={fill(words.photos.remove, { name: photo.alt || String(i + 1) })} onClick={() => remove(photo.assetId, photo.alt || String(i + 1))}>
                   ×
                 </button>
               </span>
@@ -146,7 +158,7 @@ export const PhotosCard = ({
           <li>
             <button type="button" className="df-editor-photo-add" onClick={() => input.current?.click()}>
               <span aria-hidden="true">+</span>
-              {count === 0 ? words.photos.add : words.photos.addMore}
+              {count === 0 && pending.length === 0 ? words.photos.add : words.photos.addMore}
             </button>
             <input
               ref={input}
@@ -159,7 +171,7 @@ export const PhotosCard = ({
               onChange={(event) => {
                 const chosen = [...(event.target.files ?? [])]
                 const videos = videoOn ? chosen.filter(isVideoFile) : []
-                onFiles(chosen.filter((f) => !videos.includes(f)).slice(0, Math.max(0, maxPhotos - count)))
+                onFiles(chosen.filter((f) => !videos.includes(f)).slice(0, Math.max(0, maxPhotos - taken)))
                 for (const file of videos) onVideo(file)
                 event.target.value = ''
               }}
@@ -233,14 +245,21 @@ const priceLabels: Record<PriceKey, { label: ReactNode; placeholder: string }> =
   cost: { label: <>{words.price.cost} <span className="df-editor-hint-inline">{words.price.costHint}</span></>, placeholder: words.price.costPlaceholder },
 }
 
+/** A money box with its currency written outside it, on its left: decoration, the box keeps its own name. The Price field and the versions table share it (#1349). */
+export const Money = ({ currency, children }: { currency: string; children: ReactNode }) => (
+  <span className="df-editor-money">
+    <span aria-hidden="true">{currency}</span>
+    {children}
+  </span>
+)
+
 /** One money field of the Price card, also a version's and the bulk box's. */
 export const PriceField = ({ id, field, value, currency, problem, readOnly, onChange }: { id: string; field: PriceKey; value: string; currency: string; problem: string | null; readOnly: boolean; onChange: (value: string) => void }) => (
   <div className="df-editor-field">
     <label htmlFor={id}>{priceLabels[field].label}</label>
-    <span className="df-editor-money">
-      <span aria-hidden="true">{currency}</span>
+    <Money currency={currency}>
       <input id={id} inputMode="decimal" value={value} readOnly={readOnly} placeholder={priceLabels[field].placeholder} aria-invalid={problem !== null} aria-describedby={problem ? `${id}-p` : undefined} onChange={(event) => onChange(event.target.value)} />
-    </span>
+    </Money>
     {problem && <Problem id={`${id}-p`} text={problem} />}
   </div>
 )

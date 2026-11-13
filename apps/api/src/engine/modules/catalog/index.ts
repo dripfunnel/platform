@@ -17,6 +17,7 @@ import {
   selectProduct,
   selectProducts,
   setProductPhotos,
+  setVersionPhotos,
   setProductsTaxClass,
   setProductsVisibility,
   setProductVideo,
@@ -48,7 +49,7 @@ import { manualCurrencies, questionRefused, selectProductQuestions, setProductQu
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
 import { cleanQuestions, copiedQuestions, extrasPriceChanged, foreignIds, questionWrites, type CleanQuestion, type QuestionRefusal } from './questions'
-import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
+import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, textLimits, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, textLimits, type ProductInput } from './rules'
@@ -112,6 +113,9 @@ export { createStoryService, storyAudit, type Story, type StoryRefusal, type Sto
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
 export { sortValueFits, sortValueOf } from '#db/scoped/catalog'
+
+/** What a duplicate's name starts with, so the copy is told from its original in lists (CATALOG-DESIGN E6). */
+const copyNamePrefix = 'Copy of '
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.
@@ -274,8 +278,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at),
     ])
     if (clean.photos !== null) {
-      await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
+      await setProductPhotos(tx, storeId, productId, clean.photos)
     }
+    await setVersionPhotos(tx, versions.flatMap((v) => (v.clean.photoAssetId === undefined ? [] : [{ versionId: v.id, assetId: v.clean.photoAssetId }])))
     if (clean.video !== undefined) await setProductVideo(tx, storeId, productId, clean.video)
     if (clean.filterValues !== null) {
       const known = await knownFacetValues(tx, storeId, clean.filterValues.map((f) => f.valueId))
@@ -431,7 +436,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
 
-  /** A hidden copy, stock not copied (decided on #337); SKUs and barcodes stay with the original, being unique. */
+  /** A hidden copy named "Copy of …", stock not copied (decided on #337, #1446); SKUs and barcodes stay with the original, being unique. */
   const duplicate = async (id: string, options: { keepSizeChart: boolean }): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
@@ -441,7 +446,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const wanted = (await countStoreProducts(tx)) + 1
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
       const copy: Cleaned = {
-        name: source.name,
+        name: `${copyNamePrefix}${source.name}`.slice(0, textLimits.name),
         description: source.description,
         slug: sellerId !== null ? supplierSlug(source.slug.replace(/-[a-z2-9]{6}$/, '')) : source.slug,
         slugGiven: true,
@@ -470,10 +475,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           customsDescription: v.customs_description,
           trackStock: v.track_stock,
           taxClassId: v.tax_class_id,
+          photoAssetId: v.photo_asset_id,
           continueSelling: v.continue_selling,
         })),
-        // The same files, on the copy's own photos; the copy's versions are in the source's order.
-        photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt, version: p.version_id === null ? null : source.versions.findIndex((v) => v.id === p.version_id) })).map((p) => ({ ...p, version: p.version === -1 ? null : p.version })),
+        // The same files, on the copy's own photos, which its versions show as the source's did.
+        photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt })),
         video: source.video ? { assetId: source.video.asset_id, url: source.video.url } : null,
         filterValues: source.filter_values.map((f) => ({ valueId: f.value_id, version: f.version_id === null ? null : source.versions.findIndex((v) => v.id === f.version_id) })).filter((f) => f.version !== -1),
         // The copy keeps the listing it was made from, and the chart, which is the same owner's.

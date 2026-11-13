@@ -15,6 +15,7 @@ export const minimumSize: Record<SealedPart, { width: number; height: number }> 
   summary: { width: 160, height: 48 },
   payment: { width: 200, height: 24 },
   customise: { width: 280, height: 160 },
+  age: { width: 160, height: 24 },
 }
 
 /** Below this, a part or the text in it counts as transparent. */

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addressDraft } from '../../checkout/checkout'
 import type { AddressDraft } from '../../checkout/address'
 import { createI18n } from '../../platform/i18n/i18n'
-import { AddressFields, PhoneField } from './form'
+import { AddressFields, PhoneField, TextField } from './form'
 
 const { t } = createI18n('en-US')
 afterEach(cleanup)
@@ -41,6 +41,24 @@ const Phone = ({ start, country, seen }: { start: string; country: string; seen:
         setValue(v)
       }} />
 }
+
+describe('autoFocus', () => {
+  it('moves focus into a text field and a phone field when they appear, and only when asked', () => {
+    const none = render(
+      <>
+        <TextField label="Code" value="" onChange={() => undefined} />
+        <PhoneField label="Number" value="" onChange={() => undefined} country="IN" codeLabel="Country code" locale="en-IN" />
+      </>,
+    )
+    expect(document.activeElement).toBe(document.body)
+    none.unmount()
+    const text = render(<TextField label="Code" value="" onChange={() => undefined} autoFocus />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Code'))
+    text.unmount()
+    render(<PhoneField label="Number" value="" onChange={() => undefined} country="IN" codeLabel="Country code" locale="en-IN" autoFocus />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Number'))
+  })
+})
 
 describe('PhoneField', () => {
   it('starts in the given country and hands back the number with its code', () => {

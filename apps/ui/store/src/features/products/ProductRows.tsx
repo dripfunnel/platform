@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { ProductRow } from '../../api/products'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { RowMenu } from '../common/RowMenu'
 import { QuickEdit } from './QuickEdit'
 import { priceText, readyOf, reviewChecks, statusOf, stockOf, subOf, type ProductAccess, type RowStatus } from './productView'
 
@@ -35,6 +36,8 @@ export interface ProductRowsProps {
   onReview: (id: string | null) => void
   onApprove: (row: ProductRow) => void
   onSendBack: (row: ProductRow) => void
+  /** Duplicate, when the seat may copy a product and this isn't a sample; null otherwise. */
+  onDuplicate: ((row: ProductRow) => void) | null
   /** The row whose quick edit is open, and the toggle; null when quick edit isn't offered. */
   quick: { open: string | null; toggle: (id: string | null) => void; done: (text: string) => void } | null
   /** The pager, drawn inside the table's card as CatList does. */
@@ -71,7 +74,7 @@ const Review = ({ row, busy, onApprove, onSendBack }: { row: ProductRow; busy: b
 )
 
 /** CatList's desktop table: select, product, status, price, stock, supplier, readiness and the review toggle. */
-export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle, onTogglePage, onReview, onApprove, onSendBack, quick, footer }: ProductRowsProps) => {
+export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle, onTogglePage, onReview, onApprove, onSendBack, onDuplicate, quick, footer }: ProductRowsProps) => {
   const pageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const columns = 6 + (access.canSelect ? 1 : 0) + (access.seeSuppliers ? 1 : 0)
   return (
@@ -131,10 +134,40 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
                         {open ? words.row.close : words.row.review}
                       </button>
                     )}
-                    {quickable && quick && (
-                      <button type="button" className="df-products-quick-toggle" aria-expanded={quicking} aria-label={`${quicking ? words.quick.close : words.quick.open} ${row.name}`} onClick={() => quick.toggle(quicking ? null : row.id)}>
-                        {quicking ? words.quick.close : words.quick.open}
-                      </button>
+                    {((quickable && quick) || onDuplicate) && (
+                      <RowMenu label={fill(words.moreActionsFor, { name: row.name })}>
+                        {(close) => (
+                          <>
+                            {quickable && quick && (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                aria-label={`${quicking ? words.quick.close : words.quick.open} ${row.name}`}
+                                onClick={() => {
+                                  close()
+                                  quick.toggle(quicking ? null : row.id)
+                                }}
+                              >
+                                {quicking ? words.quick.close : words.quick.open}
+                              </button>
+                            )}
+                            {onDuplicate && (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={busy}
+                                aria-label={fill(words.duplicateOf, { name: row.name })}
+                                onClick={() => {
+                                  close()
+                                  onDuplicate(row)
+                                }}
+                              >
+                                {words.duplicate}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </RowMenu>
                     )}
                   </td>
                 </tr>
@@ -167,7 +200,7 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
 }
 
 /** The phone's cards: a tap opens the product; a waiting one carries Send back and Approve under it. */
-export const ProductCards = ({ rows, access, busy, onApprove, onSendBack, footer }: ProductRowsProps) => (
+export const ProductCards = ({ rows, access, busy, onApprove, onSendBack, onDuplicate, footer }: ProductRowsProps) => (
   <>
     <ul className="df-products-cards">
       {rows.map((row) => {
@@ -192,6 +225,13 @@ export const ProductCards = ({ rows, access, busy, onApprove, onSendBack, footer
                 </button>
                 <button type="button" className="df-button df-products-approve" disabled={busy} onClick={() => onApprove(row)}>
                   {words.review.approveShort}
+                </button>
+              </div>
+            )}
+            {onDuplicate && (
+              <div className="df-products-card-review">
+                <button type="button" className="df-button" disabled={busy} aria-label={fill(words.duplicateOf, { name: row.name })} onClick={() => onDuplicate(row)}>
+                  {words.duplicate}
                 </button>
               </div>
             )}

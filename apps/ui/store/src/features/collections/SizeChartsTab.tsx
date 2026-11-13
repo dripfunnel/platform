@@ -43,7 +43,7 @@ const TemplatePicker = ({ unit, india, onPick, onCancel }: { unit: 'cm' | 'in'; 
   return (
     <dialog ref={ref} className="df-dialog df-chart-start" aria-labelledby={`${id}-t`} onCancel={(e) => (e.preventDefault(), onCancel())}>
       <h2 id={`${id}-t`}>{words.startTitle}</h2>
-      <p>{fill(words.startBody, { unit: unit === 'in' ? words.unitIn : words.unitCm })}</p>
+      <p>{unit === 'in' ? words.startBodyIn : words.startBodyCm}</p>
       <fieldset>
         <legend className="df-visually-hidden">{words.startTitle}</legend>
         {templates(unit, india, words).map((t) => (

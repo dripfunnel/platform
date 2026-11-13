@@ -418,7 +418,7 @@ export const selectShopProductRows = (tx: ScopedSql, storeId: string, ids: reado
           'prices', coalesce((select json_agg(json_build_object('currency', vp.currency, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text)) from version_price vp where vp.version_id = v.id), '[]'::json),
           'choices', coalesce((select json_agg(json_build_object('option_id', ov.option_id, 'value_id', ov.value_id)) from product_version_option_value ov where ov.version_id = v.id), '[]'::json)
         ) order by v.position, v.id) from product_version v where v.product_id = p.id), '[]'::json) as versions,
-      coalesce((select json_agg(json_build_object('asset_id', ph.asset_id, 'alt', ph.alt, 'version_id', ph.version_id) order by ph.position) from product_photo ph where ph.product_id = p.id), '[]'::json) as photos,
+      coalesce((select json_agg(json_build_object('asset_id', ph.asset_id, 'alt', ph.alt, 'version_id', (select case count(*) when 0 then ph.version_id when 1 then (array_agg(v.id))[1] end from product_version v where v.product_id = ph.product_id and v.photo_asset_id = ph.asset_id and v.deleted_at is null)) order by ph.position) from product_photo ph where ph.product_id = p.id), '[]'::json) as photos,
       coalesce((select json_agg(pb.badge_id) from product_badge pb where pb.product_id = p.id), '[]'::json) as manual_badges
     from product p where p.store_id = ${storeId} and p.id = any (${pgArray(ids)}::uuid[])
   `

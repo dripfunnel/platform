@@ -5,6 +5,7 @@ import { useStayInFrame } from '../platform/browser/link'
 import { readConsent, writeConsent, type ConsentChoice } from '../platform/consent/consent'
 import type { Translate } from '../platform/i18n/i18n'
 import { formatMoney, type Money } from '../pricing/money'
+import { useRegisterAgeBox } from './ageBox'
 import { focusedElement, showInTopLayer } from './element'
 import { Sealed } from './Sealed'
 
@@ -64,6 +65,20 @@ export const LegalNotices = ({ notices, t, className }: Styled & { notices: read
       </section>
     </Sealed>
   ) : null
+
+export type AgeConfirmationProps = Styled & { needed: boolean; checked: boolean; onChange: (checked: boolean) => void; t: Translate }
+
+/** The tick box a cart with an age-restricted product needs before it can be ordered (#1443); nothing for any other cart. Part: box. */
+export const AgeConfirmation = ({ needed, checked, onChange, t, className }: AgeConfirmationProps) => {
+  useRegisterAgeBox(needed)
+  return needed ? (
+    <Sealed part="age" className={className}>
+      <label part="box">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {t('checkout.age.confirm')}
+      </label>
+    </Sealed>
+  ) : null
+}
 
 export type Crumb = { label: string; href: string }
 

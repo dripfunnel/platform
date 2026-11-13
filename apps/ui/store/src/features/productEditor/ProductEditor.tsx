@@ -10,6 +10,9 @@ import { addLicenceKeys, loadProductKind, maxKeyLength, maxKeysPerSave, saveProd
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { copyProduct } from '../common/copyProduct'
+import { RowMenu } from '../common/RowMenu'
+import { takeFlash } from '../offers/flash'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
 import { QuestionsSection } from './QuestionsSection'
@@ -17,7 +20,8 @@ import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChan
 import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
 import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
 import { GiftCardsIssued } from './GiftCardsIssued'
-import { BasicsCard, KindCard, maxPhotos, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
+import { type VersionPhotoUpload } from './VersionPhotoDialog'
+import { BasicsCard, KindCard, maxPhotos, PhotosCard, photosTaken, PriceCard, type PendingPhoto } from './EditorCards'
 import { maxVideoBytes, maxVideoSeconds, videoSeconds } from '../common/videoLength'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
@@ -143,11 +147,12 @@ export const ProductEditor = () => {
   const [refused, setRefused] = useState<{ draft: Draft; problems: DraftProblem[] } | null>(null)
   const page = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
+  const [problemTick, setProblemTick] = useState(0)
   const [failure, setFailure] = useState<{ text: string; stale: boolean } | null>(null)
   const [pending, setPending] = useState<PendingPhoto[]>([])
-  const [versionUploads, setVersionUploads] = useState<ReadonlySet<string>>(new Set())
   const [ask, setAsk] = useState<Parameters<Ask>[0] | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [copying, setCopying] = useState(false)
   const [history, setHistory] = useState<StockHistoryView>(closedHistory)
   const [language, setLanguage] = useState<string | null>(null)
   const panelId = useId()
@@ -209,9 +214,20 @@ export const ProductEditor = () => {
 
   useEffect(load, [load])
 
+  // A copy opens in this same page, so the busy mark and the copy's message are picked up when the id changes.
   useEffect(() => {
-    if (refused) page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
+    setCopying(false)
+    const message = takeFlash()
+    if (message) setToast(message)
+  }, [productId])
+
+  const scrollToInvalid = () => page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
+  useEffect(() => {
+    if (refused) scrollToInvalid()
   }, [refused])
+  useEffect(() => {
+    if (problemTick > 0) scrollToInvalid()
+  }, [problemTick])
 
   const dirty = view.kind === 'ready' && isDirty(draft, saved)
   const unsaved = dirty || translationDirty
@@ -256,7 +272,7 @@ export const ProductEditor = () => {
       if (!result.ok) return setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'failed', message: words.photos.refused[result.code] } : p)))
       files.current.delete(id)
       setPending((list) => list.filter((p) => p.id !== id))
-      update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '', versionChoices: null }] }))
+      update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '' }] }))
     })
   }
   const sendVideo = async (id: string, file: File) => {
@@ -287,6 +303,7 @@ export const ProductEditor = () => {
     const file = files.current.get(id)
     if (!file) return
     if (pending.find((p) => p.id === id)?.kind === 'video') void sendVideo(id, file)
+    else if (photosTaken(draft.photos.length, pending) >= maxPhotos) setToast(words.photos.limit)
     else upload(id, file)
   }
   const dismiss = (id: string) => {
@@ -300,16 +317,13 @@ export const ProductEditor = () => {
     setPending((list) => [...list, ...added.map((a) => ({ id: a.id, name: a.file.name, state: 'uploading' as const, message: null }))])
     for (const a of added) upload(a.id, a.file)
   }
-  const ofVersion = (key: string) => (p: Draft['photos'][number]) => p.versionChoices !== null && versionKey(p.versionChoices) === key
-  const uploadVersionPhoto = (choices: string[], file: File) => {
-    const key = versionKey(choices)
-    if (!draft.photos.some(ofVersion(key)) && draft.photos.length + pending.length + versionUploads.size >= maxPhotos) return setToast(words.photos.limit)
-    setVersionUploads((s) => new Set([...s, key]))
-    void uploadPhoto(file).then((result) => {
-      setVersionUploads((s) => new Set([...s].filter((k) => k !== key)))
-      if (!result.ok) return setToast(words.photos.refused[result.code])
-      update((d) => ({ ...d, photos: [...d.photos.filter((p) => !ofVersion(key)(p)), { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '', versionChoices: choices }] }))
-    })
+  /** "Upload new photo" in a version's window: added to Photos like any upload, then picked there. */
+  const uploadForVersion: VersionPhotoUpload = async (file) => {
+    if (photosTaken(draft.photos.length, pending) >= maxPhotos) return { ok: false, message: words.photos.limit }
+    const result = await uploadPhoto(file)
+    if (!result.ok) return { ok: false, message: words.photos.refused[result.code] }
+    update((d) => ({ ...d, photos: [...d.photos, { assetId: result.assetId, url: `/api/assets/${result.assetId}`, alt: '' }] }))
+    return { ok: true, assetId: result.assetId }
   }
 
   const idsOf = (p: EditorProduct | null) => new Map((p?.versions ?? []).map((v) => [versionKey(v.choices), v.id]))
@@ -342,10 +356,12 @@ export const ProductEditor = () => {
     const blocking = access.canEdit ? [...problems, ...kindProblems] : problems.filter((p) => p === 'stock')
     if (blocking.length > 0) {
       setShowProblems(true)
+      setToast(fill(plural(words.fixBeforeSaving, blocking.length), { count: String(blocking.length) }))
+      setProblemTick((n) => n + 1)
       return
     }
     // A photo still on its way isn't in the product yet; saving now would leave it out.
-    if (pending.some((p) => p.state === 'uploading') || versionUploads.size > 0) {
+    if (pending.some((p) => p.state === 'uploading')) {
       setToast(words.photos.waitUpload)
       return
     }
@@ -494,6 +510,26 @@ export const ProductEditor = () => {
     })
   }
 
+  // The copy is made from what is saved, so unsaved changes are asked about first; once confirmed, opening the copy is not asked again.
+  const copy = () => {
+    if (!product || copying) return
+    setCopying(true)
+    void copyProduct(product.id).then((made) => {
+      if (!made.ok) {
+        setToast(made.message)
+        return setCopying(false)
+      }
+      leaving.current = true
+      void navigate({ to: '/products/$productId', params: { productId: made.id } }).finally(() => (leaving.current = false))
+    })
+  }
+
+  const duplicate = () =>
+    product &&
+    (unsaved
+      ? setAsk({ title: fill(words.duplicateTitle, { name: product.name }), target: product.name, consequence: words.duplicateUnsaved, confirmLabel: words.duplicateConfirm, onConfirm: copy })
+      : copy())
+
   const remove = () =>
     product &&
     setAsk({
@@ -532,6 +568,23 @@ export const ProductEditor = () => {
         <h1 className="df-editor-title">{draft.name.trim() || (isNew ? words.newProduct : words.untitled)}</h1>
         <span className={`df-editor-status df-editor-status--${status}`}>{words.status[status]}</span>
         <span className="df-editor-top-gap" />
+        {!isNew && access.canEdit && (
+          <RowMenu label={fill(messages.products.moreActionsFor, { name: draft.name.trim() || words.untitled })}>
+            {(close) => (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={saving || copying}
+                onClick={() => {
+                  close()
+                  duplicate()
+                }}
+              >
+                {messages.products.duplicate}
+              </button>
+            )}
+          </RowMenu>
+        )}
         {!isNew && access.storeFields && (
           <button type="button" className="df-button df-editor-delete" disabled={saving} onClick={remove}>
             {words.delete}
@@ -539,6 +592,7 @@ export const ProductEditor = () => {
         )}
         {(access.canEdit || access.canStock) && (
           <button type="button" className="df-button df-button--primary" disabled={saving || !dirty} onClick={() => void save()}>
+            {saving && <span className="df-editor-spinner" aria-hidden="true" />}
             {saveLabel}
           </button>
         )}
@@ -589,7 +643,7 @@ export const ProductEditor = () => {
               {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
             </GiftCardCard>
           )}
-          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} videoOn={view.videoOn} onVideo={addVideo} onRetry={retry} onDismiss={dismiss} />
+          <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} videoOn={view.videoOn} onVideo={addVideo} onRetry={retry} onDismiss={dismiss} ask={setAsk} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
           {!made && draft.kind !== 'gift_card' && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
@@ -598,7 +652,7 @@ export const ProductEditor = () => {
                 </PriceCard>
               )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
-          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} photos={{ uploading: versionUploads, onFile: uploadVersionPhoto }} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
+          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} photos={{ upload: uploadForVersion }} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
           <QuestionsSection
             draft={draft}
             update={update}
@@ -632,12 +686,14 @@ export const ProductEditor = () => {
             {words.bar.discard}
           </button>
           <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => void save()}>
+            {saving && <span className="df-editor-spinner" aria-hidden="true" />}
             {saveLabel}
           </button>
         </div>
       )}
 
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}`} {...(ask as Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>)} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
+      <span className="df-visually-hidden" role="status">{saving ? words.saving : ''}</span>
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )

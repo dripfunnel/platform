@@ -54,6 +54,9 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
   const units = words.sections.units[draft.units]
   const grams = gramsOf(draft.weight, draft.units)
   const shipSummary = typeof grams === 'number' ? [`${draft.weight} ${units.weight}`, draft.box && `${draft.box} ${units.box}`, draft.hsCode].filter(Boolean).join(' · ') : words.sections.shipEmpty
+  const ownTitle = draft.seoTitle.trim() !== ''
+  const ownDescription = draft.seoDescription.trim() !== ''
+  const seoLine = ownTitle ? (ownDescription ? words.sections.seoBoth : words.sections.seoTitleOnly) : ownDescription ? words.sections.seoDescriptionOnly : words.sections.seoNone
   const varies = (field: 'weight' | 'box' | 'hsCode') => (!draft.shippingChanged[field] && draft[field] === '' && draft.versions.length > 1 ? words.sections.varies : undefined)
   const setShipping = (field: 'weight' | 'box' | 'hsCode', text: string) => update((x) => ({ ...x, [field]: text, shippingChanged: { ...x.shippingChanged, [field]: true } }))
   const usual = taxClasses?.find((c) => c.isDefault)
@@ -101,9 +104,10 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
         </Section>
       )}
       {afterTax}
-      <Section title={words.sections.seo} summary={fill(words.sections.seoSummary, { title: draft.seoTitle || draft.name || words.sections.seoFilled })} open={!!open['seo']} onToggle={toggle('seo')} problem={false}>
+      <Section title={words.sections.seo} summary={fill(seoLine, { title: draft.seoTitle.trim() || draft.name || words.sections.seoFilled })} open={!!open['seo']} onToggle={toggle('seo')} problem={false}>
         <Field label={words.sections.seoTitle}>{(id) => <input id={id} maxLength={70} placeholder={draft.name} value={draft.seoTitle} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoTitle: e.target.value }))} />}</Field>
         <Field label={words.sections.seoDescription}>{(id) => <textarea id={id} rows={2} maxLength={160} placeholder={plainTextOf(draft.description).slice(0, 160)} value={draft.seoDescription} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoDescription: e.target.value }))} />}</Field>
+        <p className="df-editor-hint">{words.sections.seoHint}</p>
       </Section>
       <Section title={words.sections.more} summary={words.sections.moreSummary} open={!!open['more']} onToggle={toggle('more')} problem={false}>
         <div className="df-editor-grid">

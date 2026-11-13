@@ -17,7 +17,7 @@ import { moneyFields, productPath } from '../products/summary'
 
 const m = `{ ${moneyFields} }`
 const addressFields = 'name line1 line2 city region postalCode country phone latitude longitude'
-export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { id versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } answers { questionId question kind text per amount ${m} choices { choiceId label quantity free } uploads { id kind } } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
+export const cartFields = `id currency email phone note needsShipping needsAgeConfirmation checkoutStep problems readyToPay deliverable shippingOption lines { id versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } answers { questionId question kind text per amount ${m} choices { choiceId label quantity free } uploads { id kind } } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
 
 const text = z.string().nullable().optional()
 const count = z.number().int().nullable().optional()
@@ -52,6 +52,7 @@ export const cartSchema = z.object({
   phone: text,
   note: text,
   needsShipping: z.boolean().nullable().optional(),
+  needsAgeConfirmation: z.boolean().nullable().optional(),
   checkoutStep: text,
   problems: z.array(z.string()).nullable().optional(),
   readyToPay: z.boolean().nullable().optional(),
@@ -139,6 +140,8 @@ export type Cart = {
   phone: string | null
   note: string | null
   needsShipping: boolean
+  /** Something in the cart asks shoppers to confirm their age before ordering (#1443). */
+  needsAgeConfirmation: boolean
   step: CheckoutStep | null
   /** EMPTY, LINE_PROBLEM, NO_CONTACT, NO_ADDRESS, NO_SHIPPING, SHIPPING_UNAVAILABLE, TAX_UNAVAILABLE. */
   problems: string[]
@@ -196,6 +199,7 @@ export const viewCart = (cart: Decoded, overlay: readonly Overlay[] = []): Cart 
     phone: cart.phone ?? null,
     note: cart.note ?? null,
     needsShipping: cart.needsShipping ?? true,
+    needsAgeConfirmation: cart.needsAgeConfirmation ?? false,
     step: steps.find((s) => s === cart.checkoutStep) ?? null,
     problems: cart.problems ?? [],
     readyToPay: cart.readyToPay ?? false,

@@ -104,6 +104,8 @@ export interface SnapshotLine {
 export interface OrderSnapshot {
   orderId: string
   number: string
+  /** Set when the shopper confirmed their age for an age-restricted product (#1443). */
+  ageConfirmedAt: Date | null
   lines: readonly SnapshotLine[]
   parts: readonly { sellerId: string | null; shippingMode: 'store' | 'to-store' | 'to-shopper' }[]
   /** `label` is a courier's own service name; null for flat delivery and collection, which the storefront words itself. */
@@ -148,7 +150,7 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
     update "order" set state = 'placed', number = ${s.number}, placed_at = ${s.now}, tax_inclusive = ${s.tax.inclusive},
       subtotal_amount = ${s.subtotal.toString()}, discount_amount = ${s.discount.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},
       total_amount = ${s.total.toString()}, shipping_method_label = ${s.shipping?.label ?? null}, shipping_option = ${s.shippingOption}, delivery_warehouse_id = ${s.deliveryWarehouseId}, payment_method = ${s.paymentMethod},
-      payment_due_by = ${s.paymentDueBy}, stock_reserved = ${s.stockReserved}, checkout_step = null, cart_expires_at = null,
+      age_confirmed_at = ${s.ageConfirmedAt}, payment_due_by = ${s.paymentDueBy}, stock_reserved = ${s.stockReserved}, checkout_step = null, cart_expires_at = null,
       updated_at = ${s.now}, revision = revision + 1
     where id = ${s.orderId} and store_id = ${storeId}
   `

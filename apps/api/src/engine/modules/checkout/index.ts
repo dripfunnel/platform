@@ -66,7 +66,7 @@ export const maxOrderHistoryPage = 50
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
-export type CheckoutRefusal = 'OFFER_CHANGED' | 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'PAYMENT_PENDING' | 'MODE_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export type CheckoutRefusal = 'OFFER_CHANGED' | 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'PAYMENT_PENDING' | 'MODE_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING' | 'AGE_CONFIRMATION_REQUIRED'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -265,12 +265,13 @@ export const createCheckout = (deps: CheckoutDeps) => {
   }
 
   /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
-  const place = async (provider: string, app?: AppPaymentInput): Promise<CheckoutResult<PlacedOrder>> => {
+  const place = async (provider: string, app?: AppPaymentInput, ageConfirmed = false): Promise<CheckoutResult<PlacedOrder>> => {
     const cart = await createCartService({ ...deps, allowNewCart: async () => false }).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
+    if (cart.needsAgeConfirmation && !ageConfirmed) return { ok: false, reason: 'AGE_CONFIRMATION_REQUIRED' }
     // A gift card that covers it all is the way it is paid; one that covers part leaves the rest to pay (FIRST-RELEASE §19).
     // A preview never spends a real card (decided on #323).
     // A card spent or lapsed since the shopper saw it comes off, and the shopper sees the new amount due before paying it.
@@ -316,6 +317,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         await writeSnapshot(tx, storeId, {
           orderId: cart.id,
           number,
+          ageConfirmedAt: cart.needsAgeConfirmation ? at : null,
           lines,
           parts: parts.map((sellerId) => ({ sellerId, shippingMode: sellerId ? (modes.get(sellerId) ?? 'to-store') : 'store' })),
           shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) } : null,

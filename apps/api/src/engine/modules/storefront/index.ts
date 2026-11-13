@@ -59,6 +59,8 @@ export interface CartItem {
   soldHere: boolean
   /** Whether its product asks questions, so a line without answers is checked only then (#1368). */
   hasQuestions: boolean
+  /** Its product asks shoppers to confirm their age at checkout (#1443). */
+  ageRestricted: boolean
 }
 
 export interface StorefrontDeps {
@@ -321,7 +323,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
         const version = product?.versions.find((x) => x.id === v.id)
-        return product && version ? [[v.id, { product, version, versionLabel: versionLabelOf(version.name, v.choices), taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
+        return product && version ? [[v.id, { product, version, versionLabel: versionLabelOf(version.name, v.choices), taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions, ageRestricted: v.age_restricted }] as const] : []
       }),
     )
   }
