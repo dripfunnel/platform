@@ -808,6 +808,17 @@ describe('the backstop itself', () => {
     expect(await idsOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), 'store')).toEqual([])
   })
 
+  it('lets only the shop role call asset_is_product_photo (#1465)', async () => {
+    for (const role of ['app_request', 'app_supplier', 'app_partner', 'app_platform']) {
+      await expect(
+        db.sql.begin(async (tx: postgres.TransactionSql) => {
+          await tx.unsafe(`set local role ${role}`)
+          return tx`select asset_is_product_photo(gen_random_uuid())`
+        }),
+      ).rejects.toThrow(/permission denied for function asset_is_product_photo/)
+    }
+  })
+
   it('keeps app_definer to the functions DATA-MODEL §5.3 lists, each pinning its search path', async () => {
     const owned = await db.sql<{ proname: string; prosecdef: boolean; pinned: boolean }[]>`
       select p.proname, p.prosecdef, coalesce(array_to_string(p.proconfig, ',') like '%search_path=%', false) as pinned
@@ -816,6 +827,7 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it here and to DATA-MODEL §5.3's app_definer row, with its filter.
     expect(owned.map((f) => f.proname)).toEqual([
       'acting_store_main_language',
+      'asset_is_product_photo',
       'current_order_token_hash',
       'decide_support_write',
       'end_partner_user_sessions',
