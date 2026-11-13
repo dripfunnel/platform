@@ -36,6 +36,8 @@ export interface ConfirmDialogProps {
   // Picks from short lists, such as a role, or a plan and when it applies (#116). `error` says why a pick won't do, or null.
   choices?: readonly ConfirmChoice[]
   danger?: boolean
+  // About 720 px instead of 540, for a pick whose longest choice is long (Invite a supplier's access); never wider than the screen.
+  wide?: boolean
   // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
   children?: ReactNode
   // Why those fields won't do yet, or null once they will: confirm waits for them as it does for `input`.
@@ -59,6 +61,7 @@ export const ConfirmDialog = ({
   input,
   choices = [],
   danger = false,
+  wide = false,
   children,
   blocked = null,
   error = null,
@@ -118,7 +121,7 @@ export const ConfirmDialog = ({
   return (
     <dialog
       ref={dialogRef}
-      className="df-dialog"
+      className={wide ? 'df-dialog df-dialog--wide' : 'df-dialog'}
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={(event) => {
