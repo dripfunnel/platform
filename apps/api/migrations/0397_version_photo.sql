@@ -15,9 +15,12 @@ $$;
 
 create trigger product_version_photo before insert or update of photo_asset_id on product_version for each row execute function product_version_photo_check();
 
--- Each photo uploaded for one version becomes a product photo that version shows. They go after the others, so the main photo stays the same.
-update product_version v set photo_asset_id = ph.asset_id from product_photo ph where ph.version_id = v.id and v.deleted_at is null;
-update product_photo set position = position + 100, version_id = null where version_id is not null;
+-- Each version points at its lowest-position legacy photo, and that photo also stays a product photo after the others (so the main photo is the same).
+-- version_id is left set so the previous release still reads each version's photo; the new release clears it when it next saves the photos.
+update product_version v set photo_asset_id = ph.asset_id
+from (select distinct on (version_id) version_id, asset_id from product_photo where version_id is not null order by version_id, position, id) ph
+where ph.version_id = v.id and v.deleted_at is null;
+update product_photo set position = position + 100 where version_id is not null;
 
 grant update (photo_asset_id) on product_version to app_request, app_supplier;
 grant select (photo_asset_id) on product_version to app_shop;

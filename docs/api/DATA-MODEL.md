@@ -1435,8 +1435,10 @@ A link names only a file the caller can read, because a foreign key alone would 
 **Version photo** (migration 0397, #1460): `product_version.photo_asset_id` names one of the product's own
 photos (a trigger refuses any other file), so several versions can show the same photo; null shows the main
 photo. A save that drops a photo clears it on the versions that showed it. `product_photo.version_id` is no
-longer written (the migration moved each such photo to the product's photos, after the others, and pointed its
-version at it); the column stays for the previous release and goes in a later migration.
+longer written (the migration pointed each version at its lowest-position such photo and moved those photos after
+the others, leaving `version_id` set so the previous release still reads them; the next save of a product's
+photos clears it, and the column goes in a later migration). The live read names a photo's version from the
+versions pointing at it when exactly one does, and from the legacy `version_id` only when none does.
 **Part 3** (migration 0043): `filter`, `filter_value`, `product_filter_value`, `collection`, `collection_rule`,
 `collection_product`, `menu` and `menu_item`, in §7.11's classes. An automatic collection's
 `collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,

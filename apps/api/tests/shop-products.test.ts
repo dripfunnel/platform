@@ -359,14 +359,22 @@ describe('recording the catalogue for a live build', () => {
     }
     const [shared, single] = [await asset(), await asset()]
     const read = async () => (await db.sql.begin((tx) => selectShopProductRows(tx, t.storeA1, [ids.kurta], 'en')))[0]?.photos ?? []
+    const listed = (photos: { asset_id: string }[]) => photos.map((p) => p.asset_id)
     await db.sql`update product_version set photo_asset_id = ${single} where id = ${ids.red}`
     const one = await read()
-    expect(one.map((p) => p.asset_id)).toEqual([shared, single].filter((id) => one.some((p) => p.asset_id === id)))
+    expect(listed(one)).toEqual([shared, single])
     expect(one.find((p) => p.asset_id === single)?.version_id).toBe(ids.red)
+    expect(one.find((p) => p.asset_id === shared)?.version_id).toBeNull()
     await db.sql`update product_version set photo_asset_id = ${shared} where product_id = ${ids.kurta}`
     const many = await read()
-    expect(many.filter((p) => p.asset_id === shared)).toHaveLength(1)
+    expect(listed(many)).toEqual([shared, single])
+    expect(new Set(listed(many)).size).toBe(many.length)
     expect(many.find((p) => p.asset_id === shared)?.version_id).toBeNull()
+    await db.sql`update product_photo set version_id = ${ids.red} where product_id = ${ids.kurta} and asset_id = ${shared}`
+    expect((await read()).find((p) => p.asset_id === shared)?.version_id).toBeNull()
+    await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
+    const legacy = await read()
+    expect(legacy.find((p) => p.asset_id === shared)?.version_id).toBe(ids.red)
     await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
     await db.sql`delete from product_photo where product_id = ${ids.kurta}`
   })
