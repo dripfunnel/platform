@@ -673,6 +673,16 @@ describe('exports', () => {
 
   const listed = (id: string, state: 'ready' | 'failed' | 'preparing', url: string | null = null) => ({ id, state, entries: state === 'ready' ? 42 : null, products: state === 'ready' ? 40 : null, url, expiresAt: null, kind: 'products' as const, requestedAt: '2026-10-06T10:00:00Z' })
 
+  it('draws no “Export” text on screen, only its buttons, and still names the card for a screen reader (#1463)', async () => {
+    await show()
+    const card = within(screen.getByRole('region', { name: words.export.title }))
+    const heading = card.getByRole('heading', { level: 2, name: words.export.title })
+    expect(heading.className).toBe('df-visually-hidden')
+    expect(card.getAllByText(words.export.title, { exact: true })).toEqual([heading])
+    expect(card.getAllByRole('button').map((b) => b.textContent)).toEqual(['Export hidden · 2 products, 3 versions', 'Export all · 42 products, 51 versions'])
+    expect(card.getByText('One row for each version in the file.')).toBeTruthy()
+  })
+
   it('shows products and versions apart on both buttons, with the note that a file row is a version', async () => {
     await show()
     const card = within(screen.getByRole('region', { name: words.export.title }))
