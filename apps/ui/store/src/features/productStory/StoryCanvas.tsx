@@ -79,7 +79,7 @@ const Preview = ({ m, names }: { m: DraftModule; names: Readonly<Record<string, 
       return (
         <div>
           <strong className="df-story-heading">{title}</strong>
-          <span className="df-story-hint">{m.kind === 'video' ? m.videoUrl || words.panel.videoHint : fill(words.panel.fromProduct, { what: m.kind === 'specs' ? words.panel.fromSpecs : words.panel.fromFaqs })}</span>
+          <span className="df-story-hint">{m.kind === 'video' ? m.videoAssetId ? words.panel.videoUploaded : m.videoUrl || words.panel.videoHint : fill(words.panel.fromProduct, { what: m.kind === 'specs' ? words.panel.fromSpecs : words.panel.fromFaqs })}</span>
         </div>
       )
   }

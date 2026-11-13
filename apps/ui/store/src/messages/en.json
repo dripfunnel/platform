@@ -2233,7 +2233,12 @@
       "fromFaqs": "questions",
       "video": "Video link",
       "videoPlaceholder": "https://www.youtube.com/watch?v=…",
-      "videoHint": "A YouTube or Vimeo link.",
+      "videoHint": "Upload an MP4 or WebM video of up to 30 seconds and 4 MB, or paste a YouTube or Vimeo link. One replaces the other.",
+      "videoUpload": "Upload a video",
+      "videoReplace": "Replace the video",
+      "videoRemove": "Remove the video",
+      "videoRetry": "Try again",
+      "videoUploaded": "Uploaded video",
       "brandFailed": "We couldn’t load your brand stories. Try again in a moment.",
       "compareGone": "A product no longer here"
     },
