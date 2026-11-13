@@ -71,8 +71,11 @@ describe('the codemods', () => {
     const upgraded = once.get(file) ?? ''
     expect(upgraded).toContain('RichText, SizeChart, useProduct')
     expect(upgraded).toContain('<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            <p className={styles.stock}')
-    expect(once.get('src/theme/styles/product.module.css')).toMatch(/\.sizeLink \{[^}]*\}\n\n\.sizeLink:focus-visible \{[^}]*\}\n\n\.stock \{/)
-    expect(applyCodemods(new Map([[file, upgraded]]), codemods).get(file)).toBe(upgraded)
+    expect(once.get('src/theme/styles/product.module.css')).toMatch(/\.sizeLink \{[^}]*\}\n\n\.sizeLink:focus-visible \{[^}]*\}\n\n\/\* Stock \*\/ \.stock \{/)
+    const twice = applyCodemods(once, codemods)
+    expect(twice.get(file)).toBe(upgraded)
+    expect(twice.get('src/theme/styles/product.module.css')).toBe(once.get('src/theme/styles/product.module.css'))
+    expect(twice.get('src/theme/styles/product.module.css')?.match(/\.sizeLink \{/g)).toHaveLength(1)
   })
 
   it('pins core exactly and keeps the rest of package.json', () => {

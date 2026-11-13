@@ -60,7 +60,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
         paths: ['src/theme/styles/product.module.css'],
         find: '\n.stock {',
         replace:
-          '\n.sizeLink {\n  align-self: flex-start;\n  min-height: 24px;\n  padding: 0;\n  border: 0;\n  background: none;\n  color: var(--ink);\n  font: inherit;\n  font-size: 14px;\n  text-decoration: underline;\n  cursor: pointer;\n}\n\n.sizeLink:focus-visible {\n  outline: 2px solid var(--focus);\n  outline-offset: 2px;\n}\n\n.stock {',
+          '\n.sizeLink {\n  align-self: flex-start;\n  min-height: 24px;\n  padding: 0;\n  border: 0;\n  background: none;\n  color: var(--ink);\n  font: inherit;\n  font-size: 14px;\n  text-decoration: underline;\n  cursor: pointer;\n}\n\n.sizeLink:focus-visible {\n  outline: 2px solid var(--focus);\n  outline-offset: 2px;\n}\n\n/* Stock */ .stock {',
       },
     ],
   },
