@@ -2,6 +2,7 @@ import { ConfirmDialog } from '@dripfunnel/shared/ui'
 import { useEffect, useRef, useState } from 'react'
 import { copyProductQuestions, searchProductsWithQuestions, uploadPhoto, type CopiedQuestions } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import type { Draft } from '../common/productDraft'
 import { maxChoices, maxQuestions, newChoice, newPrice, newQuestion, questionProblems, summaryOf, withValidConditions, type ChoiceDraft, type PriceDraft, type QuestionDraft, type QuestionKind, type QuestionProblem } from '../common/productQuestions'
 import type { Update } from './EditorCards'
@@ -142,7 +143,7 @@ const ChoiceRow = ({ choice, set, setPhoto, remove, move, first, last, many, cur
       <span className="df-question-photo">
         {choice.photoAssetId ? (
           <>
-            <img src={`/api/assets/${choice.photoAssetId}`} alt="" width={40} height={40} />
+            <AssetImage url={`/api/assets/${choice.photoAssetId}`} alt="" className="df-question-photo-img" placeholder="" />
             {!disabled && (
               <button type="button" className="df-editor-link" onClick={() => set({ ...choice, photoAssetId: null })}>
                 {words.photoRemove}
