@@ -1194,6 +1194,12 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
   const sizes = (p: Partial<EditorProduct> = {}) =>
     cushion({ options: [{ id: 'o1', name: 'Size', values: [{ id: 'vs', name: 'S' }, { id: 'vm', name: 'M' }, { id: 'vl', name: 'L' }] }], versions: [version('ver-s', ['S'], '129900'), version('ver-m', ['M'], '149900'), version('ver-l', ['L'], '169900')], ...p })
   const more = (name: string) => within(screen.getByRole('group', { name: `More for ${name}` }))
+  // A price box's currency is written outside it, on its left, as the single-version Price field draws it (#1349).
+  const currencyBeside = (box: HTMLInputElement) => {
+    const wrap = box.parentElement
+    const label = wrap?.firstElementChild
+    return { wrapped: wrap?.classList.contains('df-editor-money') === true, text: label?.textContent, hidden: label?.getAttribute('aria-hidden'), boxIsNext: label?.nextElementSibling === box }
+  }
   const sent = () => api.saveProduct.mock.calls[0]?.[2] as { versions: { choices: string[]; prices: unknown[]; cost?: unknown; photoAssetId?: string | null }[]; photos: unknown[] }
 
   beforeEach(() => {
@@ -1201,6 +1207,32 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     stockApi.loadProductStock.mockResolvedValue(new Map())
     vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+  })
+
+  it('writes the store’s currency outside each version’s price box, on its left, with only the number in the box, and keeps the box’s name', async () => {
+    await show(owner)
+    for (const name of ['S', 'M', 'L']) {
+      const box = screen.getByRole('textbox', { name: `Price of ${name}` }) as HTMLInputElement
+      expect(currencyBeside(box)).toEqual({ wrapped: true, text: 'INR', hidden: 'true', boxIsNext: true })
+      expect(box.value).toMatch(/^\d+\.\d\d$/)
+    }
+  })
+
+  it('writes each hand-priced currency beside its own boxes, and saves what is typed without it', async () => {
+    api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'manual' }])
+    await show(owner)
+    const usd = screen.getByRole('textbox', { name: 'USD price of S' }) as HTMLInputElement
+    expect(currencyBeside(usd)).toEqual({ wrapped: true, text: 'USD', hidden: 'true', boxIsNext: true })
+    expect(currencyBeside(screen.getByRole('textbox', { name: 'Price of S' }) as HTMLInputElement).text).toBe('INR')
+    fireEvent.change(usd, { target: { value: '12' } })
+    fireEvent.change(field('Price of M'), { target: { value: '1499' } })
+    fireEvent.click(saveButton())
+    await settle()
+    expect(sent().versions.map((v) => [v.choices, v.prices])).toEqual([
+      [['S'], [{ currency: 'INR', amount: '129900' }, { currency: 'USD', amount: '1200' }]],
+      [['M'], [{ currency: 'INR', amount: '149900' }]],
+      [['L'], [{ currency: 'INR', amount: '169900' }]],
+    ])
   })
 
   it('saves a version’s compare-at price and cost from its own row, and shows what it makes', async () => {

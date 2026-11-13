@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -808,6 +808,12 @@ depend on an engine capability whose release is not yet chosen.
   costs you and Stock on every version made; Stock sets the count at the table's location (it
   doesn't add to it) and shows only where the Stock column is editable. An empty field keeps each
   version's own value.
+  - **Currency beside each price box (decided 2026-11-09 on #1349, wording corrected 2026-11-13):** the Price
+    column's boxes have the store's pricing currency written outside the box, on its left, and each
+    hand-priced currency's boxes have that currency, exactly as the single-version Price field draws it (the
+    same muted code and gap); only the number is in the box. The code is decoration: each box keeps its own
+    name ("Price of S / Sand"). Every box keeps the width it had, so a store with hand-priced currencies may
+    scroll the table sideways at desktop width, as it already does on a phone.
 - D5. Remove combinations that don't exist ("We don't make Red in XL") and add them back later.
 - D6. Add a choice later (e.g. XXL). Only the new versions appear, pre-filled from a sibling.
 - D7. Remove a choice. Confirm which versions go, say they cannot be undone, and say that past
