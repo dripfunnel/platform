@@ -349,17 +349,24 @@ describe('recording the catalogue for a live build', () => {
     expect(await recorder().store('nobody.shop.example')).toBeNull()
   })
 
-  // Card #1460: a version shows one of the product's photos, and the live read names it once for each version that shows it.
-  it('lists a version’s photo with that version, a shared one for each version', async () => {
-    const file = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]
-    if (!file) throw new Error('no asset')
-    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${ids.kurta}, ${t.storeA1}, ${file.id}, 0)`
-    await db.sql`update product_version set photo_asset_id = ${file.id} where product_id = ${ids.kurta}`
-    const [row] = await db.sql.begin((tx) => selectShopProductRows(tx, t.storeA1, [ids.kurta], 'en'))
-    const versions = row?.versions.map((v) => v.id) ?? []
-    expect(versions.length).toBeGreaterThan(0)
-    expect(row?.photos.filter((p) => p.version_id === null).map((p) => p.asset_id)).toEqual([file.id])
-    expect(row?.photos.flatMap((p) => (p.version_id === null ? [] : [p.version_id])).sort()).toEqual([...versions].sort())
+  // Card #1460: a photo is listed once however many versions show it, with its version when only one does.
+  it('lists each photo once: with its version when one version shows it, and as a product photo when several do', async () => {
+    const asset = async () => {
+      const [file] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`
+      if (!file) throw new Error('no asset')
+      await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${ids.kurta}, ${t.storeA1}, ${file.id}, (select count(*) from product_photo where product_id = ${ids.kurta}))`
+      return file.id
+    }
+    const [shared, single] = [await asset(), await asset()]
+    const read = async () => (await db.sql.begin((tx) => selectShopProductRows(tx, t.storeA1, [ids.kurta], 'en')))[0]?.photos ?? []
+    await db.sql`update product_version set photo_asset_id = ${single} where id = ${ids.red}`
+    const one = await read()
+    expect(one.map((p) => p.asset_id)).toEqual([shared, single].filter((id) => one.some((p) => p.asset_id === id)))
+    expect(one.find((p) => p.asset_id === single)?.version_id).toBe(ids.red)
+    await db.sql`update product_version set photo_asset_id = ${shared} where product_id = ${ids.kurta}`
+    const many = await read()
+    expect(many.filter((p) => p.asset_id === shared)).toHaveLength(1)
+    expect(many.find((p) => p.asset_id === shared)?.version_id).toBeNull()
     await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
     await db.sql`delete from product_photo where product_id = ${ids.kurta}`
   })
