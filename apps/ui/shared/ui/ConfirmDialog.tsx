@@ -4,7 +4,8 @@ import './states.css'
 export interface ConfirmChoice {
   key: string
   label: string
-  options: readonly { value: string; label: string }[]
+  // A `hint` on any option shows the choice as boxes with a line under each, as radios; `confirmLabel` is the button's label while that option is picked.
+  options: readonly { value: string; label: string; hint?: string; confirmLabel?: string }[]
   initial: string
   error: (picked: string, all: Readonly<Record<string, string>>) => string | null
   // Shown only while this holds for the other picks, such as a target plan once "move" is picked.
@@ -14,6 +15,7 @@ export interface ConfirmChoice {
 export interface ConfirmDialogProps {
   open: boolean
   title: string
+  // Empty when the title and the line under it say it all.
   target: string
   // A function when the consequence depends on the value typed or picked, as a new trial end does.
   consequence: string | ((value: string, choices: Readonly<Record<string, string>>) => string)
@@ -89,6 +91,7 @@ export const ConfirmDialog = ({
   const choiceErrors = shown.map((choice) => choice.error(picks[choice.key] ?? '', picks))
   const failingChoice = choiceErrors.findIndex((error) => error !== null)
   const canConfirm = !confirmed && blocked === null && !reasonMissing && !typedMismatch && inputError === null && failingChoice === -1
+  const confirmText = shown.flatMap((choice) => choice.options.filter((option) => option.value === picks[choice.key] && option.confirmLabel !== undefined))[0]?.confirmLabel ?? confirmLabel
   const blockedBy = blocked !== null ? blockedId : reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : failingChoice >= 0 ? `${choicesId}-${failingChoice}-error` : undefined
 
   useEffect(() => {
@@ -126,9 +129,11 @@ export const ConfirmDialog = ({
     >
       <h2 id={titleId}>{title}</h2>
       <div id={bodyId} className="df-dialog-body">
-        <p>
-          <strong>{target}</strong>
-        </p>
+        {target !== '' && (
+          <p>
+            <strong>{target}</strong>
+          </p>
+        )}
         <p>{typeof consequence === 'function' ? consequence(value, picks) : consequence}</p>
         {notes && notes.length > 0 && (
           <ul className="df-dialog-notes">
@@ -185,6 +190,26 @@ export const ConfirmDialog = ({
       {shown.map((choice, index) => {
         const error = choiceErrors[index] ?? null
         const id = `${choicesId}-${index}`
+        if (choice.options.some((option) => option.hint !== undefined))
+          return (
+            <fieldset key={choice.key} className="df-field df-choice-set">
+              <legend className="df-visually-hidden">{choice.label}</legend>
+              {choice.options.map((option) => (
+                <label key={option.value} className="df-choice-card">
+                  <input type="radio" name={id} value={option.value} checked={picks[choice.key] === option.value} onChange={() => setPicked((current) => ({ ...current, [choice.key]: option.value }))} />
+                  <span>
+                    <strong>{option.label}</strong>
+                    {option.hint !== undefined && <span className="df-field-hint">{option.hint}</span>}
+                  </span>
+                </label>
+              ))}
+              {error !== null && (
+                <p id={`${id}-error`} className="df-field-hint">
+                  {error}
+                </p>
+              )}
+            </fieldset>
+          )
         return (
           <div key={choice.key} className="df-field">
             <label htmlFor={id}>{choice.label}</label>
@@ -246,7 +271,7 @@ export const ConfirmDialog = ({
             onConfirm(reason ? reasonText.trim() : null, input ? value : null, picks)
           }}
         >
-          {confirmLabel}
+          {confirmText}
         </button>
       </div>
     </dialog>

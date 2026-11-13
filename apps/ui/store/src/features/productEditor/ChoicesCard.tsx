@@ -200,11 +200,22 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
     const others = draft.versions.filter((x, j) => j !== index && !x.removed && x.visible).length
     if (others === 0) return ask({ title: name, target: name, consequence: words.versions.allHidden, confirmLabel: messages.editor.apply, onConfirm: () => update((d) => ({ ...d, visible: false })) })
     ask({
-      title: fill(words.versions.notMakeTitle, { name }),
-      target: name,
-      consequence: words.versions.notMakeBody,
-      confirmLabel: messages.editor.apply,
-      choices: [{ key: 'how', label: name, options: [{ value: 'hide', label: words.versions.hideIt }, { value: 'remove', label: words.versions.notMake }], initial: 'hide', error: () => null }],
+      title: fill(words.versions.stopTitle, { name }),
+      target: '',
+      consequence: words.versions.stopLine,
+      confirmLabel: words.versions.hideConfirm,
+      choices: [
+        {
+          key: 'how',
+          label: name,
+          options: [
+            { value: 'hide', label: words.versions.hideIt, hint: words.versions.hideItSub, confirmLabel: words.versions.hideConfirm },
+            { value: 'remove', label: words.versions.notMake, hint: fill(words.versions.notMakeSub, { name }), confirmLabel: words.versions.notMakeConfirm },
+          ],
+          initial: 'hide',
+          error: () => null,
+        },
+      ],
       onConfirm: (_, __, picks) => set(index, picks['how'] === 'remove' ? { removed: true } : { visible: false }),
     })
   }

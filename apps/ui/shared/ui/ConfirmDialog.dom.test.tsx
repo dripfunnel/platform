@@ -122,3 +122,54 @@ describe('the confirm dialog waiting on fields of the caller’s own', () => {
     expect(onConfirm).toHaveBeenCalledOnce()
   })
 })
+
+describe('the confirm dialog’s choices (#1453)', () => {
+  const show = (hint: boolean, target = 'Item') => {
+    const onConfirm = vi.fn()
+    render(
+      <ConfirmDialog
+        open
+        title="Stop selling it?"
+        target={target}
+        consequence="Other versions stay."
+        confirmLabel="Apply"
+        cancelLabel="Cancel"
+        choices={[
+          {
+            key: 'how',
+            label: 'How',
+            options: [
+              { value: 'a', label: 'First', ...(hint ? { hint: 'First line', confirmLabel: 'Hide' } : {}) },
+              { value: 'b', label: 'Second', ...(hint ? { hint: 'Second line', confirmLabel: 'Remove' } : {}) },
+            ],
+            initial: 'a',
+            error: () => null,
+          },
+        ]}
+        onConfirm={(_reason, _value, picks) => onConfirm(picks['how'])}
+        onCancel={() => undefined}
+      />,
+    )
+    return onConfirm
+  }
+
+  it('shows radio boxes with a line under each option when options carry one, with the confirm label following the pick', () => {
+    const onConfirm = show(true, '')
+    expect(screen.getByText('First line')).toBeTruthy()
+    expect(screen.getByText('Second line')).toBeTruthy()
+    expect((screen.getByRole('radio', { name: /First/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: /Second/ }))
+    expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(onConfirm).toHaveBeenCalledWith('b')
+  })
+
+  it('leaves a choice without lines as a dropdown with the one confirm label, and shows a target only when given one', () => {
+    show(false, 'Item')
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'How' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeTruthy()
+    expect(screen.getByText('Item')).toBeTruthy()
+  })
+})

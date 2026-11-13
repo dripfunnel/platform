@@ -774,7 +774,7 @@ class Component extends DCLogic {
           if (v.enabled) {
             const others = d.variants.filter((x, j) => j !== i && !x.removed && x.enabled).length;
             if (!others) { app.modal({ title: 'This would hide every version', body: 'Shoppers couldn’t buy anything. Hide the whole product instead?', confirm: 'Hide product', navy: true, onConfirm: () => this.upd({ status: 'hidden' }) }); return; }
-            app.modal({ title: `${v.vals.join(' / ')}`, body: 'Hide it (you still sell other versions), or say you don’t make this combination?', choices: [{ label: 'Hide it for now', sub: 'Keeps price and stock', value: 'hide' }, { label: 'We don’t make this', sub: 'Removes the combination — add it back any time', value: 'remove' }], confirm: 'Apply', onConfirm: val => setV(val === 'remove' ? { removed: true } : { enabled: false }) });
+            app.modal({ title: `Stop selling ${v.vals.join(' / ')}?`, body: 'Other versions will still be available.', choices: [{ label: 'Hide it for now', sub: 'Keeps price and stock. Show it again any time.', value: 'hide', confirm: 'Hide' }, { label: 'We don’t make this', sub: `Leaves ${v.vals.join(' / ')} out of the product. Add it back any time.`, value: 'remove', confirm: 'Remove' }], confirm: 'Hide', onConfirm: val => setV(val === 'remove' ? { removed: true } : { enabled: false }) });
           } else setV({ enabled: true });
         }
       });
