@@ -4,16 +4,15 @@ import { SmsRefused } from '#core/sms'
 import type { WhatsAppSender } from '#core/whatsapp'
 import { skipReminder } from '#db/scoped/cartReminders'
 import { withSystemScope } from '#db/scoped/index'
-import type { Msg91WhatsAppCredentials } from '#integrations/msg91/index'
 import { fallBackToEmail } from '#engine/modules/cartReminders/index'
-import { prepareWhatsAppReminder, whatsappPayloadSchema, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { prepareWhatsAppReminder, whatsappPayloadSchema, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { GiveUp, type Deliverer } from '../outbox-relay'
 
-// `whatsapp` (#321; THIRD-PARTY-ACCESS §2.8): a cart reminder by the partner's WhatsApp Business number through MSG91. MSG91
-// takes no idempotency key, so a crash after it accepts and before the row is marked can send twice, as a text can.
+// `whatsapp` (#321, #1504; THIRD-PARTY-ACCESS §2.8): a cart reminder by the partner's WhatsApp Business number on Meta's Cloud
+// API. Meta takes no idempotency key, so a crash after it accepts and before the row is marked can send twice, as a text can.
 
 /** `suppressionKey`: EMAIL_SUPPRESSION_KEY, for a reminder that falls back to email. */
-export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAccounts, sender: (credentials: Msg91WhatsAppCredentials) => WhatsAppSender, suppressionKey: string, shopDomain: string | null, now: () => Date = () => new Date()): Deliverer => ({
+export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAccounts, sender: (account: PartnerWhatsAppAccount) => WhatsAppSender, suppressionKey: string, shopDomain: string | null, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect, signal) => {
     const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
     const parsed = whatsappPayloadSchema.safeParse(effect.payload)
@@ -26,15 +25,15 @@ export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAc
     try {
       await withSystemScope(sql, async (tx) => {
         const account = await accounts.forPartner(tx, partnerId)
-        // Decided for WhatsApp while it could go (cart.remind); its account, template or number gone since, it may go by email.
+        // Decided for WhatsApp while it could go (cart.remind); its account, switch, template or number gone since, it may go by email.
         const prepared = account ? await prepareWhatsAppReminder(tx, reminderId, { partnerId, storeId: effect.storeId }, account, shopDomain, now()) : null
         if (!account || !prepared?.send) {
           const reason = prepared && !prepared.send ? prepared.reason : 'no_account'
           const fallsBack = reason === 'no_account' || reason === 'no_template' || reason === 'no_recipient'
           return log('whatsapp_skipped', fallsBack ? `${reason}:${(await fallBackToEmail(tx, parsed.data, suppressionKey, now())) ?? 'decided'}` : reason)
         }
-        await sender({ authKey: account.authKey, integratedNumber: account.integratedNumber }).send(prepared.message, signal)
-        log('whatsapp_sent', 'msg91')
+        await sender(account).send(prepared.message, signal)
+        log('whatsapp_sent', 'meta')
       })
     } catch (error) {
       if (!(error instanceof SmsRefused)) throw error

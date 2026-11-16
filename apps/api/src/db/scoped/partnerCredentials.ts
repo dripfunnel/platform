@@ -1,5 +1,5 @@
 import type { SmsProvider, SmsRoute } from '#core/sms'
-import type { AiProvider, PartnerCredentialRow, PartnerSmsAccountRow } from '../schema/saas'
+import type { AiProvider, PartnerCredentialRow, PartnerSmsAccountRow, PartnerWhatsAppAccountRow } from '../schema/saas'
 import type { ScopedSql } from './index'
 
 // A partner's AI key profiles (#275). The sealed key is written here and read only in system scope (selectDefaultKey).
@@ -115,4 +115,49 @@ export const updateSmsEnabled = async (tx: ScopedSql, partnerId: string, enabled
 export const updateSmsRoute = async (tx: ScopedSql, partnerId: string, route: SmsRoute, provider: SmsProvider | null): Promise<void> => {
   if (route === 'india') await tx`update partner set sms_route_india = ${provider} where id = ${partnerId}`
   else await tx`update partner set sms_route_rest = ${provider} where id = ${partnerId}`
+}
+
+// A partner's own WhatsApp Business account on Meta (#1504): one row, the token sealed in key_enc and read in system scope only.
+const whatsappColumns = `id, key_prefix, status, last_tested_at, settings`
+
+export const selectWhatsAppAccount = async (tx: ScopedSql, partnerId: string): Promise<PartnerWhatsAppAccountRow | null> =>
+  (await tx<PartnerWhatsAppAccountRow[]>`select ${tx.unsafe(whatsappColumns)} from partner_credential where partner_id = ${partnerId} and kind = 'whatsapp' and provider = 'meta' for update`)[0] ?? null
+
+export const insertWhatsAppAccount = async (tx: ScopedSql, input: SmsAccountWrite & { partnerId: string; createdBy: string }): Promise<string> =>
+  (
+    await tx<{ id: string }[]>`
+      insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, settings, status, last_tested_at, created_by, created_at, updated_at)
+      values (${input.partnerId}, 'whatsapp', 'meta', 'WhatsApp', ${input.keyEnc}, ${input.keyPrefix}, ${JSON.stringify(input.settings)}::text::jsonb, ${input.status}, ${input.testedAt}, ${input.createdBy}, ${input.at}, ${input.at})
+      returning id`
+  )[0]?.id ?? ''
+
+export const updateWhatsAppAccount = async (tx: ScopedSql, id: string, input: SmsAccountWrite): Promise<void> => {
+  await tx`
+    update partner_credential set key_enc = ${input.keyEnc}, key_prefix = ${input.keyPrefix}, settings = ${JSON.stringify(input.settings)}::text::jsonb,
+      status = ${input.status}, last_tested_at = ${input.testedAt}, updated_at = ${input.at}
+    where id = ${id} and kind = 'whatsapp'`
+}
+
+export const updateWhatsAppAccountTest = async (tx: ScopedSql, id: string, status: 'ok' | 'rejected', at: Date): Promise<void> => {
+  await tx`update partner_credential set status = ${status}, last_tested_at = ${at}, last_validated_at = ${at}, last_validation_status = ${status}, updated_at = ${at} where id = ${id} and kind = 'whatsapp'`
+}
+
+export const deleteWhatsAppAccount = async (tx: ScopedSql, id: string): Promise<void> => {
+  await tx`delete from partner_credential where id = ${id} and kind = 'whatsapp'`
+}
+
+/** System scope only: the account with its sealed token, and whether the partner's WhatsApp is on. */
+export const selectSealedWhatsAppAccount = async (tx: ScopedSql, partnerId: string): Promise<{ key_enc: string; settings: unknown; enabled: boolean } | null> =>
+  (
+    await tx<{ key_enc: string; settings: unknown; enabled: boolean }[]>`
+      select c.key_enc, c.settings, p.whatsapp_enabled as enabled from partner_credential c join partner p on p.id = c.partner_id
+      where c.partner_id = ${partnerId} and c.kind = 'whatsapp' and c.provider = 'meta'`
+  )[0] ?? null
+
+/** A partner not found reads as off, as a new partner's WhatsApp is. */
+export const selectWhatsAppEnabled = async (tx: ScopedSql, partnerId: string): Promise<boolean> =>
+  (await tx<{ whatsapp_enabled: boolean }[]>`select whatsapp_enabled from partner where id = ${partnerId}`)[0]?.whatsapp_enabled ?? false
+
+export const updateWhatsAppEnabled = async (tx: ScopedSql, partnerId: string, enabled: boolean): Promise<void> => {
+  await tx`update partner set whatsapp_enabled = ${enabled} where id = ${partnerId}`
 }

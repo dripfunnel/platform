@@ -63,14 +63,16 @@ import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/c
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp, localWhatsAppCheck } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
 import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
-import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { whatsappAccountsFor, whatsappKind, whatsappTemplates, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import type { WhatsAppSender } from '#core/whatsapp'
+import { metaWhatsAppSender } from '#integrations/meta/index'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { msg91Sender } from '#integrations/msg91/index'
 import { twilioSender } from '#integrations/twilio/index'
@@ -286,9 +288,14 @@ const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | n
   return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
 }
 
-// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
+// WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints; else each
+// partner's own account on Meta, wherever the Worker can open credentials (CREDENTIALS_KEK).
 const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
-  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+  forPartner: async () => ({ accessToken: 'local', businessAccountId: '00000', phoneNumberId: '00000', language: 'en', templates: Object.fromEntries(whatsappTemplates.map((m) => [m, m.replace('.', '_')])) }),
+}
+const whatsappFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerWhatsAppAccounts; sender: (account: PartnerWhatsAppAccount) => WhatsAppSender } | null => {
+  if (config.SMS_LOCAL === '1') return { accounts: localWhatsAppAccounts, sender: localWhatsApp }
+  return secrets ? { accounts: whatsappAccountsFor(secrets), sender: (account) => metaWhatsAppSender(account) } : null
 }
 
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
@@ -326,6 +333,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const ses = emailFor(config)
   const push = pushFor(config)
   const sms = smsFor(config)
+  const whatsapp = whatsappFor(config, secrets)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
@@ -333,9 +341,9 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(sql, assets) } : {}),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
-    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, whatsapp?.accounts ?? null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
-    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
+    ...(whatsapp && ses ? { [whatsappKind]: whatsappDeliverer(sql, whatsapp.accounts, whatsapp.sender, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
     ...(sms ? { [smsKind]: smsDeliverer(sql, smsAccountsFor(secrets, sms.ours), sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
@@ -614,7 +622,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck } : {}), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), now: () => new Date() }))
   })
 }
 
