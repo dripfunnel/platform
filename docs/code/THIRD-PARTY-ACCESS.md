@@ -612,8 +612,11 @@ Saving checks the account with read-only calls and refuses one Meta rejects; *Te
 *Rejected*, naming what Meta refused: it reads the phone number (`GET /{phone-number-id}?fields=display_phone_number,verified_name`)
 and, in the business account's `message_templates`, each named template, which must exist in the account's language
 and be `APPROVED`. No test message is sent. The console sees the token's last four only, the ids, the template names,
-the status and when it was checked. The partner's **WhatsApp switch** (`partner.whatsapp_enabled`) is off by default,
-turns on only with a saved account, and goes off when the account is removed. Owner and Admin (`integrations.write`), or
+the status and when it was checked. The partner's **WhatsApp switch** (`partner.whatsapp_enabled`) is off by default.
+**On needs `code.portal`** (decided 2026-11-16 with Gaurav): it turns on only with a saved account that names `code.portal`
+and whose last check says *Working* (Meta approved every named template), else `NO_CODE_TEMPLATE`; while on, a save
+without `code.portal` is refused the same way; a *Test* Meta rejects turns it off in the same transaction
+(`partner.whatsapp_disabled`, reason `test_rejected`); and removing the account turns it off. Owner and Admin (`integrations.write`), or
 staff in a setup session; never an impersonation (ACCESS §8.1). The console's panel is #1505.
 
 **The WhatsApp templates a partner has Meta approve (built on #321, on Meta since #1504).** Every WhatsApp message goes

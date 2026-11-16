@@ -796,8 +796,9 @@ last four, *Working* or *Rejected*, when last checked and whether India's seven 
 impersonation; the panel is #1018. **WhatsApp's API is built on #1504** (migration 0401): `whatsAppAccount` (the switch,
 and the account's token hint, ids, language, each template's name, *Working* or *Rejected* and when last checked),
 `saveWhatsAppAccount` (checked with Meta before it is kept), `testWhatsAppAccount` (naming what Meta refused: the token,
-the number, the business account or a template), `setWhatsAppEnabled` (On only with a saved account) and
-`removeWhatsAppAccount` (which turns it off), with the same access; the panel is #1505.
+the number, the business account or a template), `setWhatsAppEnabled` (On only with a saved account whose `code.portal` template is named and *Working*, else
+`NO_CODE_TEMPLATE`, decided 2026-11-16 with Gaurav; while On, a save without `code.portal` is refused and a rejected
+check turns it off) and `removeWhatsAppAccount` (which turns it off), with the same access; the panel is #1505.
 
 
 ### 14.6 My profile

@@ -205,6 +205,38 @@ describe('the partner’s WhatsApp account', () => {
     expect(JSON.stringify(entry?.changes)).toContain('whatsapp_enabled')
   })
 
+  it('turns WhatsApp on only with an approved code.portal template, and keeps it so while on', async () => {
+    const caller = callerOf(ids.fresh, 'partner-owner')
+    const on = async () => (await run<{ setWhatsAppEnabled: Result }>(setEnabled, caller, { enabled: true })).data?.setWhatsAppEnabled.reason
+    const enabled = async () => (await run<Read>(read, caller)).data?.whatsAppAccount.enabled
+    const withoutCode = { templates: [{ message: 'cart.reminder', name: 'cart_reminder' }] }
+    // Saved without code.portal: no codes by WhatsApp, so no On.
+    expect((await run<{ saveWhatsAppAccount: Result }>(save, caller, { ...input, ...withoutCode })).data?.saveWhatsAppAccount.ok).toBe(true)
+    expect(await on()).toBe('NO_CODE_TEMPLATE')
+    // Named, but the last check says Rejected.
+    expect((await run<{ saveWhatsAppAccount: Result }>(save, caller, input)).data?.saveWhatsAppAccount.ok).toBe(true)
+    metaAnswers = { phone: 200, templateStatus: 'PENDING' }
+    expect((await run<{ testWhatsAppAccount: Result }>(test, caller)).data?.testWhatsAppAccount.status).toBe('rejected')
+    metaAnswers = { phone: 200, templateStatus: 'APPROVED' }
+    expect(await on()).toBe('NO_CODE_TEMPLATE')
+    expect(await enabled()).toBe(false)
+    // Working with code.portal: On.
+    expect((await run<{ testWhatsAppAccount: Result }>(test, caller)).data?.testWhatsAppAccount.status).toBe('ok')
+    expect(await on()).toBeNull()
+    expect(await enabled()).toBe(true)
+    // While on, a save without code.portal is refused and the saved account stays.
+    expect((await run<{ saveWhatsAppAccount: Result }>(save, caller, { ...input, ...withoutCode })).data?.saveWhatsAppAccount).toMatchObject({ ok: false, reason: 'NO_CODE_TEMPLATE' })
+    expect((await run<Read>(read, caller)).data?.whatsAppAccount.account?.templates[0]).toEqual({ message: 'code.portal', name: 'portal_code' })
+    // A test Meta rejects while on turns WhatsApp off in the same transaction, audited.
+    metaAnswers = { phone: 200, templateStatus: 'REJECTED' }
+    expect((await run<{ testWhatsAppAccount: Result }>(test, caller)).data?.testWhatsAppAccount).toMatchObject({ ok: true, status: 'rejected', problem: 'template' })
+    metaAnswers = { phone: 200, templateStatus: 'APPROVED' }
+    expect(await enabled()).toBe(false)
+    const [entry] = await db.sql<{ reason: string | null }[]>`select reason from activity_log where partner_id = ${ids.fresh} and action = 'partner.whatsapp_disabled'`
+    expect(entry?.reason).toBe('test_rejected')
+    await run(remove, caller)
+  })
+
   it('audits every write without the token', async () => {
     const rows = await db.sql<{ action: string; entry: string }[]>`select action, row_to_json(activity_log)::text as entry from activity_log where action like 'partner.whatsapp%'`
     expect(new Set(rows.map((r) => r.action))).toEqual(new Set(['partner.whatsapp_account_saved', 'partner.whatsapp_account_tested', 'partner.whatsapp_enabled', 'partner.whatsapp_disabled', 'partner.whatsapp_account_removed']))

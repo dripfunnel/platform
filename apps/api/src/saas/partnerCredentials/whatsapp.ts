@@ -38,7 +38,7 @@ const saveInput = z.strictObject({
   templates: z.array(z.strictObject({ message: z.enum(whatsappTemplates), name: z.string().trim() })).max(whatsappTemplates.length),
 })
 
-export type WhatsAppAccountRefusal = 'INVALID_INPUT' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND' | 'NO_ACCOUNT'
+export type WhatsAppAccountRefusal = 'INVALID_INPUT' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND' | 'NO_ACCOUNT' | 'NO_CODE_TEMPLATE'
 type Rejected = Extract<WhatsAppAccountCheck, { status: 'rejected' }>
 /** Which part Meta refused, for the panel to name: the token, the number, the business account, or one template. */
 type Problem = { problem?: Rejected['problem']; template?: string }
@@ -70,6 +70,9 @@ const dto = (r: PartnerWhatsAppAccountRow) => {
     lastTestedAt: r.last_tested_at,
   }
 }
+
+/** On sends portal codes by WhatsApp, so it needs an approved `code.portal` (decided 2026-11-16, Gaurav; ACCESS §4). */
+const servesCodes = (row: PartnerWhatsAppAccountRow) => row.status === 'ok' && Boolean(dto(row).templates.find((t) => t.message === 'code.portal')?.name)
 
 export interface PartnerWhatsAppDeps {
   sql: postgres.Sql
@@ -107,6 +110,7 @@ export const createPartnerWhatsAppService = ({ sql, caller, facts, activity, sec
     const write = { keyEnc: await secrets.seal(accessToken), keyPrefix: hintOf(accessToken), settings, status: 'ok' as const, testedAt: at, at }
     return withScope(sql, context, async (tx): Promise<Result> => {
       await lock(tx)
+      if (!settings.templates['code.portal'] && (await selectWhatsAppEnabled(tx, partnerId))) return { ok: false, reason: 'NO_CODE_TEMPLATE' }
       const before = await selectWhatsAppAccount(tx, partnerId)
       if (before) await updateWhatsAppAccount(tx, before.id, write)
       else await insertWhatsAppAccount(tx, { ...write, partnerId, createdBy: actingName(caller) })
@@ -125,10 +129,16 @@ export const createPartnerWhatsAppService = ({ sql, caller, facts, activity, sec
     if (checked.status === 'unavailable') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
     const status = checked.status === 'ok' ? 'ok' : 'rejected'
     return withScope(sql, context, async (tx): Promise<Result> => {
+      await lock(tx)
       const row = await selectWhatsAppAccount(tx, partnerId)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
       await updateWhatsAppAccountTest(tx, row.id, status, now())
       await activity.record(tx, entry({ action: whatsappAudit.test, target, reason: checked.status === 'rejected' ? checked.problem : null, changes: [{ field: 'status', before: row.status, after: status }] }))
+      // A rejected account can't send codes, so On goes off with it, as On needs Working.
+      if (status === 'rejected' && (await selectWhatsAppEnabled(tx, partnerId))) {
+        await updateWhatsAppEnabled(tx, partnerId, false)
+        await activity.record(tx, entry({ action: whatsappAudit.disabled, target, reason: 'test_rejected', changes: [{ field: 'whatsapp_enabled', before: true, after: false }] }))
+      }
       return { ok: true, status, ...(checked.status === 'rejected' ? problemOf(checked) : {}) }
     })
   }
@@ -151,7 +161,11 @@ export const createPartnerWhatsAppService = ({ sql, caller, facts, activity, sec
       await lock(tx)
       const before = await selectWhatsAppEnabled(tx, partnerId)
       if (before === enabled) return { ok: true }
-      if (enabled && !(await selectWhatsAppAccount(tx, partnerId))) return { ok: false, reason: 'NO_ACCOUNT' }
+      if (enabled) {
+        const row = await selectWhatsAppAccount(tx, partnerId)
+        if (!row) return { ok: false, reason: 'NO_ACCOUNT' }
+        if (!servesCodes(row)) return { ok: false, reason: 'NO_CODE_TEMPLATE' }
+      }
       await updateWhatsAppEnabled(tx, partnerId, enabled)
       await activity.record(tx, entry({ action: enabled ? whatsappAudit.enabled : whatsappAudit.disabled, target, reason: null, changes: [{ field: 'whatsapp_enabled', before, after: enabled }] }))
       return { ok: true }
