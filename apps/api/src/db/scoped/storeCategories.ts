@@ -26,13 +26,21 @@ export interface StaffCategoryRow extends StoreCategoryRow {
 const columns = 'id, key, names, to_jsonb(sections) as sections, position, archived_at'
 
 /** Every category, archived ones last, each with how many stores use it. At most a few dozen, so not paged. */
-export const selectCategoriesForStaff = async (tx: ScopedSql): Promise<StaffCategoryRow[]> =>
+/** The list is one page by design, capped here and at creation (DATA-MODEL §7.2). */
+export const maxStoreCategories = 100
+
+export const selectCategoriesForStaff = async (tx: ScopedSql, onlyId: string | null = null): Promise<StaffCategoryRow[]> =>
   tx<StaffCategoryRow[]>`
     select ${tx.unsafe(columns)}, (select count(*)::int from store s where s.category_id = c.id) as store_count,
       exists (select 1 from store_category_default_sample d where d.category_id = c.id) as has_default_sample
     from store_category c
+    ${onlyId === null ? tx`` : tx`where c.id = ${onlyId}`}
     order by archived_at is not null, position, id
+    limit ${maxStoreCategories}
   `
+
+export const countCategories = async (tx: ScopedSql): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from store_category`)[0]?.n ?? 0
 
 export const selectCategory = async (tx: ScopedSql, id: string): Promise<StoreCategoryRow | null> =>
   (await tx<StoreCategoryRow[]>`select ${tx.unsafe(columns)} from store_category where id = ${id}`)[0] ?? null
@@ -108,8 +116,18 @@ export interface CategorySampleRow {
 export type CategorySampleSummary = Omit<CategorySampleRow, 'file'>
 
 /** Every category's sample: the staff list shows what each holds, its file only to count the products. */
-export const selectSampleSummaries = async (tx: ScopedSql): Promise<(CategorySampleSummary & { file: string })[]> =>
-  tx<(CategorySampleSummary & { file: string })[]>`select category_id, file, currency::text as currency, collections, photos, uploaded_at from store_category_sample`
+export const selectSampleSummaries = async (tx: ScopedSql, onlyId: string | null = null): Promise<(CategorySampleSummary & { file: string })[]> =>
+  tx<(CategorySampleSummary & { file: string })[]>`
+    select category_id, file, currency::text as currency, collections, photos, uploaded_at from store_category_sample
+    ${onlyId === null ? tx`` : tx`where category_id = ${onlyId}`}
+  `
+
+/** Which categories have a sample, without reading the files: the merchant's picker asks on every load. */
+export const selectSampleCategoryIds = async (tx: ScopedSql): Promise<string[]> =>
+  (await tx<{ category_id: string }[]>`select category_id from store_category_sample`).map((r) => r.category_id)
+
+export const sampleExists = async (tx: ScopedSql, categoryId: string): Promise<boolean> =>
+  (await tx`select 1 from store_category_sample where category_id = ${categoryId}`).length > 0
 
 /** DripFunnel's built-in sample for a category (0401), which staff add as its sample with one click. */
 export const selectDefaultSample = async (tx: ScopedSql, categoryId: string): Promise<{ file: string; currency: string } | null> =>

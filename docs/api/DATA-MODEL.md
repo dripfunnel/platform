@@ -1003,7 +1003,8 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
 
 store_category      (id, key UNIQUE, names jsonb, sections text[], position, archived_at NULL, created_at, updated_at)
                     -- Platform data, no tenant's: DripFunnel's list of what a shop sells (admin FIRST-RELEASE §2),
-                    -- seeded with 30 (General first). Every scope reads it; app_platform alone writes it, Super
+                    -- seeded with 30 (General first), at most 100 so its lists are one page, never paged (the cap
+                    -- is checked when one is added). Every scope reads it; app_platform alone writes it, Super
                     -- admin only (`storeCategories.manage`, ACCESS §5.4), each change logged with a reason.
                     -- key is stable (prompts and code), made from the English name at creation; names is
                     -- {language: name}, English required, others falling back to it. sections are the product

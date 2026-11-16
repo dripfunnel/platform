@@ -58,11 +58,11 @@ export const registerStoreCategory = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx: StoreContext) => {
         const result = await service(ctx).choose(String(args.id))
         if (result.ok) return result.value
-        const words = { INVALID_INPUT: 'Something here isn’t valid.', NOT_FOUND: 'That category isn’t available any more.', KEY_TAKEN: 'Something here isn’t valid.' }
+        const words = { INVALID_INPUT: 'Something here isn’t valid.', NOT_FOUND: 'That category isn’t available any more.', KEY_TAKEN: 'Something here isn’t valid.', TOO_MANY: 'Something here isn’t valid.' }
         throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
       },
     }),
-    // The sample goes through the ordinary import: the merchant reviews it and presses Import (CATALOG K2).
+    // The sample is an ordinary import that runs at once, with no review (CATALOG-DESIGN K13a).
     addSampleCatalog: t.id({
       extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.import', target: 'none', audit: storeCategoryAudit.sampleAdded } },
       resolve: async (_, __, ctx: StoreContext) => {

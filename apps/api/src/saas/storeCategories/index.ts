@@ -4,14 +4,18 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StaffMember } from '#auth/staff'
 import type { TenantContext } from '#core/tenancy'
 import { isUuid } from '#core/ids'
-import { withScope } from '#db/scoped/index'
+import { serialise, withScope } from '#db/scoped/index'
 import {
   deleteSample,
   insertCategory,
   selectDefaultSample,
   selectSample,
   selectSampleStanding,
+  sampleExists,
+  selectSampleCategoryIds,
   selectSampleSummaries,
+  countCategories,
+  maxStoreCategories,
   upsertSample,
   type CategorySampleSummary,
   keyTaken,
@@ -60,7 +64,7 @@ export interface SampleDetail {
 }
 export type SampleSaveResult = { ok: true; value: StaffCategory } | { ok: false; reason: StoreCategoryRefusal } | { ok: false; reason: 'SAMPLE_INVALID'; problems: SampleProblem[] }
 
-export type StoreCategoryRefusal = 'INVALID_INPUT' | 'KEY_TAKEN' | 'NOT_FOUND'
+export type StoreCategoryRefusal = 'INVALID_INPUT' | 'KEY_TAKEN' | 'NOT_FOUND' | 'TOO_MANY'
 export type SampleRefusal = 'NO_CATEGORY' | 'NO_SAMPLE' | 'HAS_ORDERS' | 'ALREADY_ADDED'
 export type StoreCategoryResult<T> = { ok: true; value: T } | { ok: false; reason: StoreCategoryRefusal }
 
@@ -125,15 +129,15 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
   const asStaff = <T>(work: (tx: postgres.TransactionSql) => Promise<T>) => withScope(sql, { caller: { kind: 'staff', staffId: staff.id } }, work)
   const entry = staffEntry(staff, facts)
 
-  const withSamples = async (tx: postgres.TransactionSql, rows: StaffCategoryRow[]): Promise<StaffCategory[]> => {
-    const samples = new Map((await selectSampleSummaries(tx)).map(({ file, ...x }) => [x.category_id, { ...x, products: productCountOf(file) }]))
+  const withSamples = async (tx: postgres.TransactionSql, rows: StaffCategoryRow[], onlyId: string | null = null): Promise<StaffCategory[]> => {
+    const samples = new Map((await selectSampleSummaries(tx, onlyId)).map(({ file, ...x }) => [x.category_id, { ...x, products: productCountOf(file) }]))
     return rows.map((r) => ({ ...r, sample: samples.get(r.id) ?? null }))
   }
 
   const list = () => asStaff(async (tx) => withSamples(tx, await selectCategoriesForStaff(tx)))
 
   const withCount = async (tx: postgres.TransactionSql, row: StoreCategoryRow): Promise<StaffCategory> =>
-    (await withSamples(tx, await selectCategoriesForStaff(tx))).find((c) => c.id === row.id) ?? { ...row, store_count: 0, has_default_sample: false, sample: null }
+    (await withSamples(tx, await selectCategoriesForStaff(tx, row.id), row.id))[0] ?? { ...row, store_count: 0, has_default_sample: false, sample: null }
 
   const create = async (raw: unknown, reason: unknown): Promise<StoreCategoryResult<StaffCategory>> => {
     const fields = categoryInput.safeParse(raw)
@@ -143,6 +147,8 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
     const key = keyOf(input.names.en ?? '')
     if (key.length < 2) return { ok: false, reason: 'INVALID_INPUT' }
     return asStaff(async (tx) => {
+      await serialise(tx, 'store_category:create')
+      if ((await countCategories(tx)) >= maxStoreCategories) return { ok: false, reason: 'TOO_MANY' } as const
       if (await keyTaken(tx, key)) return { ok: false, reason: 'KEY_TAKEN' } as const
       const row = await insertCategory(tx, key, input)
       await activity.record(
@@ -336,7 +342,7 @@ export const createStoreCategoryService = ({ sql, context, actor, activity, fact
   const read = () =>
     withScope(sql, context, async (tx) => {
       const [rows, current] = await Promise.all([selectCategoriesForStore(tx, storeId), selectStoreCategoryId(tx, storeId)])
-      const withSample = new Set((await selectSampleSummaries(tx)).map((x) => x.category_id))
+      const withSample = new Set(await selectSampleCategoryIds(tx))
       const options = rows.map((r) => ({ ...r, has_sample: withSample.has(r.id) }))
       return { options, current: options.find((o) => o.id === current) ?? null }
     })
@@ -396,7 +402,7 @@ export const createStoreCategoryService = ({ sql, context, actor, activity, fact
         changes: [{ field: 'category', before, after: row.key }],
         ...facts,
       })
-      const hasSample = (await selectSampleSummaries(tx)).some((x) => x.category_id === id)
+      const hasSample = await sampleExists(tx, id)
       return { ok: true, value: { ...row, has_sample: hasSample } } as const
     })
   }

@@ -104,6 +104,7 @@ const words = {
   INVALID_INPUT: 'Something here isn’t valid.',
   KEY_TAKEN: 'A category with that English name already exists.',
   NOT_FOUND: 'That category isn’t here any more.',
+  TOO_MANY: 'There can be up to 100 store categories. Archive or reuse one instead.',
 } as const
 
 const Problem = builder.objectRef<SampleProblem>('StoreCategorySampleProblem').implement({

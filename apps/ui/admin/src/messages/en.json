@@ -2585,6 +2585,7 @@
     "refusals": {
       "INVALID_INPUT": "Something in the form isn’t valid. Check the names and try again.",
       "KEY_TAKEN": "A category with that English name already exists.",
+      "TOO_MANY": "There can be up to 100 store categories. Archive or reuse one instead.",
       "NOT_FOUND": "That category isn’t here any more. Reload the list.",
       "FORBIDDEN": "Only a Super admin can change store categories.",
       "other": "That didn’t save. Try again in a moment."

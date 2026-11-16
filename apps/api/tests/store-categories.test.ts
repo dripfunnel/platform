@@ -122,6 +122,15 @@ describe('the staff list', () => {
     expect(entry?.reason).toBe('Clearer name')
   })
 
+  it('stops at 100 categories, so the list stays one page (DATA-MODEL §7.2)', async () => {
+    const have = (await db.sql<{ n: number }[]>`select count(*)::int as n from store_category`)[0]?.n ?? 0
+    await db.sql`insert into store_category (key, names, position) select 'cap_' || g, jsonb_build_object('en', 'Cap ' || g), 1000 + g from generate_series(1, ${100 - have}) g`
+    const input = { names: [{ language: 'en', name: 'One Too Many' }], sections: [] }
+    expect((await admin(create, 'staff-super-admin', { input, reason: 'Cap' })).code).toBe('TOO_MANY')
+    expect((await admin<{ storeCategories: Category[] }>(list, 'staff-support')).data?.storeCategories).toHaveLength(100)
+    await db.sql`delete from store_category where key like 'cap\_%'`
+  })
+
   it('refuses a name with no English, an unknown section, an empty reason and an unknown field', async () => {
     const run = (input: Record<string, unknown>, reason = 'r') => admin(create, 'staff-super-admin', { input, reason })
     expect((await run({ names: [{ language: 'hi', name: 'केवल' }], sections: [] })).code).toBe('INVALID_INPUT')
