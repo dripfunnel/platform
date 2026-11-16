@@ -79,7 +79,8 @@
         "cta": "Choose",
         "change": "Change",
         "picker": "What your shop sells",
-        "placeholder": "Pick one",
+        "placeholder": "Search or pick one",
+        "noMatches": "No category matches that.",
         "save": "Save",
         "cancel": "Cancel",
         "error": "Couldn’t save that. Try again."
@@ -3894,7 +3895,8 @@
     "catalogue": {
       "sellTitle": "What does your shop sell?",
       "sellSub": "Pick the closest. We’ll suggest the product page sections shops like yours use — you decide which go on.",
-      "categoryPlaceholder": "Pick one",
+      "categoryPlaceholder": "Search or pick one",
+      "categoryNoMatches": "No category matches that.",
       "categorySaved": "Saved: {name}",
       "suggested": "Shops selling {name} usually show {sections}.",
       "switchOn": "Switch them on",

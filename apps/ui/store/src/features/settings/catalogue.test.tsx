@@ -88,8 +88,10 @@ describe('catalogue settings', () => {
     await show()
     expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(true)
     const pick = screen.getByRole('combobox', { name: w.sellTitle })
-    expect(within(pick).getAllByRole('option').map((o) => o.textContent)).toEqual([w.categoryPlaceholder, 'General', 'Electronics & Gadgets'])
-    fireEvent.change(pick, { target: { value: 'c20' } })
+    fireEvent.focus(pick)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Electronics & Gadgets'])
+    fireEvent.change(pick, { target: { value: 'gadg' } })
+    fireEvent.keyDown(pick, { key: 'Enter' })
     await settle()
     expect(category.chooseShopCategory).toHaveBeenCalledWith('c20')
     expect(screen.getByText(w.categorySaved.replace('{name}', 'Electronics & Gadgets'))).toBeTruthy()
@@ -154,15 +156,16 @@ describe('catalogue settings', () => {
     expect(screen.queryByRole('button', { name: w.saveSections })).toBeNull()
     expect(screen.queryByRole('button', { name: w.addBadge })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit “New”' })).toBeNull()
-    expect((screen.getByRole('combobox', { name: w.sellTitle }) as HTMLSelectElement).disabled).toBe(true)
+    expect((screen.getByRole('combobox', { name: w.sellTitle }) as HTMLInputElement).disabled).toBe(true)
   })
 
   it('keep a category staff have since archived on the store that chose it, offered to no one else', async () => {
     category.loadShopCategory.mockResolvedValue({ options: [general, retired], current: retired })
     await show()
-    const pick = screen.getByRole('combobox', { name: w.sellTitle }) as HTMLSelectElement
-    expect(pick.value).toBe('c9')
-    expect(within(pick).getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Retired'])
+    const pick = screen.getByRole('combobox', { name: w.sellTitle }) as HTMLInputElement
+    expect(pick.value).toBe('Retired')
+    fireEvent.focus(pick)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Retired'])
   })
 
   it('say when there are no badges yet', async () => {

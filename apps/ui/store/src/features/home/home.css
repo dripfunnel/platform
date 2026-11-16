@@ -235,13 +235,9 @@
   gap: var(--df-space-2);
   padding: 10px 0;
 }
-.df-home-step-picker label {
+.df-home-step-picker-label {
   flex-basis: 100%;
   font-size: 13px;
-}
-.df-home-step-picker select {
-  flex: 1 1 200px;
-  min-height: 36px;
 }
 .df-home-step-skip {
   flex: none;

@@ -249,9 +249,12 @@ describe('the Home screen', () => {
     await act(async () => {
       fireEvent.click(within(setup).getByRole('button', { name: new RegExp(words.setup.category.label) }))
     })
-    const pick = within(setup).getByLabelText(words.setup.category.picker)
-    expect(within(pick).getAllByRole('option').map((o) => o.textContent)).toEqual([words.setup.category.placeholder, 'Footwear', 'Food & Grocery'])
-    fireEvent.change(pick, { target: { value: 'c3' } })
+    const pick = within(setup).getByRole('combobox', { name: words.setup.category.picker })
+    fireEvent.focus(pick)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Footwear', 'Food & Grocery'])
+    fireEvent.change(pick, { target: { value: 'foot' } })
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Footwear'])
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Footwear' }))
     await act(async () => {
       fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
     })
@@ -344,7 +347,8 @@ describe('the Home screen', () => {
     await act(async () => {
       fireEvent.click(within(setup).getByRole('button', { name: new RegExp(words.setup.category.label) }))
     })
-    fireEvent.change(within(setup).getByLabelText(words.setup.category.picker), { target: { value: 'c15' } })
+    fireEvent.focus(within(setup).getByRole('combobox', { name: words.setup.category.picker }))
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Food & Grocery' }))
     await act(async () => {
       fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
     })
@@ -355,7 +359,7 @@ describe('the Home screen', () => {
   it('sends a read-only session to Settings rather than picking', async () => {
     api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, category: false } })
     await show(owner, { readOnly: true })
-    expect(screen.queryByLabelText(words.setup.category.picker)).toBeNull()
+    expect(screen.queryByRole('combobox', { name: words.setup.category.picker })).toBeNull()
     expect(href(new RegExp(words.setup.category.label))).toBe('/settings?tab=catalogue')
   })
 

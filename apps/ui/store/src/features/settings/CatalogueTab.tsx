@@ -6,6 +6,7 @@ import { badgeRules, deleteBadge, saveBadge, saveSections, sectionKeys, type Bad
 import { chooseShopCategory, loadShopCategory, type ShopCategoryChoice } from '../../api/shopCategory'
 import { fill, locale, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
+import { SearchSelect } from '../common/SearchSelect'
 import '../common/switch.css'
 
 const words = messages.settings.catalogue
@@ -147,25 +148,15 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
         <p className="df-set-lede">{words.sellSub}</p>
         {category && (
           <div className="df-cat-sell">
-            <select
-              aria-labelledby={`${id}-sell`}
-              value={category.current?.id ?? ''}
+            <SearchSelect
+              labelledBy={`${id}-sell`}
+              options={category.options.filter((o) => !o.archived || o.id === category.current?.id).map((o) => ({ id: o.id, label: o.name }))}
+              value={category.current?.id ?? null}
+              onChange={chooseCategory}
+              placeholder={words.categoryPlaceholder}
+              noMatches={words.categoryNoMatches}
               disabled={ro}
-              onChange={(e) => e.target.value && chooseCategory(e.target.value)}
-            >
-              {!category.current && (
-                <option value="" disabled>
-                  {words.categoryPlaceholder}
-                </option>
-              )}
-              {category.options
-                .filter((o) => !o.archived || o.id === category.current?.id)
-                .map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-            </select>
+            />
           </div>
         )}
         {category?.current && suggested.length > 0 && canEdit && (

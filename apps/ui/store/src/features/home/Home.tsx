@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadHome, loadLocaleFacts, skipSetupStep, type HomeOrder, type SkippableStep, type StoreHome, type StoreLocaleFacts } from '../../api/home'
 import { chooseShopCategory, loadShopCategory, type ShopCategoryChoice } from '../../api/shopCategory'
 import { BrandStep } from './BrandStep'
+import { SearchSelect } from '../common/SearchSelect'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { SampleCatalogAction } from '../common/SampleCatalogAction'
 import { fill, formatCount, messages, plural } from '../../messages'
@@ -452,19 +453,19 @@ const CategoryStep = ({ label, categories, onChoose }: { label: string; categori
         if (picked) save()
       }}
     >
-      <label htmlFor={`${id}-category`}>{s.picker}</label>
-      <select id={`${id}-category`} value={picked} disabled={busy} onChange={(e) => setPicked(e.target.value)} autoFocus>
-        <option value="" disabled>
-          {s.placeholder}
-        </option>
-        {categories
-          .filter((c) => !c.archived)
-          .map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-      </select>
+      <span id={`${id}-category`} className="df-home-step-picker-label">
+        {s.picker}
+      </span>
+      <SearchSelect
+        labelledBy={`${id}-category`}
+        options={categories.filter((c) => !c.archived).map((c) => ({ id: c.id, label: c.name }))}
+        value={picked || null}
+        onChange={setPicked}
+        placeholder={s.placeholder}
+        noMatches={s.noMatches}
+        disabled={busy}
+        autoFocus
+      />
       <button type="submit" className="df-button df-button--primary" disabled={!picked || busy}>
         {s.save}
       </button>

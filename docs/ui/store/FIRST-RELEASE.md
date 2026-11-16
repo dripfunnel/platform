@@ -302,7 +302,7 @@ entry `store.setup_step_skipped` names the step and `skipped` or `undone`, nothi
 
 **Built (store categories, 2026-11-16, not in the prototype)**: "Choose what your shop sells" comes after the locale line
 and before "Add your first product", the Owner's only (`home.setup.category`, null for any other seat; the Manager's note
-now names it). **Choose** opens a picker of DripFunnel's categories in place (`shopCategory`, `chooseShopCategory`,
+now names it). **Choose** opens a searchable picker of DripFunnel's categories in place (type to filter; the same picker in Settings › Catalogue) (`shopCategory`, `chooseShopCategory`,
 DATA-MODEL §7.2), active ones only; once chosen the line shows the category with **Change** opening Settings › Catalogue,
 where its product page sections are offered (CATALOG-DESIGN P2). A read-only session's line opens Settings instead. The
 activity entry `store.category_chosen` names the category's key before and after. The mobile app keeps its 5 steps.
