@@ -12,7 +12,7 @@ How builds, partners and store accounts work is in
 
 **Status: the project is set up (#496), its foundations are built (#497: the API client, formatting on Hermes, messages and the partner's look) and so are getting in and My profile (#498), the shell (#499), Products (#500), Collections (#501) and Import & export (#505).** The other screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-11-02 (#1008: no Owner is held at `enrol`, §sign-in). Before: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-11-16 (a 2-factor code arrives by WhatsApp first; the app has no "Send by SMS instead" yet, §5.1). Before: 2026-11-02 (#1008: no Owner is held at `enrol`, §sign-in). Before: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -160,6 +160,9 @@ loading the partner's look don't.
   sign-in with the session as `token` in the body. A password opens a *pending* session when the person has a
   second factor or an Owner has none yet; the pending token is held in memory only, so an app that is killed
   there wakes up signed out.
+- **The 2-factor code arrives by WhatsApp first** while the partner's WhatsApp is on (decided 2026-11-16, ACCESS.md §4;
+  #1506). The app asks for the default channel only: it has no "Send by SMS instead" after 20 seconds, which the portal
+  gets in #1507 *(ask: a card for the app)*.
 - **Where the token lives.** Only a full session is saved, with the last store, in Expo SecureStore
   (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), keyed by the portal host. Sign-out and an answer of `UNAUTHENTICATED` wipe
   both. If the keystore fails or gives no answer in 5 s, the app treats that as no saved session and a failed

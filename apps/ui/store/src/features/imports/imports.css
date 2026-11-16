@@ -601,6 +601,7 @@
 }
 
 .df-import-export-head {
+  justify-content: flex-end;
   padding: 14px 16px;
 }
 

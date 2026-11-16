@@ -36,6 +36,8 @@ export interface ConfirmDialogProps {
   // Picks from short lists, such as a role, or a plan and when it applies (#116). `error` says why a pick won't do, or null.
   choices?: readonly ConfirmChoice[]
   danger?: boolean
+  // About 720 px instead of 540, for a pick whose longest choice is long (Invite a supplier's access); never wider than the screen.
+  wide?: boolean
   // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
   children?: ReactNode
   // Why those fields won't do yet, or null once they will: confirm waits for them as it does for `input`.
@@ -59,6 +61,7 @@ export const ConfirmDialog = ({
   input,
   choices = [],
   danger = false,
+  wide = false,
   children,
   blocked = null,
   error = null,
@@ -68,6 +71,9 @@ export const ConfirmDialog = ({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
+  const valueRef = useRef<HTMLInputElement>(null)
+  const reasonRef = useRef<HTMLTextAreaElement>(null)
+  const typedRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
   const bodyId = useId()
   const reasonId = useId()
@@ -105,11 +111,18 @@ export const ConfirmDialog = ({
       setPicked({})
       setConfirmed(false)
       dialog.showModal()
-      cancelRef.current?.focus()
+      // The first text box when there is one, so typing starts at once; otherwise Cancel, so Enter never confirms by accident (#1470).
+      const first = valueRef.current ?? reasonRef.current ?? typedRef.current ?? cancelRef.current
+      first?.focus()
     } else if (!open && dialog.open) {
       dialog.close()
     }
   }, [open])
+
+  const confirm = () => {
+    setConfirmed(true)
+    onConfirm(reason ? reasonText.trim() : null, input ? value : null, picks)
+  }
 
   useEffect(() => {
     if (error !== null) setConfirmed(false)
@@ -118,7 +131,7 @@ export const ConfirmDialog = ({
   return (
     <dialog
       ref={dialogRef}
-      className="df-dialog"
+      className={wide ? 'df-dialog df-dialog--wide' : 'df-dialog'}
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={(event) => {
@@ -153,6 +166,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={reasonId}>{reason.label}</label>
           <textarea
+            ref={reasonRef}
             id={reasonId}
             required
             rows={3}
@@ -170,6 +184,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={inputId}>{input.label}</label>
           <input
+            ref={valueRef}
             id={inputId}
             type={input.type}
             autoComplete={input.type === 'password' ? 'current-password' : undefined}
@@ -179,6 +194,11 @@ export const ConfirmDialog = ({
             aria-describedby={inputError !== null ? inputErrorId : undefined}
             value={value}
             onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (canConfirm) confirm()
+            }}
           />
           {inputError !== null && (
             <p id={inputErrorId} className="df-field-hint">
@@ -238,6 +258,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={typedId}>{typeToConfirm.label}</label>
           <input
+            ref={typedRef}
             id={typedId}
             type="text"
             required
@@ -266,10 +287,7 @@ export const ConfirmDialog = ({
           className={danger ? 'df-button df-button--danger' : 'df-button df-button--primary'}
           disabled={!canConfirm}
           aria-describedby={blockedBy}
-          onClick={() => {
-            setConfirmed(true)
-            onConfirm(reason ? reasonText.trim() : null, input ? value : null, picks)
-          }}
+          onClick={confirm}
         >
           {confirmText}
         </button>

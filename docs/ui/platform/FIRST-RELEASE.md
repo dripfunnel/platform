@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-16 (a partner's OpenAI key is tested on Add and Test, like the store's). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-16 (a partner's OpenAI key is tested on Add and Test, like the store's). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -754,7 +754,7 @@ at most 20 keys per partner. In a staff setup session the tab works as the partn
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
 Anthropic key with one `models.list` call and an OpenAI key with OpenAI's `/models` (*since 2026-11-16*; before, Not tested), a DeepInfra key (`sk-di-…`, saved under OpenAI) with DeepInfra's `/models`. Add, Make default and Remove are
-refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, support chat. Google sign-in is built below.
+refused to an impersonation. Not drawn or built: couriers, support chat. Google sign-in is built below; WhatsApp and SMS are decided below, not built.
 
 **Built on #193, straight onto #199's API.**
 - **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
@@ -778,6 +778,16 @@ secret, checked for Google's shapes before sending) and **Turn off**, which rest
 signed up with Google and never set a password will need Forgot password. Owner and Admin only, as the
 tab; never in an impersonation. Built on #1046 (migration 0377; `partnerGoogleSignIn`,
 `savePartnerGoogleSignIn`, `turnOffPartnerGoogleSignIn`; `integrations.write`).
+
+**WhatsApp** and **SMS** (decided 2026-11-16 with Gaurav, not built yet; no prototype draws them and none will first: they are
+built from these docs), two separate panels under Google sign-in, built from the tab's own parts like it, each with its own
+On or Off. **WhatsApp** is the partner's WhatsApp Business account on Meta's Cloud API, the only provider: the Business
+Account id, the phone-number id, the system-user token (shown back as a hint, never again), the templates' names and
+language. **SMS** is #1018's panel on #1017's API: the partner's own MSG91 (India) and Twilio (the rest) accounts, which
+replace DripFunnel's once complete, plus On (the default) or Off, where Off sends the partner's stores no text through any
+account. WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by WhatsApp first; SMS On adds
+"Send by SMS instead" (ACCESS §4). Each Turn off restates its consequence: no number at sign-up and codes texted, or no
+texts at all. Owner and Admin only, as the tab; never in an impersonation.
 
 
 ### 14.6 My profile

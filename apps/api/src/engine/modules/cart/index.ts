@@ -16,7 +16,7 @@ import { selectShopUploadQuestion } from '#db/scoped/questions'
 import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadCart, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
-import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
+import { createStorefrontCatalog, type CartItem, type CartLineDisplay } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
 import { accepted, maxCartUploads, maxUploadBytes, sha256Hex, sniffMime, uploadsIn } from './uploads'
 import { checkAnswers, inputOf, type AnswerInput, type AnswerProblem, type CheckedAnswers, type PricedAnswer, type ShopQuestion } from './answers'
@@ -117,6 +117,8 @@ export interface CartDeps {
 
 export interface CartLineView extends PricedLine {
   item: CartItem | null
+  /** What an unbuyable line (no item) still shows: its product's name, version and photo (#1465); null when it has an item. */
+  shown: CartLineDisplay | null
   /** What the offers take off this line; null when it isn't priced. */
   discount: Money | null
   /** A gift card's recipient and day; null on every other line. */
@@ -253,13 +255,15 @@ export const createCartService = (deps: CartDeps) => {
     const files = withFiles ? new Map((await withScope(sql, context, (tx) => selectCartUploads(tx, row.id))).map((u) => [u.id, u.question_id])) : new Map<string, string | null>()
     const ofVersion = new Map<string, number>()
     for (const l of row.lines) ofVersion.set(l.version_id, (ofVersion.get(l.version_id) ?? 0) + l.quantity)
+    const unbuyable = [...new Set(row.lines.filter((l) => !items.has(l.version_id)).map((l) => l.version_id))]
+    const shown = unbuyable.length > 0 ? await catalog(context).cartLineDisplays(unbuyable) : new Map<string, CartLineDisplay>()
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
       const checked = asks(l) && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers ?? []), (u, q) => files.get(u) === q) : null
       // A line with no answers keeps no extras; it only learns it no longer fits.
       const extras = checked && (l.answers !== null || checked.problems.length > 0) ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
-      return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
+      return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, shown: item ? null : (shown.get(l.version_id) ?? null), discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)

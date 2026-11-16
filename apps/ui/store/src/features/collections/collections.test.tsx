@@ -414,6 +414,21 @@ describe('filters', () => {
     expect(f.loadFilters).toHaveBeenCalledTimes(2)
   })
 
+  it('starts the Add value window in its box, adds on Enter, and keeps it open on an empty value (#1470)', async () => {
+    await show(owner, '/collections?tab=filters')
+    const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Add a value to Fabric' }))
+    const box = dialog().getByLabelText(words.filters.addValue)
+    expect(document.activeElement).toBe(box)
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(f.saveFilter).not.toHaveBeenCalled()
+    expect(dialog().getByText(words.filters.addMissing)).toBeTruthy()
+    fireEvent.change(box, { target: { value: 'Bamboo' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
+  })
+
   it('adds, renames and deletes values, keeping every other value by its id', async () => {
     await show(owner, '/collections?tab=filters')
     const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
@@ -523,6 +538,17 @@ describe('the main menu', () => {
     await settle()
     expect((m.saveMenu.mock.calls.at(-1)?.[0] as unknown[]).at(-1)).toEqual({ kind: 'collection', label: 'Staff picks', collectionId: 'c4' })
     expect(screen.getByText(words.menus.added)).toBeTruthy()
+  })
+
+  it('says why the add control is disabled when every collection is already in the menu, and says nothing while one is left to add (#1403)', async () => {
+    await show(owner, '/collections?tab=menus')
+    const add = () => screen.getByRole('combobox', { name: words.menus.addLabel }) as HTMLSelectElement
+    expect(add().disabled).toBe(true)
+    expect(add().parentElement?.getAttribute('title')).toBe(words.menus.noneToAdd)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Staff picks' }))
+    await settle()
+    expect(add().disabled).toBe(false)
+    expect(add().parentElement?.hasAttribute('title')).toBe(false)
   })
 
   it('moves what was under a removed item up a level, never under the item above', async () => {

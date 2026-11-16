@@ -194,6 +194,11 @@ interface CartVersionRow {
   choices: string[]
 }
 
+/** A version's choices in the shopper's language, in option order, for a query that names it `v`. */
+const choicesOf = (tx: ScopedSql, language: string) => tx`coalesce((select json_agg(${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)} || ': ' || ${translated(tx, 'choice_name', tx`lower(ch.name)`, 'name', tx`ch.name`, language)} order by o.position)
+            from product_version_option_value ov join product_option o on o.id = ov.option_id join product_option_value ch on ch.id = ov.value_id
+            where ov.version_id = v.id), '[]'::json)`
+
 /**
  * Each version's product and tax class, by id, and whether its product asks questions (#1368: one statement, so a product
  * without any costs nothing more); what shoppers may see is decided after, by the catalogue's rules (cartItems).
@@ -204,10 +209,33 @@ export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly
     : tx<CartVersionRow[]>`
         select v.id, v.product_id, v.tax_class_id, exists (select 1 from product_question q where q.product_id = v.product_id) as has_questions,
           coalesce((select f.age_restricted from product_flag f where f.product_id = v.product_id), false) as age_restricted,
-          coalesce((select json_agg(${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)} || ': ' || ${translated(tx, 'choice_name', tx`lower(ch.name)`, 'name', tx`ch.name`, language)} order by o.position)
-            from product_version_option_value ov join product_option o on o.id = ov.option_id join product_option_value ch on ch.id = ov.value_id
-            where ov.version_id = v.id), '[]'::json) as choices
+          ${choicesOf(tx, language)} as choices
         from product_version v where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
+      `
+
+interface CartLineDisplayRow {
+  id: string
+  product_name: string
+  version_name: string | null
+  choices: string[]
+  /** The version's own photo, else the product's first (the same pick the shop makes for a line, #1465). */
+  photo_asset_id: string | null
+}
+
+/**
+ * What names a cart line, whatever its product's state (hidden, deleted, a version removed): for display only, so a shopper
+ * can tell which item an unavailable line was. Nothing here makes it buyable.
+ */
+export const selectCartLineDisplays = (tx: ScopedSql, storeId: string, ids: readonly string[], language: string): Promise<CartLineDisplayRow[]> =>
+  ids.length === 0
+    ? Promise.resolve([])
+    : tx<CartLineDisplayRow[]>`
+        select v.id, ${translated(tx, 'product', tx`p.id`, 'name', tx`p.name`, language)} as product_name,
+          ${translated(tx, 'version', tx`v.id`, 'name', tx`v.name`, language)} as version_name,
+          ${choicesOf(tx, language)} as choices,
+          coalesce(v.photo_asset_id, (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1)) as photo_asset_id
+        from product_version v join product p on p.id = v.product_id
+        where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
       `
 
 /**

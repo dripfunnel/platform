@@ -129,14 +129,15 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       // A gift card's recipient and day; null on every other line.
       gift: t.field({ type: Gift, nullable: true, resolve: (l) => l.gift }),
       quantity: t.exposeInt('quantity'),
-      productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? null }),
+      // A line that can't be bought keeps its name, version and photo (#1465), but no web address: the product may not open.
+      productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? l.shown?.productName ?? null }),
       productSlug: t.string({ nullable: true, resolve: (l) => l.item?.product.slug ?? null }),
-      versionName: t.string({ nullable: true, resolve: (l) => l.item?.versionLabel ?? null }),
+      versionName: t.string({ nullable: true, resolve: (l) => l.item?.versionLabel ?? l.shown?.versionLabel ?? null }),
       photoUrl: t.string({
         nullable: true,
         resolve: (l, _, ctx) => {
-          const photo = l.item?.product.photos.find((p) => p.versionId === l.versionId) ?? l.item?.product.photos[0]
-          return photo ? assetUrl(ctx, photo.assetId) : null
+          const photo = l.item?.product.photos.find((p) => p.versionId === l.versionId)?.assetId ?? l.item?.product.photos[0]?.assetId ?? l.shown?.photoAssetId
+          return photo ? assetUrl(ctx, photo) : null
         },
       }),
       unitPrice: t.field({ type: Money_, nullable: true, resolve: (l) => l.unitPrice }),
