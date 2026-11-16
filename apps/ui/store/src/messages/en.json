@@ -4951,7 +4951,7 @@
       },
       "note": {
         "add": "+ Add a note (only your team sees it)",
-        "title": "Add a note",
+        "title": "Add a note to order {number}",
         "target": "Order {number}",
         "body": "Only your team sees this.",
         "label": "Note",

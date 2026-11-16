@@ -385,7 +385,9 @@ type Mutation {
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
   removePartnerAiKey(id: ID!): PartnerAiKeyResult
   removePartnerDomain(kind: String!): PartnerDomainResult
+  removeSmsAccount(provider: String!): PartnerSmsResult
   removeTeamMember(id: ID!): TeamResult
+  removeWhatsAppAccount: PartnerWhatsAppResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
   resendTeamInvite(id: ID!): TeamResult
   restoreStore(id: ID!, reason: String!): StoreActionResult
@@ -394,16 +396,23 @@ type Mutation {
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
+  saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
+  saveWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, templates: [PartnerWhatsAppTemplateInput!]!): PartnerWhatsAppResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
   setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
+  setSmsEnabled(enabled: Boolean!): PartnerSmsResult
+  setSmsRoute(provider: String, route: String!): PartnerSmsResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
+  setWhatsAppEnabled(enabled: Boolean!): PartnerWhatsAppResult
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
+  testSmsAccount(provider: String!): PartnerSmsResult
+  testWhatsAppAccount: PartnerWhatsAppResult
   transferOwnership(toUserId: ID!): TeamResult
   turnOffPartnerGoogleSignIn: PartnerGoogleSignInResult
   updateMyName(name: String!): MyProfileResult
@@ -651,6 +660,36 @@ type PartnerPlanFee {
   plan: String
 }
 
+type PartnerSms {
+  accounts: [PartnerSmsAccount!]
+  enabled: Boolean
+  routes: [PartnerSmsRoute!]
+}
+
+type PartnerSmsAccount {
+  hint: String
+  lastTestedAt: String
+  provider: String
+  status: String
+  templatesComplete: Boolean
+}
+
+type PartnerSmsResult {
+  ok: Boolean
+  reason: String
+  status: String
+}
+
+type PartnerSmsRoute {
+  provider: String
+  route: String
+}
+
+input PartnerSmsTemplateInput {
+  message: String!
+  templateId: String!
+}
+
 type PartnerState {
   billingMode: String
   brokenHosts: [String!]
@@ -694,6 +733,39 @@ type PartnerStoreRow {
   plan: StorePlanRef
   state: StoreState
   storefront: String
+}
+
+type PartnerWhatsApp {
+  account: PartnerWhatsAppAccount
+  enabled: Boolean
+}
+
+type PartnerWhatsAppAccount {
+  businessAccountId: String
+  hint: String
+  language: String
+  lastTestedAt: String
+  phoneNumberId: String
+  status: String
+  templates: [PartnerWhatsAppTemplate!]
+}
+
+type PartnerWhatsAppResult {
+  ok: Boolean
+  problem: String
+  reason: String
+  status: String
+  template: String
+}
+
+type PartnerWhatsAppTemplate {
+  message: String
+  name: String
+}
+
+input PartnerWhatsAppTemplateInput {
+  message: String!
+  name: String!
 }
 
 type PaymentMethod {
@@ -906,6 +978,7 @@ type Query {
   reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
   reportUsage(filter: ReportFilterInput): UsageReport
   search(query: String!): [StoreSearchMatch!]
+  smsAccounts: PartnerSms
   staffSessionNotice: StaffSessionNotice
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
@@ -913,6 +986,7 @@ type Query {
   supportSessions(after: String, before: String, first: Int, open: Boolean!): SupportSessionPage
   supportTargets(after: String, before: String, first: Int, search: String): SupportTargetPage
   team(after: String, before: String, first: Int): TeamPage
+  whatsAppAccount: PartnerWhatsApp
 }
 
 type ReauthResult {

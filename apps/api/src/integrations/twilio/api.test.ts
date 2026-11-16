@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SmsRefused, SmsUnavailable, type OutgoingSms } from '#core/sms'
-import { twilioSender } from './api'
+import { checkTwilioAccount, twilioSender } from './api'
 
 const sms: OutgoingSms = { to: '+16145550199', text: 'Juniper & Co.: 482913 is your sign-in code.', dlt: null }
 const credentials = { accountSid: 'AC123', authToken: 'tok', messagingServiceSid: 'MG456' }
@@ -44,5 +44,21 @@ describe('the Twilio sender', () => {
       throw new TypeError('network')
     }) as typeof fetch
     await expect(twilioSender({ ...credentials, fetchImpl: failing }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
+  })
+})
+
+describe('the Twilio account check', () => {
+  it('reads the Messaging Service with basic auth and sends nothing', async () => {
+    const seen: Request[] = []
+    expect(await checkTwilioAccount({ ...credentials, fetchImpl: answering(200, { sid: 'MG456' }, seen) })).toBe('ok')
+    expect(seen[0]?.method).toBe('GET')
+    expect(seen[0]?.url).toBe('https://messaging.twilio.com/v1/Services/MG456')
+    expect(seen[0]?.headers.get('authorization')).toBe(`Basic ${btoa('AC123:tok')}`)
+  })
+
+  it('calls a wrong token or a service outside the account rejected, and an outage unavailable', async () => {
+    expect(await checkTwilioAccount({ ...credentials, fetchImpl: answering(401, {}) })).toBe('rejected')
+    expect(await checkTwilioAccount({ ...credentials, fetchImpl: answering(404, {}) })).toBe('rejected')
+    expect(await checkTwilioAccount({ ...credentials, fetchImpl: answering(500, {}) })).toBe('unavailable')
   })
 })

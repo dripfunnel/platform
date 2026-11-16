@@ -227,13 +227,17 @@ describe('the blocked lists', () => {
   // An AI key is set by the partner, or by staff in a setup session (#275), never while acting as a partner user.
   const aiKeyWrites = ['addPartnerAiKey', 'beginPartnerAiOauth', 'finishPartnerAiOauth', 'removePartnerAiKey', 'setDefaultPartnerAiKey']
   const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']
+  // The partner's SMS accounts and switch, the read included: the partner's or a setup session's (#1017).
+  const sms = ['removeSmsAccount', 'saveSmsAccount', 'setSmsEnabled', 'setSmsRoute', 'smsAccounts', 'testSmsAccount']
+  // The partner's WhatsApp account and switch, likewise (#1504).
+  const whatsapp = ['removeWhatsAppAccount', 'saveWhatsAppAccount', 'setWhatsAppEnabled', 'testWhatsAppAccount', 'whatsAppAccount']
   // A user's own name and password are theirs alone (My profile, #1053): neither staff session changes them.
   const ownAccount = ['changeMyPassword', 'updateMyName']
   // Archiving a store is the partner's own decision, never staff acting as a partner user (#1056).
   const archive = ['archiveStore']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...ownAccount, ...archive, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...sms, ...whatsapp, ...ownAccount, ...archive, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {
