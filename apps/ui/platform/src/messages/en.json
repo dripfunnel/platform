@@ -728,6 +728,169 @@
           "failed": "That didn’t go through. Nothing was changed. Try again."
         }
       },
+      "sms": {
+        "title": "SMS",
+        "note": "Your own SMS accounts, so sign-in codes, order updates and rider invites go out under your sender name. Each secret is stored encrypted and never shown again; only its last 4 characters are.",
+        "fallback": "DripFunnel’s account sends any route you haven’t completed. Indian numbers need MSG91, or AWS SNS with its DLT sender id, entity id and all seven template ids; other numbers need Twilio or AWS SNS.",
+        "loading": "Loading SMS",
+        "error": {
+          "title": "SMS couldn’t be loaded",
+          "body": "Nothing was changed. Try again.",
+          "retry": "Try again"
+        },
+        "on": "On",
+        "off": "Off",
+        "offNote": "SMS is off: no texts go to your merchants or their shoppers, through any account.",
+        "offRoute": "Nothing is sent while SMS is off",
+        "routes": {
+          "india": "India (+91)",
+          "rest": "Other countries"
+        },
+        "routeNumbers": {
+          "india": "Indian numbers",
+          "rest": "numbers outside India"
+        },
+        "sentByLine": "Sent by {who}",
+        "sentBy": {
+          "ours": "DripFunnel’s account",
+          "yours": "your {provider} account"
+        },
+        "change": "Change who sends to {route}",
+        "providers": {
+          "msg91": "MSG91",
+          "twilio": "Twilio",
+          "sns": "AWS SNS"
+        },
+        "serves": {
+          "msg91": "Sends to Indian numbers, with your DLT-approved templates.",
+          "twilio": "Sends to numbers outside India.",
+          "sns": "Sends to numbers outside India, and to Indian numbers once its DLT details are in."
+        },
+        "notSetUp": "Not set up.",
+        "secretLabels": {
+          "msg91": "Auth key",
+          "twilio": "Auth token",
+          "sns": "Secret access key"
+        },
+        "india": {
+          "complete": "India: the DLT details and all seven template ids are in.",
+          "incomplete": "India: no DLT details, so it doesn’t send to Indian numbers."
+        },
+        "statuses": {
+          "ok": "Working",
+          "untested": "Not tested",
+          "rejected": "Rejected"
+        },
+        "lastTested": "Last tested {when}",
+        "neverTested": "Never tested",
+        "rejectedNote": "{provider} rejected this account at its last test, but its routes still go through it. Fix it with {provider} and test again, replace it, or remove it so another account sends.",
+        "setUp": "Set up {provider}",
+        "replace": "Replace {provider}",
+        "test": "Test {provider}",
+        "testing": "Testing…",
+        "remove": "Remove {provider}",
+        "short": { "setUp": "Set up", "replace": "Replace", "test": "Test", "remove": "Remove", "change": "Change" },
+        "turnOn": "Turn on",
+        "turnOff": "Turn off",
+        "blockedAction": "Set up SMS",
+        "blocked": "Support can’t see or change SMS while signed in as {user}. Only the partner’s Owners and Admins can.",
+        "messages": {
+          "code.second_factor": "2-factor sign-in code (code.second_factor)",
+          "code.verify_phone": "Phone check code (code.verify_phone)",
+          "code.shopper_sign_in": "Shopper and rider sign-in code (code.shopper_sign_in)",
+          "order.confirmed": "Order confirmed (order.confirmed)",
+          "order.shipped": "Order shipped (order.shipped)",
+          "order.delivered": "Order delivered (order.delivered)",
+          "rider.invited": "Rider invite (rider.invited)"
+        },
+        "fields": {
+          "authKey": "Auth key",
+          "accountSid": "Account SID",
+          "authToken": "Auth token",
+          "messagingServiceSid": "Messaging service SID",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "region": "Region",
+          "senderId": "DLT sender id (header)",
+          "entityId": "DLT entity id"
+        },
+        "dialog": {
+          "title": "{provider} account",
+          "target": "Your own account with {provider}",
+          "consequence": "DripFunnel checks it with {provider} before saving, with one call that sends nothing. Every field is typed again on a replace, and the secret it replaces stops working here at once.",
+          "save": "Check and save",
+          "hints": {
+            "authKey": "In MSG91 under API › Auth key, with IP whitelisting off for it. 16 to 64 letters and digits.",
+            "accountSid": "On your Twilio console’s home page: AC and 32 characters.",
+            "authToken": "Next to the account SID: 32 characters.",
+            "messagingServiceSid": "Under Messaging › Services, with your sender in it: MG and 32 characters.",
+            "accessKeyId": "An IAM user’s key allowed sns:Publish: AKIA or ASIA and 16 more.",
+            "secretAccessKey": "Shown once by AWS when the key is made: 40 characters.",
+            "region": "Where SNS sends from, such as ap-south-1.",
+            "senderId": "Your DLT-registered header: 3 to 11 letters or digits.",
+            "entityId": "Your DLT principal entity id: digits only."
+          },
+          "templatesMsg91": "Each message’s MSG91 Flow id, all seven, each on your DLT-approved template.",
+          "indiaSns": "India, optional: your DLT sender id, entity id and all seven DLT template ids. Leave them all blank to send to numbers outside India only.",
+          "incomplete": {
+            "msg91": "Enter the auth key and all seven template ids (letters, digits, - and _).",
+            "twilio": "Enter the account SID (AC and 32 characters), the auth token (32) and the messaging service SID (MG and 32).",
+            "sns": "Enter the access key ID, the 40-character secret and a region such as ap-south-1. For India, fill the sender id, the entity id and all seven template ids, or leave them all blank."
+          }
+        },
+        "routeDialog": {
+          "title": "Who sends to {numbers}?",
+          "label": "Account",
+          "automatic": "Whichever is set up: {first}, else {second}",
+          "today": "Now: {who}",
+          "hints": {
+            "complete": "Set up for this route.",
+            "incomplete": "Saved, without India’s DLT details.",
+            "missing": "Not set up."
+          },
+          "consequence": "Texts to {numbers} will go through {who}.",
+          "confirm": "Save"
+        },
+        "onDialog": {
+          "title": "Turn on SMS?",
+          "target": "SMS on your portal",
+          "consequence": "Texts go to your merchants and their shoppers again: sign-in codes by SMS, order updates and rider invites, each route through the account shown.",
+          "confirm": "Turn on SMS"
+        },
+        "offDialog": {
+          "title": "Turn off SMS?",
+          "target": "SMS on your portal",
+          "consequence": "No texts will go to your merchants or their shoppers: no sign-in codes by SMS, order updates or rider invites. While WhatsApp is off too, no codes are sent and people who use phone codes sign in without 2-factor. Your accounts stay saved: turn it back on at any time.",
+          "confirm": "Turn off SMS"
+        },
+        "removeDialog": {
+          "title": "Remove the {provider} account?",
+          "target": "Your {provider} account",
+          "deleted": "Its secret and details are deleted here.",
+          "route": "Texts to {numbers} will go through {who}.",
+          "none": "It sends no route now, so no text changes.",
+          "confirm": "Remove account"
+        },
+        "refusals": {
+          "INVALID_INPUT": "Something in that isn’t in {provider}’s shape. Check each field.",
+          "TEMPLATES_INCOMPLETE": "India needs all seven template ids. For an AWS SNS account that sends outside India only, leave India’s fields blank.",
+          "ACCOUNT_INCOMPLETE": "Your {provider} account can’t send there yet. Set it up with India’s DLT details first.",
+          "KEY_REJECTED": "{provider} rejected these details. Check them in your {provider} account.",
+          "PROVIDER_UNAVAILABLE": "{provider} couldn’t be reached. Nothing was changed. Try again in a minute.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "There’s no {provider} account saved any more. Reload the page."
+        },
+        "toasts": {
+          "saved": "{provider} account saved.",
+          "ok": "{provider} works: it accepted the account.",
+          "rejected": "{provider} rejected the account.",
+          "route": "Texts to {numbers} go through {who}.",
+          "on": "SMS is on.",
+          "off": "SMS is off.",
+          "removed": "{provider} account removed.",
+          "failed": "That didn’t go through. Nothing was changed. Try again."
+        }
+      },
       "title": "AI accounts",
       "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
       "loading": "Loading your AI accounts",
