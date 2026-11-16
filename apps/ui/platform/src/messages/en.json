@@ -635,6 +635,99 @@
         },
         "toasts": { "saved": "Google sign-in is on.", "off": "Google sign-in is off.", "failed": "That didn’t go through. Nothing was changed. Try again." }
       },
+      "whatsapp": {
+        "title": "WhatsApp",
+        "note": "Your own WhatsApp Business account on Meta’s Cloud API, so codes and cart reminders come from your number and name. While it’s on, merchants signing up are asked for a mobile number, and sign-up and sign-in codes go by WhatsApp first. The token is stored encrypted and never shown again; only its last 4 characters are.",
+        "loading": "Loading WhatsApp",
+        "error": { "title": "WhatsApp couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+        "none": "No account yet. Merchants signing up aren’t asked for a mobile number, and codes are texted.",
+        "on": "On",
+        "off": "Off",
+        "businessAccountLabel": "WhatsApp Business Account ID",
+        "phoneNumberLabel": "Phone-number ID",
+        "tokenLabel": "Access token",
+        "languageLabel": "Template language",
+        "templatesLabel": "Templates",
+        "messages": {
+          "code.portal": "Portal codes (code.portal)",
+          "cart.reminder": "Cart reminder (cart.reminder)",
+          "cart.reminder_code": "Cart reminder with a discount code (cart.reminder_code)"
+        },
+        "notUsed": "Not used",
+        "statuses": { "ok": "Working", "untested": "Not checked", "rejected": "Rejected" },
+        "lastTested": "Last checked {when}",
+        "neverTested": "Never checked",
+        "rejectedNote": "Meta rejected this account at its last check, so WhatsApp stays off. Test it again once it’s fixed in Meta, or replace it.",
+        "needsCodeTemplate": "Turning on needs the code.portal template: name your approved authentication template, and Test until the account says Working.",
+        "setUp": "Set up WhatsApp",
+        "replace": "Replace account",
+        "test": "Test",
+        "testing": "Testing…",
+        "turnOn": "Turn on",
+        "turnOff": "Turn off",
+        "remove": "Remove",
+        "blocked": "Support can’t see or change WhatsApp while signed in as {user}. Only the partner’s Owners and Admins can.",
+        "dialog": {
+          "title": "WhatsApp Business account",
+          "target": "Your account on Meta’s Cloud API",
+          "consequence": "DripFunnel checks it with Meta before saving: the phone number, and each template you name, approved in this language. Nothing is sent. A token you replace stops working here at once.",
+          "save": "Check and save",
+          "businessAccountHint": "In WhatsApp Manager, under Account tools. Digits only.",
+          "phoneNumberHint": "In your Meta app, under WhatsApp › API setup. Digits only, not the phone number itself.",
+          "tokenHint": "A system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management. Meta shows it once; we never show it again.",
+          "languageHint": "The language your templates are approved in, as Meta writes it: en, en_US, hi.",
+          "templateHints": {
+            "code.portal": "Your approved authentication template with a Copy code button. Needed to turn WhatsApp on; blank texts the codes instead.",
+            "cart.reminder": "Register it word for word: “{{1}}: you left {{2}} in your cart. It’s saved for you: {{3}}”. Blank sends cart reminders by email.",
+            "cart.reminder_code": "Register it word for word: “{{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}}”. Blank sends these by email."
+          },
+          "incomplete": "Enter both IDs (digits from Meta), the token, a language such as en or en_US, and template names in lowercase letters, digits and underscores.",
+          "codeTemplateNeeded": "WhatsApp is on, so the code.portal template can’t be blank. Turn WhatsApp off first to save without it."
+        },
+        "onDialog": {
+          "title": "Turn on WhatsApp?",
+          "target": "WhatsApp on your portal",
+          "consequence": "Merchants signing up are asked for a mobile number, and sign-up and sign-in codes go by WhatsApp first, through your number and its code.portal template. While SMS is on, people can ask for a text instead.",
+          "confirm": "Turn on WhatsApp"
+        },
+        "offDialog": {
+          "title": "Turn off WhatsApp?",
+          "target": "WhatsApp on your portal",
+          "consequence": "Merchants signing up won’t be asked for a mobile number, and sign-in codes will be texted. While SMS is off too, no codes are sent and people who use phone codes sign in without 2-factor. Cart reminders go by email. The account stays saved: turn it back on at any time.",
+          "confirm": "Turn off WhatsApp"
+        },
+        "removeDialog": {
+          "title": "Remove the WhatsApp account?",
+          "target": "Your WhatsApp Business account",
+          "consequence": "The token, IDs and template names are deleted here, and WhatsApp stays off until an account is set up again. Merchants signing up won’t be asked for a mobile number, and sign-in codes will be texted. While SMS is off too, no codes are sent and people who use phone codes sign in without 2-factor. Cart reminders go by email.",
+          "confirm": "Remove account"
+        },
+        "problems": {
+          "token": "Meta refused the access token. Check it’s a system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management.",
+          "phone_number": "Meta refused the phone-number ID: it doesn’t exist, or the token can’t reach it.",
+          "business_account": "Meta refused the WhatsApp Business Account ID: it doesn’t exist, or the token can’t read its templates.",
+          "template": "Meta has no approved template “{name}” in {language} for {message}. Check its name, language and approval in WhatsApp Manager."
+        },
+        "refusals": {
+          "INVALID_INPUT": "Something in that isn’t in Meta’s shape. Check both IDs, the token, the language and the template names.",
+          "KEY_REJECTED": "Meta rejected the account.",
+          "PROVIDER_UNAVAILABLE": "Meta couldn’t be reached. Nothing was changed. Try again in a minute.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "There’s no WhatsApp account saved any more. Reload the page.",
+          "NO_ACCOUNT": "Set up a WhatsApp account before turning WhatsApp on.",
+          "NO_CODE_TEMPLATE": "Turning on needs the code.portal template, named and Working at the last check. Replace the account to name it, then Test."
+        },
+        "toasts": {
+          "saved": "WhatsApp account saved.",
+          "ok": "WhatsApp works: Meta accepted the number and every template.",
+          "rejected": "Meta rejected the WhatsApp account.",
+          "rejectedOff": "Meta rejected the WhatsApp account, so WhatsApp is off.",
+          "on": "WhatsApp is on.",
+          "off": "WhatsApp is off.",
+          "removed": "WhatsApp account removed.",
+          "failed": "That didn’t go through. Nothing was changed. Try again."
+        }
+      },
       "title": "AI accounts",
       "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
       "loading": "Loading your AI accounts",
