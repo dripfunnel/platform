@@ -36,6 +36,8 @@ const table: Record<StaffPermission, string> = {
   'apps.manage': 'SA',
   'fleet.read': 'SA EN',
   'fleet.manage': 'SA EN',
+  'storeCategories.read': 'SA PM SU FI EN RO',
+  'storeCategories.manage': 'SA',
 }
 
 const column: Record<StaffRole, string> = {

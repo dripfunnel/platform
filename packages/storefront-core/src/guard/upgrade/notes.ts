@@ -55,6 +55,13 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
         find: '<Options page={page} />\n            <p className={styles.stock} role="status">',
         replace: '<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            <p className={styles.stock} role="status">',
       },
+      // The same place in the markup #1278 shipped, where the stock line shows only when there is stock to say.
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: '<Options page={page} />\n            {firstMissing || ',
+        replace: '<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            {firstMissing || ',
+      },
       {
         kind: 'replace',
         paths: ['src/theme/styles/product.module.css'],

@@ -6,7 +6,9 @@ import { filterKeys, withoutFilter, type FilterKey } from './storeSearch'
 
 const words = messages.stores.filters
 
-const chipLabel = (filter: StoreFilter, key: FilterKey, plans: readonly { id: string; name: string }[]): string | null => {
+type Named = readonly { id: string; name: string }[]
+
+const chipLabel = (filter: StoreFilter, key: FilterKey, plans: Named, categories: Named): string | null => {
   const value = filter[key]
   if (value === undefined) return null
   switch (key) {
@@ -14,6 +16,8 @@ const chipLabel = (filter: StoreFilter, key: FilterKey, plans: readonly { id: st
       return `${words.status}: ${messages.stores.statuses[value as NonNullable<StoreFilter['status']>]}`
     case 'plan':
       return `${words.plan}: ${plans.find((plan) => plan.id === value)?.name ?? value}`
+    case 'category':
+      return `${words.category}: ${categories.find((category) => category.id === value)?.name ?? value}`
     case 'created':
       return `${words.created}: ${words[value as NonNullable<StoreFilter['created']>]}`
     case 'storefront':
@@ -26,9 +30,9 @@ const chipLabel = (filter: StoreFilter, key: FilterKey, plans: readonly { id: st
 }
 
 // Every applied filter as a removable chip, each a link to the URL without it (FIRST-RELEASE.md §6.1).
-export const FilterChips = ({ filter, plans }: { filter: StoreFilter; plans: readonly { id: string; name: string }[] }) => {
+export const FilterChips = ({ filter, plans, categories }: { filter: StoreFilter; plans: Named; categories: Named }) => {
   const chips = filterKeys.flatMap((key) => {
-    const label = chipLabel(filter, key, plans)
+    const label = chipLabel(filter, key, plans, categories)
     return label === null ? [] : [{ key, label }]
   })
   if (chips.length === 0) return null

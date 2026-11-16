@@ -89,6 +89,7 @@
     "approvals": "Approvals",
     "provisioning": "Provisioning",
     "rollouts": "Rollouts",
+    "categories": "Store categories",
     "activity": "Activity log",
     "staff": "Staff",
     "impersonate": "Impersonate"
@@ -790,6 +791,7 @@
       "partner": "Partner",
       "owner": "Owner",
       "plan": "Plan",
+      "category": "Category",
       "status": "Status",
       "storefront": "Storefront",
       "domain": "Domain",
@@ -847,6 +849,8 @@
       "anyStatus": "Any status",
       "storefront": "Storefront",
       "anyStorefront": "Any storefront",
+      "category": "Category",
+      "anyCategory": "Any category",
       "created": "Created",
       "anyTime": "Any time",
       "7d": "Last 7 days",
@@ -887,6 +891,7 @@
       "addNote": "add a note"
     },
     "noPlan": "No plan",
+    "noCategory": "—",
     "noOwner": "No owner yet",
     "denied": {
       "title": "This store isn’t in your assignment",
@@ -2486,6 +2491,242 @@
       "WRONG_STATE": "The rollout moved on. Reload to see where it is.",
       "FORBIDDEN": "Only the Engineer on call and Super admins can change a rollout.",
       "other": "That didn’t work. Nothing has changed."
+    }
+  },
+  "storeCategories": {
+    "level": "Platform · Merchants",
+    "title": "Store categories",
+    "sub": "What a shop sells. Each store’s Owner picks one; it sets the product page sections offered and guides the AI designer.",
+    "loading": "Loading store categories",
+    "listLabel": "Store categories",
+    "add": "Add category",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archived": "Archived",
+    "noSections": "No sections",
+    "columns": {
+      "name": "Category",
+      "key": "Key",
+      "sections": "Product page sections",
+      "stores": "Stores",
+      "actions": "Actions"
+    },
+    "stores": {
+      "one": "{count} store",
+      "other": "{count} stores"
+    },
+    "sections": {
+      "sizeCharts": "Size charts",
+      "specs": "Specifications",
+      "highlights": "Highlights",
+      "faqs": "FAQs",
+      "badges": "Badges",
+      "related": "Related products",
+      "aplus": "Product story (A+)",
+      "video": "Product video"
+    },
+    "empty": {
+      "title": "No store categories yet",
+      "body": "Add the first one so Owners can say what their shop sells."
+    },
+    "error": {
+      "title": "We couldn’t load store categories",
+      "body": "The admin service didn’t answer. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "readOnly": {
+      "title": "View only",
+      "body": "Only a Super admin can add, edit or archive store categories."
+    },
+    "form": {
+      "addTitle": "Add a store category",
+      "editTitle": "Edit {name}",
+      "addConsequence": "Owners can pick it straight away. Its key is made from the English name and never changes.",
+      "editConsequence": "Every store that chose it sees the new name. Sections already switched on in a store stay as they are.",
+      "addConfirm": "Add category",
+      "editConfirm": "Save changes",
+      "english": "Name in English",
+      "englishHint": "Required. Up to 60 characters; shown wherever no translation exists.",
+      "translations": "Translations",
+      "translationsHint": "Optional. A language code such as hi or fr-CA, and the name in that language.",
+      "language": "Language code",
+      "translatedName": "Name",
+      "addTranslation": "Add a translation",
+      "removeTranslation": "Remove the {language} translation",
+      "remove": "Remove",
+      "sectionsLegend": "Product page sections",
+      "sectionsHint": "Offered to an Owner who picks this category, within their plan. Never switched on without them.",
+      "englishMissing": "Enter a name in English.",
+      "tooLong": "Keep each name to 60 characters.",
+      "badLanguage": "Use a language code such as hi or fr-CA, once each, and give it a name."
+    },
+    "archiveDialog": {
+      "title": "Archive {name}",
+      "consequence": "{stores} keep this category; it leaves the picker for every other store.",
+      "confirm": "Archive category"
+    },
+    "restoreDialog": {
+      "title": "Restore {name}",
+      "consequence": "It comes back to every store’s picker.",
+      "confirm": "Restore category"
+    },
+    "reason": {
+      "label": "Reason",
+      "hint": "Kept in the activity log with the change."
+    },
+    "cancel": "Cancel",
+    "done": {
+      "created": "{name} added",
+      "updated": "{name} saved",
+      "archived": "{name} archived",
+      "restored": "{name} restored"
+    },
+    "refusals": {
+      "INVALID_INPUT": "Something in the form isn’t valid. Check the names and try again.",
+      "KEY_TAKEN": "A category with that English name already exists.",
+      "TOO_MANY": "There can be up to 100 store categories. Archive or reuse one instead.",
+      "NOT_FOUND": "That category isn’t here any more. Reload the list.",
+      "FORBIDDEN": "Only a Super admin can change store categories.",
+      "other": "That didn’t save. Try again in a moment."
+    },
+    "editor": {
+      "back": "Store categories",
+      "loading": "Loading the sample catalog…",
+      "error": {
+        "title": "The sample catalog didn’t load",
+        "body": "Check your connection and try again.",
+        "retry": "Try again"
+      },
+      "notFound": {
+        "title": "That category isn’t here",
+        "body": "It may have been removed. Go back to Store categories."
+      },
+      "title": "Sample catalog: {name}",
+      "status": "{count} products · {collections} collections · {currency} · saved {date}",
+      "noSample": "No sample yet. Add products and collections, then save.",
+      "readOnly": {
+        "title": "View only",
+        "body": "Only a Super admin can change a sample catalog."
+      },
+      "unsaved": "You have unsaved changes.",
+      "leave": "Leave without saving your changes to the sample catalog?",
+      "currency": "Currency of the prices",
+      "currencyHint": "Three letters. Prices are converted to each shop’s currency when it adds the sample.",
+      "currencyInvalid": "Enter the prices’ currency as three letters, such as INR.",
+      "productsTitle": "Products ({count})",
+      "collectionsTitle": "Collections ({count})",
+      "noProducts": "Add at least one product.",
+      "noCollections": "Add at least one collection.",
+      "collectionFirst": "Add a collection first: every product belongs to at least one.",
+      "emptyCollection": "“{name}” has no products. Add a product to it or delete it.",
+      "columns": {
+        "photo": "Photo",
+        "name": "Product",
+        "sku": "SKU",
+        "price": "Price",
+        "stock": "Stock",
+        "visible": "Shown",
+        "collections": "Collections",
+        "actions": "Actions",
+        "collection": "Collection",
+        "products": "Products"
+      },
+      "notTracked": "Not tracked",
+      "visibleYes": "Shown",
+      "visibleNo": "Hidden",
+      "noPhoto": "No photo",
+      "photoAlt": "Photo of {name}",
+      "addProduct": "Add product",
+      "editProduct": "Edit",
+      "dropProduct": "Delete",
+      "addProductTitle": "Add a sample product",
+      "editProductTitle": "Edit {name}",
+      "productConsequence": "Changes stay on this page until you save the sample catalog.",
+      "done": "Done",
+      "dropProductTitle": "Delete {name} from the sample?",
+      "dropProductConsequence": "Shops that already added the sample keep their products. The change applies when you save.",
+      "addCollection": "Add collection",
+      "addCollectionTitle": "Add a collection",
+      "renameCollection": "Rename",
+      "renameCollectionTitle": "Rename {name}",
+      "dropCollection": "Delete",
+      "dropCollectionTitle": "Delete the collection {name}?",
+      "dropCollectionConsequence": "It comes off its {count} products, which stay in the sample. The change applies when you save.",
+      "collectionConsequence": "Changes stay on this page until you save the sample catalog.",
+      "collectionName": "Collection name",
+      "collectionRequired": "Enter a name.",
+      "collectionTooLong": "Use up to 100 characters.",
+      "collectionTaken": "Another collection already has that name.",
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "sku": "SKU",
+        "price": "Price ({currency})",
+        "stock": "Stock (empty: not tracked)",
+        "visible": "Shown in the shop",
+        "collections": "Collections",
+        "photo": "Photo"
+      },
+      "nameRequired": "Enter the product’s name.",
+      "skuRequired": "Enter a SKU.",
+      "skuTaken": "Another product in this sample has that SKU.",
+      "priceInvalid": "Enter a price such as 499 or 499.50.",
+      "stockInvalid": "Enter the stock as a whole number, or leave it empty.",
+      "collectionNeeded": "Put the product in at least one collection.",
+      "uploadPhoto": "Upload photo",
+      "replacePhoto": "Replace photo",
+      "removePhoto": "Remove photo",
+      "uploading": "Uploading…",
+      "photoRefused": {
+        "TOO_LARGE": "That image is too large. Use one up to 20 MB.",
+        "PHOTO_REFUSED": "That isn’t an image we can use. Use a JPEG, PNG, WebP or GIF.",
+        "NO_STORAGE": "Photos can’t be stored right now. Try again later.",
+        "NOT_FOUND": "This category isn’t here any more.",
+        "FORBIDDEN": "Only a Super admin can upload sample photos.",
+        "UNAUTHENTICATED": "Your session ended. Sign in again.",
+        "NOT_CONNECTED": "The upload didn’t reach DripFunnel. Check your connection and try again."
+      },
+      "save": "Save changes",
+      "saveTitle": "Save the sample catalog for {name}",
+      "saveConsequence": "Shops in this category that add the sample from now on get these products and collections. Shops that already added it keep theirs.",
+      "saved": "Sample catalog saved for {name}.",
+      "refused": "The sample didn’t pass its check. Nothing was saved.",
+      "cancel": "Cancel",
+      "reason": {
+        "label": "Reason",
+        "hint": "Kept in the activity log with the change."
+      }
+    },
+    "sample": {
+      "status": "Sample: {products} · {collections} · {currency} · added {date}",
+      "products": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "collections": {
+        "one": "{count} collection",
+        "other": "{count} collections"
+      },
+      "none": "No sample",
+      "view": "View sample",
+      "create": "Create sample",
+      "addDefault": "Add default sample",
+      "reset": "Reset to default sample",
+      "remove": "Remove sample",
+      "addDefaultTitle": "Add the default sample catalog for {name}",
+      "resetTitle": "Reset the sample catalog for {name}",
+      "addDefaultConsequence": "Adds DripFunnel’s built-in products and collections for {name}, with photos, as this category’s sample, replacing any edits. Shops in this category can then add them while they have no orders.",
+      "removeTitle": "Remove the sample catalog for {name}?",
+      "removeConsequence": "It leaves the offer for every shop in this category. Stores that already added it keep their products.",
+      "removeConfirm": "Remove sample",
+      "saved": "Sample catalog saved for {name}.",
+      "removed": "Sample catalog removed from {name}.",
+      "refused": "The default sample didn’t pass its check. Nothing was saved.",
+      "problemsTitle": "Problems ({count})",
+      "problemAt": "Line {line}:",
+      "problemAtColumn": "Line {line}, {column}:",
+      "problemFile": "The file:"
     }
   }
 }

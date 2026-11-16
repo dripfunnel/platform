@@ -1,0 +1,44 @@
+.df-code-resend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.df-code-resend p {
+  margin: 0;
+}
+
+.df-code-resend-sent {
+  color: var(--df-color-text);
+}
+
+.df-code-resend-wait,
+.df-code-resend-links > span {
+  color: var(--df-color-muted);
+}
+
+.df-code-resend-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+
+/* 24px tall at least, the target size WCAG 2.5.8 asks of a control. */
+.df-code-resend-link {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-code-resend-link:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

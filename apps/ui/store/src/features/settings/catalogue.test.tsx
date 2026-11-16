@@ -9,7 +9,7 @@ import type { ProductBasics } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
 
-// Settings › Catalogue driven as the Owner would (CatSettings): sections by plan, presets, badges.
+// Settings › Catalogue driven as the Owner would (CatSettings): what the shop sells, sections by plan, badges.
 
 const w = messages.settings.catalogue
 const page = messages.settings
@@ -18,6 +18,12 @@ const settings = vi.hoisted(() => ({ saveSections: vi.fn(), saveBadge: vi.fn(), 
 vi.mock('../../api/settings', async (actual) => ({ ...(await actual<typeof import('../../api/settings')>()), ...settings }))
 const editor = vi.hoisted(() => ({ loadProductBasics: vi.fn() }))
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editor }))
+const category = vi.hoisted(() => ({ loadShopCategory: vi.fn(), chooseShopCategory: vi.fn() }))
+vi.mock('../../api/shopCategory', () => category)
+
+const general = { id: 'c1', key: 'general', name: 'General', sections: ['specs', 'highlights'], archived: false }
+const electronics = { id: 'c20', key: 'electronics_gadgets', name: 'Electronics & Gadgets', sections: ['specs', 'highlights', 'faqs', 'related'], archived: false }
+const retired = { id: 'c9', key: 'retired', name: 'Retired', sections: [], archived: true }
 
 const { SettingsPage } = await import('./SettingsPage')
 
@@ -59,6 +65,8 @@ beforeEach(() => {
   settings.saveSections.mockResolvedValue(undefined)
   settings.saveBadge.mockResolvedValue('b9')
   settings.deleteBadge.mockResolvedValue(undefined)
+  category.loadShopCategory.mockResolvedValue({ options: [general, electronics, retired], current: null })
+  category.chooseShopCategory.mockResolvedValue(electronics)
 })
 
 afterEach(() => {
@@ -76,15 +84,25 @@ describe('catalogue settings', () => {
     expect(screen.getByRole('link', { name: w.seePlans })).toBeTruthy()
   })
 
-  it('switch sections by a preset or one at a time, then save them all together', async () => {
+  it('save what the shop sells, offer its sections without switching any off, then save them all together', async () => {
     await show()
     expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: w.presets.electronics }))
+    const pick = screen.getByRole('combobox', { name: w.sellTitle })
+    fireEvent.focus(pick)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Electronics & Gadgets'])
+    fireEvent.change(pick, { target: { value: 'gadg' } })
+    fireEvent.keyDown(pick, { key: 'Enter' })
+    await settle()
+    expect(category.chooseShopCategory).toHaveBeenCalledWith('c20')
+    expect(screen.getByText(w.categorySaved.replace('{name}', 'Electronics & Gadgets'))).toBeTruthy()
+    expect(screen.getByText(/usually show Highlights, FAQs, and Related products/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: w.switchOn }))
+    expect(screen.queryByRole('button', { name: w.switchOn })).toBeNull()
     fireEvent.click(toggle(w.sections.aplus))
     fireEvent.click(screen.getByRole('button', { name: w.saveSections }))
     await settle()
     const sent = settings.saveSections.mock.calls[0]?.[0] as { key: string; enabled: boolean }[]
-    expect(Object.fromEntries(sent.map((f) => [f.key, f.enabled]))).toEqual({ sizeCharts: false, specs: true, highlights: true, faqs: true, badges: true, related: true, aplus: true, video: false })
+    expect(Object.fromEntries(sent.map((f) => [f.key, f.enabled]))).toEqual({ sizeCharts: true, specs: true, highlights: true, faqs: true, badges: true, related: true, aplus: true, video: false })
     expect(screen.getByText(w.sectionsSaved)).toBeTruthy()
     expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(true)
   })
@@ -138,7 +156,16 @@ describe('catalogue settings', () => {
     expect(screen.queryByRole('button', { name: w.saveSections })).toBeNull()
     expect(screen.queryByRole('button', { name: w.addBadge })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit “New”' })).toBeNull()
-    expect((screen.getByRole('button', { name: w.presets.clothing }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('combobox', { name: w.sellTitle }) as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('keep a category staff have since archived on the store that chose it, offered to no one else', async () => {
+    category.loadShopCategory.mockResolvedValue({ options: [general, retired], current: retired })
+    await show()
+    const pick = screen.getByRole('combobox', { name: w.sellTitle }) as HTMLInputElement
+    expect(pick.value).toBe('Retired')
+    fireEvent.focus(pick)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['General', 'Retired'])
   })
 
   it('say when there are no badges yet', async () => {

@@ -10,6 +10,7 @@ import { isPreLive } from '../../api/me'
 const storesSearch = z.looseObject({
   status: optionalParam(z.enum(storeStatuses)),
   plan: idParam,
+  category: idParam,
   created: optionalParam(z.enum(createdWindows)),
   storefront: optionalParam(z.enum(storefrontStates)),
   near: optionalParam(z.literal('yes')),
@@ -18,7 +19,7 @@ const storesSearch = z.looseObject({
 
 export const Route = createFileRoute('/_app/stores')({
   validateSearch: storesSearch,
-  loaderDeps: ({ search: { status, plan, created, storefront, near, q } }) => ({ status, plan, created, storefront, near, q }),
+  loaderDeps: ({ search: { status, plan, category, created, storefront, near, q } }) => ({ status, plan, category, created, storefront, near, q }),
   // The first page; "Show 25 more" appends the next in place (§16). Only a Live partner has a list (§1).
   loader: ({ context, deps }) => (!isPreLive(context.me.partner.state) ? loadStores(deps, {}) : Promise.resolve(null)),
   pendingComponent: StoresPending,

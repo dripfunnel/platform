@@ -22,6 +22,7 @@ const profile = (twoFactor: Profile['twoFactor'], extra: Partial<Profile> = {}):
   theme: null,
   passwordChangedAt: null,
   twoFactor,
+  codeChannels: { whatsapp: true, sms: true },
   ...extra,
 })
 
@@ -103,7 +104,7 @@ describe('two-step sign-in', () => {
 
   it('shows the setup key grouped, and the codes once', () => {
     const off = profile({ method: null, backupCodesLeft: 0 })
-    expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'verify', method: 'app', switching: false, secret: 'JBSWY3DPEHPK3PXP', hint: null }} />)).toContain('JBSW Y3DP EHPK 3PXP')
+    expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'verify', method: 'app', switching: false, secret: 'JBSWY3DPEHPK3PXP', sent: null, proof: '' }} />)).toContain('JBSW Y3DP EHPK 3PXP')
     expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'codes', codes: ['abcd-efgh'] }} />)).toContain('ABCD-EFGH')
   })
 })

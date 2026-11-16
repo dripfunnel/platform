@@ -723,6 +723,7 @@ type PartnerStore {
 
 type PartnerStoreRow {
   billingStatus: String
+  category: StorePlanRef
   code: String
   createdAt: String
   domain: StoreDomain
@@ -1202,6 +1203,7 @@ type StoreDomain {
 }
 
 input StoreFilterInput {
+  category: ID
   created: String
   near: String
   plan: ID
@@ -1233,6 +1235,7 @@ type StoreOwner {
 type StorePage {
   billingMode: String
   billingStatusPermission: StoreActionPermission
+  categories: [StorePlanRef!]
   createPermission: StoreCreatePermission
   exportPermission: StoreActionPermission
   items: [PartnerStoreRow!]

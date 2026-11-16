@@ -10,13 +10,8 @@ const cssPath = 'src/theme/styles/product.module.css'
 const linkRule = /\n\.sizeLink \{[^}]*\}\n/g
 const focusRule = /\n\.sizeLink:focus-visible \{[^}]*\}\n/g
 
-// #1278's stock line is shipped but not yet released (its codemod waits in a changeset), so 0.14.0's page predates it.
-const stockLine = `{firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}`
-const untrackedStockLine = `            {firstMissing || typeof page.stock?.available === 'number' ? (\n              <p className={styles.stock} role="status">\n                ${stockLine}\n              </p>\n            ) : null}\n`
-const releasedStockLine = `            <p className={styles.stock} role="status">\n              ${stockLine}\n            </p>\n`
-
 describe('the size chart link for a Classic store made before core 0.14.0', () => {
-  const shippedPage = classic(pagePath).replace(untrackedStockLine, releasedStockLine)
+  const shippedPage = classic(pagePath)
   const shippedCss = classic(cssPath)
   const before = new Map([
     [pagePath, shippedPage.replace('RichText, SizeChart, ', 'RichText, ').replace(/ {12}<SizeChart [^\n]*\n/, '')],
@@ -27,7 +22,6 @@ describe('the size chart link for a Classic store made before core 0.14.0', () =
   it('has the link taken out of the fixture, so the test means something', () => {
     expect(before.get(pagePath)).not.toContain('SizeChart')
     expect(before.get(cssPath)).not.toContain('.sizeLink')
-    expect(shippedPage).toContain(releasedStockLine)
   })
 
   it('brings the shipped Classic product page back exactly and its link styles in once, and a second run changes nothing', () => {

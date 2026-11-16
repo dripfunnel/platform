@@ -17,6 +17,8 @@ export const storeSummarySchema = z.object({
   name: z.string(),
   city: z.string().nullable(),
   country: z.string().nullable(),
+  // A summary kept before the category was added has none.
+  category: z.string().nullable().default(null),
   languages: z.array(z.string()),
   currency: z.string(),
   currencies: z.array(z.string()),
@@ -56,6 +58,7 @@ export const buildStoreSummary = async (sql: postgres.Sql, context: TenantContex
     name: row.name,
     city: row.city,
     country: row.country,
+    category: row.category,
     languages: row.languages,
     currency: c,
     currencies: row.currencies,

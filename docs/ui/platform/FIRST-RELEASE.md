@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-16 (with Gaurav: the SMS panel's Turn off says people on phone codes sign in without 2-factor while WhatsApp is off too, in the WhatsApp panel's own sentence, §14.5). Before: 2026-11-16 (#1505: the WhatsApp panel built, §14.5). Before: 2026-11-16 (#1504: the WhatsApp panel's API built, §14.5). Before: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-16 (#1018: the SMS panel built, with AWS SNS and the choice per route, §14.5). Before: 2026-11-16 (with Gaurav: the SMS panel's Turn off says people on phone codes sign in without 2-factor while WhatsApp is off too, in the WhatsApp panel's own sentence, §14.5). Before: 2026-11-16 (#1505: the WhatsApp panel built, §14.5). Before: 2026-11-16 (#1504: the WhatsApp panel's API built, §14.5). Before: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -243,6 +243,7 @@ store, or share your sign-up link: {host}/signup".
 | Store | Name and code |
 | Owner | Name and email |
 | Plan | The partner's plan name; "80% of products" under it when near a limit |
+| Category | What the store sells, picked by its Owner (DATA-MODEL §7.2); "—" until then. Not in the prototype |
 | Status | **Trial** (days left; "Ends tomorrow") · **Active** · **Past due** ("9 days · changes blocked, still selling") · **Suspended** (first sentence of the reason) · **Cancelled** ("Since 2 Sep") — word, colour and icon, never confused (SAAS §4.2) |
 | Sales last month | Total in the store's currency; "—" when none |
 | Storefront | Live · Building · Failed · Own storefront |
@@ -250,7 +251,7 @@ store, or share your sign-up link: {host}/signup".
 | Created | Date |
 | Billing status | **Only when the partner bills its merchants itself** (§11.4): Active · Past due · Suspended, set inline (Owner, Admin, Finance) |
 
-Filters: Status, Plan, Created (This month · Last 30 days · Last 90 days), Storefront, Near a
+Filters: Status, Plan, Category (every store category, by name), Created (This month · Last 30 days · Last 90 days), Storefront, Near a
 limit (80%+). Search: name, code, domain, owner email. All in the URL as removable chips with
 "Clear all"; "No stores match" with Clear filters. Newest first, **"Show 25 more"** (§16 for the
 contract: cursor pages carry no total, so the prototype's "12 of 86 stores" is not drawn;
@@ -755,7 +756,7 @@ at most 20 keys per partner. In a staff setup session the tab works as the partn
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
 Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
-refused to an impersonation. Not drawn or built: couriers, support chat. Google sign-in and WhatsApp are built below; SMS is decided below, not built.
+refused to an impersonation. Not drawn or built: couriers, support chat. Google sign-in, WhatsApp and SMS are built below.
 
 **Built on #193, straight onto #199's API.**
 - **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
@@ -782,18 +783,8 @@ tab; never in an impersonation. Built on #1046 (migration 0377; `partnerGoogleSi
 
 **WhatsApp** and **SMS** (decided 2026-11-16 with Gaurav; no prototype draws them and none will first: they are
 built from these docs), two separate panels under Google sign-in, built from the tab's own parts like it, each with its own
-On or Off. **SMS** is #1018's panel on #1017's API, not built yet: the partner's own MSG91 (India) and Twilio (the rest)
-accounts, which replace DripFunnel's once complete, plus On (the default) or Off, where Off sends the partner's stores no
-text through any account; its Turn off restates "No texts will go to your merchants or their shoppers. While WhatsApp is
-off too, no codes are sent and people who use phone codes sign in without 2-factor.", the WhatsApp panel's sentence with
-the other channel named (ACCESS §4). WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by
-WhatsApp first; SMS On adds "Send by SMS instead" (ACCESS §4). Owner and Admin only, as the tab; never in an
-impersonation. **SMS's API is built on #1017** (migration 0399, 0400): `smsAccounts` (the switch, the
-partner's provider for each route, and per provider, MSG91, Twilio or AWS SNS, its last four, *Working* or *Rejected*, when
-last checked and whether India's seven template ids are complete), `saveSmsAccount` (checked before it is kept; India's
-template ids refused unless all seven), `testSmsAccount`, `removeSmsAccount`, `setSmsRoute` (India: MSG91 or SNS; the
-rest: Twilio or SNS; only an account that serves the route) and `setSmsEnabled`, all `integrations.write` and refused to an
-impersonation.
+On or Off. WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by WhatsApp first; SMS On adds
+"Send by SMS instead" (ACCESS §4). Owner and Admin only, as the tab; never in an impersonation.
 
 **WhatsApp** (built on #1505, on #1504's API) is the partner's WhatsApp Business account on Meta's Cloud API, the only
 provider: On or Off; the WhatsApp Business Account ID, the phone-number ID, the system-user token as "…abcd" (never shown
@@ -813,6 +804,31 @@ refuses every WhatsApp field to one, the read included (ACCESS §8.1); a staff s
 `testWhatsAppAccount` (a rejected check turns WhatsApp off), `setWhatsAppEnabled` (On only with a saved account whose
 `code.portal` is named and *Working*, else `NO_CODE_TEMPLATE`, decided 2026-11-16 with Gaurav) and `removeWhatsAppAccount`
 (which turns it off); `integrations.write`.
+
+**SMS** (built on #1018, on #1017's API) is the partner's own MSG91, Twilio and AWS SNS accounts, each replacing
+DripFunnel's on a route once complete, plus On (the default) or Off, where Off sends the partner's stores no text through
+any account. The panel shows On or Off; for each route, **India (+91)** and **Other countries**, who sends it now ("your
+MSG91 account" or "DripFunnel's account", by the API's own rule: the pick, else the route's first provider held, if it
+serves the route) with **Change who sends** (India: MSG91 or AWS SNS; the rest: Twilio or AWS SNS; or "whichever is set
+up"; an account that can't serve the route can't be picked); the line "DripFunnel's account sends any route you haven't
+completed"; and one card each for **MSG91**, **Twilio** and **AWS SNS**: the routes it can send, its secret as "…abcd"
+(never shown again), *Working*, *Not tested* or *Rejected*, when last tested, and for MSG91 and SNS whether India's DLT
+details and seven template ids are in. **Set up** or **Replace** opens the provider's form (MSG91: the auth key and all
+seven template ids; Twilio: account SID, auth token and messaging service SID; SNS: access key ID, secret, region and, for
+India, the DLT sender id, entity id and all seven template ids or none), checked for each provider's shapes before sending
+and typed in full again on every replace, since the API reads back no field but the hint; saved only once the provider
+accepts it. **Test** checks it again; a rejected account still sends its routes, and its card says so. **Remove** restates
+which account sends each of its routes next. **Turn off** restates "No texts will go to your merchants or their shoppers:
+no sign-in codes by SMS, order updates or rider invites. While WhatsApp is off too, no codes are sent and people who use
+phone codes sign in without 2-factor.", the WhatsApp panel's sentence with the other channel named (ACCESS §4); **Turn on**
+restates that texts go again. Each refusal is in words (`TEMPLATES_INCOMPLETE`, `ACCOUNT_INCOMPLETE`, `KEY_REJECTED`,
+`PROVIDER_UNAVAILABLE` and the rest). An impersonation sees the panel with **Set up SMS** disabled and the reason, and the
+panel never asks the API, which refuses every SMS field to one, the read included (ACCESS §8.1); a staff setup session
+works as the partner's own. **API** (#1017, migrations 0399, 0400): `smsAccounts` (the switch, the partner's provider for
+each route, and per provider its last four, status, when last tested and whether India's seven template ids are
+complete), `saveSmsAccount` (checked before it is kept; India's template ids refused unless all seven), `testSmsAccount`,
+`removeSmsAccount`, `setSmsRoute` (only an account that serves the route) and `setSmsEnabled`, all `integrations.write`
+and refused to an impersonation.
 
 
 ### 14.6 My profile

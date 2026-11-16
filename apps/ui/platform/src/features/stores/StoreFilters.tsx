@@ -12,11 +12,12 @@ const nearOptions = [{ value: 'yes' as const, label: words.nearYes }]
 export interface StoreFiltersProps {
   filter: StoreFilter
   plans: readonly { id: string; name: string }[]
+  categories: readonly { id: string; name: string }[]
   onChange: (filter: StoreFilter) => void
 }
 
-// The prototype's search and five filters (FIRST-RELEASE.md §6.1), in its order.
-export const StoreFilters = ({ filter, plans, onChange }: StoreFiltersProps) => (
+// The prototype's search and five filters (FIRST-RELEASE.md §6.1), in its order, with Category after Plan.
+export const StoreFilters = ({ filter, plans, categories, onChange }: StoreFiltersProps) => (
   <form role="search" aria-label={words.label} className="df-list-filters" onSubmit={(event) => event.preventDefault()}>
     <SearchField label={words.search} placeholder={words.searchPlaceholder} value={filter.q} onChange={(q) => onChange({ ...filter, q })} />
     <FilterSelect label={words.status} anyLabel={words.anyStatus} options={statusOptions} value={filter.status} onChange={(status) => onChange({ ...filter, status })} />
@@ -26,6 +27,13 @@ export const StoreFilters = ({ filter, plans, onChange }: StoreFiltersProps) => 
       options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
       value={filter.plan}
       onChange={(plan) => onChange({ ...filter, plan })}
+    />
+    <FilterSelect
+      label={words.category}
+      anyLabel={words.anyCategory}
+      options={categories.map((category) => ({ value: category.id, label: category.name }))}
+      value={filter.category}
+      onChange={(category) => onChange({ ...filter, category })}
     />
     <FilterSelect label={words.created} anyLabel={words.anyTime} options={createdOptions} value={filter.created} onChange={(created) => onChange({ ...filter, created })} />
     <FilterSelect

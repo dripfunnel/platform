@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { confirmSecondFactor, regenerateBackupCodes, startSecondFactor, turnOffSecondFactor, type Profile, type SecondFactorMethod } from '../../api/profile'
+import type { CodeChannel } from '../../api/auth'
+import { confirmSecondFactor, regenerateBackupCodes, startSecondFactor, turnOffSecondFactor, type Profile, type SecondFactorMethod, type SecondFactorStep } from '../../api/profile'
+import { useBrand } from '../../brand/BrandContext'
 import { t } from '../../messages'
 import { errorMessage } from '../../messages/errorMessage'
 import { sessionClient } from '../../session'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
+import { useCountdown } from '../auth/useCountdown'
 import { BackupCodes } from '../common/BackupCodes'
 import { Button } from '../common/Button'
+import { CodeResend } from '../common/CodeResend'
+import { afterRefusedSend, resendWaitSeconds, type SentCode } from '../common/codeSend'
 import { LinkButton } from '../common/LinkButton'
 import { Notice } from '../common/Notice'
 import { TextField } from '../common/TextField'
@@ -16,10 +21,15 @@ type Flow =
   | { step: 'idle' }
   | { step: 'off' }
   | { step: 'pick'; method: SecondFactorMethod; switching: boolean }
-  | { step: 'verify'; method: SecondFactorMethod; switching: boolean; secret: string | null; uri: string | null; hint: string | null }
+  // `proof` is the password the start was proven with: another phone code needs it again (ACCESS.md §4).
+  | { step: 'verify'; method: SecondFactorMethod; switching: boolean; secret: string | null; uri: string | null; sent: SentCode | null; proof: string }
   | { step: 'codes'; codes: string[] }
 
+type Verify = Extract<Flow, { step: 'verify' }>
+
 const methodName = (method: SecondFactorMethod) => (method === 'app' ? t('profile.methodApp') : t('profile.methodSms'))
+
+const sentOf = (step: SecondFactorStep): SentCode | null => (step.channel && step.hint ? { channel: step.channel, hint: step.hint } : null)
 
 // Two-step sign-in as the prototype's My profile draws it: set up, switch the method, make new backup codes, turn off.
 // Every start and every off needs the password, and the backup codes are shown once (ACCESS.md §4).
@@ -31,9 +41,15 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const [channels, setChannels] = useState(profile.codeChannels)
+  const [sending, setSending] = useState(false)
+  const [wait, restart] = useCountdown(resendWaitSeconds, 0)
+  const { brand } = useBrand()
 
   const { method, backupCodesLeft } = profile.twoFactor
   const left = backupCodesLeft ?? 0
+  // With neither WhatsApp nor SMS open for this number, only the authenticator app is offered (ACCESS.md §4).
+  const phoneCodes = profile.codeChannels.whatsapp || profile.codeChannels.sms
 
   const reset = () => {
     setFlow({ step: 'idle' })
@@ -57,11 +73,33 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
   const start = (picked: SecondFactorMethod, switching: boolean) =>
     run(async () => {
       const step = await startSecondFactor(sessionClient(), picked, password)
+      if (picked === 'sms') restart()
+      setChannels(profile.codeChannels)
+      setFlow({ step: 'verify', method: picked, switching, secret: step.secret, uri: step.uri, sent: sentOf(step), proof: password })
       setPassword('')
-      setFlow({ step: 'verify', method: picked, switching, secret: step.secret, uri: step.uri, hint: step.hint })
     })
 
-  const verify = (current: Extract<Flow, { step: 'verify' }>) =>
+  const resend = async (current: Verify, channel: CodeChannel) => {
+    setSending(true)
+    setError(null)
+    try {
+      const step = await startSecondFactor(sessionClient(), 'sms', current.proof, channel)
+      restart()
+      setFlow({ ...current, sent: sentOf(step) ?? current.sent })
+    } catch (failed) {
+      const refused = afterRefusedSend(failed, channel, channels, t('errors.profile.CHANNEL_OFF'))
+      if (!refused) setError(errorMessage(failed, 'profile'))
+      else {
+        if (refused.wait !== null) restart(refused.wait)
+        setChannels(refused.channels)
+        setError(refused.text)
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const verify = (current: Verify) =>
     run(async () => {
       const step = await confirmSecondFactor(sessionClient(), current.method, code)
       onChanged()
@@ -69,7 +107,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
       if (step.backupCodes) setFlow({ step: 'codes', codes: step.backupCodes })
       else {
         reset()
-        setDone(current.switching ? t('profile.switched', { method: methodName(current.method) }) : t('profile.turnedOn'))
+        setDone(current.switching ? t(current.method === 'app' ? 'profile.switchedApp' : 'profile.switchedSms') : t('profile.turnedOn'))
       }
     })
 
@@ -103,8 +141,11 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
               <View style={styles.rowText}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>{methodName(method)}</Text>
                 <Text style={[styles.rowSub, { color: colors.muted }]}>{method === 'app' ? t('profile.methodAppSub') : t('profile.methodSmsSub')}</Text>
+                {method === 'sms' && !phoneCodes ? <Text style={[styles.rowSub, { color: colors.danger }]}>{t('profile.methodSmsPaused', { product: brand?.productName ?? t('brand.defaultName') })}</Text> : null}
               </View>
-              <LinkButton label={method === 'app' ? t('profile.useSms') : t('profile.useApp')} onPress={() => setFlow({ step: 'pick', method: method === 'app' ? 'sms' : 'app', switching: true })} />
+              {method === 'sms' || phoneCodes ? (
+                <LinkButton label={method === 'app' ? t('profile.useSms') : t('profile.useApp')} onPress={() => setFlow({ step: 'pick', method: method === 'app' ? 'sms' : 'app', switching: true })} />
+              ) : null}
             </View>
             <View style={styles.row}>
               <View style={styles.rowText}>
@@ -132,7 +173,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
       {flow.step === 'pick' ? (
         <>
           <Text style={[styles.rowTitle, { color: colors.text }]}>{t('profile.pickTitle')}</Text>
-          {(['app', 'sms'] as const).map((option) => {
+          {(phoneCodes ? (['app', 'sms'] as const) : (['app'] as const)).map((option) => {
             const unavailable = option === 'sms' && !profile.phone
             const selected = flow.method === option
             return (
@@ -160,7 +201,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
 
       {flow.step === 'verify' ? (
         <>
-          <Text style={[styles.rowTitle, { color: colors.text }]}>{flow.method === 'app' ? t('profile.verifyAppTitle') : t('profile.verifySmsTitle', { hint: flow.hint ?? '' })}</Text>
+          <Text style={[styles.rowTitle, { color: colors.text }]}>{flow.method === 'app' ? t('profile.verifyAppTitle') : flow.sent ? t('profile.verifySmsTitle', { hint: flow.sent.hint }) : t('auth.twoStepSms')}</Text>
           {flow.method === 'app' && flow.secret ? (
             <View style={[styles.key, { backgroundColor: colors.page, borderColor: colors.border, borderRadius: radii.button }]}>
               <Text style={[styles.rowSub, { color: colors.muted }]}>{t('profile.setupKey')}</Text>
@@ -171,6 +212,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
             </View>
           ) : null}
           <TextField label={t('profile.sixDigitCode')} value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} code keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} />
+          {flow.method === 'sms' ? <CodeResend sent={flow.sent} channels={channels} wait={wait} busy={sending} onSend={(channel) => void resend(flow, channel)} /> : null}
           <Button label={t('profile.verify')} onPress={() => void verify(flow)} busy={busy} disabled={code.length !== 6} saves />
           <Button kind="secondary" label={t('common.cancel')} onPress={reset} />
         </>

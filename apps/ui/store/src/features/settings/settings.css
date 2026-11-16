@@ -1131,3 +1131,16 @@
 .df-places-text .df-places-actions {
   margin-top: 12px;
 }
+
+.df-cat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  margin-top: var(--df-space-3);
+  padding: var(--df-space-3);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-text-strong);
+  font-size: 13px;
+}

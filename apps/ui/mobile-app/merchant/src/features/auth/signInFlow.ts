@@ -1,8 +1,10 @@
-import { enrolConfirm, enrolSendCode, sendCode, signIn, signInWithBackupCode, signInWithGoogle, verifyCode, type SignInStep } from '../../api/auth'
+import { enrolConfirm, enrolSendCode, sendCode, signIn, signInWithBackupCode, signInWithGoogle, verifyCode, type CodeChannel, type SignInStep } from '../../api/auth'
 import { ApiError, isApiError, postSignOut, type RestOptions } from '@dripfunnel/mobile-shared/graphql'
+import { t } from '../../messages'
 import { errorMessage, type ErrorContext } from '../../messages/errorMessage'
 import type { SessionStore } from '../../session'
-import type { PendingStore } from './pending'
+import { afterRefusedSend, noCodeChannels, unknownCodeChannels, type RefusedSend } from '../common/codeSend'
+import type { Pending, PendingStore } from './pending'
 
 export type FlowDeps = { rest: RestOptions; session: SessionStore; pending: PendingStore }
 
@@ -15,7 +17,9 @@ export const startSignIn = async (deps: FlowDeps, email: string, password: strin
 /** Google proves the address; what opens is what a password would open, second factor included (ACCESS.md §2). */
 export const startGoogleSignIn = async (deps: FlowDeps, idToken: string): Promise<NextScreen> => opened(deps, await signInWithGoogle(deps.rest, idToken))
 
-const opened = async ({ rest, session, pending }: FlowDeps, step: SignInStep): Promise<NextScreen> => {
+// With the partner's WhatsApp and SMS both off the API answers `done` for a phone-method person (ACCESS.md §4).
+const opened = async (deps: FlowDeps, step: SignInStep): Promise<NextScreen> => {
+  const { session, pending } = deps
   if (step.step === 'done') {
     pending.clear()
     await session.open(step.token)
@@ -26,10 +30,19 @@ const opened = async ({ rest, session, pending }: FlowDeps, step: SignInStep): P
     return 'enrol'
   }
   const method = step.method ?? 'app'
-  // A texted code is sent as the step opens; if that text fails the person can ask again from the screen.
-  const hint = method === 'sms' ? await sendCode(rest, step.token).catch(() => null) : null
-  pending.set({ step: 'second-factor', token: step.token, method, hint })
+  const channels = method === 'sms' ? (step.codeChannels ?? unknownCodeChannels) : noCodeChannels
+  pending.set({ step: 'second-factor', token: step.token, method, sent: null, channels, opening: null })
+  // A phone code is sent as the step opens; if it doesn't go, the screen says why and the person can ask again.
+  if (method === 'sms') {
+    const opening = await sendSignInCode(deps).catch((failed: unknown) => ({ text: failureOf(failed, 'code').message, wait: null }))
+    if (opening) updateSecondFactor(pending, { opening: { text: opening.text, wait: opening.wait } })
+  }
   return 'second-factor'
+}
+
+const updateSecondFactor = (pending: PendingStore, change: Partial<Extract<Pending, { step: 'second-factor' }>>): void => {
+  const current = pending.get()
+  if (current?.step === 'second-factor') pending.set({ ...current, ...change })
 }
 
 const pendingToken = (pending: PendingStore, step: 'second-factor' | 'enrol'): string => {
@@ -53,16 +66,28 @@ export const submitBackupCode = async ({ rest, session, pending }: FlowDeps, cod
   await session.open(token)
 }
 
-export const resendCode = async ({ rest, pending }: FlowDeps): Promise<void> => {
-  const current = pending.get()
+/**
+ * Sends the sign-in code by the channel asked for, or the default. TOO_SOON and CHANNEL_OFF come back for the screen to
+ * show (a closed channel is dropped from the links); any other refusal is thrown.
+ */
+export const sendSignInCode = async ({ rest, pending }: FlowDeps, asked?: CodeChannel): Promise<RefusedSend | null> => {
   const token = pendingToken(pending, 'second-factor')
-  const hint = await sendCode(rest, token)
-  if (current?.step === 'second-factor') pending.set({ ...current, hint })
+  try {
+    const answer = await sendCode(rest, token, asked)
+    updateSecondFactor(pending, { sent: { channel: answer.channel, hint: answer.hint }, channels: answer.codeChannels, opening: null })
+    return null
+  } catch (failed) {
+    const current = pending.get()
+    const refused = afterRefusedSend(failed, asked, current?.step === 'second-factor' ? current.channels : unknownCodeChannels, t('errors.code.CHANNEL_OFF'))
+    if (!refused) throw failed
+    updateSecondFactor(pending, { channels: refused.channels })
+    return refused
+  }
 }
 
 export const sendEnrolCode = async ({ rest, pending }: FlowDeps, phone: string): Promise<void> => {
   const token = pendingToken(pending, 'enrol')
-  const hint = await enrolSendCode(rest, token, phone.trim())
+  const { hint } = await enrolSendCode(rest, token, phone.trim())
   pending.set({ step: 'enrol', token, phase: 'code', hint, phone: phone.trim(), codes: [], finalToken: null })
 }
 

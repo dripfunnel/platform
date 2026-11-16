@@ -144,7 +144,7 @@ describe('the designer’s tool loop', () => {
 
 describe('the store lookups', () => {
   const summary: StoreSummary = {
-    name: 'Northstar', city: 'Pune', country: 'IN', languages: ['en-IN'], currency: 'INR', currencies: [], pricesIncludeTax: true, shipping: null, payments: ['cod'],
+    name: 'Northstar', city: 'Pune', country: 'IN', category: 'Fashion & Apparel', languages: ['en-IN'], currency: 'INR', currencies: [], pricesIncludeTax: true, shipping: null, payments: ['cod'],
     brand: { tagline: null, description: null, voice: null, colours: [] }, products: 3, collectionCount: 1, collections: [{ name: 'Summer', slug: 'summer', products: 2, image: false }],
     bestSellers: [{ name: 'Linen shirt', slug: 'linen-shirt', price: 'INR 1499.00', unitsSold: 10 }], topCollections: [], topCities: [], offers: [], newest: [],
   }
@@ -191,6 +191,13 @@ describe('the store lookups', () => {
   it('ends the loop whatever the model calls: unknown tools count, and none is offered past ten calls', async () => {
     const r = looked(Array.from({ length: 30 }, (_, i) => turn([call(`${i}`, 'delete_everything', {})])))
     await expect(r).rejects.toThrow(/past the limit/)
+  })
+
+  it('tells the model what kind of shop it is, from the summary, never as content', async () => {
+    const r = await looked([turn([])])
+    const first = r.seen[0]?.messages[0]?.content.find((p) => p.type === 'text')
+    expect(first?.type === 'text' ? first.text : '').toContain('"category":"Fashion & Apparel"')
+    expect(rules).toMatch(/The summary's category is what kind of shop this is/)
   })
 
   it('looks nothing up in a repair, which still holds the summary', async () => {

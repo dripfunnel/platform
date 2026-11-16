@@ -160,6 +160,8 @@ export interface StoreRow {
   country: string | null
   status: StoreStatus
   plan_id: string | null
+  /** store_category (0403): what the store sells; null until the Owner picks. */
+  category_id: string | null
   trial_ends_at: Date | null
   past_due_since: Date | null
   suspended_at: Date | null

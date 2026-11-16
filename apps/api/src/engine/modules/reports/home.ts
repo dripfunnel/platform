@@ -50,13 +50,18 @@ export interface HomeView {
   latestOrders: (OrderListRow & { total_amount: string | null })[]
   /** The getting-started checklist while the store has no order; an item is null for a seat that can't do it. */
   setup: {
+    /** What the store sells (store.category_id), the Owner's to pick. */
+    category: boolean | null
     products: boolean | null
     collections: boolean | null
     payments: boolean | null
     shipping: boolean | null
+    /** "Add your logo and favicon": the storefront brand's logo, the Owner's (`publish`). */
+    brand: boolean | null
     /** Whether the Owner skipped the step (#719); null for a seat that can't, as its done flag is. */
     paymentsSkipped: boolean | null
     shippingSkipped: boolean | null
+    brandSkipped: boolean | null
   } | null
 }
 
@@ -102,12 +107,15 @@ export const createHomeService = ({ sql, context, has, now }: HomeDeps) => {
         setup: tasks.any_order
           ? null
           : {
+              category: only(has('settings'), setup.category),
               products: only(has('catalog.write'), setup.products),
               collections: only(has('catalog.write'), setup.collections),
               payments: only(has('payments.configure'), setup.payments),
               shipping: only(has('shipping.configure'), setup.shipping),
               paymentsSkipped: only(has('payments.configure'), setup.skipped.includes('payments')),
               shippingSkipped: only(has('shipping.configure'), setup.skipped.includes('shipping')),
+              brand: only(has('publish'), setup.brand),
+              brandSkipped: only(has('publish'), setup.skipped.includes('brand')),
             },
       }
     })

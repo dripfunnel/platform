@@ -1,9 +1,20 @@
 import { useSyncExternalStore } from 'react'
+import type { CodeChannels } from '../../api/auth'
+import type { SentCode } from '../common/codeSend'
 
 // The session a password opens before the second factor, held in memory only: it is not a signed-in session,
 // and an app that is killed here wakes up signed out (session/sessionStore.ts).
 export type Pending =
-  | { step: 'second-factor'; token: string; method: 'app' | 'sms'; hint: string | null }
+  | {
+      step: 'second-factor'
+      token: string
+      method: 'app' | 'sms'
+      /** Where the phone code went; null until one has. */
+      sent: SentCode | null
+      channels: CodeChannels
+      /** Why the code sent as the step opened didn't go, and how long to wait; shown when the screen opens. */
+      opening: { text: string; wait: number | null } | null
+    }
   | {
       step: 'enrol'
       token: string

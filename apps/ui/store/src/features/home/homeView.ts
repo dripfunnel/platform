@@ -46,7 +46,7 @@ export const tasksOf = (home: StoreHome): Task[] => {
   return tasks
 }
 
-export type SetupKey = 'locale' | 'products' | 'collections' | 'payments' | 'shipping'
+export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand' | 'payments' | 'shipping'
 
 export interface SetupItem {
   key: SetupKey
@@ -64,16 +64,18 @@ const countryName = (code: string) => new Intl.DisplayNames([locale], { type: 'r
  * The checklist, only the items the API gave this seat. The locale check has no "confirmed" fact in the API, so it
  * reads as done with what sign-up set, and "Change" opens Settings (decided on #326).
  */
-export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null): SetupItem[] => {
+export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, categoryName: string | null = null): SetupItem[] => {
   if (!home.setup || home.hasOrders) return []
   const items: SetupItem[] = []
   if (localeFacts?.country && localeFacts.currency && localeFacts.language)
     items.push({ key: 'locale', done: true, optional: false, skipped: false, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
-  for (const key of ['products', 'collections', 'payments', 'shipping'] as const) {
+  // What the shop sells, the Owner's (DATA-MODEL §7.2): before products, as the sections it suggests shape them.
+  if (home.setup.category !== null) items.push({ key: 'category', done: home.setup.category, optional: false, skipped: false, note: home.setup.category ? categoryName : null })
+  for (const key of ['products', 'collections', 'brand', 'payments', 'shipping'] as const) {
     const done = home.setup[key]
-    if (done === null) continue
-    const optional = key === 'payments' || key === 'shipping'
-    const skipped = !done && ((key === 'payments' && home.setup.paymentsSkipped) || (key === 'shipping' && home.setup.shippingSkipped)) === true
+    if (done === null || done === undefined) continue
+    const optional = key === 'payments' || key === 'shipping' || key === 'brand'
+    const skipped = !done && ((key === 'payments' && home.setup.paymentsSkipped) || (key === 'shipping' && home.setup.shippingSkipped) || (key === 'brand' && home.setup.brandSkipped)) === true
     items.push({ key, done, note: null, optional: optional && !done, skipped })
   }
   return items
