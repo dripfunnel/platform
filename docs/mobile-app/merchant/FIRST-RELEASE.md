@@ -6,7 +6,7 @@ What the merchant mobile app's first release contains. The framework is in
 
 **Status: decided, and being built:** what each card built, product customisation (#1374) among them, is listed in [ARCHITECTURE.md](ARCHITECTURE.md) §5.
 
-Last updated: 2026-11-10 (#1374: built; reordering, currencies and choice photos on the phone, §2). Before: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
+Last updated: 2026-11-16 (#1509: built; sign-in codes by WhatsApp first, SMS on request, as on the web, §2). Before: 2026-11-10 (#1374: built; reordering, currencies and choice photos on the phone, §2). Before: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
 
 ---
 
@@ -33,6 +33,10 @@ Everything in store/FIRST-RELEASE.md §3–§17 is in the app except Billing. Th
   upgrade action.
 - **Close my store**, with "Download my data first", is at the end of **Settings › Store info**,
   for the Owner only (§1).
+- **Sign-in codes** (built on #1509): as on the web (store/FIRST-RELEASE.md §4, ACCESS.md §4), the two-step screen
+  and My profile's phone set-up send the code by WhatsApp first and offer "Send again on WhatsApp" and, while SMS is
+  on, "Send by SMS instead" after 20 seconds; with the partner's WhatsApp and SMS both off a phone-method person
+  goes straight in after the password. Sign-up is not in the app ([REACT-NATIVE.md](REACT-NATIVE.md) §5.1).
 - **Product customisation** (specified on #1367, built by #1374; store/FIRST-RELEASE.md §6 and §11):
   the order screen shows each customised line's answers with each extra's amount, and its
   uploads open through the Store API's signed link; the product editor has the collapsed "Ask
