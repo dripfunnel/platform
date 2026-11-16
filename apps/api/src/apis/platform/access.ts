@@ -2,7 +2,7 @@ import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerConsoleService } from '#saas/partnerConsole/index'
 import type { PartnerDashboardService } from '#saas/partnerDashboard/index'
 import type { PartnerDomainsService } from '#saas/partnerDomains/index'
-import type { PartnerCredentialsService, PartnerSmsService } from '#saas/partnerCredentials/index'
+import type { PartnerCredentialsService, PartnerSmsService, PartnerWhatsAppService } from '#saas/partnerCredentials/index'
 import type { GoogleSignInService } from '#saas/googleSignIn/index'
 import type { PartnerProfileService } from '#saas/partnerProfile/index'
 import type { PartnerActivityService } from '#saas/partnerActivity/index'
@@ -31,6 +31,7 @@ export interface PlatformContext extends Record<string, unknown> {
   credentials: PartnerCredentialsService | null
   googleSignIn: GoogleSignInService | null
   sms: PartnerSmsService | null
+  whatsapp: PartnerWhatsAppService | null
   profile: PartnerProfileService | null
   activity: PartnerActivityService | null
   team: PartnerTeamService | null

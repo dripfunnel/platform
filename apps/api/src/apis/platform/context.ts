@@ -10,12 +10,15 @@ import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
-import { createPartnerCredentialsService, createPartnerSmsService } from '#saas/partnerCredentials/index'
+import { createPartnerCredentialsService, createPartnerSmsService, createPartnerWhatsAppService } from '#saas/partnerCredentials/index'
 import type { SmsAccountCheck } from '#core/sms'
+import type { WhatsAppAccountCheck } from '#core/whatsapp'
+import { checkMetaWhatsAppAccount } from '#integrations/meta/index'
 import { checkMsg91Account } from '#integrations/msg91/index'
 import { checkSnsAccount } from '#integrations/sns/index'
 import { checkTwilioAccount } from '#integrations/twilio/index'
 import type { PartnerSmsAccount } from '#saas/sms/index'
+import type { PartnerWhatsAppAccount } from '#saas/whatsapp/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
@@ -51,6 +54,8 @@ export interface PlatformContextDeps {
   billingStripe?: Pick<StoreBillingStripe, 'cancelNow'> | null
   /** Checks a partner's SMS account; locally (SMS_LOCAL) the stand-in's. */
   checkSms?: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
+  /** Checks a partner's WhatsApp account with Meta; locally (SMS_LOCAL) the stand-in's. */
+  checkWhatsApp?: (account: PartnerWhatsAppAccount) => Promise<WhatsAppAccountCheck>
 }
 
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
@@ -63,10 +68,10 @@ const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> =
   return checkSnsAccount({ accessKeyId: account.accessKeyId, secretAccessKey: account.secretAccessKey, region: account.region })
 }
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -81,6 +86,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
     googleSignIn: createGoogleSignInService({ ...deps, secrets }),
     sms: createPartnerSmsService({ ...deps, secrets, checkSms }),
+    whatsapp: createPartnerWhatsAppService({ ...deps, secrets, checkWhatsApp }),
     profile: createPartnerProfileService({ ...deps, sessionId }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
