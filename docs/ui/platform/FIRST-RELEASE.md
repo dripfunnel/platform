@@ -243,6 +243,7 @@ store, or share your sign-up link: {host}/signup".
 | Store | Name and code |
 | Owner | Name and email |
 | Plan | The partner's plan name; "80% of products" under it when near a limit |
+| Category | What the store sells, picked by its Owner (DATA-MODEL §7.2); "—" until then. Not in the prototype |
 | Status | **Trial** (days left; "Ends tomorrow") · **Active** · **Past due** ("9 days · changes blocked, still selling") · **Suspended** (first sentence of the reason) · **Cancelled** ("Since 2 Sep") — word, colour and icon, never confused (SAAS §4.2) |
 | Sales last month | Total in the store's currency; "—" when none |
 | Storefront | Live · Building · Failed · Own storefront |
@@ -250,7 +251,7 @@ store, or share your sign-up link: {host}/signup".
 | Created | Date |
 | Billing status | **Only when the partner bills its merchants itself** (§11.4): Active · Past due · Suspended, set inline (Owner, Admin, Finance) |
 
-Filters: Status, Plan, Created (This month · Last 30 days · Last 90 days), Storefront, Near a
+Filters: Status, Plan, Category (every store category, by name), Created (This month · Last 30 days · Last 90 days), Storefront, Near a
 limit (80%+). Search: name, code, domain, owner email. All in the URL as removable chips with
 "Clear all"; "No stores match" with Clear filters. Newest first, **"Show 25 more"** (§16 for the
 contract: cursor pages carry no total, so the prototype's "12 of 86 stores" is not drawn;

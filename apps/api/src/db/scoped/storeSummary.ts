@@ -25,6 +25,8 @@ export interface StoreSummaryRow {
   name: string
   city: string | null
   country: string | null
+  /** What the shop sells, in English (store_category, DATA-MODEL §7.2); null until the Owner picks. */
+  category: string | null
   currency: string
   tax_inclusive: boolean
   languages: string[]
@@ -50,6 +52,7 @@ export const selectStoreSummary = async (tx: ScopedSql, storeId: string, now: Da
   const l = summaryLimits
   const [row] = await tx<StoreSummaryRow[]>`
     select s.name, nullif(btrim(s.address ->> 'city'), '') as city, s.country, s.pricing_currency::text as currency, s.tax_inclusive,
+      (select k.names ->> 'en' from store_category k where k.id = s.category_id) as category,
       coalesce((select json_agg(x.language order by x.position, x.language) from store_language x where x.store_id = s.id and x.status = 'active'), '[]'::json) as languages,
       coalesce((select json_agg(x.currency order by x.position, x.currency) from store_currency x where x.store_id = s.id and x.status = 'active'), '[]'::json) as currencies,
       (select json_build_object('free', h.free_mode, 'free_over', h.free_threshold_amount::text, 'flat', case when h.flat_enabled then h.flat_amount::text end,

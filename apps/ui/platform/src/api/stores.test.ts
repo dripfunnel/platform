@@ -15,23 +15,23 @@ afterEach(() => {
 
 const permission = (allowed: boolean, reason: string | null = null) => ({ allowed, reason })
 const state = (kind: string, extra: object = {}) => ({ kind, trialEndsAt: null, daysLeft: null, daysPastDue: null, reason: null, since: null, ...extra })
-const row = { id: 's1', name: 'Juniper & Co.', code: 'juniper-co', owner: { name: 'Anjali Nair', email: 'anjali@x.example' }, plan: { id: 'p1', name: 'Pro' }, near: { percent: 84, limit: 'ai_prompts' }, state: state('pastdue', { daysPastDue: 9 }), storefront: 'live', domain: null, createdAt: '2025-12-01T00:00:00.000Z', billingStatus: 'past_due' }
+const row = { id: 's1', name: 'Juniper & Co.', code: 'juniper-co', owner: { name: 'Anjali Nair', email: 'anjali@x.example' }, plan: { id: 'p1', name: 'Pro' }, category: { id: 'c1', name: 'Footwear' }, near: { percent: 84, limit: 'ai_prompts' }, state: state('pastdue', { daysPastDue: 9 }), storefront: 'live', domain: null, createdAt: '2025-12-01T00:00:00.000Z', billingStatus: 'past_due' }
 const pageInfo = { startCursor: null, endCursor: 'c1', hasPreviousPage: false, hasNextPage: true }
 
 describe('loadStores', () => {
   it('sends only the declared filter, reads the API’s keys as the console’s, and the three permissions', async () => {
-    answer.mockReturnValue({ data: { stores: { items: [row], pageInfo, plans: [], billingMode: 'own', createPermission: permission(false, 'PARTNER_PAUSED'), exportPermission: permission(true), billingStatusPermission: permission(false, 'BILLING_ROLES_ONLY') } } })
-    const page = await loadStores({ status: 'pastdue', ...({ state: 'empty', billing: 'own' } as object) }, { after: 'c0' })
-    expect(answer.mock.calls[0]?.[0].variables).toEqual({ filter: { status: 'pastdue' }, after: 'c0' })
-    expect(page.items[0]).toMatchObject({ near: { percent: 84, limit: 'ai' }, state: { kind: 'pastdue', daysPastDue: 9 }, billingStatus: 'pastdue', domain: null, salesLastMonth: null })
+    answer.mockReturnValue({ data: { stores: { items: [row], pageInfo, plans: [], categories: [], billingMode: 'own', createPermission: permission(false, 'PARTNER_PAUSED'), exportPermission: permission(true), billingStatusPermission: permission(false, 'BILLING_ROLES_ONLY') } } })
+    const page = await loadStores({ status: 'pastdue', category: 'c1', ...({ state: 'empty', billing: 'own' } as object) }, { after: 'c0' })
+    expect(answer.mock.calls[0]?.[0].variables).toEqual({ filter: { status: 'pastdue', category: 'c1' }, after: 'c0' })
+    expect(page.items[0]).toMatchObject({ category: { id: 'c1', name: 'Footwear' }, near: { percent: 84, limit: 'ai' }, state: { kind: 'pastdue', daysPastDue: 9 }, billingStatus: 'pastdue', domain: null, salesLastMonth: null })
     expect(page.actions).toEqual({ create: { allowed: false, reason: 'PARTNER_PAUSED' }, export: { allowed: true }, billingStatus: { allowed: false, reason: 'BILLING_ROLES_ONLY' } })
     expect(page.pageInfo.hasNextPage).toBe(true)
   })
 
   it('keeps a store with no trial end or owner on record, and refuses a refusal it was never promised', async () => {
-    answer.mockReturnValueOnce({ data: { stores: { items: [{ ...row, owner: { name: null, email: null }, state: state('trial') }], pageInfo, plans: [], billingMode: 'dripfunnel', createPermission: permission(true), exportPermission: permission(true), billingStatusPermission: null } } })
+    answer.mockReturnValueOnce({ data: { stores: { items: [{ ...row, owner: { name: null, email: null }, state: state('trial') }], pageInfo, plans: [], categories: [], billingMode: 'dripfunnel', createPermission: permission(true), exportPermission: permission(true), billingStatusPermission: null } } })
     expect((await loadStores({}, {})).items[0]).toMatchObject({ owner: { name: '', email: '' }, state: { kind: 'trial', trialEndsAt: null, daysLeft: null } })
-    answer.mockReturnValueOnce({ data: { stores: { items: [], pageInfo, plans: [], billingMode: 'dripfunnel', createPermission: permission(false, 'SOMETHING_NEW'), exportPermission: permission(true), billingStatusPermission: null } } })
+    answer.mockReturnValueOnce({ data: { stores: { items: [], pageInfo, plans: [], categories: [], billingMode: 'dripfunnel', createPermission: permission(false, 'SOMETHING_NEW'), exportPermission: permission(true), billingStatusPermission: null } } })
     await expect(loadStores({}, {})).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 })

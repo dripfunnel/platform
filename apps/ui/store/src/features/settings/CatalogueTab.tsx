@@ -1,9 +1,10 @@
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { loadProductBasics, type ProductBasics } from '../../api/productEditor'
 import { badgeRules, deleteBadge, saveBadge, saveSections, sectionKeys, type BadgeRule, type SectionKey } from '../../api/settings'
-import { fill, messages } from '../../messages'
+import { chooseShopCategory, loadShopCategory, type ShopCategoryChoice } from '../../api/shopCategory'
+import { fill, locale, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import '../common/switch.css'
 
@@ -12,14 +13,6 @@ const words = messages.settings.catalogue
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 type Sections = Record<SectionKey, boolean>
 
-/** "What do you mostly sell?": the sections each kind of shop usually wants (CatSettings' presets). */
-export const presets: Record<keyof typeof words.presets, Partial<Sections>> = {
-  clothing: { sizeCharts: true, specs: true, highlights: true, badges: true },
-  electronics: { specs: true, highlights: true, faqs: true, related: true, sizeCharts: false },
-  food: { highlights: true, faqs: true, sizeCharts: false, specs: true },
-  beauty: { highlights: true, faqs: true, sizeCharts: false },
-  handmade: { badges: true, highlights: true, sizeCharts: false },
-}
 
 /** A badge's colour follows what it says, as in the prototype; the API holds three. */
 const toneOf = (rule: BadgeRule): 'ok' | 'peach' | 'neutral' => (rule === 'new_30_days' ? 'ok' : rule === 'manual' ? 'neutral' : 'peach')
@@ -48,7 +41,15 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
   const id = useId()
   const [saved, setSaved] = useState<Sections>(() => sectionsOf(basics))
   const [sections, setSections] = useState<Sections>(saved)
-  const [preset, setPreset] = useState<keyof typeof presets | null>(null)
+  // What the shop sells (DATA-MODEL §7.2); null while it loads, or when the read is refused.
+  const [category, setCategory] = useState<ShopCategoryChoice | null>(null)
+  useEffect(() => {
+    let live = true
+    loadShopCategory().then((c) => live && setCategory(c), () => undefined)
+    return () => {
+      live = false
+    }
+  }, [])
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -75,10 +76,18 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
     }
   }
 
-  const choose = (k: keyof typeof presets) => {
-    setPreset(k)
-    setSections((s) => Object.fromEntries(sectionKeys.map((key) => [key, (presets[k][key] ?? s[key]) && inPlan(key)])) as Sections)
-    onSaved(fill(words.presetApplied, { name: words.presets[k] }))
+  const chooseCategory = (id: string) =>
+    void run(async () => {
+      const current = await chooseShopCategory(id)
+      setCategory((c) => (c ? { ...c, current } : c))
+      return fill(words.categorySaved, { name: current.name })
+    }, onSaved)
+
+  // The category's sections that are in the plan and still off: offered, never forced, and never switching one off.
+  const suggested = (category?.current?.sections ?? []).filter((k) => inPlan(k) && !sections[k])
+  const switchOnSuggested = () => {
+    setSections((s) => ({ ...s, ...Object.fromEntries(suggested.map((k) => [k, true])) }))
+    onSaved(fill(words.suggestedOn, { name: category?.current?.name ?? '' }))
   }
 
   const saveAll = () =>
@@ -136,13 +145,37 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
       <section className="df-set-card" aria-labelledby={`${id}-sell`}>
         <h2 id={`${id}-sell`}>{words.sellTitle}</h2>
         <p className="df-set-lede">{words.sellSub}</p>
-        <div className="df-team-chips" role="group" aria-labelledby={`${id}-sell`}>
-          {(Object.keys(presets) as (keyof typeof presets)[]).map((k) => (
-            <button key={k} type="button" aria-pressed={preset === k} disabled={ro} onClick={() => choose(k)}>
-              {words.presets[k]}
+        {category && (
+          <div className="df-cat-sell">
+            <select
+              aria-labelledby={`${id}-sell`}
+              value={category.current?.id ?? ''}
+              disabled={ro}
+              onChange={(e) => e.target.value && chooseCategory(e.target.value)}
+            >
+              {!category.current && (
+                <option value="" disabled>
+                  {words.categoryPlaceholder}
+                </option>
+              )}
+              {category.options
+                .filter((o) => !o.archived || o.id === category.current?.id)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+        {category?.current && suggested.length > 0 && canEdit && (
+          <div className="df-cat-suggest" role="status">
+            <span>{fill(words.suggested, { name: category.current.name, sections: new Intl.ListFormat(locale, { type: 'conjunction' }).format(suggested.map((k) => words.sections[k])) })}</span>
+            <button type="button" className="df-button" disabled={ro} onClick={switchOnSuggested}>
+              {words.switchOn}
             </button>
-          ))}
-        </div>
+          </div>
+        )}
       </section>
 
       <section className="df-set-card df-cat-sections" aria-labelledby={`${id}-sections`}>

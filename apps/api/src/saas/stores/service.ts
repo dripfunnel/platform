@@ -102,6 +102,7 @@ export interface StoreRowDto {
   partner: { id: string; name: string }
   owner: { name: string | null; email: string | null }
   plan: { name: string | null }
+  category: { id: string; name: string } | null
   state: StoreState
   storefront: BuildState | 'own'
   domain: { host: string; custom: boolean; status: HostStatus }
@@ -156,6 +157,7 @@ export const storeFilter = z
     storefront: z.enum(['live', 'building', 'failed', 'own']).optional(),
     setup: z.enum(['done', 'running', 'failed', 'stuck', 'cleaning']).optional(),
     created: z.enum(['7d', '30d']).optional(),
+    category: z.guid().optional(),
     q: z.string().trim().min(1).max(100).optional(),
   })
   .strict()
@@ -243,6 +245,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     partner: { id: row.partner_id, name: row.partner_name },
     owner: { name: row.owner_name, email: row.owner_email },
     plan: { name: row.plan_name },
+    category: row.category_id && row.category_name ? { id: row.category_id, name: row.category_name } : null,
     state: stateOf(row, now()),
     storefront: row.storefront_kind === 'own' ? 'own' : (row.build_state ?? 'building'),
     // FIRST-RELEASE §5.1: the custom domain and its status when there is one, else the live link.
@@ -270,6 +273,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
           setup: f.setup,
           createdAfter: f.created ? new Date(at.getTime() - (f.created === '7d' ? 7 : 30) * dayMs) : undefined,
           q: f.q,
+          categoryId: f.category,
           assignedTo,
         },
         decoded,

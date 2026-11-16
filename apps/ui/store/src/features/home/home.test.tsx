@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
+import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StoreHome } from '../../api/home'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 import { numbersOf, tasksOf } from './homeView'
 
 // Home driven per seat (FIRST-RELEASE §5): what each seat is shown is what the API answered it, every task opens its
@@ -14,6 +15,14 @@ const words = messages.home
 
 const api = vi.hoisted(() => ({ loadHome: vi.fn(), loadLocaleFacts: vi.fn(), skipSetupStep: vi.fn() }))
 vi.mock('../../api/home', () => api)
+const categories = vi.hoisted(() => ({ loadShopCategory: vi.fn(), chooseShopCategory: vi.fn(), addSampleCatalog: vi.fn() }))
+vi.mock('../../api/shopCategory', () => categories)
+const importsApi = vi.hoisted(() => ({ loadImport: vi.fn() }))
+vi.mock('../../api/imports', async (actual) => ({ ...(await actual<typeof import('../../api/imports')>()), ...importsApi }))
+const brandApi = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn() }))
+vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...brandApi }))
+const editorApi = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
+vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editorApi }))
 
 const { Home } = await import('./Home')
 
@@ -55,10 +64,10 @@ const fresh: StoreHome = {
   sales: [],
   returningCustomers: 0,
   latestOrders: [],
-  setup: { products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false },
+  setup: { category: null, products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false, brand: null, brandSkipped: null },
 }
 
-const ownerPermissions = ['orders.read', 'reports.read', 'settings', 'approve', 'shipping.configure', 'orders.mark_paid', 'catalog.read']
+const ownerPermissions = ['orders.read', 'reports.read', 'settings', 'approve', 'shipping.configure', 'orders.mark_paid', 'catalog.read', 'catalog.import']
 const owner: Acting = { store: { id: 's1', name: 'Kesari Threads' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ownerPermissions }
 const manager: Acting = { ...owner, role: 'manager', permissions: ['orders.read', 'reports.read', 'orders.mark_paid', 'catalog.read'] }
 const staff: Acting = { ...owner, role: 'staff', permissions: ['orders.read', 'catalog.read'] }
@@ -70,7 +79,7 @@ const show = async (acting: Acting | (() => Acting), { readOnly = false } = {}) 
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ me: { id: 'p1', name: 'Farhan Ali', email: 'farhan@example.in', acting: seat() }, acting: seat(), state: { readOnly } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/home', component: Home })
   const blank = (path: string) => createRoute({ getParentRoute: () => app, path, component: () => null })
-  const others = ['/orders', '/orders/$orderId', '/products', '/products/$productId', '/settings', '/collections', '/customers', '/reports'].map(blank)
+  const others = ['/orders', '/orders/$orderId', '/products', '/products/$productId', '/products/import', '/settings', '/collections', '/customers', '/reports'].map(blank)
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page, ...others])]), history: createMemoryHistory({ initialEntries: ['/home'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
@@ -79,11 +88,15 @@ const show = async (acting: Acting | (() => Acting), { readOnly = false } = {}) 
   return router
 }
 
+const shoes = { id: 'c3', key: 'footwear', name: 'Footwear', sections: ['sizeCharts', 'specs'], archived: false, hasSample: true }
+const food = { id: 'c15', key: 'food_grocery', name: 'Food & Grocery', sections: ['specs'], archived: false, hasSample: false }
+
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const href = (name: RegExp | string) => screen.getByRole('link', { name }).getAttribute('href')
 
 beforeEach(() => {
   api.loadLocaleFacts.mockResolvedValue({ country: 'IN', currency: 'INR', language: 'en' })
+  categories.loadShopCategory.mockResolvedValue({ options: [shoes, food], current: null })
 })
 
 afterEach(() => {
@@ -201,12 +214,12 @@ describe('the Home screen', () => {
     expect(within(setup).getByText('2 of 5')).toBeTruthy()
   })
   it('offers a Manager no Skip, as the steps are not theirs', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, setup: { products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
     await show(manager)
     expect(screen.queryByRole('button', { name: /Skip/ })).toBeNull()
   })
   it('gives a Manager only the catalogue steps, saying the rest is the owner’s', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, setup: { products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
     await show(manager)
     const setup = screen.getByRole('region', { name: words.setup.title })
     expect(within(setup).getAllByRole('link')).toHaveLength(2)
@@ -214,7 +227,7 @@ describe('the Home screen', () => {
   })
 
   it('tells Staff in a new store that the first order will show up here', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { category: null, products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
     await show(staff)
     expect(screen.getByRole('region', { name: words.staffWait.title })).toBeTruthy()
     expect(screen.queryByRole('region', { name: words.setup.title })).toBeNull()
@@ -225,6 +238,164 @@ describe('the Home screen', () => {
     await show(owner)
     expect(screen.getByRole('status').textContent).toContain(words.allClear.title)
     expect(screen.queryByRole('region', { name: words.needsYou })).toBeNull()
+  })
+
+  it('lets the Owner pick what the shop sells on the checklist, then offers Change', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, category: false } })
+    categories.chooseShopCategory.mockResolvedValue(shoes)
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    expect(within(setup).getByText('2 of 6')).toBeTruthy()
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: new RegExp(words.setup.category.label) }))
+    })
+    const pick = within(setup).getByLabelText(words.setup.category.picker)
+    expect(within(pick).getAllByRole('option').map((o) => o.textContent)).toEqual([words.setup.category.placeholder, 'Footwear', 'Food & Grocery'])
+    fireEvent.change(pick, { target: { value: 'c3' } })
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
+    })
+    expect(categories.chooseShopCategory).toHaveBeenCalledWith('c3')
+    expect(within(setup).getByText('3 of 6')).toBeTruthy()
+    expect(within(setup).getByText('Footwear')).toBeTruthy()
+    expect(href(new RegExp(words.setup.category.label))).toBe('/settings?tab=catalogue')
+  })
+
+  describe('the products step once the category is chosen', () => {
+    const chosen = (current: typeof shoes) => {
+      api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, category: true, products: false } })
+      categories.loadShopCategory.mockResolvedValue({ options: [shoes, food], current })
+    }
+    const p = words.setup.products
+    const sampleWords = messages.sampleCatalog
+
+    it('offers the sample, an import and adding by hand, the last only as a note', async () => {
+      chosen(shoes)
+      await show(owner)
+      const setup = screen.getByRole('region', { name: words.setup.title })
+      expect(within(setup).getByRole('button', { name: sampleWords.add })).toBeTruthy()
+      expect(href(p.import)).toBe('/products/import')
+      expect(within(setup).queryByText(p.manualNote)).toBeNull()
+      await act(async () => {
+        fireEvent.click(within(setup).getByRole('button', { name: p.manual }))
+      })
+      expect(within(setup).getByText(p.manualNote, { exact: false })).toBeTruthy()
+      expect(within(setup).getByRole('link', { name: p.cta }).getAttribute('href')).toBe('/products/new')
+    })
+
+    it('leaves the sample out when the category has none', async () => {
+      chosen(food)
+      await show(owner)
+      expect(screen.queryByRole('button', { name: sampleWords.add })).toBeNull()
+      expect(href(p.import)).toBe('/products/import')
+    })
+
+    it('imports the sample straight away, then opens Products with it', async () => {
+      chosen(shoes)
+      categories.addSampleCatalog.mockResolvedValue('job-7')
+      importsApi.loadImport.mockResolvedValue({ id: 'job-7', state: 'done' })
+      const router = await show(owner)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: sampleWords.add }))
+      })
+      await settle()
+      expect(categories.addSampleCatalog).toHaveBeenCalledTimes(1)
+      expect(importsApi.loadImport).toHaveBeenCalledWith('job-7')
+      expect(router.state.location.pathname).toBe('/products')
+    })
+
+    it('says so when the sample import fails, and stays on Home', async () => {
+      chosen(shoes)
+      categories.addSampleCatalog.mockResolvedValue('job-8')
+      importsApi.loadImport.mockResolvedValue({ id: 'job-8', state: 'failed' })
+      const router = await show(owner)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: sampleWords.add }))
+      })
+      await settle()
+      expect(screen.getByRole('alert').textContent).toBe(sampleWords.refused.other)
+      expect(router.state.location.pathname).toBe('/home')
+    })
+
+    it('says why the sample can’t be added', async () => {
+      chosen(shoes)
+      categories.addSampleCatalog.mockRejectedValue(new ApiError('ALREADY_ADDED', 'x'))
+      await show(owner)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: sampleWords.add }))
+      })
+      expect(screen.getByRole('alert').textContent).toBe(sampleWords.refused.ALREADY_ADDED)
+    })
+
+    it('gives a read-only session no sample or import', async () => {
+      chosen(shoes)
+      await show(owner, { readOnly: true })
+      expect(screen.queryByRole('button', { name: sampleWords.add })).toBeNull()
+      expect(screen.queryByRole('link', { name: p.import })).toBeNull()
+      expect(screen.getByRole('button', { name: p.manual })).toBeTruthy()
+    })
+  })
+
+  it('keeps the step open and says so when the choice doesn’t save', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, category: false } })
+    categories.chooseShopCategory.mockRejectedValue(new Error('down'))
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: new RegExp(words.setup.category.label) }))
+    })
+    fireEvent.change(within(setup).getByLabelText(words.setup.category.picker), { target: { value: 'c15' } })
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
+    })
+    expect(within(setup).getByRole('alert').textContent).toBe(words.setup.category.error)
+    expect(within(setup).getByText('2 of 6')).toBeTruthy()
+  })
+
+  it('sends a read-only session to Settings rather than picking', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, category: false } })
+    await show(owner, { readOnly: true })
+    expect(screen.queryByLabelText(words.setup.category.picker)).toBeNull()
+    expect(href(new RegExp(words.setup.category.label))).toBe('/settings?tab=catalogue')
+  })
+
+  it('uploads the logo then the favicon into the storefront brand from the checklist, keeping the rest of the brand', async () => {
+    const b = words.setup.brand
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: false, brandSkipped: false } })
+    editorApi.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'logo1' }).mockResolvedValueOnce({ ok: true, assetId: 'fav1' })
+    brandApi.loadBrand.mockResolvedValue(null)
+    brandApi.saveBrand.mockResolvedValue({})
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    expect(within(setup).getByText(b.label)).toBeTruthy()
+    expect((within(setup).getByLabelText(b.favicon) as HTMLInputElement).disabled).toBe(true)
+    const png = new File(['x'], 'logo.png', { type: 'image/png' })
+    await act(async () => {
+      fireEvent.change(within(setup).getByLabelText(b.logo), { target: { files: [png] } })
+    })
+    await settle()
+    expect(brandApi.saveBrand).toHaveBeenLastCalledWith(expect.objectContaining({ logoAssetId: 'logo1', shopName: 'Kesari Threads' }))
+    expect(within(setup).getByRole('status').textContent).toContain(b.logoAdded)
+    brandApi.loadBrand.mockResolvedValue({ brandReady: true, shopName: 'Kesari Threads', logoAssetId: 'logo1', faviconAssetId: null, primaryColour: '#112233', secondaryColour: null, tagline: 'Hand-woven', description: null, social: { instagram: null, facebook: null, x: null, youtube: null, tiktok: null, whatsapp: null }, contactEmail: null, contactPhone: null, contactAddress: null, voice: null })
+    await act(async () => {
+      fireEvent.change(within(setup).getByLabelText(b.favicon), { target: { files: [png] } })
+    })
+    await settle()
+    expect(brandApi.saveBrand).toHaveBeenLastCalledWith(expect.objectContaining({ logoAssetId: 'logo1', faviconAssetId: 'fav1', tagline: 'Hand-woven', primaryColour: '#112233' }))
+  })
+
+  it('lets the Owner skip the logo step, and shows a store with a logo as done with Change', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: false, brandSkipped: false } })
+    api.skipSetupStep.mockResolvedValue(undefined)
+    await show(owner)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: fill(words.setup.skipFor, { step: words.setup.brand.label }) }))
+    })
+    expect(api.skipSetupStep).toHaveBeenCalledWith('brand', true)
+    cleanup()
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: true, brandSkipped: false } })
+    await show(owner)
+    expect(href(new RegExp(words.setup.brand.label))).toBe('/storefront?tab=settings')
   })
 
   it('keeps Home when the locale facts fail, leaving that step out', async () => {

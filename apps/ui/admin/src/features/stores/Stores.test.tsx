@@ -29,9 +29,9 @@ describe('Stores list', () => {
     expect(headers).toEqual(Object.values(words.columns))
   })
 
-  it('has the prototype four filters, and no Setup control', async () => {
+  it('has the prototype four filters plus Category, and no Setup control', async () => {
     const html = await render()
-    expect(html.match(/<select/g)).toHaveLength(4)
+    expect(html.match(/<select/g)).toHaveLength(5)
     expect(textOf(html)).not.toContain('Any setup')
   })
 
@@ -40,6 +40,17 @@ describe('Stores list', () => {
     expect(text).toContain('Fjord Outdoor')
     expect(text).not.toContain('Mehta Textiles')
     expect(text).toContain(words.filters.clear)
+  })
+
+  it('shows each store’s category, or a dash before its Owner picks, and filters by one (DATA-MODEL §7.2)', async () => {
+    const base = sample.list({}, {}, 25)
+    const page = { ...base, items: base.items.map((item, i) => (i === 0 ? { ...item, category: { id: 'c1', name: 'Footwear' } } : item)), categories: [{ id: 'c1', name: 'Footwear' }] }
+    const html = await render({ page, filter: { category: 'c1' } })
+    const text = textOf(html)
+    expect(text).toContain('Footwear')
+    expect(text).toContain(words.noCategory)
+    expect(text).toContain(words.filters.anyCategory)
+    expect(html).toMatch(/<option value="c1" selected="">Footwear<\/option>/)
   })
 
   it('links each store to its page and its partner to theirs', async () => {

@@ -34,6 +34,7 @@ const Row = ({ store }: { store: StoreRow }) => (
     <td>
       <strong>{store.plan.name ?? words.noPlan}</strong>
     </td>
+    <td>{store.category?.name ?? <span className="df-muted">{words.noCategory}</span>}</td>
     <td>
       <div className="df-stack">
         <StoreStatusPill state={store.state} />

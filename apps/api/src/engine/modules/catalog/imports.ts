@@ -27,7 +27,9 @@ import {
   type CatalogImportRow,
   type CatalogImportSummary,
 } from '#db/scoped/catalogImports'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { addCollectionProducts, insertCollection } from '#db/scoped/catalogStructure'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { markSampleCatalogAdded, selectSample } from '#db/scoped/storeCategories'
 import { setStockTargets } from '#db/scoped/inventory'
 import { selectRates } from '#db/scoped/rates'
 import { selectLanguages } from '#db/scoped/translations'
@@ -36,7 +38,7 @@ import { applyInventory, readInventory, type InventoryRefusal } from './inventor
 import { isActiveSeat, isInvitedOwnerSeat, isMerchantRole, isNewStoreOwnerSeat, isSupplierRole, isSupplierTier, storeRoleHas, type SeatStatus } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import { collectionsRecomputeKind } from './structure'
-import { maxPhotos, maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
+import { maxPhotos, maxValuesPerOption, slugFrom, textLimits, type ProductInput, type VersionInput } from './rules'
 import type { SaveResult } from './index'
 import type { ProductTranslationInput, TranslationResult } from './translations'
 
@@ -267,12 +269,12 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
   const mine = <T extends { requested_by_id: string }>(job: T | null): T | null => (job && job.requested_by_id === actor.id ? job : null)
 
   /** Uploaded and checked after commit; nothing in the catalogue changes until it's confirmed (K2). */
-  const start = async (file: string, source: ImportSource | null = null, inventory: string | null = null, currency: string | null = null): Promise<ImportResult<string>> => {
+  const start = async (file: string, source: ImportSource | null = null, inventory: string | null = null, currency: string | null = null, sampleCategoryId: string | null = null): Promise<ImportResult<string>> => {
     const tooLarge = (text: string) => new TextEncoder().encode(text).byteLength > importLimits.bytes
     if (tooLarge(file) || (inventory !== null && tooLarge(inventory))) return { ok: false, reason: 'FILE_TOO_LARGE' }
     if (file.trim() === '' || (inventory !== null && (source !== 'shopify' || inventory.trim() === '')) || (currency !== null && ((source !== 'csv' && source !== 'shopify') || !/^[A-Z]{3}$/.test(currency))) || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
     const id = await inScope(async (tx) => {
-      const made = await insertCatalogImport(tx, { storeId, sellerId, source: source ?? 'csv', file, inventory, byId: actor.id, byLabel: actor.label })
+      const made = await insertCatalogImport(tx, { storeId, sellerId, source: source ?? 'csv', file, inventory, byId: actor.id, byLabel: actor.label, sampleCategoryId })
       const payload = jobPayloadOf(context, made)
       // Without a source (the mobile app) either kind of file is read, as before.
       if (payload) await queue(tx, catalogImportKind, `${made}:check`, { ...payload, phase: 'check', ...(source ? { expect: source } : {}), ...(currency ? { currency } : {}) })
@@ -397,6 +399,7 @@ export const checkImport = async (d: ImportJobDeps, jobId: string, expect?: Impo
       supplier: sellerId !== null,
       ...(expect ? { expect } : {}),
       ...(convertAt ? { convert: convertAt } : {}),
+      samplePhotos: job.sample_category_id !== null,
     })
     const inventory = typeof plan === 'string' || job.inventory === null ? null : readInventory(job.inventory)
     const refusal = typeof plan === 'string' ? plan : typeof inventory === 'string' ? inventory : null
@@ -413,6 +416,14 @@ export const checkImport = async (d: ImportJobDeps, jobId: string, expect?: Impo
     const owned = new Set((await selectOwnSkus(tx, storeId, sellerId, plan.products.flatMap(skusOf))).map((r) => r.sku))
     const matched = plan.products.filter((p) => skusOf(p).some((s) => owned.has(s.toLowerCase()))).length
     await saveImportCheck(tx, jobId, { source: plan.source, plan, products: plan.products.length + plan.refused, ready: plan.products.length, matched, problems: plan.problems })
+    // A sample catalog imports straight away, with no review (CATALOG-DESIGN K13a): existing SKUs skipped, stock to the default warehouse.
+    if (job.sample_category_id !== null && plan.products.length > 0) {
+      const warehouseId = await selectOwnDefaultWarehouse(tx, storeId, sellerId)
+      if (!(await startImportRun(tx, jobId, { matchMode: 'skip', warehouseId, warehouseMap: null, at }))) return
+      const payload = jobPayloadOf(d.context, jobId)
+      if (payload) await d.queue(tx, catalogImportKind, `${jobId}:run:0`, { ...payload, phase: 'run' })
+      await d.activity.record(tx, entryOf(d)(catalogImportAudit.confirmed, { type: 'import', id: jobId, label: 'Sample catalog' }, [{ field: 'products', before: null, after: String(plan.products.length) }, { field: 'matching', before: null, after: 'skip' }]))
+    }
   })
 }
 
@@ -541,7 +552,28 @@ const importStock = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRo
   }
 }
 
-const finishIfDone = async (tx: ScopedSql, storeId: string, jobId: string, at: Date, held?: CatalogImportRow | null): Promise<void> => {
+type FinishDeps = Pick<ImportJobDeps, 'context' | 'now'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>
+
+/** A sample import's collections (DATA-MODEL §7.2), made once as it finishes, holding its products found by SKU. */
+const finishSample = async (tx: ScopedSql, d: FinishDeps, categoryId: string): Promise<void> => {
+  const { storeId } = d.context
+  const sample = await selectSample(tx, categoryId)
+  if (sample) {
+    await serialise(tx, `collection:${storeId}`)
+    for (const c of sample.collections) {
+      const id = crypto.randomUUID()
+      await insertCollection(tx, storeId, id, { name: c.name, slug: slugFrom(c.name), description: '', kind: 'manual', match: 'all', parentId: null, inheritParent: false, visibility: 'visible', imageAssetId: null, sort: 'manual', seoTitle: null, seoDescription: null })
+      const found = new Map((await selectOwnSkus(tx, storeId, null, c.skus)).map((r) => [r.sku, r.product_id]))
+      await addCollectionProducts(tx, storeId, id, [...new Set(c.skus.flatMap((sku) => found.get(sku.toLowerCase()) ?? []))])
+      if (d.activity && d.actor && d.facts) await d.activity.record(tx, entryOf({ context: d.context, actor: d.actor, facts: d.facts })('collection.saved', { type: 'collection', id, label: c.name }))
+    }
+  }
+  await markSampleCatalogAdded(tx)
+}
+
+const finishIfDone = async (tx: ScopedSql, d: FinishDeps, jobId: string, held?: CatalogImportRow | null): Promise<void> => {
+  const { storeId } = d.context
+  const at = d.now()
   const job = held ?? (await lockCatalogImport(tx, storeId, jobId))
   const plan = job?.plan as ImportPlan | null | undefined
   if (!job || job.state !== 'running' || !plan || job.done < plan.products.length || job.photos_pending > 0) return
@@ -552,6 +584,7 @@ const finishIfDone = async (tx: ScopedSql, storeId: string, jobId: string, at: D
   })
   await addImportProblems(tx, jobId, leftOut)
   await finishImport(tx, jobId, { problemsCsv: problemsCsv(job.file, plan, [...problemsOf(job.problems), ...leftOut]), at, expiresAt: new Date(at.getTime() + catalogImportLifetimeMs) })
+  if (job.sample_category_id) await finishSample(tx, d, job.sample_category_id)
 }
 
 /** The error file (K3): the file's own rows that had a problem, each product's rows together, with a problem column. */
@@ -646,7 +679,7 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
     // From the persisted counts, not this attempt's work: products an earlier attempt committed still need their collections.
     if (job.created + job.updated > 0 || at > job.done) await d.queue(tx, collectionsRecomputeKind, `${jobId}:recompute:${at}`, { storeId })
     if (payload && at < plan.products.length) await d.queue(tx, catalogImportKind, `${jobId}:run:${at}`, { ...payload, phase: 'run' })
-    else await finishIfDone(tx, storeId, jobId, d.now())
+    else await finishIfDone(tx, d, jobId)
   })
 }
 
@@ -693,17 +726,17 @@ export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: 
       result.ok ? addProductPhoto(tx, storeId, photo.productId, { assetId: result.assetId, alt: photo.alt, position: photo.position }) : undefined,
       saveImportPhotos(tx, jobId, result.ok ? [] : [{ line: photo.line, column: 'image', code: result.code }], replaced ? 1 : 0),
     ])
-    await finishIfDone(tx, storeId, jobId, d.now(), counted)
+    await finishIfDone(tx, d, jobId, counted)
   })
 }
 
 /** A photo that won't be attached (its job gave up, or the importer can't import now): reported on its line, the run going on. */
-export const skipImportPhoto = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'>, jobId: string, photo: Pick<z.infer<typeof importPhotoPayload>, 'line'>, code: ProblemCode = 'PHOTO_UNAVAILABLE'): Promise<void> =>
+export const skipImportPhoto = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>, jobId: string, photo: Pick<z.infer<typeof importPhotoPayload>, 'line'>, code: ProblemCode = 'PHOTO_UNAVAILABLE'): Promise<void> =>
   withScope(d.sql, d.context, async (tx) => {
     const job = await lockCatalogImport(tx, d.context.storeId, jobId)
     if (job?.state !== 'running') return
     await saveImportPhotos(tx, jobId, [{ line: photo.line, column: 'image', code }])
-    await finishIfDone(tx, d.context.storeId, jobId, d.now())
+    await finishIfDone(tx, d, jobId)
   })
 
 /** After the last attempt: the job says failed, so the banner stops waiting. */

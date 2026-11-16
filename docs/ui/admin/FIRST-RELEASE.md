@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -44,6 +44,7 @@ and store states).
 | 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | decided 2026-09-30 |
 | 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | decided 2026-09-30 |
 | 6a | **Rollouts** (§11a) | Super admin, Engineer on call | paused rollouts | decided on #1312 |
+| 6b | **Store categories** (§11b) | Everyone (Super admin edits) | none | decided 2026-11-16 |
 | 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
 | 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
 | 9 | **Staff** | Super admin | none | decided 2026-09-30 |
@@ -155,12 +156,13 @@ Across all partners.
 | Partner | Which partner it belongs to |
 | Owner | Name and email |
 | Plan | The partner's plan name |
+| Category | What the store sells (DATA-MODEL §7.2), or "—" until its Owner picks |
 | Status | Trial · Active · Past due · Suspended · Cancelled (SAAS.md §4.2), each unmistakable |
 | Storefront | AI storefront (live / building / failed) or "Own storefront" |
 | Domain | Live link, or the custom domain and its status |
 | Created | Date |
 
-Filters: partner, status, storefront state and created (last 7 or 30 days). The list also
+Filters: partner, status, storefront state, category and created (last 7 or 30 days). The list also
 takes a setup state (Done, Running, Failed, Stuck) from the URL, with no control of its own,
 so the Dashboard's setup links land on a filtered list. Search: name, code,
 domain, owner email. Saved in the URL so a filtered list can be shared. Newest first, paged
@@ -424,6 +426,28 @@ There is no prototype screen; it follows the Provisioning list and the store pag
   version goes back to the build it had before.
 - **Badge**: paused rollouts, on Rollouts.
 
+## 11b. Store categories
+
+What a shop sells (DATA-MODEL §7.2): the list each store's Owner picks from on Home and in Settings › Catalogue. Every role
+reads it (`storeCategories.read`); only a Super admin adds, edits, archives or restores (`storeCategories.manage`, ACCESS
+§5.4). There is no prototype screen; it follows the Rollouts list.
+
+- **List**: English name, key, the product page sections it offers, how many stores chose it; archived ones last, marked.
+- **Add / Edit**: an English name (required), optional translations (language code and name), and the sections. The key
+  comes from the English name once and never changes. Each takes a reason.
+- **Archive / Restore**: with a reason; Archive restates that the stores that chose it keep it and every other store's
+  picker loses it. Nothing is ever deleted.
+- **Sample catalog** (CATALOG-DESIGN K13a, DATA-MODEL §7.2): each row says "Sample: 6 products · 2 collections · INR ·
+  added <date>" or "No sample". No file is uploaded (decided 2026-11-16): where DripFunnel ships built-in data for the
+  category, a Super admin's **Add default sample** (or **Reset to default sample**) adds it with a reason, its photos copied
+  once; a refused check keeps the dialog open with its problems by line. Remove takes a reason and says stores that added it
+  keep their products.
+- **Sample editor** (decided 2026-11-16, not in the prototype): **View sample** (every role) or **Create sample** (Super admin)
+  opens `/categories/{id}/sample`: the products (photo, name, SKU, price, stock, shown, collections) and the collections.
+  A Super admin adds, edits and deletes products (1 to 50, each with a unique SKU), adds, renames and deletes collections
+  (1 to 10, each with a product), uploads a photo per product (stored once in DripFunnel's storage), and **Save changes**
+  sends the whole sample with a reason; refused lines are listed in place and a leave guard keeps unsaved edits.
+
 ## 12. What the Admin API needs for this release
 
 For planning `apps/api/src/apis/admin`; names are *(proposed)*.
@@ -440,6 +464,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Staff | `staff(after, before)`. Built on #39: Super admin only (`staff.manage`); each member's role, last sign-in, `twoFactor` (on, off, notSignedIn), an open invitation's dates, and the actions with §10's refusals; `soleSuperAdmin` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite`. Built on #39: throttled like partner invitations (`RATE_LIMITED`), each logged with what changed; accepting is the link's SSO sign-in (ACCESS §6.3) |
 | Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
 | Rollouts | `coreRollouts(after)`, `coreRollout(id)`, `coreRolloutStores(id, state, after, before)` (built on #1312: each store's group, from version, state and error code, never the gate's report; `fleet.read`) | `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout`, `rollBackCoreRollout` (#485; `fleet.manage`, each with a reason) |
+| Store categories | `storeCategories` (each with its names per language, sections, store count, `hasDefaultSample` and `sample`) | `createStoreCategory(input, reason)`, `updateStoreCategory(id, input, reason)`, `archiveStoreCategory(id, archived, reason)`, `addDefaultStoreCategorySample(categoryId, reason)` (answers the category, or the built-in data's problems), `removeStoreCategorySample(categoryId, reason)`, `saveStoreCategorySampleItems(categoryId, input, reason)`; `storeCategorySample(categoryId)` reads it, and `POST /api/store-category-photos?category=` / `GET /api/store-category-photos/{category}/{sha}` upload and preview its photos |
 | Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40), paused rollouts (`pausedRollouts`, null without `fleet.read`, #1312) | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted

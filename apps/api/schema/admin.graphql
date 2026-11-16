@@ -415,12 +415,15 @@ type JobProgress {
 }
 
 type Mutation {
+  addDefaultStoreCategorySample(categoryId: ID!, reason: String!): StoreCategorySampleSave
   addStoreNote(id: ID!, text: String!): StoreMutationOutcome
   approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
   archiveStore(id: ID!, reason: String!): StoreMutationOutcome
+  archiveStoreCategory(archived: Boolean!, id: ID!, reason: String!): StoreCategory
   assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   changeStaffRole(id: ID!, role: String!): StaffResult
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
+  createStoreCategory(input: StoreCategoryInput!, reason: String!): StoreCategory
   endStaffSession(id: ID!): PartnerMutationOutcome
   exportActivity(filter: ActivityFilter): ActivityExportResult
   extendImpersonation(id: ID!): StaffSessionExtend
@@ -432,6 +435,7 @@ type Mutation {
   recheckStoreDomain(id: ID!): StoreMutationOutcome
   registerApp(developer: String!, name: String!, scopes: [String!]!, siteUrl: String!, webhookUrl: String!): RegisteredAppSecret
   removeStaff(id: ID!): StaffResult
+  removeStoreCategorySample(categoryId: ID!, reason: String!): StoreCategory
   resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   resendStaffInvite(id: ID!): StaffResult
   resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
@@ -442,6 +446,7 @@ type Mutation {
   returnToSession(id: ID!): StaffSessionStart
   revokeStaffInvite(id: ID!): StaffResult
   rollBackCoreRollout(id: ID!, reason: String!): CoreRollout
+  saveStoreCategorySampleItems(categoryId: ID!, input: StoreCategorySampleInput!, reason: String!): StoreCategorySampleSave
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   setAppStatus(id: ID!, suspended: Boolean!): Boolean
@@ -452,6 +457,7 @@ type Mutation {
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   undoJob(id: ID!, reason: String!): JobActionResult
+  updateStoreCategory(id: ID!, input: StoreCategoryInput!, reason: String!): StoreCategory
 }
 
 type NavBadges {
@@ -748,6 +754,8 @@ type Query {
   staffSession(id: ID!): StaffSessionLookup
   staffSessions(after: String, before: String, filter: StaffSessionFilter, first: Int): StaffSessionPage
   store(id: ID!): Store
+  storeCategories: [StoreCategory!]
+  storeCategorySample(categoryId: ID!): StoreCategorySampleDetail
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
 }
 
@@ -945,6 +953,115 @@ type StoreActions {
   suspend: ActionPermission
 }
 
+type StoreCategory {
+  archivedAt: String
+  hasDefaultSample: Boolean
+  id: ID
+  key: String
+  names: [StoreCategoryName!]
+  position: Int
+  sample: StoreCategorySample
+  sections: [String!]
+  storeCount: Int
+}
+
+input StoreCategoryInput {
+  names: [StoreCategoryNameInput!]!
+  sections: [StoreCategorySection!]!
+}
+
+type StoreCategoryName {
+  language: String
+  name: String
+}
+
+input StoreCategoryNameInput {
+  language: String!
+  name: String!
+}
+
+type StoreCategorySample {
+  collections: [StoreCategorySampleCollection!]
+  currency: String
+  photos: Int
+  products: Int
+  uploadedAt: String
+}
+
+type StoreCategorySampleCollection {
+  name: String
+  products: Int
+}
+
+type StoreCategorySampleCollectionDetail {
+  name: String
+  products: Int
+}
+
+type StoreCategorySampleDetail {
+  collections: [StoreCategorySampleCollectionDetail!]
+  currency: String
+  products: [StoreCategorySampleProduct!]
+  uploadedAt: String
+}
+
+input StoreCategorySampleInput {
+  collections: [String!]!
+  currency: String!
+  products: [StoreCategorySampleProductInput!]!
+}
+
+type StoreCategorySamplePhoto {
+  previewUrl: String
+  ref: String
+}
+
+type StoreCategorySampleProblem {
+  code: String
+  column: String
+  line: Int
+  message: String
+}
+
+type StoreCategorySampleProduct {
+  collections: [String!]
+  description: String
+  handle: String
+  name: String
+  photo: StoreCategorySamplePhoto
+  price: String
+  sku: String
+  stock: Int
+  visible: Boolean
+}
+
+input StoreCategorySampleProductInput {
+  collections: [String!]!
+  description: String!
+  name: String!
+  photo: String
+  price: String!
+  sku: String!
+  stock: Int
+  visible: Boolean!
+}
+
+type StoreCategorySampleSave {
+  category: StoreCategory
+  problems: [StoreCategorySampleProblem!]
+}
+
+enum StoreCategorySection {
+  aplus
+  badges
+  faqs
+  highlights
+  related
+  sizeCharts
+  specs
+  video
+}
+
 type StoreDnsRecord {
   expected: String
   found: String
@@ -961,6 +1078,7 @@ type StoreDomain {
 }
 
 input StoreFilter {
+  category: ID
   created: String
   partner: ID
   q: String
@@ -1028,6 +1146,7 @@ type StoreProvisioning {
 }
 
 type StoreRow {
+  category: Ref
   code: String
   createdAt: String
   domain: StoreDomain

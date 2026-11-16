@@ -65,6 +65,7 @@ const StoreRowType = builder.objectRef<StoreRowDto>('StoreRow').implement({
     partner: t.field({ type: Ref, resolve: (s) => s.partner }),
     owner: t.field({ type: StoreOwner, resolve: (s) => s.owner }),
     plan: t.field({ type: StorePlan, resolve: (s) => s.plan }),
+    category: t.field({ type: Ref, nullable: true, resolve: (s) => s.category }),
     state: t.field({ type: StoreStateType, resolve: (s) => s.state }),
     storefront: t.exposeString('storefront'),
     domain: t.field({ type: StoreDomain, resolve: (s) => s.domain }),
@@ -195,7 +196,7 @@ const Page = builder.objectRef<StorePage>('StorePage').implement({
 })
 
 const Filter = builder.inputType('StoreFilter', {
-  fields: (t) => ({ partner: t.id(), status: t.string(), storefront: t.string(), setup: t.string(), created: t.string(), q: t.string() }),
+  fields: (t) => ({ partner: t.id(), status: t.string(), storefront: t.string(), setup: t.string(), created: t.string(), category: t.id(), q: t.string() }),
 })
 
 interface Outcome {

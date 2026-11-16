@@ -882,6 +882,9 @@ type HomeSales {
 }
 
 type HomeSetup {
+  brand: Boolean
+  brandSkipped: Boolean
+  category: Boolean
   collections: Boolean
   payments: Boolean
   paymentsSkipped: Boolean
@@ -1135,6 +1138,7 @@ type Mutation {
   addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
   addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
+  addSampleCatalog: ID
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
@@ -1159,6 +1163,7 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
+  chooseShopCategory(id: ID!): ShopCategory
   chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
@@ -2456,6 +2461,7 @@ type Query {
   searchStockImages(page: Int!, query: String!): [StockPhoto!]
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
+  shopCategory: ShopCategoryChoice
   shopifyConnection: ShopifyConnection
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
@@ -2747,6 +2753,7 @@ input ServiceDetailsInput {
 }
 
 enum SetupStep {
+  brand
   payments
   shipping
 }
@@ -2821,6 +2828,20 @@ type ShippingSettings {
   pickupHours: String
   revision: Int
   savedAt: String
+}
+
+type ShopCategory {
+  archived: Boolean
+  hasSample: Boolean
+  id: ID
+  key: String
+  name(language: String): String
+  sections: [String!]
+}
+
+type ShopCategoryChoice {
+  current: ShopCategory
+  options: [ShopCategory!]
 }
 
 type ShopifyConnection {

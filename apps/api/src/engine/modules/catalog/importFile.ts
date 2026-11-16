@@ -107,6 +107,8 @@ export interface PlanOptions {
   expect?: ImportSource
   /** The file's prices are in `from`, not the pricing currency: converted at these rates, units per euro (CATALOG fact 26). */
   convert?: { from: string; perEuroFrom: string; perEuroTo: string; on: string }
+  /** A category's sample (DATA-MODEL §7.2): its `sample-photo:` refs are photos too, resolved from R2 by the photo job. */
+  samplePhotos?: boolean
 }
 
 type Field =
@@ -381,7 +383,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     const place = (r: { cells: string[] }) => Number(at(r, 'imagePosition')) || 0
     const allPhotos = lines
       .toSorted((a, b) => place(a) - place(b))
-      .filter((r) => /^https?:\/\//i.test(at(r, 'image')) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
+      .filter((r) => (/^https?:\/\//i.test(at(r, 'image')) || (o.samplePhotos === true && at(r, 'image').startsWith('sample-photo:'))) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
       .map((r) => ({ url: at(r, 'image'), alt: at(r, 'imageAlt') || null, line: r.line }))
     const translations = Object.fromEntries(
       [...languages].map(([language, columns]) => {

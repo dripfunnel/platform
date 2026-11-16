@@ -41,6 +41,7 @@ const StoreRowType = builder.objectRef<StoreRowDto>('PartnerStoreRow').implement
     code: t.exposeString('code'),
     owner: t.field({ type: Owner, resolve: (r) => r.owner }),
     plan: t.field({ type: Named, nullable: true, resolve: (r) => r.plan }),
+    category: t.field({ type: Named, nullable: true, resolve: (r) => r.category }),
     near: t.field({ type: Near, nullable: true, resolve: (r) => r.near }),
     state: t.field({ type: State, resolve: (r) => r.state }),
     storefront: t.exposeString('storefront'),
@@ -64,6 +65,7 @@ const StorePage = builder.objectRef<StorePageDto>('StorePage').implement({
     items: t.field({ type: [StoreRowType], resolve: (p) => p.items }),
     pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }),
     plans: t.field({ type: [Named], resolve: (p) => p.plans }),
+    categories: t.field({ type: [Named], resolve: (p) => p.categories }),
     billingMode: t.exposeString('billingMode'),
     createPermission: t.field({ type: CreatePermissionType, resolve: (p) => p.actions.create }),
     exportPermission: t.field({ type: Permission, resolve: (p) => p.actions.export }),
@@ -175,7 +177,7 @@ const StoreDetailType = builder.objectRef<Detail>('PartnerStore').implement({
 })
 
 const FilterInput = builder.inputType('StoreFilterInput', {
-  fields: (t) => ({ status: t.string(), plan: t.id(), created: t.string(), storefront: t.string(), near: t.string(), q: t.string() }),
+  fields: (t) => ({ status: t.string(), plan: t.id(), category: t.id(), created: t.string(), storefront: t.string(), near: t.string(), q: t.string() }),
 })
 
 type ExportJob = NonNullable<Awaited<ReturnType<PartnerStoresService['storesExport']>>>

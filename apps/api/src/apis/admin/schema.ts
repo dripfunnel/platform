@@ -12,6 +12,7 @@ import './customers'
 import './staff'
 import './apps'
 import './fleet'
+import './storeCategories'
 
 export type { AdminContext } from './access'
 

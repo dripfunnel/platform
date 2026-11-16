@@ -10,6 +10,7 @@ import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
 import { selectPartner } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
 import { selectCustomDomains, selectStoreCounts, selectStoreForUpdate, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
+import { selectCategoryChoices } from '#db/scoped/storeCategories'
 import { listActivity, partnerEntry, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/index'
 import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
@@ -48,6 +49,7 @@ export interface StoreRowDto {
   code: string
   owner: { name: string | null; email: string | null }
   plan: { id: string; name: string } | null
+  category: { id: string; name: string } | null
   near: { percent: number; limit: string } | null
   state: StoreState
   storefront: 'live' | 'building' | 'failed' | 'own'
@@ -60,6 +62,7 @@ export interface StorePageDto {
   items: StoreRowDto[]
   pageInfo: PageInfo
   plans: { id: string; name: string }[]
+  categories: { id: string; name: string }[]
   billingMode: 'dripfunnel' | 'own'
   actions: { create: CreatePermission; export: ActionPermission; billingStatus: ActionPermission | null }
 }
@@ -104,6 +107,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, shopD
     code: row.code,
     owner: { name: row.owner_name, email: row.owner_email },
     plan: row.plan_id && row.plan_name ? { id: row.plan_id, name: row.plan_name } : null,
+    category: row.category_id && row.category_name ? { id: row.category_id, name: row.category_name } : null,
     near: row.near_key !== null && row.near_percent !== null && row.near_percent >= 80 ? { percent: row.near_percent, limit: row.near_key } : null,
     state: stateOf(row, now()),
     storefront: row.storefront_kind === 'own' ? 'own' : (row.build_state ?? 'building'),
@@ -133,10 +137,12 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, shopD
       const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (r) => ({ occurredAt: r.created_at, id: r.id }))
       const mode = await modeOf(tx)
       const plans = await selectPlanChoices(tx, partnerId)
+      const categories = await selectCategoryChoices(tx)
       return {
         items: pageRows.map((r) => rowDto(r, mode)),
         pageInfo,
         plans,
+        categories,
         billingMode: mode,
         actions: {
           create: creatingPermission((await selectPartner(tx, partnerId))?.state ?? null),

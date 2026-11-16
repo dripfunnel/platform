@@ -51,18 +51,18 @@ const fresh: StoreHome | null = busy && {
   sales: [],
   returningCustomers: 0,
   latestOrders: [],
-  setup: { products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false },
+  setup: { category: false, products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false, brand: false, brandSkipped: false },
 }
 
 /** What `home` withholds from a Manager (approval, couriers) and Staff (money, payments, returning customers). */
-const asManager = (home: StoreHome): StoreHome => ({ ...home, awaitingApproval: null, rejectedCouriers: null, setup: home.setup && { ...home.setup, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+const asManager = (home: StoreHome): StoreHome => ({ ...home, awaitingApproval: null, rejectedCouriers: null, setup: home.setup && { ...home.setup, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
 const asStaff = (home: StoreHome): StoreHome => ({
   ...asManager(home),
   paymentsToCollect: null,
   sales: null,
   returningCustomers: null,
   latestOrders: home.latestOrders.map((o) => ({ ...o, total: null })),
-  setup: home.setup && { products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null },
+  setup: home.setup && { category: null, products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null },
 })
 
 export interface HomeSample {

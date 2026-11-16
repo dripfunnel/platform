@@ -67,11 +67,11 @@ const list = (filter: StoreFilter = {}, role: PartnerRole = 'partner-owner', pro
   )
 
 describe('the partner Stores list', () => {
-  it('has the prototype columns in order, the search and the five filters, newest first', async () => {
+  it('has the prototype columns in order with Category after Plan, the search and the six filters, newest first', async () => {
     const html = await list()
     const headers = [...html.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((match) => match[1])
     expect(headers).toEqual(Object.values(words.columns))
-    expect(html.match(/<select/g)).toHaveLength(5)
+    expect(html.match(/<select/g)).toHaveLength(6)
     expect(html).toContain('type="search"')
     expect(textOf(html)).toContain(words.newestFirst)
   })
@@ -114,6 +114,15 @@ describe('the partner Stores list', () => {
     expect(hrefs(first).some((href) => /[?&]page=/.test(href))).toBe(false)
   })
 
+  it('shows what each store sells, a dash before its Owner picks, and the category filter as a chip by name', async () => {
+    const all = await list()
+    expect(all).toContain('<td>Footwear</td>')
+    expect(all).toContain(`<td>${words.noCategory}</td>`)
+    const html = await list({ category: 'cat-footwear' })
+    expect(textOf(html)).toContain(`${words.filters.category}: Footwear`)
+    expect(textOf(html)).toContain(words.filters.anyCategory)
+  })
+
   it('links a store to its page and never to an order, customer or product', async () => {
     const html = await list()
     const links = hrefs(html)
@@ -135,7 +144,7 @@ describe('the partner Stores list', () => {
   })
 
   it('shows the empty, no-match and forced states in this console’s words', async () => {
-    const emptyPage: StorePage = { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }, plans: [], billingMode: 'dripfunnel', actions: { create: { allowed: true }, export: { allowed: true } } }
+    const emptyPage: StorePage = { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }, plans: [], categories: [], billingMode: 'dripfunnel', actions: { create: { allowed: true }, export: { allowed: true } } }
     const empty = await list({}, 'partner-owner', { page: emptyPage })
     expect(textOf(empty)).toContain(words.empty.title)
     expect(textOf(empty)).toContain('store.northstar.com/signup')

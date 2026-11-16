@@ -56,7 +56,7 @@ export const Stores = ({ page, filter, forced, readOnly, onFilterChange, onReloa
       {readOnly && <ReadOnlyNotice title={words.readOnly.title} body={words.readOnly.body} />}
       <StoresHeader />
       <div className="df-list-toolbar">
-        <StoreFilters filter={filter} partners={page.partners} onChange={onFilterChange} />
+        <StoreFilters filter={filter} partners={page.partners} categories={page.categories} onChange={onFilterChange} />
         <p className="df-muted">{words.newestFirst}</p>
       </div>
       {page.items.length === 0 ? (

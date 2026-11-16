@@ -11,6 +11,7 @@ import type { CustomersService } from '#saas/customers/index'
 import type { StaffMembersService } from '#saas/staffMembers/index'
 import type { AppRegistryService } from '#saas/apps/index'
 import type { FleetService } from '#saas/fleet/admin'
+import type { StoreCategoryAdminService } from '#saas/storeCategories/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {
@@ -29,6 +30,8 @@ export interface AdminContext extends Record<string, unknown> {
   apps?: AppRegistryService | null
   /** Core rollouts (`fleet.read`, `fleet.manage`); null when signed out. */
   fleet?: FleetService | null
+  /** Store categories (`storeCategories.read`, `storeCategories.manage`); null when signed out. */
+  storeCategories?: StoreCategoryAdminService | null
 }
 
 /** ACCESS.md §5.4: the role's permission, then a Partner manager's assignment to the target. */
