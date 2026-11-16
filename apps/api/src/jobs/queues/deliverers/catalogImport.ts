@@ -21,10 +21,9 @@ import {
 } from '#engine/modules/catalog/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { fetchPublic } from '#integrations/http/publicFetch'
-import { selectCatalogImport } from '#db/scoped/catalogImports'
 import { withScope } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { selectSample } from '#db/scoped/storeCategories'
+import { selectSamplePhotoKey } from '#db/scoped/storeCategories'
 import { activityLog } from '#saas/activity/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -114,14 +113,12 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
     if (!parsed.success) throw new Error('import.photos: bad payload')
     const p = parsed.data
     const deps = catalogImportDeps(sql, p, effect, now)
-    // A sample import's photos are DripFunnel's copies (DATA-MODEL §7.2); only that job's own map can name an R2 key.
-    const sampleKeys = await withScope(sql, deps.context, async (tx) => {
-      const job = await selectCatalogImport(tx, deps.context.storeId, p.jobId)
-      return job?.sample_category_id ? ((await selectSample(tx, job.sample_category_id))?.photos ?? {}) : {}
-    })
+    // A sample import's photos are DripFunnel's copies (DATA-MODEL §7.2): only its job sets sampleCategoryId, and only that
+    // sample's own map can name an R2 key. Every other import's photo is fetched as before, with no extra query.
+    const sampleCategoryId = p.sampleCategoryId
     const fetchPhoto: PhotoFetch = async (url) => {
       if (!assets) return { ok: false, code: 'PHOTO_UNAVAILABLE' }
-      const key = Object.hasOwn(sampleKeys, url) ? sampleKeys[url] : undefined
+      const key = sampleCategoryId ? await withScope(sql, deps.context, (tx) => selectSamplePhotoKey(tx, sampleCategoryId, url)) : null
       const got = key ? await readAsset(assets, key) : await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
       if (!got.ok) return { ok: false, code: got.code === 'TOO_LARGE' ? 'PHOTO_REFUSED' : 'PHOTO_UNAVAILABLE' }
       const stored = await createAssetService({ sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(got.bytes)

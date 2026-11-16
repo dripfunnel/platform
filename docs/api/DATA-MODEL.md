@@ -986,7 +986,7 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
                     -- store_subscription and storefront (§7.8, §7.9), written by the same
                     -- transaction that writes the owner row.
                     -- Built on #719 (migration 0351): setup_skipped holds the Home checklist steps the Owner
-                    -- skipped, `payments` and/or `shipping`; written by set_setup_step_skipped() only, the
+                    -- skipped, `payments`, `shipping` and/or `brand` (0405); written by set_setup_step_skipped() only, the
                     -- merchant side of a store, never a supplier or a read-only support session.
                     -- Not built here (#305): pickup_enabled, pickup_hours and shipping_saved_at live on
                     -- store_shipping as pickup_enabled, pickup_hours and saved_at (the Home checklist reads it).

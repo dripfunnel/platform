@@ -25,10 +25,10 @@ export interface StaffCategoryRow extends StoreCategoryRow {
 // The Worker's client doesn't parse arrays (pgArray above), so they come back as JSON.
 const columns = 'id, key, names, to_jsonb(sections) as sections, position, archived_at'
 
-/** Every category, archived ones last, each with how many stores use it. At most a few dozen, so not paged. */
-/** The list is one page by design, capped here and at creation (DATA-MODEL §7.2). */
+/** Every list of categories is one page: at most this many, capped at creation too (DATA-MODEL §7.2). */
 export const maxStoreCategories = 100
 
+/** Every category, archived ones last, each with how many stores use it; or the one asked for. */
 export const selectCategoriesForStaff = async (tx: ScopedSql, onlyId: string | null = null): Promise<StaffCategoryRow[]> =>
   tx<StaffCategoryRow[]>`
     select ${tx.unsafe(columns)}, (select count(*)::int from store s where s.category_id = c.id) as store_count,
@@ -80,7 +80,7 @@ export const setCategoryArchived = async (tx: ScopedSql, id: string, archived: b
 
 /** The filter's choices on the Partner console's Stores list: every category, by English name, archived ones too. */
 export const selectCategoryChoices = async (tx: ScopedSql): Promise<{ id: string; name: string }[]> =>
-  tx<{ id: string; name: string }[]>`select id, names ->> 'en' as name from store_category order by archived_at is not null, position, id`
+  tx<{ id: string; name: string }[]>`select id, names ->> 'en' as name from store_category order by archived_at is not null, position, id limit ${maxStoreCategories}`
 
 /** The picker: active categories, plus the store's own when it has since been archived. */
 export const selectCategoriesForStore = async (tx: ScopedSql, storeId: string): Promise<StoreCategoryRow[]> =>
@@ -88,6 +88,7 @@ export const selectCategoriesForStore = async (tx: ScopedSql, storeId: string): 
     select ${tx.unsafe(columns)} from store_category
     where archived_at is null or id = (select category_id from store where id = ${storeId})
     order by position, id
+    limit ${maxStoreCategories}
   `
 
 export const selectStoreCategoryId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
@@ -132,6 +133,10 @@ export const sampleExists = async (tx: ScopedSql, categoryId: string): Promise<b
 /** DripFunnel's built-in sample for a category (0401), which staff add as its sample with one click. */
 export const selectDefaultSample = async (tx: ScopedSql, categoryId: string): Promise<{ file: string; currency: string } | null> =>
   (await tx<{ file: string; currency: string }[]>`select file, currency::text as currency from store_category_default_sample where category_id = ${categoryId}`)[0] ?? null
+
+/** One photo's R2 key in a sample, or null: the photo deliverer's lookup, without reading the file. */
+export const selectSamplePhotoKey = async (tx: ScopedSql, categoryId: string, ref: string): Promise<string | null> =>
+  (await tx<{ key: string | null }[]>`select photos ->> ${ref} as key from store_category_sample where category_id = ${categoryId}`)[0]?.key ?? null
 
 export const selectSample = async (tx: ScopedSql, categoryId: string): Promise<CategorySampleRow | null> =>
   (await tx<CategorySampleRow[]>`select category_id, file, currency::text as currency, collections, photos, uploaded_at from store_category_sample where category_id = ${categoryId}`)[0] ?? null

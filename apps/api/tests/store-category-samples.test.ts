@@ -291,7 +291,8 @@ describe('the sample editor', () => {
     const up = await svc.uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 7, 7, 7]))
     expect(up).toMatchObject({ ok: true, ref: expect.stringMatching(/^sample-photo:[0-9a-f]{64}$/) })
     expect(up.ok && bucket.has(`platform/store-category-samples/${ids.footwear}/${up.sha}`)).toBe(true)
-    expect((await db.sql`select 1 from activity_log where action = 'store_category.sample_photo_uploaded' and target_id = ${ids.footwear}`).length).toBe(1)
+    // Nothing names it yet, so nothing is logged until a Save does, with its reason.
+    expect((await db.sql`select 1 from activity_log where target_id = ${ids.footwear} and action like 'store_category.sample_photo%'`).length).toBe(0)
   })
 
   it('shows every role the products and collections, each photo with its preview', async () => {
@@ -323,6 +324,10 @@ describe('the sample editor', () => {
     const after = (await detail()) as Detail
     expect(after.products[0]).toMatchObject({ name: 'Trail Runner', price: '1250.50' })
     expect(after.products[6]?.photo?.ref).toBe(ref)
+    const [logged] = await db.sql<{ reason: string; changes: { field: string; after: string | null }[] }[]>`select reason, changes from activity_log
+      where action = 'store_category.sample_saved' and target_id = ${ids.footwear} order by occurred_at desc, id desc limit 1`
+    expect(logged?.reason).toBe('Better names')
+    expect(logged?.changes.find((c) => c.field === 'photos_added')?.after).toBe(ref)
   })
 
   it('refuses no SKU, a duplicate SKU, an empty collection and no products, keeping the last save', async () => {

@@ -48,7 +48,6 @@ export const storeCategoryAudit = {
   sampleRemoved: 'store_category.sample_removed',
   chosen: 'store.category_chosen',
   sampleAdded: 'catalog.sample_added',
-  samplePhotoUploaded: 'store_category.sample_photo_uploaded',
 } as const
 
 export { type SampleProblem }
@@ -237,7 +236,8 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
           changes: [
             { field: 'currency', before: null, after: code },
             { field: 'collections', before: null, after: checked.collections.map((c) => c.name).join(', ') },
-            { field: 'photos', before: null, after: String(Object.keys(copied.photos).length) },
+            { field: 'photos', before: String(Object.keys(current).length), after: String(Object.keys(copied.photos).length) },
+            { field: 'photos_added', before: null, after: Object.keys(copied.photos).filter((ref) => !Object.hasOwn(current, ref)).join(', ') || null },
           ],
         }),
       )
@@ -294,25 +294,14 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
     return saveSample(id, fileOf(input), input.currency, reason)
   }
 
-  /** The editor's Upload: an image stored once under the category, answered as the ref a product names. */
+  /** The editor's Upload: an image stored once under the category, answered as the ref a product names. It changes no
+   *  sample until a Save names it, so the Save's entry, with its reason, lists it (`photos_added`). */
   const uploadSamplePhoto = async (id: string, bytes: Uint8Array<ArrayBuffer>): Promise<{ ok: true; ref: string; sha: string } | { ok: false; code: 'NOT_FOUND' | 'NO_STORAGE' | 'PHOTO_REFUSED' }> => {
     if (!isUuid(id)) return { ok: false, code: 'NOT_FOUND' }
     const category = await asStaff((tx) => selectCategory(tx, id))
     if (!category) return { ok: false, code: 'NOT_FOUND' }
     const stored = await storeSamplePhoto(id, bytes, photos?.assets ?? null)
     if (!stored.ok) return stored
-    await asStaff((tx) =>
-      activity.record(
-        tx,
-        entry({
-          action: storeCategoryAudit.samplePhotoUploaded,
-          reason: null,
-          target: { type: 'store_category', id, label: category.names.en ?? category.key },
-          visibility: 'staff',
-          changes: [{ field: 'photo', before: null, after: stored.ref }],
-        }),
-      ),
-    )
     return { ok: true, ref: stored.ref, sha: stored.ref.split(':')[1] ?? '' }
   }
 

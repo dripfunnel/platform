@@ -664,7 +664,7 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
       }
       // Photos for a product the import made; one that was there keeps its own (and its approval, ACCESS §7.2).
       const photos = kind === 'created' ? p.photos.slice(0, maxPhotos) : []
-      if (payload) await d.queueMany(tx, importPhotosKind, photos.map((photo, position) => ({ key: `${jobId}:photo:${productId}:${position}`, payload: { ...payload, productId, plan: done - 1, position, ...photo } })))
+      if (payload) await d.queueMany(tx, importPhotosKind, photos.map((photo, position) => ({ key: `${jobId}:photo:${productId}:${position}`, payload: { ...payload, productId, plan: done - 1, position, ...photo, ...(job.sample_category_id ? { sampleCategoryId: job.sample_category_id } : {}) } })))
       if (payload && p.photos.length > photos.length && photos.length > 0) await saveImportSpare(tx, jobId, done - 1, maxPhotos)
       await saveImportProgress(tx, jobId, { ...none, [kind]: 1, done, photos: photos.length, problems })
     }
@@ -691,6 +691,8 @@ export const importPhotoPayload = z.object({
   plan: z.number().int().min(0).optional(),
   url: z.string().max(importLimits.photoUrl),
   alt: z.string().max(importLimits.photoAlt).nullable(),
+  /** Set only on a sample import's photos, from its job: whose copies in R2 the photo may be (DATA-MODEL §7.2). */
+  sampleCategoryId: z.guid().optional(),
 })
 
 export type PhotoFetch = (url: string) => Promise<{ ok: true; assetId: string } | { ok: false; code: 'PHOTO_UNAVAILABLE' | 'PHOTO_REFUSED' }>
@@ -703,7 +705,7 @@ const queueSpare = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRow
   const payload = jobPayloadOf(d.context, job.id)
   if (photo.plan === undefined || next === undefined || !spare || !payload) return false
   await saveImportSpare(tx, job.id, photo.plan, next + 1)
-  await d.queue(tx, importPhotosKind, `${job.id}:photo:${photo.productId}:${photo.position}:${next}`, { ...payload, productId: photo.productId, plan: photo.plan, position: photo.position, ...spare })
+  await d.queue(tx, importPhotosKind, `${job.id}:photo:${photo.productId}:${photo.position}:${next}`, { ...payload, productId: photo.productId, plan: photo.plan, position: photo.position, ...spare, ...(job.sample_category_id ? { sampleCategoryId: job.sample_category_id } : {}) })
   return true
 }
 
