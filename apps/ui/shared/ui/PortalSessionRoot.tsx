@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { SessionEndCard } from './ImpBanner'
 import type { PortalSession } from './portalSession'
 import { useHandoff } from './portalSession'
@@ -19,6 +19,8 @@ export interface PortalSessionRootProps {
 // Above every page of a portal: the staff member's bar, the member notice, or an end card.
 export const PortalSessionRoot = ({ client, copy, adminUrl, forced, invalid }: PortalSessionRootProps) => {
   const version = client.useVersion()
+  const [seenOpen, setSeenOpen] = useState(false)
+  const onOpen = useCallback(() => setSeenOpen(true), [])
   const applied = useRef(false)
   useEffect(() => {
     if (applied.current || !forced || forced === 'invalid') return
@@ -26,7 +28,9 @@ export const PortalSessionRoot = ({ client, copy, adminUrl, forced, invalid }: P
     client.harness(forced)
   }, [client, forced])
   if (forced === 'invalid') return <SessionEndCard {...invalid} action={{ label: copy.action, href: adminUrl }} />
-  return <StaffSessionLayer key={version} loadCurrent={client.current} loadNotice={client.notice} end={client.end} adminUrl={adminUrl} copy={copy} />
+  return (
+    <StaffSessionLayer key={version} loadCurrent={client.current} loadNotice={client.notice} end={client.end} adminUrl={adminUrl} copy={copy} seenOpen={seenOpen} onOpen={onOpen} />
+  )
 }
 
 // Where the admin console's link lands in both portals (ACCESS.md §8.1).
