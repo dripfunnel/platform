@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateTheme, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
-import { carouselExample, designModel, revealExample, maxBuildToolCalls, maxLookups, maxPhotoLookups, maxToolCalls, referenceText, rules, type DesignBrief, type DesignTools } from './model'
+import { carouselExample, designModel, revealExample, maxBuildToolCalls, maxLookups, maxPhotoLookups, maxToolCalls, readAsk, referenceText, rules, type DesignBrief, type DesignTools } from './model'
 import type { StoreLookups, StoreSummary } from './summary'
 import type { FileEdit } from '#saas/studio/index'
 
@@ -397,6 +397,22 @@ describe('the rules the AI is given', () => {
     const provider: AiProvider = { complete: async (c) => (sent.push(c.text), { text: final, ...spent }) }
     await designModel(provider, { ...brief, screenshots: [shot, shot, shot] }).propose({ request: 'like this', theme: [], problems: [] })
     expect(sent[0]).toContain('The last 3 images are one site the merchant gave as inspiration, screenshotted from its top down, in order.')
+  })
+
+  it('read a plan wrapped in words or a code fence, with an address for a page name and no reply', () => {
+    const text = 'Based on my analysis, here is my plan: ```json\n{ "plan": { "header": "logo and menu", "footer": "links", "pages": [ { "page": "home", "title": "Home", "sections": ["hero"] }, { "page": "/shop-all", "title": "Shop All", "sections": ["grid"] } ] } }\n```'
+    expect(readAsk(text)).toEqual({ reply: 'Here is the plan.', plan: { header: 'logo and menu', footer: 'links', pages: [{ page: 'home', title: 'Home', sections: ['hero'] }, { page: 'shop-all', title: 'Shop All', sections: ['grid'] }] } })
+    expect(readAsk('{ "plan": { "pages": "not a list" } }')).toBeNull()
+  })
+
+  it('tell a long brief to answer with a plan, never files or questions, and no build step or repair', async () => {
+    const sent: string[] = []
+    const provider: AiProvider = { complete: async (c) => (sent.push(c.text), { text: final, ...spent }) }
+    await designModel(provider, { ...brief, mayAsk: true, longBrief: true }).propose({ request: 'a long brief', theme: [], problems: [] })
+    await designModel(provider, { ...brief, mayAsk: false, longBrief: true }).propose({ request: 'a step', theme: [], problems: [] })
+    expect(sent[0]).toContain('This request is a long brief: answer with a plan, never files and never questions.')
+    expect(sent[1]).not.toContain('This request is a long brief')
+    expect(rules).toMatch(/A long brief \(the brief says so\) is answered with a plan, never files and never questions/)
   })
 
   it('say words may be written in code but an invented claim never, any property may animate, and icons come from lucide-react', () => {

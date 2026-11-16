@@ -4,7 +4,7 @@ import type { FileEdit, Proposal, ProposalInput } from '#saas/studio/index'
 import type { ReferencePage } from '#integrations/cloudflare/reference'
 import type { GateProblem } from '#integrations/sandbox/index'
 import { agentLimits, agentRules, billedInput, runAgent, type SideTool } from './agent'
-import { askAnswerSchema, maxQuestions, type DesignAsk } from './plan'
+import { askAnswerSchema, maxQuestions, mendedAsk, type DesignAsk } from './plan'
 import { streamedItems } from './stream'
 import { lookupNames, type LookupName, type StoreLookups, type StoreSummary } from './summary'
 
@@ -51,6 +51,8 @@ export interface DesignBrief {
   screenshots: AiImage[]
   /** The sample site as measured (its fonts, colours and sections) and the pictures of it copied into Assets (AI-STUDIO §8). */
   reference?: ReferenceBrief | null
+  /** A request longer than a few paragraphs: answered with a plan, built step by step at once (AI-STUDIO §4). */
+  longBrief?: boolean
   /** A merchant's own change request may be answered with questions or a plan (#1243); a page of a build or a repair never is. */
   mayAsk?: boolean
 }
@@ -277,6 +279,9 @@ Questions and a plan
   (merge the rest into the sixth), each line naming its layout, colours and type. The platform builds it at once, section
   by section. Copy none of its words or logos. A request for one part of it ("a header like this site") is changed at
   once, with files. When the request says you may not ask, answer with files instead.
+- A long brief (the brief says so) is answered with a plan, never files and never questions: home's sections from the top
+  down (at most 6), then the other pages it asks for, each line naming what to build. The platform builds the steps one
+  after another; anything the brief asks that no step covers, say in the reply so the merchant can ask for it next.
 - A clear request ("make the buttons maroon", "add a reviews section") is never asked about: change it at once. The one
   exception is a named collection the shop doesn't clearly have, above. When the request says you may not ask, always
   answer with files.
@@ -414,6 +419,8 @@ const noAsking = 'This request is a step of an agreed plan or a repair: answer w
 const noPhotoTools = "You have no stock photo tools in this request: fill picture slots only with the shop's own photos. When none fits, add no image, and say the merchant can attach one or pick a free photo in the chat box."
 
 /** What both the one-shot ask and the agent read after the cached prefix: the examples, the notes and the brief. */
+const longBriefLine = 'This request is a long brief: answer with a plan, never files and never questions. The platform builds it at once, step by step.'
+
 const briefLines = (brief: DesignBrief, input: ProposalInput, photoTools: boolean): string[] => [
     wantsExample(input.request) ? carouselExample.trim() : '',
     revealExample.trim(),
@@ -425,6 +432,7 @@ const briefLines = (brief: DesignBrief, input: ProposalInput, photoTools: boolea
     brief.screenshots.length === 1 ? 'The last image is a screenshot of a site the merchant gave as inspiration.' : '',
     brief.screenshots.length > 1 ? `The last ${brief.screenshots.length} images are one site the merchant gave as inspiration, screenshotted from its top down, in order.` : '',
     brief.reference ? referenceText(brief.reference) : '',
+    brief.longBrief && brief.mayAsk && input.problems.length === 0 ? longBriefLine : '',
 ]
 
 const problemLines = (problems: readonly GateProblem[]) => problems.map((p) => `- ${p.file ?? ''}${p.line ? `:${p.line}` : ''} ${p.rule}: ${p.message}`).join('\n')
@@ -481,7 +489,7 @@ export const readAnswer = (text: string): z.infer<typeof answerSchema> | null =>
 
 /** Questions or a plan instead of edits (#1243), if the text is one of those shapes. */
 export const readAsk = (text: string): (DesignAsk & { reply: string }) | null => {
-  const parsed = askAnswerSchema.safeParse(jsonOf(text))
+  const parsed = askAnswerSchema.safeParse(mendedAsk(jsonOf(text)))
   return parsed.success ? parsed.data : null
 }
 

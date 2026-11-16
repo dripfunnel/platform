@@ -8,6 +8,8 @@ import type { StoreSummary } from './summary'
 
 export const maxQuestions = 3
 export const maxPlanPages = 6
+/** A home page's sections, then each other page: the most steps one build takes (AI-STUDIO §4 "A plan"). */
+export const maxBuildSteps = 12
 /** "Changes asked in words" to one plan, inside its one prompt unit; past it a new request takes its own. */
 export const maxPlanChanges = 3
 /** Builds of one plan that built no page (each asked the model), inside its one prompt unit; past it a new request takes its own. */
@@ -34,6 +36,31 @@ export const askAnswerSchema = z.union([
   z.strictObject({ plan: planSchema, reply: z.string().max(2000) }),
 ])
 
+/**
+ * A model's plan with small slips mended before the strict schema reads it: a page named like an address ("/shop-all"),
+ * a missing reply, or lists and words past their limits. Anything else still fails the schema.
+ */
+export const mendedAsk = (raw: unknown): unknown => {
+  if (typeof raw !== 'object' || raw === null || !('plan' in raw)) return raw
+  const { plan, reply } = raw as { plan: unknown; reply?: unknown }
+  if (typeof plan !== 'object' || plan === null || !Array.isArray((plan as { pages?: unknown }).pages)) return raw
+  const clip = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : value)
+  const keyOf = (value: unknown) => (typeof value === 'string' ? value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^[^a-z]+|-+$/g, '').slice(0, 40) : value)
+  const { header, footer, pages } = plan as { header?: unknown; footer?: unknown; pages: unknown[] }
+  return {
+    reply: typeof reply === 'string' && reply.trim() ? reply.slice(0, 2000) : 'Here is the plan.',
+    plan: {
+      header: clip(header ?? null, 200),
+      footer: clip(footer ?? null, 200),
+      pages: pages.slice(0, maxPlanPages).map((page) => {
+        if (typeof page !== 'object' || page === null) return page
+        const { page: key, title, sections } = page as { page?: unknown; title?: unknown; sections?: unknown }
+        return { page: keyOf(key), title: clip(title, 60), sections: Array.isArray(sections) ? sections.slice(0, 6).map((s) => clip(s, 160)) : sections }
+      }),
+    },
+  }
+}
+
 const request = z.string().max(10_000)
 /** When a request moved the flow on to work on it; null once given back. */
 const claimedAt = z.iso.datetime().nullable().optional()
@@ -42,7 +69,7 @@ const answers = z.array(z.strictObject({ question: words(160), answer: z.string(
 export const flowSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('questions'), state: z.enum(['open', 'answered', 'skipped']), request, questions: z.array(questionSchema).max(maxQuestions), answers, claimedAt }),
   z.strictObject({ kind: z.literal('plan'), state: z.enum(['open', 'replaced', 'building', 'built']), request, answers, plan: planSchema, changes: z.number().int().min(0).max(maxPlanChanges), failedBuilds: z.number().int().min(0).max(maxFailedBuilds).optional(), claimedAt }),
-  z.strictObject({ kind: z.literal('build'), pages: z.array(z.strictObject({ page: pageKey, title: words(60), outcome: z.enum(['changed', 'unchanged', 'refused', 'failed', 'left']) })).max(maxPlanPages), stopped: z.boolean() }),
+  z.strictObject({ kind: z.literal('build'), pages: z.array(z.strictObject({ page: pageKey, title: words(60), outcome: z.enum(['changed', 'unchanged', 'refused', 'failed', 'left']) })).max(maxBuildSteps), stopped: z.boolean() }),
 ])
 export type Flow = z.infer<typeof flowSchema>
 export type QuestionsFlow = Extract<Flow, { kind: 'questions' }>
@@ -108,31 +135,43 @@ export const pageRequests = (flow: PlanFlow): BuildPage[] => {
 }
 
 /**
- * A plan drawn from a sample site (decided 2026-11-13, AI-STUDIO §4): its home page is built section by section, each its own
- * change matched to the same part of that site, so a long page isn't one change that runs out of time.
+ * The home page section by section, each its own change, so a long page isn't one change that runs out of time: matched to
+ * the same part of a sample site (decided 2026-11-13, home only), or for a long brief followed by each other page (2026-11-16).
  */
-export const sectionRequests = (flow: PlanFlow): BuildPage[] => {
+const stepRequests = (flow: PlanFlow, sample: boolean): BuildPage[] => {
   const pages = buildOrder(flow.plan)
   const home = pages.find((p) => p.page === 'home') ?? pages[0]
   if (!home) return []
-  const whole = home.sections.map((section, i) => `${i + 1}. ${section}`).join('\n')
-  return home.sections.map((section, i) => ({
+  const others = sample ? [] : pages.filter((p) => p !== home)
+  const whole = [...home.sections.map((section, i) => `${i + 1}. ${section}`), ...others.map((p) => `- ${p.title} (${p.page}): ${p.sections.join('; ')}`)].join('\n')
+  const asked = [`The merchant first asked: ${flow.request}`, ...(answered(flow).length > 0 ? [`Their answers:\n${answered(flow).join('\n')}`] : [])]
+  const sections = home.sections.map((section, i) => ({
     page: home.page,
     title: `Section ${i + 1}: ${section}`.slice(0, 60).trim(),
     request: [
-      `Build section ${i + 1} of ${home.sections.length} of the ${home.title} page (${home.page}) so it matches the same section of the sample site, counted from the top in its screenshots and its measured sections: ${section}.`,
+      `Build section ${i + 1} of ${home.sections.length} of the ${home.title} page (${home.page})${sample ? ' so it matches the same section of the sample site, counted from the top in its screenshots and its measured sections' : ''}: ${section}.`,
       i === 0
-        ? ['Build the header and the footer first, as the sample site draws them.', flow.plan.header ? `The header: ${flow.plan.header}.` : '', flow.plan.footer ? `The footer: ${flow.plan.footer}.` : '', 'Leave out of the page any old section the plan has no place for.'].filter(Boolean).join(' ')
+        ? [`Build the header and the footer first${sample ? ', as the sample site draws them' : ''}.`, flow.plan.header ? `The header: ${flow.plan.header}.` : '', flow.plan.footer ? `The footer: ${flow.plan.footer}.` : '', 'Leave out of the page any old section the plan has no place for.'].filter(Boolean).join(' ')
         : 'Keep the header, the footer and the sections already built as they are, and put this one after them in the plan\'s order.',
-      'Before you finish, take a screenshot of the page if you can, compare this section with the same part of the sample site, and fix what differs: sizes, spacing, colours, type and the order of things.',
-      `The whole page, top down:\n${whole}`,
-      `The merchant first asked: ${flow.request}`,
-      ...(answered(flow).length > 0 ? [`Their answers:\n${answered(flow).join('\n')}`] : []),
+      sample
+        ? 'Before you finish, take a screenshot of the page if you can, compare this section with the same part of the sample site, and fix what differs: sizes, spacing, colours, type and the order of things.'
+        : 'Before you finish, take a screenshot of the page if you can, and fix what looks unfinished or doesn\'t fit the sections above it.',
+      `The whole ${sample ? 'page, top down' : 'plan'}:\n${whole}`,
+      ...asked,
     ]
       .join('\n\n')
       .slice(0, 4000),
   }))
+  const rest = others.map((p) => ({
+    page: p.page,
+    title: p.title,
+    request: [`Build the ${p.title} page (${p.page}), with ${p.sections.join('; ')}.`, 'Keep the header, the footer and the pages already built as they are.', `The whole plan:\n${whole}`, ...asked].join('\n\n').slice(0, 4000),
+  }))
+  return [...sections, ...rest].slice(0, maxBuildSteps)
 }
+
+export const sectionRequests = (flow: PlanFlow): BuildPage[] => stepRequests(flow, true)
+export const chunkRequests = (flow: PlanFlow): BuildPage[] => stepRequests(flow, false)
 
 export const planRules = `You plan one online shop's storefront for DripFunnel before it is built. The merchant asked for a new look in a
 few words; you write the plan the AI designer then builds page by page. Plan only the look and the words: the shop's
