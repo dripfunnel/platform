@@ -213,10 +213,8 @@ describe('isolation between partners', () => {
 })
 
 describe('which account sends', () => {
-  const ours: OurSmsAccounts = {
-    msg91: { provider: 'msg91', authKey: 'ours-msg91', templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) },
-    twilio: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' },
-  }
+  const ourMsg91 = { provider: 'msg91', authKey: 'ours-msg91', templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) } as const
+  const ours: OurSmsAccounts = { msg91: ourMsg91, twilio: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' } }
   const resolve = (partnerId: string, provider: 'msg91' | 'twilio', accounts = ours) => withSystemScope(db.sql, (tx) => smsAccountsFor(box, accounts).forPartner(tx, partnerId, provider))
 
   it('uses the partner’s complete account per provider, and DripFunnel’s where it has none', async () => {
@@ -224,7 +222,7 @@ describe('which account sends', () => {
     expect(await resolve(ids.ns, 'twilio')).toEqual({ provider: 'twilio', accountSid, authToken: twilioToken, messagingServiceSid: serviceSid })
     expect(await resolve(ids.fresh, 'msg91')).toBe(ours.msg91)
     expect(await resolve(ids.fresh, 'twilio')).toBe(ours.twilio)
-    expect(await resolve(ids.fresh, 'twilio', { msg91: ours.msg91 })).toBeNull()
+    expect(await resolve(ids.fresh, 'twilio', { msg91: ourMsg91 })).toBeNull()
   })
 
   it('falls back to DripFunnel’s MSG91 when the partner’s is missing a template, and when its secret can’t be opened', async () => {
