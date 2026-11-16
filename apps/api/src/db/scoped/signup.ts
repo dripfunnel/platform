@@ -86,10 +86,14 @@ export const advanceSignup = async (tx: ScopedSql, signupId: string, stage: Sign
   `
 }
 
-export const setSignupPhoneCode = async (tx: ScopedSql, s: { id: string; partnerId: string }, phone: string, codeHash: string, expiresAt: Date, sentAt: Date): Promise<void> => {
+export const setSignupPhoneCode = async (tx: ScopedSql, s: { id: string; partnerId: string }, phone: string, channel: 'whatsapp' | 'sms', codeHash: string, expiresAt: Date, sentAt: Date): Promise<void> => {
   await tx`update signup set phone = ${phone}, phone_code_hash = ${codeHash}, phone_code_expires_at = ${expiresAt}, phone_code_attempts = 0 where id = ${s.id}`
-  await tx`insert into signup_text (partner_id, signup_id, phone, sent_at) values (${s.partnerId}, ${s.id}, ${phone}, ${sentAt})`
+  await tx`insert into signup_text (partner_id, signup_id, phone, channel, sent_at) values (${s.partnerId}, ${s.id}, ${phone}, ${channel}, ${sentAt})`
 }
+
+/** The sign-up's newest code sent: the 20-second rule reads its channel (ACCESS.md §4). */
+export const selectLastSignupText = async (tx: ScopedSql, signupId: string): Promise<{ channel: 'whatsapp' | 'sms'; sentAt: Date } | null> =>
+  (await tx<{ channel: 'whatsapp' | 'sms'; sentAt: Date }[]>`select channel, sent_at as "sentAt" from signup_text where signup_id = ${signupId} order by sent_at desc limit 1`)[0] ?? null
 
 /** Whether any store, or any other sign-up in progress, across every partner, holds this web address (store.slug). Never says whose. */
 export const subdomainTaken = async (tx: ScopedSql, subdomain: string, signupId: string | null): Promise<boolean> =>
@@ -150,7 +154,7 @@ export const selectOwnNewStore = async (tx: ScopedSql, partnerId: string, userId
 
 // SAAS.md §5 step 1, inside provisioning's one transaction.
 
-export const insertSignupUser = async (tx: ScopedSql, u: { partnerId: string; email: string; name: string; passwordHash: string | null; phone: string; now: Date }): Promise<string> => {
+export const insertSignupUser = async (tx: ScopedSql, u: { partnerId: string; email: string; name: string; passwordHash: string | null; phone: string | null; now: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into "user" (partner_id, email, name, status, password_hash, phone, email_verified_at, password_changed_at)
     values (${u.partnerId}, ${u.email}, ${u.name}, 'active', ${u.passwordHash}, ${u.phone}, ${u.now}, ${u.passwordHash === null ? null : u.now}) returning id

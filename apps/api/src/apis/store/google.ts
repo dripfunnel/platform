@@ -11,7 +11,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSignInCandidate } from '#db/scoped/userSignIn'
 import { localGooglePage, localGooglePath } from '#integrations/google/local'
 import type { GoogleClaims, GoogleSignIn } from '#integrations/google/provider'
-import { admit, withSession, type Admission, type StoreAuthDeps } from './admission'
+import { admit, stepOf, withSession, type Admission, type StoreAuthDeps } from './admission'
 import { readBody, refuse } from './authHttp'
 import { openGoogleSignup, resumeSignup, signupCookieName } from './signup'
 
@@ -163,8 +163,7 @@ const exchangeToken = async (request: Request, deps: StoreGoogleDeps, facts: Req
   const admitted = await admitGoogle(deps, facts, claims)
   if (admitted === 'no-account') return refuse({ code: 'NO_ACCOUNT' })
   if ('locked' in admitted) return refuse({ code: 'LOCKED', minutes: admitted.locked })
-  const body = { ok: true, step: admitted.stage === 'full' ? 'done' : admitted.stage, ...(admitted.stage === 'second-factor' ? { method: admitted.method } : {}) }
-  return withSession(request, body, { id: admitted.session, remember: admitted.remember, stage: admitted.stage })
+  return withSession(request, stepOf(admitted), { id: admitted.session, remember: admitted.remember, stage: admitted.stage })
 }
 
 export const handleStoreGoogle = async (request: Request, deps: StoreGoogleDeps): Promise<Response> => {

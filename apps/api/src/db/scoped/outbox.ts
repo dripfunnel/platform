@@ -133,9 +133,9 @@ export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Recor
 
 export interface UnsentExpiry {
   kind: string
-  /** The payload's ISO timestamp after which the row is useless; rows without one use `fallbackMs` from creation. */
+  /** The payload's ISO timestamp after which the row is useless; rows without one use `fallbackMs` from creation, or never expire when it is null. */
   expiresAtKey: string
-  fallbackMs: number
+  fallbackMs: number | null
   /** The payload keys that survive, beside `redacted: true`. */
   keep: readonly string[]
   leaseMs: number
@@ -152,7 +152,7 @@ export const expireUnsent = async (tx: ScopedSql, e: UnsentExpiry, now: Date): P
       select id from outbox
       where kind = ${e.kind} and delivered_at is null and failed_at is null
         and (claimed_at is null or claimed_at < ${new Date(now.getTime() - e.leaseMs)})
-        and coalesce((payload->>${e.expiresAtKey})::timestamptz, created_at + ${`${e.fallbackMs} milliseconds`}::interval) <= ${now}
+        and coalesce((payload->>${e.expiresAtKey})::timestamptz, created_at + ${e.fallbackMs === null ? null : `${e.fallbackMs} milliseconds`}::interval) <= ${now}
       order by created_at
       limit ${e.limit}
       for update skip locked

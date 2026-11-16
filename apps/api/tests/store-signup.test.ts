@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { verifySignupPhone } from '#apis/store/signup'
 import { hashPassword } from '#auth/password'
@@ -8,6 +8,7 @@ import { deleteExpiredSignups } from '#db/scoped/signup'
 import type { ProvisioningStep } from '#db/schema/saas'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -25,7 +26,8 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'portal', ${host}, 'live', 'CNAME', 'x'), (${t.partnerB}, 'portal', ${hostB}, 'live', 'CNAME', 'x')`
-  await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
+  // The number's step is there while the partner's WhatsApp is on (#1506); a test below turns it off.
+  await db.sql`update partner set state = 'live', whatsapp_enabled = true where id = ${t.partnerA}`
   await db.sql`update partner set state = 'awaiting' where id = ${t.partnerB}`
   // Partner A sells in India and the US: a cheap and a dearer plan, the cheap one with no trial of its own.
   for (const [name, inr, usd, trial] of [['Basic', 99900, 1900, 0], ['Grow', 249900, 4900, 30]] as const) {
@@ -40,7 +42,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets: null, now: () => now, allowAttempt: async () => true, ...overrides })
+const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets: null, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels, ...overrides })
 
 const cookies = (response: Response) => Object.fromEntries(response.headers.getSetCookie().map((c) => c.split(';')[0]?.split('=') ?? []).filter((kv) => kv.length === 2))
 
@@ -59,10 +61,14 @@ const emailCode = async (email: string) => {
   return (await withSystemScope(db.sql, (tx) => mintSignupEmailCode(tx, row?.id ?? '', now))) ?? ''
 }
 
-const textedCode = async (phone: string) => {
-  const [row] = await db.sql<{ payload: { vars: { code: string } } }[]>`select payload from outbox where kind = 'sms' and payload->>'to' = ${phone} order by created_at desc limit 1`
-  return row?.payload.vars.code ?? ''
+/** The newest code queued for a number, by WhatsApp or SMS. */
+const sentCode = async (phone: string) => {
+  const [row] = await db.sql<{ kind: string; partner_id: string; payload: { message: string; code?: string; vars?: { code: string } } }[]>`
+    select kind, partner_id, payload from outbox where kind in ('sms', 'whatsapp') and payload->>'to' = ${phone} order by created_at desc limit 1`
+  return { kind: row?.kind, partnerId: row?.partner_id, message: row?.payload.message, code: row?.payload.code ?? row?.payload.vars?.code ?? '' }
 }
+
+const textedCode = async (phone: string) => (await sentCode(phone)).code
 
 /** Steps 1–3 of the form, leaving the sign-up waiting for its texted code. */
 const throughStore = async (email: string, subdomain: string, country = 'IN') => {
@@ -120,7 +126,7 @@ describe('signing up', () => {
     expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'admin', country: 'IN' }, signup)).body['code']).toBe('SUBDOMAIN_TAKEN')
     expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'Not ok!', country: 'IN' }, signup)).body).toEqual({ ok: false, code: 'INVALID_SUBDOMAIN' })
     expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'juniper-co', country: 'DE' }, signup)).body).toEqual({ ok: false, code: 'COUNTRY_UNAVAILABLE' })
-    expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'juniper-co', country: 'IN' }, signup)).body).toEqual({ ok: true, step: 'phone' })
+    expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'juniper-co', country: 'IN' }, signup)).body).toEqual({ ok: true, step: 'phone', codeChannels: { whatsapp: true, sms: true } })
   })
 
   it('refuses a web address another partner’s store or sign-up holds, with the same answer whichever it is, and every reserved or -preview name', async () => {
@@ -154,7 +160,7 @@ describe('signing up', () => {
   it('makes the account, the store, its Trial and the Owner, then opens a full session with no 2-factor set-up (#1008)', async () => {
     const signup = await throughStore('owner.new@a.example', 'kesari')
     expect((await post('/api/auth/sign-up/send-phone', { phone: '98450 22113' }, signup)).body).toEqual({ ok: false, code: 'INVALID_PHONE' })
-    expect((await post('/api/auth/sign-up/send-phone', { phone: '+919845022113' }, signup)).body).toEqual({ ok: true, hint: '•••• 2113' })
+    expect((await post('/api/auth/sign-up/send-phone', { phone: '+919845022113' }, signup)).body).toEqual({ ok: true, hint: '•••• 2113', channel: 'whatsapp', codeChannels: { whatsapp: true, sms: true } })
     expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body).toEqual({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
     const done = await post('/api/auth/sign-up/verify-phone', { code: await textedCode('+919845022113') }, signup)
     expect(done.body['step']).toBe('done')
@@ -262,5 +268,94 @@ describe('signing up', () => {
     const answers = []
     for (let i = 0; i < 4; i += 1) answers.push((await post('/api/auth/sign-up/send-phone', { phone: '+16145550102' }, signup)).body['code'])
     expect(answers).toEqual([undefined, undefined, undefined, 'RATE_LIMITED'])
+  })
+})
+
+describe('the number step by WhatsApp first, only while the partner’s WhatsApp is on (#1506)', () => {
+  const both = { whatsapp: true, sms: true }
+  const at = (seconds: number) => deps({ now: () => new Date(now.getTime() + seconds * 1000) })
+  afterEach(async () => {
+    await db.sql`update partner set whatsapp_enabled = (id = ${t.partnerA}), sms_enabled = true where id in (${t.partnerA}, ${t.partnerB})`
+  })
+
+  it('with WhatsApp off, makes the store at the store step with no number, and refuses the number’s routes', async () => {
+    const waiting = await throughStore('waiting@a.example', 'waiting-number')
+    await db.sql`update partner set whatsapp_enabled = false where id = ${t.partnerA}`
+    expect((await post('/api/auth/sign-up/send-phone', { phone: '+16145550401' }, waiting)).body).toEqual({ ok: false, code: 'STEP_SKIPPED' })
+    expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, waiting)).body).toEqual({ ok: false, code: 'STEP_SKIPPED' })
+    // A sign-up held at the number when WhatsApp went off carries on from the store step.
+    expect((await post('/api/auth/sign-up/store', { storeName: 'Waiting', subdomain: 'waiting-number', country: 'IN' }, waiting)).body['step']).toBe('done')
+
+    const start = await post('/api/auth/sign-up', { name: 'No Number', email: 'no.number@a.example', password })
+    const signup = start.cookies['__Host-portal_signup'] ?? ''
+    await post('/api/auth/sign-up/verify-email', { code: await emailCode('no.number@a.example') }, signup)
+    const made = await post('/api/auth/sign-up/store', { storeName: 'No Number', subdomain: 'no-number', country: 'IN' }, signup)
+    expect(made.body).toMatchObject({ ok: true, step: 'done' })
+    expect(made.cookies['__Host-portal_signup']).toBe('')
+    expect(made.cookies['__Host-portal_session']).not.toBe('')
+    const [owner] = await db.sql<{ phone: string | null; status: string }[]>`select u.phone, s.status from "user" u join membership m on m.user_id = u.id join store s on s.id = m.store_id where u.email = 'no.number@a.example'`
+    expect(owner).toEqual({ phone: null, status: 'trial' })
+    expect(await db.sql`select 1 from signup where email = 'no.number@a.example'`).toHaveLength(0)
+  })
+
+  it('sends the code by WhatsApp first, by SMS only 20 seconds later and while SMS is on, and accepts only the newest', async () => {
+    const signup = await throughStore('wa.signup@a.example', 'wa-signup')
+    const phone = '+919845000201'
+    expect((await post('/api/auth/sign-up/send-phone', { phone }, signup)).body).toEqual({ ok: true, hint: '•••• 0201', channel: 'whatsapp', codeChannels: both })
+    const byWhatsApp = await sentCode(phone)
+    expect(byWhatsApp).toMatchObject({ kind: 'whatsapp', message: 'code.portal', partnerId: t.partnerA })
+    expect((await post('/api/auth/sign-up/send-phone', { phone, channel: 'sms' }, signup, at(19))).body).toEqual({ ok: false, code: 'TOO_SOON', seconds: 1 })
+    await db.sql`update partner set sms_enabled = false where id = ${t.partnerA}`
+    expect((await post('/api/auth/sign-up/send-phone', { phone, channel: 'sms' }, signup, at(20))).body).toEqual({ ok: false, code: 'CHANNEL_OFF' })
+    await db.sql`update partner set sms_enabled = true where id = ${t.partnerA}`
+    expect((await post('/api/auth/sign-up/send-phone', { phone, channel: 'sms' }, signup, at(20))).body).toMatchObject({ ok: true, channel: 'sms' })
+    const byText = await sentCode(phone)
+    expect(byText).toMatchObject({ kind: 'sms', message: 'code.verify_phone' })
+    if (byWhatsApp.code !== byText.code) expect((await post('/api/auth/sign-up/verify-phone', { code: byWhatsApp.code }, signup)).body).toMatchObject({ ok: false, code: 'WRONG_CODE' })
+    expect((await post('/api/auth/sign-up/verify-phone', { code: byText.code }, signup)).body['step']).toBe('done')
+  })
+
+  it('signs up with a code sent by WhatsApp', async () => {
+    const signup = await throughStore('wa.verified@a.example', 'wa-verified')
+    await post('/api/auth/sign-up/send-phone', { phone: '+919845000202' }, signup)
+    expect((await post('/api/auth/sign-up/verify-phone', { code: (await sentCode('+919845000202')).code }, signup)).body['step']).toBe('done')
+    expect((await db.sql<{ phone: string }[]>`select phone from "user" where email = 'wa.verified@a.example'`)[0]?.phone).toBe('+919845000202')
+  })
+
+  it('counts WhatsApp and SMS sends together under the sign-up’s limits', async () => {
+    const signup = await throughStore('mixed@a.example', 'mixed-limits', 'US')
+    const phone = '+16145550402'
+    const sent = async (body: Record<string, string>, d = deps()) => {
+      const answer = (await post('/api/auth/sign-up/send-phone', { phone, ...body }, signup, d)).body
+      return answer['channel'] ?? answer['code']
+    }
+    const answers = [await sent({}, at(0)), await sent({ channel: 'whatsapp' }, at(1)), await sent({ channel: 'sms' }, at(21)), await sent({ channel: 'sms' }, at(22))]
+    expect(answers).toEqual(['whatsapp', 'whatsapp', 'sms', 'RATE_LIMITED'])
+  })
+
+  it('asks for the number by the host partner’s WhatsApp only, never another partner’s', async () => {
+    await db.sql`update partner set state = 'live', whatsapp_enabled = true where id = ${t.partnerB}`
+    await db.sql`update partner set whatsapp_enabled = false where id = ${t.partnerA}`
+    try {
+      const start = await post('/api/auth/sign-up', { name: 'On A', email: 'on.a@a.example', password })
+      const signup = start.cookies['__Host-portal_signup'] ?? ''
+      await post('/api/auth/sign-up/verify-email', { code: await emailCode('on.a@a.example') }, signup)
+      expect((await post('/api/auth/sign-up/store', { storeName: 'On A', subdomain: 'on-a-only', country: 'IN' }, signup)).body['step']).toBe('done')
+      // And the other way: A's WhatsApp on, B's off, a sign-up on B's host skips the number.
+      await db.sql`update partner set whatsapp_enabled = true where id = ${t.partnerA}`
+      await db.sql`update partner set whatsapp_enabled = false where id = ${t.partnerB}`
+      await db.sql`insert into plan (partner_id, name, status) values (${t.partnerB}, 'B Basic', 'live')`
+      const [plan] = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${t.partnerB} and name = 'B Basic'`
+      await db.sql`insert into plan_price (plan_id, partner_id, version, currency, monthly_amount) values (${plan?.id ?? ''}, ${t.partnerB}, 1, 'INR', 99900)`
+      const onB = deps({ partnerId: t.partnerB, host: hostB })
+      const startB = await post('/api/auth/sign-up', { name: 'On B', email: 'on.b@b.example', password }, '', onB)
+      const signupB = startB.cookies['__Host-portal_signup'] ?? ''
+      const [row] = await db.sql<{ id: string }[]>`select id from signup where email = 'on.b@b.example'`
+      const codeB = (await withSystemScope(db.sql, (tx) => mintSignupEmailCode(tx, row?.id ?? '', now))) ?? ''
+      await post('/api/auth/sign-up/verify-email', { code: codeB }, signupB, onB)
+      expect((await post('/api/auth/sign-up/store', { storeName: 'On B', subdomain: 'on-b-only', country: 'IN' }, signupB, onB)).body['step']).toBe('done')
+    } finally {
+      await db.sql`update partner set state = 'awaiting' where id = ${t.partnerB}`
+    }
   })
 })
