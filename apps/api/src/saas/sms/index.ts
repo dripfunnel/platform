@@ -1,20 +1,21 @@
 import { z } from 'zod'
-import { isE164, type OutgoingSms } from '#core/sms'
+import type { SecretBox } from '#auth/secretBox'
+import { isE164, msg91TemplatesSchema, smsMessages, twilioAccountSidSchema, twilioMessagingServiceSidSchema, type OutgoingSms, type SmsMessage, type SmsProvider } from '#core/sms'
 import type { ScopedSql } from '#db/scoped/index'
 import { expireUnsent } from '#db/scoped/outbox'
+import { selectSealedSmsAccount, selectSmsEnabled } from '#db/scoped/partnerCredentials'
 import { queueSideEffect } from '#saas/outbox/index'
 
 // What the platform texts (THIRD-PARTY-ACCESS §2.8, decided on #337): one-time codes, and
 // shoppers' order updates. Each message is a DLT template in India, so its wording is fixed
-// here and registered by the partner exactly as written, variables in this order.
+// here and registered exactly as written, variables in this order.
 
 export const smsKind = 'sms'
 
 /** An order update unsent after this is news nobody needs, and its number and link leave the outbox. */
 export const orderTextMs = 3 * 24 * 60 * 60 * 1000
 
-export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited'] as const
-export type SmsMessage = (typeof smsMessages)[number]
+export { smsMessages, type SmsMessage, type SmsProvider }
 
 const code = z.object({ code: z.string().regex(/^\d{6}$/) }).strict()
 const order = z.object({ order: z.string().min(1).max(40) }).strict()
@@ -71,19 +72,49 @@ export const composeSms = (payload: SmsPayload, dltTemplateId: string | null): O
   return { to: payload.to, text: filled.text, dlt: dltTemplateId ? { templateId: dltTemplateId, vars: filled.vars } : null }
 }
 
-export type SmsProvider = 'msg91' | 'twilio'
-
 /** MSG91 for Indian numbers (DLT), Twilio for the rest (decided on #284). */
 export const providerFor = (to: string): SmsProvider => (to.startsWith('+91') ? 'msg91' : 'twilio')
 
-/** A partner's own SMS account (THIRD-PARTY-ACCESS §8.3), as #275 will read it, decrypted. */
+/** An SMS account, decrypted: DripFunnel's own or a partner's (THIRD-PARTY-ACCESS §8.3). */
 export type PartnerSmsAccount =
   | { provider: 'msg91'; authKey: string; templates: Partial<Record<SmsMessage, string>> }
   | { provider: 'twilio'; accountSid: string; authToken: string; messagingServiceSid: string }
 
+/** The account a partner's text goes through; `off` while the partner's SMS is turned off (THIRD-PARTY-ACCESS §4). */
 export interface PartnerSmsAccounts {
-  forPartner: (tx: ScopedSql, partnerId: string, provider: SmsProvider) => Promise<PartnerSmsAccount | null>
+  forPartner: (tx: ScopedSql, partnerId: string, provider: SmsProvider) => Promise<PartnerSmsAccount | 'off' | null>
 }
+
+/** What `partner_credential.settings` holds for each provider: the parts that aren't secret (#1017). */
+export const smsSettingsSchemas = {
+  msg91: z.strictObject({ templates: msg91TemplatesSchema }),
+  twilio: z.strictObject({ accountSid: twilioAccountSidSchema, messagingServiceSid: twilioMessagingServiceSidSchema }),
+} as const
+
+/** DripFunnel's own accounts (Worker values, or locally the stand-in's); a provider without one is absent. */
+export type OurSmsAccounts = { msg91?: Extract<PartnerSmsAccount, { provider: 'msg91' }>; twilio?: Extract<PartnerSmsAccount, { provider: 'twilio' }> }
+
+/** The partner's saved account for the provider, if complete and readable; incomplete settings never send (#1017). */
+const partnerAccount = async (tx: ScopedSql, secrets: SecretBox | null, partnerId: string, provider: SmsProvider): Promise<PartnerSmsAccount | null> => {
+  const row = await selectSealedSmsAccount(tx, partnerId, provider)
+  if (!row || !secrets) return null
+  const secret = await secrets.open(row.key_enc)
+  if (!secret) return null
+  if (provider === 'msg91') {
+    const settings = smsSettingsSchemas.msg91.safeParse(row.settings)
+    return settings.success ? { provider, authKey: secret, templates: settings.data.templates } : null
+  }
+  const settings = smsSettingsSchemas.twilio.safeParse(row.settings)
+  return settings.success ? { provider, authToken: secret, ...settings.data } : null
+}
+
+/** Per provider, the partner's complete account, else DripFunnel's (#1017); none at all while its SMS is off. Called in system scope. */
+export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSmsAccounts): PartnerSmsAccounts => ({
+  forPartner: async (tx, partnerId, provider) => {
+    if (!(await selectSmsEnabled(tx, partnerId))) return 'off'
+    return (await partnerAccount(tx, secrets, partnerId, provider)) ?? ours[provider] ?? null
+  },
+})
 
 /**
  * Queues one text in the transaction that decided it. The idempotency key is the caller's, e.g.

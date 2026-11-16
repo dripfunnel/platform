@@ -50,6 +50,21 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/at least 20 characters/)
   })
 
+  it('takes DripFunnel’s SMS accounts all or none per provider, MSG91 with all seven templates', () => {
+    const templates = { 'code.second_factor': 't1', 'code.verify_phone': 't2', 'code.shopper_sign_in': 't3', 'order.confirmed': 't4', 'order.shipped': 't5', 'order.delivered': 't6', 'rider.invited': 't7' }
+    const msg91 = { MSG91_AUTH_KEY: '412345AbCdEfGhIjKlMnOp', MSG91_TEMPLATES: JSON.stringify(templates) }
+    const twilio = { TWILIO_ACCOUNT_SID: `AC${'a'.repeat(32)}`, TWILIO_AUTH_TOKEN: 'b'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'c'.repeat(32)}` }
+    expect(parseConfig({ ...hosts, ...msg91, ...twilio }).MSG91_TEMPLATES).toEqual(templates)
+    expect(parseConfig({ ...hosts, ...twilio }).TWILIO_AUTH_TOKEN).toBe('b'.repeat(32))
+    expect(() => parseConfig({ ...hosts, MSG91_AUTH_KEY: msg91.MSG91_AUTH_KEY })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, TWILIO_ACCOUNT_SID: twilio.TWILIO_ACCOUNT_SID })).toThrow(/go together/)
+    const six = Object.fromEntries(Object.entries(templates).filter(([message]) => message !== 'rider.invited'))
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: JSON.stringify(six) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: JSON.stringify({ ...templates, 'marketing.blast': 't8' }) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: 'not json' })).toThrow(/must be JSON/)
+    expect(() => parseConfig({ ...hosts, ...twilio, TWILIO_ACCOUNT_SID: 'SK123' })).toThrow(/account SID/)
+  })
+
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.dripfunnel.dev', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')

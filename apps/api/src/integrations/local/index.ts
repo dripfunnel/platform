@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couriers'
 import { easyPostHook } from '../couriers/easypost'
 import { shiprocketHook } from '../couriers/shiprocket'
-import type { SmsSender } from '#core/sms'
+import type { SmsAccountCheck, SmsSender } from '#core/sms'
 import type { WhatsAppSender } from '#core/whatsapp'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
@@ -36,6 +36,9 @@ export const localSms = (): SmsSender => ({
     return { providerId: `local-${crypto.randomUUID()}` }
   },
 })
+
+/** A partner's SMS account check on this machine: every account works, since none reaches MSG91 or Twilio here. */
+export const localSmsCheck = async (): Promise<SmsAccountCheck> => 'ok'
 
 /** Expo's last step on this machine: each push to its subject, never its token; every receipt delivered. */
 export const localPush = (): ExpoPush => ({

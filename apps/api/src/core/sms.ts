@@ -1,5 +1,25 @@
-// The one contract every SMS provider adapter keeps (THIRD-PARTY-ACCESS §2.8): MSG91 in India,
-// Twilio elsewhere, each the partner's own account (#272).
+import { z } from 'zod'
+
+// The one contract every SMS provider adapter keeps (THIRD-PARTY-ACCESS §2.8): MSG91 in India, Twilio elsewhere,
+// DripFunnel's own accounts unless the partner's is complete (#1017).
+
+/** What the platform texts; each is one DLT template in India (THIRD-PARTY-ACCESS §4). */
+export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited'] as const
+export type SmsMessage = (typeof smsMessages)[number]
+
+// The shapes each provider issues, checked at boot for DripFunnel's values and on save for a partner's.
+export const msg91AuthKeySchema = z.string().regex(/^[A-Za-z0-9]{16,64}$/, 'an MSG91 auth key')
+/** MSG91's Flow template id for each message, all seven. */
+export const msg91TemplatesSchema = z.record(z.enum(smsMessages), z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'an MSG91 template id'))
+export const twilioAccountSidSchema = z.string().regex(/^AC[0-9a-f]{32}$/, 'a Twilio account SID')
+export const twilioAuthTokenSchema = z.string().regex(/^[0-9a-f]{32}$/, 'a Twilio auth token')
+export const twilioMessagingServiceSidSchema = z.string().regex(/^MG[0-9a-f]{32}$/, 'a Twilio messaging service SID')
+
+export const smsProviders = ['msg91', 'twilio'] as const
+export type SmsProvider = (typeof smsProviders)[number]
+
+/** A credential check that sends nothing (#1017): the provider accepted it, refused it, or didn't answer. */
+export type SmsAccountCheck = 'ok' | 'rejected' | 'unavailable'
 
 export interface OutgoingSms {
   /** E.164, `+` and digits only. */

@@ -1,3 +1,5 @@
+import type { SmsProvider } from '#core/sms'
+
 // The partner and store rows of migrations/0007 (SAAS.md §3.1, §4.2, §5; DATA-MODEL.md §3.2, §3.3).
 
 export const partnerStates = ['draft', 'awaiting', 'live', 'paused', 'offboarding', 'closed'] as const
@@ -97,6 +99,16 @@ export interface PartnerCredentialRow {
   account_label: string | null
   created_by: string
   created_at: Date
+}
+
+/** A partner's own SMS account (#1017): one per provider; the secret stays in key_enc, never in this row. */
+export interface PartnerSmsAccountRow {
+  id: string
+  provider: SmsProvider
+  key_prefix: string
+  status: 'untested' | 'ok' | 'rejected'
+  last_tested_at: Date | null
+  settings: unknown
 }
 
 /** ui/platform/FIRST-RELEASE.md §4, in order. */

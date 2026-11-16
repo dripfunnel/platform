@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { msg91AuthKeySchema, msg91TemplatesSchema, twilioAccountSidSchema, twilioAuthTokenSchema, twilioMessagingServiceSidSchema } from './sms'
 
 /** The stock photo sources (`integrations/stockImages`); the AI's come from `AI_PHOTO_SOURCES` (AI-STUDIO §8). */
 export const photoSources = ['pexels', 'pixabay', 'openverse', 'commons'] as const
@@ -131,6 +132,24 @@ const configSchema = z.object({
   PUBLISH_CHECKS: z.enum(['on', 'off']).optional(),
   // `0` accepts any text (SMS) code; email codes are always checked (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
+  // DripFunnel's own SMS accounts (THIRD-PARTY-ACCESS §2.8, #1017), all or none per provider: MSG91 for +91 numbers, its
+  // seven DLT templates as JSON; Twilio for the rest. A partner's own complete account replaces ours.
+  MSG91_AUTH_KEY: msg91AuthKeySchema.optional(),
+  MSG91_TEMPLATES: z
+    .string()
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value) as unknown
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'MSG91_TEMPLATES must be JSON' })
+        return z.NEVER
+      }
+    })
+    .pipe(msg91TemplatesSchema)
+    .optional(),
+  TWILIO_ACCOUNT_SID: twilioAccountSidSchema.optional(),
+  TWILIO_AUTH_TOKEN: twilioAuthTokenSchema.optional(),
+  TWILIO_MESSAGING_SERVICE_SID: twilioMessagingServiceSidSchema.optional(),
 })
 
 const devHooksHost = 'hooks.dripfunnel.dev'
@@ -150,6 +169,9 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
+  if ((c.MSG91_AUTH_KEY === undefined) !== (c.MSG91_TEMPLATES === undefined)) ctx.addIssue({ code: 'custom', message: 'MSG91_AUTH_KEY and MSG91_TEMPLATES go together', path: ['MSG91_AUTH_KEY'] })
+  const twilio = [c.TWILIO_ACCOUNT_SID, c.TWILIO_AUTH_TOKEN, c.TWILIO_MESSAGING_SERVICE_SID].filter((v) => v !== undefined).length
+  if (twilio !== 0 && twilio !== 3) ctx.addIssue({ code: 'custom', message: 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_MESSAGING_SERVICE_SID go together', path: ['TWILIO_ACCOUNT_SID'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))
     ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['SHOP_DOMAIN'] })

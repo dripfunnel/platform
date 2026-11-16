@@ -63,7 +63,7 @@ import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/c
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
 import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
@@ -71,7 +71,9 @@ import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/pu
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
 import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
-import { smsDeliverer } from '#jobs/queues/deliverers/sms'
+import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
+import { msg91Sender } from '#integrations/msg91/index'
+import { twilioSender } from '#integrations/twilio/index'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { localGoogleSignIn } from '#integrations/google/local'
@@ -179,7 +181,7 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
+import { expireUnsentSms, smsAccountsFor, smsKind, smsMessages, type OurSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -268,12 +270,24 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
-// Locally (SMS_LOCAL) every partner has an account on each provider, whose texts the stand-in prints (#275 sets the real ones).
-const localSmsAccounts: PartnerSmsAccounts = {
-  forPartner: async (_, __, provider) =>
-    provider === 'msg91'
-      ? { provider, authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) }
-      : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+// DripFunnel's own SMS accounts (#1017): locally (SMS_LOCAL) one on each provider whose texts the stand-in prints, else the
+// Worker's values. A partner's complete account replaces ours per provider (saas/sms smsAccountsFor).
+const smsFor = (config: Config): { ours: OurSmsAccounts; senders: SmsSenders } | null => {
+  if (config.SMS_LOCAL === '1') {
+    const ours: OurSmsAccounts = {
+      msg91: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+      twilio: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+    }
+    return { ours, senders: { msg91: localSms, twilio: localSms } }
+  }
+  const ours: OurSmsAccounts = {
+    ...(config.MSG91_AUTH_KEY && config.MSG91_TEMPLATES ? { msg91: { provider: 'msg91', authKey: config.MSG91_AUTH_KEY, templates: config.MSG91_TEMPLATES } } : {}),
+    ...(config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN && config.TWILIO_MESSAGING_SERVICE_SID
+      ? { twilio: { provider: 'twilio', accountSid: config.TWILIO_ACCOUNT_SID, authToken: config.TWILIO_AUTH_TOKEN, messagingServiceSid: config.TWILIO_MESSAGING_SERVICE_SID } }
+      : {}),
+  }
+  if (!ours.msg91 && !ours.twilio) return null
+  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c) } }
 }
 
 // Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
@@ -307,7 +321,7 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
+// (outbox-relay.ts); `sms` likewise until DripFunnel's own account (or SMS_LOCAL) is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
@@ -315,6 +329,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
+  const sms = smsFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
@@ -325,7 +340,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
     ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
-    ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
+    ...(sms ? { [smsKind]: smsDeliverer(sql, smsAccountsFor(secrets, sms.ours), sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -603,7 +618,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck } : {}), now: () => new Date() }))
   })
 }
 

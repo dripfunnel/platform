@@ -10,7 +10,11 @@ import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
-import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
+import { createPartnerCredentialsService, createPartnerSmsService } from '#saas/partnerCredentials/index'
+import type { SmsAccountCheck } from '#core/sms'
+import { checkMsg91Account } from '#integrations/msg91/index'
+import { checkTwilioAccount } from '#integrations/twilio/index'
+import type { PartnerSmsAccount } from '#saas/sms/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
@@ -44,15 +48,20 @@ export interface PlatformContextDeps {
   sessionId?: string | null
   /** Ends an archived store's live subscription (#1056). */
   billingStripe?: Pick<StoreBillingStripe, 'cancelNow'> | null
+  /** Checks a partner's SMS account; locally (SMS_LOCAL) the stand-in's. */
+  checkSms?: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
 }
 
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
+/** One read-only call to the account's provider: nothing is sent (#1017). */
+const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> => (account.provider === 'msg91' ? checkMsg91Account({ authKey: account.authKey }) : checkTwilioAccount(account))
+
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -66,6 +75,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     domains: createPartnerDomainsService({ ...deps, localHosts }),
     credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
     googleSignIn: createGoogleSignInService({ ...deps, secrets }),
+    sms: createPartnerSmsService({ ...deps, secrets, checkSms }),
     profile: createPartnerProfileService({ ...deps, sessionId }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),

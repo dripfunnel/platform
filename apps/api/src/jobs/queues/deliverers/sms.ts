@@ -33,6 +33,7 @@ export const smsDeliverer = (sql: postgres.Sql, accounts: PartnerSmsAccounts, se
     const provider = providerFor(payload.to)
     const partnerId = effect.partnerId
     const account = await withSystemScope(sql, (tx) => accounts.forPartner(tx, partnerId, provider))
+    if (account === 'off') return drop('sms_skipped', 'sms_off')
     if (!account || account.provider !== provider) return drop('sms_skipped', `no_${provider}_account`)
     const templateId = account.provider === 'msg91' ? (account.templates[payload.message] ?? null) : null
     if (account.provider === 'msg91' && !templateId) return drop('sms_skipped', 'no_dlt_template')
