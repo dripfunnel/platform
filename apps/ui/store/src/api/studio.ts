@@ -4,7 +4,8 @@ import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
 import { actingHeaders, actingStore } from '../acting'
 import { query } from './client'
 
-// The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it.
+// The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it. An ask
+// waits a build's time, since one naming a sample site may be built at once, section by section.
 const afterClockMs = 4 * 60_000
 const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 8 * 60_000 + afterClockMs }))
 const buildQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 15 * 60_000 + afterClockMs }))
@@ -79,7 +80,7 @@ export interface DesignRequest {
 /** One change, checked and repaired in the store's sandbox before it answers: changed, unchanged, refused or failed. */
 export const askDesign = async (input: DesignRequest): Promise<string> =>
   (
-    await slowQuery(
+    await buildQuery(
       'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!, $mode: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device, mode: $mode) { outcome } }',
       z.object({ askDesign: z.object({ outcome: z.string() }) }),
       { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device, mode: input.mode ?? 'change' },

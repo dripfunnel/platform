@@ -369,12 +369,11 @@ describe('using a signed-in account', () => {
     expect(used).toHaveLength(1)
   })
 
-  it('offers the reference Claude model for an Anthropic OAuth account', async () => {
+  it('offers a Claude sign-in only the model Anthropic lets it run, and runs no other', async () => {
     await connectedClaude()
-    const models = await designerModelsFor(designerDeps(), 'own_key')
-    expect(models[0]).toBe('claude-haiku-4-5')
-    expect(models).toContain('claude-sonnet-5-5')
-    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-sonnet-5-5')).not.toBeNull()
+    expect(await designerModelsFor(designerDeps(), 'own_key')).toEqual(['claude-haiku-4-5'])
+    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-haiku-4-5')).not.toBeNull()
+    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-sonnet-5-5')).toBeNull()
     expect(await designerAiFor(designerDeps(), 'own_key', 'claude-made-up')).toBeNull()
   })
 

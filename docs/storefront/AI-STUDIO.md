@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-12 (a change runs as an agent with tools and pictures of its own pages, §4 step 2). Before: 2026-11-12 (the full lane renders every page once, §4 step 3; the frame reports a page that threw, §8). Before: 2026-11-11 (#1415: a live push's theme images are copied into Assets, §8). Before: 2026-11-07 (a named collection is matched by meaning and shown live with `useListing`, or asked about when the shop has no clear match, §8). Before: 2026-11-06 (#1317: the sealed breadcrumbs stay in the studio frame too, §8). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named; it searches in one to three subject words, §8). Before: 2026-11-05 (#1296: in the studio frame, core's `Link` keeps a clicked store path under the session's prefix, §8). Before: 2026-11-05 (#1295: the AI uses a web photo when the merchant asks for one, and every design gets quiet motion, a `Reveal` scroll fade that shows with scripts off, hover effects and a hero fade, §8). Before: 2026-11-05 (#1279: the studio shows the merchant's message at once and the AI's real steps: an `intro` sentence, then one plain "making your changes" step and a friendly line that changes every 3 seconds, §4 "Live progress"; the suggestion chips are gone; the assets picker scrolls and pages, §8). Before: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-16 (an attached picture placed only when asked, never a screenshot; a product image asked for uses the shop's product photos, §8). Before: 2026-11-13 (a sample site measured and its pictures copied into Assets, §8; its plan built at once, section by section, §4 "A plan"; the studio bench, §4). Before: 2026-11-12 (a change runs as an agent with tools and pictures of its own pages, §4 step 2). Before: 2026-11-12 (the full lane renders every page once, §4 step 3; the frame reports a page that threw, §8). Before: 2026-11-11 (#1415: a live push's theme images are copied into Assets, §8). Before: 2026-11-07 (a named collection is matched by meaning and shown live with `useListing`, or asked about when the shop has no clear match, §8). Before: 2026-11-06 (#1317: the sealed breadcrumbs stay in the studio frame too, §8). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named; it searches in one to three subject words, §8). Before: 2026-11-05 (#1296: in the studio frame, core's `Link` keeps a clicked store path under the session's prefix, §8). Before: 2026-11-05 (#1295: the AI uses a web photo when the merchant asks for one, and every design gets quiet motion, a `Reveal` scroll fade that shows with scripts off, hover effects and a hero fade, §8). Before: 2026-11-05 (#1279: the studio shows the merchant's message at once and the AI's real steps: an `intro` sentence, then one plain "making your changes" step and a friendly line that changes every 3 seconds, §4 "Live progress"; the suggestion chips are gone; the assets picker scrolls and pages, §8). Before: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -258,6 +258,13 @@ unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and 
 7. **One entry.** The build is one `ai` message whose `commit` is its last page's and `before_commit` the head before its
    first, so **Undo** takes every page back (§5).
 
+**A sample site's plan is built at once** (decided 2026-11-13 with Akshay). When a request attaches or names a site and
+the model answers with a plan (the home page or the whole shop like it), no plan card waits for **Build it**: the build
+starts in the same `askDesign`, and builds the **home page section by section** (`sectionRequests`), each section its own
+change matched to the same part of the site, the first with the header and footer; other pages are left for a later
+request. It is one prompt unit, and the ask and the build share one 15-minute clock, so the portal waits for `askDesign`
+as long as for a build. A request for one part of a site ("a header like this") is still one change.
+
 *Why in the object, one turn:* no other change lands between two pages, the frame swaps page by page through the same
 hot reload, and Stop reaches the build without waiting in its turn. *Why one request:* the model's key stays in the Worker,
 which the object calls back for each page, as for a single change.
@@ -268,6 +275,16 @@ without an end, after 20 minutes). **Fallback**: a studio whose socket can't con
 before, and reads the result when `askDesign` answers.
 
 ---
+
+### The bench (added 2026-11-13)
+
+`pnpm --filter ./apps/sandbox studio:bench [cases.json] [--score-only]` asks the local studio each case of
+`apps/sandbox/scripts/studio-bench.cases.json` (a request and its sample site), then screenshots the sample site and the
+draft's preview (by the same signed link as Open preview) with a local Chrome, and scores how close they are, whole and in
+ten bands top down (0–100, the two shots scaled to one width). It writes the shots and `report.html` under
+`apps/sandbox/.studio-bench/` (git-ignored). It reaches only `localhost` hosts, signs in with the portal's session from
+`STUDIO_BENCH_SESSION` as a bearer (never logged) and acts for `STUDIO_BENCH_STORE`. Run by hand only: each case spends a
+real AI request; `--score-only` spends none. Compare models or a prompt change by the score, not by eye.
 
 ## 5. Undo, discard and going back
 
@@ -457,7 +474,17 @@ before, and reads the result when `askDesign` answers.
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7). *Since 2026-11-13* a site named
   only in the words (`https://…` or `www.…`, the first one) is pictured too when none is attached; one that can't be
   pictured doesn't stop the change, since it may be a link rather than a sample. A plan keeps the site in its request,
-  and "Build it" pictures it once for every page.
+  and "Build it" pictures it once for every page. *Since 2026-11-13* the same Browser Rendering call that can't reach our
+  network also **measures** the site (`integrations/cloudflare/reference.ts`): its fonts, colours, header links, sections
+  top down and its pictures, read by a script of ours whose answer sits under a fresh random id and is checked against a
+  strict, capped schema. The brief gives it to the model quoted, as data read from that page, never instructions.
+- **A sample site's pictures are copied into Assets** (decided 2026-11-13 with Akshay, automatically, no tick asked): for
+  a site attached or named in *this* request, up to 12 of its own pictures that aren't on a product link (picked by the
+  size they're drawn at, so a lazy picture below the fold counts), fetched under the rules of [../ARCHITECTURE.md](../ARCHITECTURE.md) §7 and stored as the store's images
+  (`storefront.image_imported`, source `sample_site`). Bytes the library already holds are reused (by checksum), so asking
+  again copies nothing twice. A site from an earlier turn copies nothing new, but its copies already in the library are
+  listed again, so a follow-up ("go ahead") can place them. The brief lists them by asset id and the sections they fill; the model places them on the same banners and
+  tiles, never on a product card, which shows the store's own products. The merchant owns the right to use them.
 - **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `store_photos` (#1244: the
   store's own Assets images, newest first, at most 24, with their size), `list_collections`, `find_products`,
   `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by the Worker for the
@@ -511,7 +538,8 @@ before, and reads the result when `askDesign` answers.
   from it (a scrolling grid that reads the next page of the library as it nears its end), or uploads one, and sends it as `imageAssetId`. The composer shows no ready-made suggestion chips (#1279). A file nothing references is not served to shoppers (0290); a design
   request that changes the theme with it attached (or adds it) marks it `storefront_visible` (migration 0375), and Assets › Delete
   keeps such a file while the theme at `main` names its id (and when the repo can't be read), and core's `MerchantImage` then reads it with the Shop API's
-  `shopAsset(id)`. The model is told the attached image's asset id and writes it into the content key the theme reads
+  `shopAsset(id)`. The model is told the attached image's asset id and, only when the merchant asks to use it on the site (a
+  screenshot of a page or of the studio is to look at and match, never placed; *since 2026-11-16*), writes it into the content key the theme reads
   (the baseline hero's `home.hero.image`, `none` until one is chosen); the theme never writes an address. In CSS the model
   writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish
   build's) turn it into `/shop-api/assets/{id}`, so the shop serves it under the shop policy and `img-src 'self'`.

@@ -8,9 +8,10 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
-import { makeVisible } from '#db/scoped/catalog'
+import { makeVisible, selectLibraryImageByChecksum } from '#db/scoped/catalog'
 import { insertAiRun, selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import { AiDeclined, GatewayError, SignInExpired, type AiImage, type AiProvider } from '#integrations/ai/index'
+import type { ReferencePage, ReferenceReader } from '#integrations/cloudflare/reference'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
 import { siteIn } from './sample'
 import type { DnsLookup } from '#integrations/dns/doh'
@@ -22,8 +23,8 @@ import type { StockImages, StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type FileEdit, type StudioState } from '#saas/studio/index'
-import { agentBuildMs, agentChangeMs, chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
-import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { agentBuildMs, agentChangeMs, chatReply, designModel, type CopiedImage, type DesignTools, type DesignBrief, type Device, type ReferenceBrief } from './model'
+import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, sectionRequests, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -38,6 +39,8 @@ export interface StudioDeps extends DesignerDeps {
   /** The models that account can run, the default first; empty where the model isn't the merchant's to pick. */
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
+  /** Reads a sample site's fonts, colours, sections and pictures; null or unset where Browser Rendering isn't set up. */
+  reference?: ReferenceReader | null
   lookup: DnsLookup | null
   /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
   stock: StockImages | null
@@ -59,7 +62,7 @@ const reasonOf = (error: unknown): DesignFailureReason | null => {
   if (error instanceof SignInExpired) return 'SIGN_IN_EXPIRED'
   if (error instanceof AiDeclined) return 'DECLINED'
   if (!(error instanceof GatewayError)) return null
-  if (error.code === 'RATE_LIMITED' || error.code === 'PROVIDER_UNAVAILABLE' || error.code === 'TIMEOUT') return error.code
+  if (error.code === 'RATE_LIMITED' || error.code === 'PROVIDER_UNAVAILABLE' || error.code === 'TIMEOUT' || error.code === 'OUT_OF_CREDIT') return error.code
   return error.code === 'INVALID_CREDENTIALS' ? 'CREDENTIALS_REJECTED' : error.code === 'CANCELLED' ? null : 'BAD_REQUEST'
 }
 
@@ -70,6 +73,11 @@ export type TextEntry = { key: string; text: string }
 
 /** design_message.text's limit (migration 0395): a whole design brief fits. */
 const maxRequest = 10_000
+/** Less of the clock than this left after the plan, and its card waits for Build it rather than squeeze the sections. */
+const minAutoBuildMs = 5 * 60_000
+/** A sample site's own pictures copied into Assets for one request (AI-STUDIO §8). */
+const maxCopiedImages = 12
+const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 /** One text box's words in Edit text. */
 const maxText = 2000
 /** design_message.sample_url's limit (migration 0333). */
@@ -190,6 +198,44 @@ export const createStudioService = (deps: StudioDeps) => {
     return slices.length > 0 ? { ok: true, value: slices.map((bytes) => ({ mediaType: 'image/jpeg' as const, base64: toBase64(bytes) })) } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
   }
 
+  /** The same site's measured design, read like its screenshot at a public https address only; null when it can't be. */
+  const measuredOf = async (raw: string, device: Device): Promise<ReferencePage | null> => {
+    if (!deps.lookup || !deps.reference) return null
+    const url = await checkedUrl(raw, deps.lookup, AbortSignal.timeout(5_000)).catch(() => null)
+    return url instanceof URL ? deps.reference.read(url, device) : null
+  }
+
+  /**
+   * A site named in the request has its own banner and tile pictures copied into Assets (decided 2026-11-13, AI-STUDIO §8),
+   * never its product photos; bytes the library already holds are reused. `upload` false (a site from an earlier turn) only
+   * finds the copies already made, so a follow-up still knows them.
+   */
+  const copiedFrom = async (page: ReferencePage, upload: boolean): Promise<CopiedImage[]> => {
+    const { lookup, assets } = deps
+    if (!lookup || !assets) return []
+    const wanted = [...new Map(page.images.filter((image) => !image.product).map((image) => [image.src, image])).values()].slice(0, maxCopiedImages)
+    const fetched = await Promise.all(wanted.map((image) => fetchPublic(image.src, { lookup, maxBytes: maxImageBytes, timeoutMs: 8_000, tries: 1 })))
+    const copied: CopiedImage[] = []
+    for (const [i, got] of fetched.entries()) {
+      const image = wanted[i]
+      if (!got.ok || !image) continue
+      const checksum = hex(await crypto.subtle.digest('SHA-256', got.bytes))
+      let assetId = await withScope(sql, context, (tx) => selectLibraryImageByChecksum(tx, storeId, checksum))
+      if (!assetId && !upload) continue
+      if (!assetId) {
+        const stored = await createAssetService({ sql, context, actor, activity, facts, store: assets }).upload(got.bytes)
+        if (!stored.ok || stored.asset.kind !== 'image') continue
+        assetId = stored.asset.id
+        await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.imageImported, [{ field: 'source', before: null, after: 'sample_site' }])))
+      }
+      // The same picture in two sections is one asset, listed with both.
+      const known = copied.find((c) => c.assetId === assetId)
+      if (known) known.sections.push(image.section)
+      else copied.push({ assetId, sections: [image.section], alt: image.alt, width: image.width, height: image.height })
+    }
+    return copied
+  }
+
   const stockAllowed = () => deps.allowStock(`stock:${storeId}`)
 
   /** `importDesignImage`: a public https address fetched by the platform and stored as the store's own image (AI-STUDIO §8). */
@@ -259,7 +305,7 @@ export const createStudioService = (deps: StudioDeps) => {
     return { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] }
   }
 
-  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshots: AiImage[], summary: StoreSummary | null, mayAsk = false): Promise<DesignBrief> => {
+  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshots: AiImage[], summary: StoreSummary | null, mayAsk = false, reference: ReferenceBrief | null = null): Promise<DesignBrief> => {
     const recent = await withScope(sql, context, (tx) => selectRecentTurns(tx, storeId, recentTurns))
     return {
       page: input.page,
@@ -270,6 +316,7 @@ export const createStudioService = (deps: StudioDeps) => {
       image,
       imageAssetId: image ? input.imageAssetId : null,
       screenshots,
+      reference,
       mayAsk,
     }
   }
@@ -278,12 +325,12 @@ export const createStudioService = (deps: StudioDeps) => {
     insertDesignMessage(tx, { storeId, createdBy: actor.id, at: now(), ...m })
 
   /** Chat mode: a reply with no change and no sandbox; it takes a prompt like a change (SAAS §9.2) and is metered as a `design` run. */
-  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shots: AiImage[], asked: Date, live: Live): Promise<DesignResult<AskAnswer>> => {
+  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shots: AiImage[], reference: ReferenceBrief | null, asked: Date, live: Live): Promise<DesignResult<AskAnswer>> => {
     if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     let reply: Awaited<ReturnType<typeof chatReply>> | null = null
     let failure: unknown = null
     try {
-      reply = await chatReply(provider, await briefOf(input, image, shots, await currentSummary()), text, live.text)
+      reply = await chatReply(provider, await briefOf(input, image, shots, await currentSummary(), false, reference), text, live.text)
     } catch (error) {
       failure = error
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
@@ -342,20 +389,29 @@ export const createStudioService = (deps: StudioDeps) => {
     if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
-    const attached = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
+    const started = now()
+    const look = (site: string) => Promise.all([screenshotOf(site, input.device), measuredOf(site, input.device)])
+    const attachedLook = input.sampleUrl ? await look(input.sampleUrl) : null
+    const attached = attachedLook?.[0] ?? null
     if (attached && !attached.ok) return attached
     // A site named only in the words is pictured too; one that can't be doesn't stop the change, since it may not be a sample.
-    const typed = attached ? null : (siteIn(text, maxUrl) ?? (await earlierSite()))
-    const typedShot = typed ? await screenshotOf(typed, input.device) : null
+    const namedHere = siteIn(text, maxUrl)
+    const typed = attached ? null : (namedHere ?? (await earlierSite()))
+    const typedLook = typed ? await look(typed) : null
+    const typedShot = typedLook?.[0] ?? null
     const shot = attached ?? (typedShot?.ok ? typedShot : null)
+    const measured = (attached ? attachedLook?.[1] : typedShot?.ok ? typedLook?.[1] : null) ?? null
+    // Only a site this request names, never one from earlier turns, has its pictures copied and its plan built at once.
+    const fresh = attached !== null || (typedShot?.ok === true && typed === namedHere)
     const asked = now()
-    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? [], asked, live)
+    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? [], measured && { page: measured, copied: [] }, asked, live)
+    const reference: ReferenceBrief | null = measured && { page: measured, copied: await copiedFrom(measured, fresh) }
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
     const added: AddedPhoto[] = []
     const stopLoop = new AbortController()
     const known = await currentSummary()
     const lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
-    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? [], known, true), photoTools(added), () => undefined, stopLoop.signal, lookups, agentChangeMs)
+    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? [], known, true, reference), photoTools(added), () => undefined, stopLoop.signal, lookups, agentChangeMs)
     let modelAsked = false
     let modelFailure: unknown = null
     let proposed = ''
@@ -403,9 +459,15 @@ export const createStudioService = (deps: StudioDeps) => {
       if (!stopped) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome: 'cancelled', message: stopped } }
     }
-    if (answer.outcome === 'changed') await placePhotos(proposed, [...(input.imageAssetId ? [input.imageAssetId] : []), ...(lookups?.listed ?? [])], added)
+    if (answer.outcome === 'changed') await placePhotos(proposed, [...(input.imageAssetId ? [input.imageAssetId] : []), ...(reference?.copied.map((c) => c.assetId) ?? []), ...(lookups?.listed ?? [])], added)
     const summary = 'summary' in answer ? answer.summary : null
-    if (askedBack && answer.outcome === 'unchanged' && summary) return { ok: true, value: { outcome: 'asked', message: await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId) } }
+    if (askedBack && answer.outcome === 'unchanged' && summary) {
+      const message = await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId)
+      // A plan for a site this request names is built at once, section by section, inside one build's clock (AI-STUDIO §4).
+      const wallMs = agentBuildMs - (now().getTime() - started.getTime())
+      if (fresh && 'plan' in askedBack && wallMs >= minAutoBuildMs) return buildIn(message.id, input.model, run, live, { shots: shot?.value ?? [], reference, wallMs })
+      return { ok: true, value: { outcome: 'asked', message } }
+    }
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
@@ -548,8 +610,9 @@ export const createStudioService = (deps: StudioDeps) => {
    * **Build it** (#1243): every planned page, home first, each its own change through the gate in the store's studio; the
    * build is one message, so one Undo takes it all back. Stop (`cancelDesign`) ends it after the page being built.
    */
-  const buildPlan = (messageId: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
-    followed(async (run, live) => {
+  /** `given`: what an ask that answered with a sample site's plan already read, and what is left of its clock. */
+  type Given = { shots: AiImage[]; reference: ReferenceBrief | null; wallMs: number }
+  const buildIn = async (messageId: string, model: string | null, run: string, live: Live, given: Given | null = null): Promise<DesignResult<AskAnswer>> => {
       if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
       const open = await openPlan(messageId)
       if (!open) return { ok: false, reason: 'PLAN_GONE' }
@@ -570,12 +633,15 @@ export const createStudioService = (deps: StudioDeps) => {
       const added: AddedPhoto[] = []
       let lookups: ReturnType<typeof storeLookups> | null
       let designer: ReturnType<typeof designModel>
+      let copiedIds: string[]
       try {
         const known = await currentSummary()
         lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
         const site = siteIn(flow.request, maxUrl)
-        const shot = site ? await screenshotOf(site, 'desktop') : null
-        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, shot?.ok ? shot.value : [], known), photoTools(added), () => undefined, undefined, lookups, agentBuildMs)
+        const [shot, measured] = given ? [{ ok: true as const, value: given.shots }, null] : site ? await Promise.all([screenshotOf(site, 'desktop'), measuredOf(site, 'desktop')]) : [null, null]
+        const reference = given ? given.reference : measured && { page: measured, copied: await copiedFrom(measured, true) }
+        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, shot?.ok ? shot.value : [], known, false, reference), photoTools(added), () => undefined, undefined, lookups, given?.wallMs ?? agentBuildMs)
+        copiedIds = reference?.copied.map((c) => c.assetId) ?? []
       } catch (error) {
         await giveBack(reopened(flow)).catch(() => undefined)
         throw error
@@ -602,7 +668,8 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       let answer: Awaited<ReturnType<NonNullable<typeof studio>['build']>> | { outcome: 'failed' }
       try {
-        answer = await studio.build(storeId, { pages: pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
+        // A plan drawn from a sample site builds its home page section by section.
+        answer = await studio.build(storeId, { pages: siteIn(flow.request, maxUrl) ? sectionRequests(flow) : pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
       } catch (error) {
         logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
         // An answer lost after a page was built still records the build as it stood, so its pages have their one Undo.
@@ -618,7 +685,7 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       const built = answer
       const changed = built.pages.filter((p) => p.outcome === 'changed')
-      if (changed.length > 0) await placePhotos(proposed, lookups?.listed ?? [], added)
+      if (changed.length > 0) await placePhotos(proposed, [...copiedIds, ...(lookups?.listed ?? [])], added)
       const saved = savedBeside(changed.length > 0 ? 'changed' : 'unchanged')
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
@@ -639,7 +706,9 @@ export const createStudioService = (deps: StudioDeps) => {
       if (message === 'lost') return { ok: false, reason: 'PLAN_GONE' }
       if (!message) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome, message } }
-    })
+  }
+
+  const buildPlan = (messageId: string, model: string | null): Promise<DesignResult<AskAnswer>> => followed((run, live) => buildIn(messageId, model, run, live))
 
   /** `searchStockImages`: every source's results for words the merchant typed; page 1 to 20. */
   const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {

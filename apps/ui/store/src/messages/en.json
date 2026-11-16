@@ -8018,7 +8018,8 @@
           "SIGN_IN_EXPIRED": "Your AI sign-in has expired — nothing on your site changed. Sign in again under Storefront › AI.",
           "CREDENTIALS_REJECTED": "The AI provider refused the key — nothing on your site changed. Check the key under Storefront › AI.",
           "BAD_REQUEST": "The AI provider couldn’t take that request — nothing on your site changed. Say it a different way.",
-          "DECLINED": "The AI declined that request — nothing on your site changed. Say it a different way."
+          "DECLINED": "The AI declined that request — nothing on your site changed. Say it a different way.",
+          "OUT_OF_CREDIT": "Your AI account is out of credit — nothing on your site changed. Add credit with your AI provider, then try again."
         },
         "loadFailed": "We couldn’t load the conversation. Reopen the studio to try again.",
         "refused": {

@@ -13,6 +13,7 @@ const finishOf = (reason: string | null | undefined): FinishReason => (reason ==
 
 const failureOf = (status: number, retryAfter: string | null): GatewayError => {
   if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
+  if (status === 402) return new GatewayError('OUT_OF_CREDIT')
   if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
   if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(retryAfter, new Date()))
   if (status === 400 || status === 413 || status === 422) return new GatewayError('BAD_REQUEST')

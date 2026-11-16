@@ -7,6 +7,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "studio:bench": "tsx scripts/studio-bench.ts",
     "start:local": "env -i PATH=\"$PATH\" PORT=8790 SANDBOX_SLOTS=50 SANDBOX_WORK=\"${TMPDIR:-/tmp}/dripfunnel-sandbox\" tsx src/main.ts"
   },
   "dependencies": {

@@ -258,7 +258,8 @@ const credentialFor = async (deps: DesignerDeps, billed: Billed) => {
 /** The studio's models on the account that pays, the default first; none when no account can be used. */
 export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Promise<readonly string[]> => {
   const found = await credentialFor(deps, billed)
-  if (found?.provider === 'anthropic' && found.auth === 'oauth') return [anthropicOAuthDesignerModel, ...modelsOf('anthropic').filter((model) => model !== anthropicOAuthDesignerModel)]
+  // A Claude sign-in runs only this model: Anthropic answers any other with a bare 429 (THIRD-PARTY-ACCESS §2.6).
+  if (found?.provider === 'anthropic' && found.auth === 'oauth') return [anthropicOAuthDesignerModel]
   if (found && deepInfra(found)) return (await deepinfraModels(found.key).catch(() => [])).map((m) => m.id)
   return found ? modelsOf(found.provider) : []
 }
@@ -274,7 +275,7 @@ export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requeste
   // A DeepInfra key's models are its own list, read (and so known to `capabilityOf`) before one is picked.
   const listed = deepInfra(found) ? await deepinfraModels(found.key).catch(() => []) : null
   const model = requested ?? listed?.[0]?.id ?? defaultModel(found.provider, anthropicOAuth)
-  if (!capabilityOf(found.provider, model)) return null
+  if (!capabilityOf(found.provider, model) || (anthropicOAuth && model !== anthropicOAuthDesignerModel)) return null
 
   const connections = createAiConnections({ sql: deps.sql, context: deps.context, secrets: deps.secrets, oauth: deps.oauth ?? null, now: () => new Date() })
   const executor: ExecutorOptions = { timeoutMs: 180_000, refresh: connections.refresher, ...deps.executor }
@@ -289,7 +290,8 @@ export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requeste
     .filter((connection) => connection.connectionId !== primaryId)
     .flatMap((connection) => {
       try {
-        return [routeOf(connection, connection.preferredModel ?? defaultModel(connection.provider, connection.authType === 'oauth' && connection.provider === 'anthropic'), false)]
+        const claudeSignIn = connection.authType === 'oauth' && connection.provider === 'anthropic'
+        return [routeOf(connection, claudeSignIn ? anthropicOAuthDesignerModel : (connection.preferredModel ?? defaultModel(connection.provider, false)), false)]
       } catch (error) {
         if (error instanceof NoExecutorError) return []
         throw error

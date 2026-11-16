@@ -68,6 +68,7 @@ describe('openai-chat response', () => {
   })
   it('turns error bodies, no choices and malformed bodies into gateway errors', () => {
     expect(() => response.parse({ error: { code: 'rate_limit_exceeded' } })).toThrow(expect.objectContaining({ code: 'RATE_LIMITED' }))
+    expect(() => response.parse({ error: { code: 'insufficient_quota' } })).toThrow(expect.objectContaining({ code: 'OUT_OF_CREDIT' }))
     expect(() => response.parse({ error: { code: 'invalid_api_key' } })).toThrow(expect.objectContaining({ code: 'INVALID_CREDENTIALS' }))
     expect(() => response.parse({ model: 'm', choices: [] })).toThrow(GatewayError)
     expect(() => response.parse(null)).toThrow(GatewayError)

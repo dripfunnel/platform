@@ -48,7 +48,7 @@ export interface ChatProvider {
 }
 
 /** Why a call failed, in words that carry no key, header or upstream body (error normalisation). */
-export const gatewayErrorCodes = ['INVALID_CREDENTIALS', 'RATE_LIMITED', 'PROVIDER_UNAVAILABLE', 'TIMEOUT', 'CANCELLED', 'BAD_REQUEST', 'MODEL_NOT_FOUND', 'CONTENT_REFUSED'] as const
+export const gatewayErrorCodes = ['INVALID_CREDENTIALS', 'RATE_LIMITED', 'PROVIDER_UNAVAILABLE', 'TIMEOUT', 'CANCELLED', 'BAD_REQUEST', 'MODEL_NOT_FOUND', 'CONTENT_REFUSED', 'OUT_OF_CREDIT'] as const
 export type GatewayErrorCode = (typeof gatewayErrorCodes)[number]
 
 /** The failures worth another try: the provider was busy or unreachable. A refused key or a bad request is not. */
