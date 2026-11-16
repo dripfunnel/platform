@@ -28,13 +28,18 @@ export interface SentCode {
 
 export const noCodeChannels: CodeChannels = { whatsapp: false, sms: false }
 
-const linkLabel = (channel: CodeChannel, last: CodeChannel): string => {
+/** Before the API has said (a resumed step): both, and a closed one is dropped when its send is refused CHANNEL_OFF. */
+export const unknownCodeChannels: CodeChannels = { whatsapp: true, sms: true }
+
+const linkLabel = (channel: CodeChannel, last: CodeChannel | null): string => {
+  if (last === null) return channel === 'whatsapp' ? words.sendWhatsapp : words.sendSms
   if (channel === 'whatsapp') return last === 'whatsapp' ? words.againWhatsapp : words.insteadWhatsapp
   return last === 'sms' ? words.againSms : words.insteadSms
 }
 
 export interface CodeResendProps {
-  sent: SentCode
+  /** Null while no code has gone (the first send was refused): the links alone, to ask for one. */
+  sent: SentCode | null
   channels: CodeChannels
   wait: number
   busy?: boolean | undefined
@@ -49,9 +54,11 @@ export const CodeResend = ({ sent, channels, wait, busy, onSend }: CodeResendPro
   const offers = (['whatsapp', 'sms'] as const).filter((channel) => channels[channel])
   return (
     <div className="df-code-resend">
-      <p role="status" className="df-code-resend-sent">
-        {fill(sent.channel === 'whatsapp' ? words.sentWhatsapp : words.sentSms, { hint: sent.hint })}
-      </p>
+      {sent && (
+        <p role="status" className="df-code-resend-sent">
+          {fill(sent.channel === 'whatsapp' ? words.sentWhatsapp : words.sentSms, { hint: sent.hint })}
+        </p>
+      )}
       {wait > 0 ? (
         <p className="df-code-resend-wait" aria-hidden="true">
           {fill(words.wait, { seconds: String(wait) })}
@@ -59,10 +66,10 @@ export const CodeResend = ({ sent, channels, wait, busy, onSend }: CodeResendPro
       ) : (
         offers.length > 0 && (
           <p className="df-code-resend-links">
-            <span>{words.ready}</span>
+            {sent && <span>{words.ready}</span>}
             {offers.map((channel) => (
               <button key={channel} type="button" className="df-code-resend-link" disabled={busy} onClick={() => onSend(channel)}>
-                {linkLabel(channel, sent.channel)}
+                {linkLabel(channel, sent?.channel ?? null)}
               </button>
             ))}
           </p>

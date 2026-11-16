@@ -198,7 +198,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
               <div className="df-profile-narrow">
                 <Field label={words.code} variant="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder={words.codePlaceholder} value={code} onValue={(v) => (setCode(v.replace(/\D/g, '').slice(0, 6)), setError(null))} />
               </div>
-              {setup.method === 'sms' && setup.sent && <CodeResend sent={setup.sent} channels={channels} wait={wait} busy={busy} onSend={(channel) => resend(setup, channel)} />}
+              {setup.method === 'sms' && <CodeResend sent={setup.sent} channels={channels} wait={wait} busy={busy} onSend={(channel) => resend(setup, channel)} />}
               <Alert text={error} />
               <div className="df-profile-actions">
                 <Secondary onClick={() => go(null)}>{words.cancel}</Secondary>

@@ -8,7 +8,7 @@ import { sampleCodes, sampleEmail, sampleHint, signInStates, type SignInState } 
 import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
 import { CodeField, Field, Foot, GoogleButton, PasswordField, Primary, Secondary } from './fields'
-import { afterRefusedSend, CodeResend, noCodeChannels, useResendWait, type SentCode } from '../common/CodeResend'
+import { afterRefusedSend, CodeResend, noCodeChannels, unknownCodeChannels, useResendWait, type SentCode } from '../common/CodeResend'
 import { productName } from '../common/productName'
 import { googleOutcomeText, refusalText, type GoogleOutcome } from './refusals'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
@@ -111,7 +111,7 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
         : resume?.step === 'enrol'
           ? { kind: 'enrol', sent: null, channels: noCodeChannels }
           : resume?.step === 'second-factor'
-            ? { kind: 'code', method: resume.method, sent: null, channels: noCodeChannels }
+            ? { kind: 'code', method: resume.method, sent: null, channels: unknownCodeChannels }
             : { kind: 'login' }),
   )
   const [email, setEmail] = useState('')
@@ -170,7 +170,7 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
     if (answer.step === 'done') return enter()
     if (answer.step === 'enrol') return go({ kind: 'enrol', sent: null, channels: noCodeChannels })
     if (answer.method === 'app') return go({ kind: 'code', method: 'app', sent: null, channels: noCodeChannels })
-    const base: PhoneView = { kind: 'code', method: 'sms', sent: null, channels: answer.codeChannels ?? noCodeChannels }
+    const base: PhoneView = { kind: 'code', method: 'sms', sent: null, channels: answer.codeChannels ?? unknownCodeChannels }
     go(base)
     await sendSignInCode(base)
   }
@@ -222,7 +222,7 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
   useEffect(() => {
     if (resume?.step !== 'second-factor' || resume.method !== 'sms' || texted.current) return
     texted.current = true
-    void sendSignInCode({ kind: 'code', method: 'sms', sent: null, channels: noCodeChannels })
+    void sendSignInCode({ kind: 'code', method: 'sms', sent: null, channels: unknownCodeChannels })
   }, [resume])
   const shownNote = note ?? forcedNote(forced)
   const notice = error ? { text: error, tone: 'error' as const } : info ? { text: info, tone: 'info' as const } : view.kind === 'login' && shownNote ? { text: words.signIn[shownNote], tone: 'info' as const } : null
@@ -256,7 +256,7 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
         >
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
             <CodeField value={code} onValue={setCode} invalid={error !== null} />
-            {view.method === 'sms' && view.sent && <CodeResend sent={view.sent} channels={view.channels} wait={wait} busy={busy} onSend={(channel) => void run(() => sendSignInCode(view, channel))} />}
+            {view.method === 'sms' && <CodeResend sent={view.sent} channels={view.channels} wait={wait} busy={busy} onSend={(channel) => void run(() => sendSignInCode(view, channel))} />}
             <Primary busy={busy}>{words.secondFactor.primary}</Primary>
             <Secondary onClick={() => go({ kind: 'backup' })}>{words.secondFactor.backup}</Secondary>
           </form>

@@ -13,6 +13,8 @@
     "insteadWhatsapp": "Send on WhatsApp instead",
     "againSms": "Send again by SMS",
     "insteadSms": "Send by SMS instead",
+    "sendWhatsapp": "Send a code on WhatsApp",
+    "sendSms": "Send a code by SMS",
     "tooSoon": "Wait {seconds}s, then ask again.",
     "off": {
       "whatsapp": "WhatsApp codes are off right now. Ask for one by SMS instead.",

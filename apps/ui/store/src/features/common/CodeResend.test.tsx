@@ -32,6 +32,13 @@ describe('the code panel', () => {
     expect(screen.getAllByRole('status').map((s) => s.textContent)).toContain(words.readyAnnounced)
   })
 
+  it('offers to send a code when none has gone yet', () => {
+    render(<CodeResend sent={null} channels={both} wait={0} onSend={() => undefined} />)
+    expect(screen.getByRole('button', { name: words.sendWhatsapp })).toBeTruthy()
+    expect(screen.getByRole('button', { name: words.sendSms })).toBeTruthy()
+    expect(screen.queryByText(words.ready)).toBeNull()
+  })
+
   it('hides the SMS link while SMS is off', () => {
     render(<CodeResend sent={{ channel: 'whatsapp', hint: '•••• 1234' }} channels={{ whatsapp: true, sms: false }} wait={0} onSend={() => undefined} />)
     expect(screen.getByRole('button', { name: words.againWhatsapp })).toBeTruthy()

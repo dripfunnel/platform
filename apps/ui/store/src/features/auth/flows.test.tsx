@@ -256,6 +256,25 @@ describe('a phone code (ACCESS.md §4)', () => {
     expect(screen.getByRole('button', { name: codes.againWhatsapp })).toBeTruthy()
   })
 
+  it('still offers to send a code when the first send was refused', async () => {
+    vi.useFakeTimers()
+    serve({
+      'send-code': [
+        { ok: false, code: 'TOO_SOON', seconds: 3 },
+        { ok: true, hint: '•••• 1234', channel: 'whatsapp', codeChannels: both },
+      ],
+    })
+    const { SignIn } = await import('./SignIn')
+    await show(<SignIn next={undefined} resume={{ step: 'second-factor', method: 'sms' }} />)
+    await tick(0)
+    expect(screen.getByRole('alert').textContent).toBe(fillIn(codes.tooSoon, { seconds: '3' }))
+    await tick(3)
+    fireEvent.click(screen.getByRole('button', { name: codes.sendWhatsapp }))
+    await tick(0)
+    expect(screen.getByText(fillIn(codes.sentWhatsapp, { hint: '•••• 1234' }))).toBeTruthy()
+    expect(calls.map((c) => c.body)).toEqual([{}, { channel: 'whatsapp' }])
+  })
+
   it('points to a backup code when no channel can reach the phone', async () => {
     vi.useFakeTimers()
     serve({ 'sign-in': [{ ok: true, step: 'second-factor', method: 'sms', codeChannels: { whatsapp: false, sms: false } }], 'send-code': [{ ok: false, code: 'CHANNEL_OFF' }] })
