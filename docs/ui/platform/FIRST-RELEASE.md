@@ -788,7 +788,7 @@ language. **SMS** is #1018's panel on #1017's API: the partner's own MSG91 (Indi
 replace DripFunnel's once complete, plus On (the default) or Off, where Off sends the partner's stores no text through any
 account. WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by WhatsApp first; SMS On adds
 "Send by SMS instead" (ACCESS §4). Each Turn off restates its consequence: no number at sign-up and codes texted, or no
-texts at all. Owner and Admin only, as the tab; never in an impersonation.
+texts at all and, with both off, people on phone codes signing in without 2-factor. Owner and Admin only, as the tab; never in an impersonation.
 
 
 ### 14.6 My profile
