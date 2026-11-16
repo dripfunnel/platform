@@ -1,4 +1,6 @@
 export { sesClient, sesTimeoutMs, SesRefused, SesUnavailable } from './api'
 export type { OutgoingEmail, SesApi, SesCredentials } from './api'
 export { isSnsUrl, snsMessageSchema, snsVerifier } from './sns'
+export { amzDate, authorization } from './sigv4'
+export type { SigningKey } from './sigv4'
 export type { SnsMessage, SnsVerifier } from './sns'

@@ -65,6 +65,21 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, ...twilio, TWILIO_ACCOUNT_SID: 'SK123' })).toThrow(/account SID/)
   })
 
+  it('takes DripFunnel’s SNS account all or none, its India part only whole, and a route only to a configured provider', () => {
+    const templates = { 'code.second_factor': '1107161', 'code.verify_phone': '1107162', 'code.shopper_sign_in': '1107163', 'order.confirmed': '1107164', 'order.shipped': '1107165', 'order.delivered': '1107166', 'rider.invited': '1107167' }
+    const sns = { SNS_ACCESS_KEY_ID: 'AKIAABCDEFGHIJKLMNOP', SNS_SECRET_ACCESS_KEY: 'a'.repeat(40), SNS_REGION: 'ap-south-1' }
+    const india = { SNS_SENDER_ID: 'DRPFNL', SNS_DLT_ENTITY_ID: '1101234567890123456', SNS_DLT_TEMPLATES: JSON.stringify(templates) }
+    expect(parseConfig({ ...hosts, ...sns, ...india, SMS_ROUTE_INDIA: 'sns', SMS_ROUTE_REST: 'sns' }).SNS_DLT_TEMPLATES).toEqual(templates)
+    expect(parseConfig({ ...hosts, ...sns, SMS_ROUTE_REST: 'sns' }).SMS_ROUTE_REST).toBe('sns')
+    expect(() => parseConfig({ ...hosts, SNS_ACCESS_KEY_ID: sns.SNS_ACCESS_KEY_ID })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, ...india })).toThrow(/with the SNS account/)
+    expect(() => parseConfig({ ...hosts, ...sns, SNS_SENDER_ID: 'DRPFNL' })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, ...sns, SMS_ROUTE_INDIA: 'sns' })).toThrow(/SMS_ROUTE_INDIA is sns/)
+    expect(() => parseConfig({ ...hosts, SMS_ROUTE_REST: 'twilio' })).toThrow(/SMS_ROUTE_REST is twilio/)
+    expect(() => parseConfig({ ...hosts, ...sns, SMS_ROUTE_REST: 'msg91' })).toThrow()
+    expect(parseConfig(hosts).SMS_ROUTE_INDIA).toBeUndefined()
+  })
+
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.dripfunnel.dev', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')

@@ -1,9 +1,26 @@
 import { z } from 'zod'
 import type { SecretBox } from '#auth/secretBox'
-import { isE164, msg91TemplatesSchema, smsMessages, twilioAccountSidSchema, twilioMessagingServiceSidSchema, type OutgoingSms, type SmsMessage, type SmsProvider } from '#core/sms'
+import type { Config } from '#core/config'
+import {
+  awsAccessKeyIdSchema,
+  awsRegionSchema,
+  dltEntityIdSchema,
+  dltSenderIdSchema,
+  isE164,
+  routeProviders,
+  smsMessages,
+  smsRouteFor,
+  smsTemplatesSchema,
+  twilioAccountSidSchema,
+  twilioMessagingServiceSidSchema,
+  type OutgoingSms,
+  type SmsMessage,
+  type SmsProvider,
+  type SmsRoute,
+} from '#core/sms'
 import type { ScopedSql } from '#db/scoped/index'
 import { expireUnsent } from '#db/scoped/outbox'
-import { selectSealedSmsAccount, selectSmsEnabled } from '#db/scoped/partnerCredentials'
+import { selectSealedSmsAccounts, selectSmsPrefs } from '#db/scoped/partnerCredentials'
 import { queueSideEffect } from '#saas/outbox/index'
 
 // What the platform texts (THIRD-PARTY-ACCESS §2.8, decided on #337): one-time codes, and
@@ -15,7 +32,7 @@ export const smsKind = 'sms'
 /** An order update unsent after this is news nobody needs, and its number and link leave the outbox. */
 export const orderTextMs = 3 * 24 * 60 * 60 * 1000
 
-export { smsMessages, type SmsMessage, type SmsProvider }
+export { smsMessages, smsRouteFor, type SmsMessage, type SmsProvider, type SmsRoute }
 
 const code = z.object({ code: z.string().regex(/^\d{6}$/) }).strict()
 const order = z.object({ order: z.string().min(1).max(40) }).strict()
@@ -72,47 +89,109 @@ export const composeSms = (payload: SmsPayload, dltTemplateId: string | null): O
   return { to: payload.to, text: filled.text, dlt: dltTemplateId ? { templateId: dltTemplateId, vars: filled.vars } : null }
 }
 
-/** MSG91 for Indian numbers (DLT), Twilio for the rest (decided on #284). */
-export const providerFor = (to: string): SmsProvider => (to.startsWith('+91') ? 'msg91' : 'twilio')
+type Templates = Partial<Record<SmsMessage, string>>
 
 /** An SMS account, decrypted: DripFunnel's own or a partner's (THIRD-PARTY-ACCESS §8.3). */
 export type PartnerSmsAccount =
-  | { provider: 'msg91'; authKey: string; templates: Partial<Record<SmsMessage, string>> }
+  | { provider: 'msg91'; authKey: string; templates: Templates }
   | { provider: 'twilio'; accountSid: string; authToken: string; messagingServiceSid: string }
+  | { provider: 'sns'; accessKeyId: string; secretAccessKey: string; region: string; india: { senderId: string; entityId: string; templates: Templates } | null }
 
-/** The account a partner's text goes through; `off` while the partner's SMS is turned off (THIRD-PARTY-ACCESS §4). */
+/** The account a partner's text on a route goes through; `off` while the partner's SMS is turned off (THIRD-PARTY-ACCESS §4). */
 export interface PartnerSmsAccounts {
-  forPartner: (tx: ScopedSql, partnerId: string, provider: SmsProvider) => Promise<PartnerSmsAccount | 'off' | null>
+  forPartner: (tx: ScopedSql, partnerId: string, route: SmsRoute) => Promise<PartnerSmsAccount | 'off' | null>
 }
+
+const snsIndiaSchema = z.strictObject({ senderId: dltSenderIdSchema, entityId: dltEntityIdSchema, templates: smsTemplatesSchema })
 
 /** What `partner_credential.settings` holds for each provider: the parts that aren't secret (#1017). */
 export const smsSettingsSchemas = {
-  msg91: z.strictObject({ templates: msg91TemplatesSchema }),
+  msg91: z.strictObject({ templates: smsTemplatesSchema }),
   twilio: z.strictObject({ accountSid: twilioAccountSidSchema, messagingServiceSid: twilioMessagingServiceSidSchema }),
+  sns: z.strictObject({ accessKeyId: awsAccessKeyIdSchema, region: awsRegionSchema, india: snsIndiaSchema.nullable() }),
 } as const
 
-/** DripFunnel's own accounts (Worker values, or locally the stand-in's); a provider without one is absent. */
-export type OurSmsAccounts = { msg91?: Extract<PartnerSmsAccount, { provider: 'msg91' }>; twilio?: Extract<PartnerSmsAccount, { provider: 'twilio' }> }
-
-/** The partner's saved account for the provider, if complete and readable; incomplete settings never send (#1017). */
-const partnerAccount = async (tx: ScopedSql, secrets: SecretBox | null, partnerId: string, provider: SmsProvider): Promise<PartnerSmsAccount | null> => {
-  const row = await selectSealedSmsAccount(tx, partnerId, provider)
-  if (!row || !secrets) return null
-  const secret = await secrets.open(row.key_enc)
-  if (!secret) return null
-  if (provider === 'msg91') {
-    const settings = smsSettingsSchemas.msg91.safeParse(row.settings)
-    return settings.success ? { provider, authKey: secret, templates: settings.data.templates } : null
-  }
-  const settings = smsSettingsSchemas.twilio.safeParse(row.settings)
-  return settings.success ? { provider, authToken: secret, ...settings.data } : null
+/** Whether an account can send every message on the route: India needs DLT's seven templates (and SNS its header and entity). */
+export const servesRoute = (account: PartnerSmsAccount, route: SmsRoute): boolean => {
+  const complete = (templates: Templates) => smsMessages.every((m) => Boolean(templates[m]))
+  if (account.provider === 'msg91') return route === 'india' && complete(account.templates)
+  if (account.provider === 'twilio') return route === 'rest'
+  return route === 'rest' || (account.india !== null && complete(account.india.templates))
 }
 
-/** Per provider, the partner's complete account, else DripFunnel's (#1017); none at all while its SMS is off. Called in system scope. */
-export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSmsAccounts): PartnerSmsAccounts => ({
-  forPartner: async (tx, partnerId, provider) => {
-    if (!(await selectSmsEnabled(tx, partnerId))) return 'off'
-    return (await partnerAccount(tx, secrets, partnerId, provider)) ?? ours[provider] ?? null
+/** DripFunnel's own account for each route (Worker values, or locally the stand-in's); a route without one is absent. */
+export type OurSmsRoutes = Partial<Record<SmsRoute, PartnerSmsAccount>>
+
+type SmsValues = Pick<
+  Config,
+  | 'MSG91_AUTH_KEY'
+  | 'MSG91_TEMPLATES'
+  | 'TWILIO_ACCOUNT_SID'
+  | 'TWILIO_AUTH_TOKEN'
+  | 'TWILIO_MESSAGING_SERVICE_SID'
+  | 'SNS_ACCESS_KEY_ID'
+  | 'SNS_SECRET_ACCESS_KEY'
+  | 'SNS_REGION'
+  | 'SNS_SENDER_ID'
+  | 'SNS_DLT_ENTITY_ID'
+  | 'SNS_DLT_TEMPLATES'
+  | 'SMS_ROUTE_INDIA'
+  | 'SMS_ROUTE_REST'
+>
+
+/** DripFunnel's account for each route from the Worker's values: `SMS_ROUTE_INDIA` (MSG91 unless set) and `SMS_ROUTE_REST` (Twilio unless set). */
+export const ourSmsRoutesOf = (c: SmsValues): OurSmsRoutes => {
+  const accounts: Partial<Record<SmsProvider, PartnerSmsAccount>> = {
+    ...(c.MSG91_AUTH_KEY && c.MSG91_TEMPLATES ? { msg91: { provider: 'msg91', authKey: c.MSG91_AUTH_KEY, templates: c.MSG91_TEMPLATES } } : {}),
+    ...(c.TWILIO_ACCOUNT_SID && c.TWILIO_AUTH_TOKEN && c.TWILIO_MESSAGING_SERVICE_SID
+      ? { twilio: { provider: 'twilio', accountSid: c.TWILIO_ACCOUNT_SID, authToken: c.TWILIO_AUTH_TOKEN, messagingServiceSid: c.TWILIO_MESSAGING_SERVICE_SID } }
+      : {}),
+    ...(c.SNS_ACCESS_KEY_ID && c.SNS_SECRET_ACCESS_KEY && c.SNS_REGION
+      ? {
+          sns: {
+            provider: 'sns',
+            accessKeyId: c.SNS_ACCESS_KEY_ID,
+            secretAccessKey: c.SNS_SECRET_ACCESS_KEY,
+            region: c.SNS_REGION,
+            india: c.SNS_SENDER_ID && c.SNS_DLT_ENTITY_ID && c.SNS_DLT_TEMPLATES ? { senderId: c.SNS_SENDER_ID, entityId: c.SNS_DLT_ENTITY_ID, templates: c.SNS_DLT_TEMPLATES } : null,
+          },
+        }
+      : {}),
+  }
+  const india = accounts[c.SMS_ROUTE_INDIA ?? 'msg91']
+  const rest = accounts[c.SMS_ROUTE_REST ?? 'twilio']
+  return { ...(india && servesRoute(india, 'india') ? { india } : {}), ...(rest && servesRoute(rest, 'rest') ? { rest } : {}) }
+}
+
+/** A saved account, opened; null where its secret or settings can't be read, so it never half sends (#1017). */
+export const openSmsAccount = async (secrets: SecretBox | null, row: { provider: SmsProvider; key_enc: string; settings: unknown }): Promise<PartnerSmsAccount | null> => {
+  const secret = secrets ? await secrets.open(row.key_enc) : null
+  if (!secret) return null
+  if (row.provider === 'msg91') {
+    const settings = smsSettingsSchemas.msg91.safeParse(row.settings)
+    return settings.success ? { provider: 'msg91', authKey: secret, templates: settings.data.templates } : null
+  }
+  if (row.provider === 'twilio') {
+    const settings = smsSettingsSchemas.twilio.safeParse(row.settings)
+    return settings.success ? { provider: 'twilio', authToken: secret, ...settings.data } : null
+  }
+  const settings = smsSettingsSchemas.sns.safeParse(row.settings)
+  return settings.success ? { provider: 'sns', secretAccessKey: secret, ...settings.data } : null
+}
+
+/**
+ * Per route, the partner's provider for it (its choice, else the first of the route's providers it has an account for)
+ * if that account is complete, else DripFunnel's (#1017); none at all while its SMS is off. Called in system scope.
+ */
+export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSmsRoutes): PartnerSmsAccounts => ({
+  forPartner: async (tx, partnerId, route) => {
+    const prefs = await selectSmsPrefs(tx, partnerId)
+    if (!prefs.enabled) return 'off'
+    const rows = await selectSealedSmsAccounts(tx, partnerId)
+    const chosen = prefs.routes[route] ?? routeProviders[route].find((p) => rows.some((r) => r.provider === p))
+    const row = rows.find((r) => r.provider === chosen)
+    const account = row ? await openSmsAccount(secrets, row) : null
+    return account && servesRoute(account, route) ? account : (ours[route] ?? null)
   },
 })
 

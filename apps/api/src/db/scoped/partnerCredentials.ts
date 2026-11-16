@@ -1,4 +1,4 @@
-import type { SmsProvider } from '#core/sms'
+import type { SmsProvider, SmsRoute } from '#core/sms'
 import type { AiProvider, PartnerCredentialRow, PartnerSmsAccountRow } from '../schema/saas'
 import type { ScopedSql } from './index'
 
@@ -92,10 +92,27 @@ export const deleteSmsAccount = async (tx: ScopedSql, id: string): Promise<void>
 export const selectSealedSmsAccount = async (tx: ScopedSql, partnerId: string, provider: SmsProvider): Promise<{ key_enc: string; settings: unknown } | null> =>
   (await tx<{ key_enc: string; settings: unknown }[]>`select key_enc, settings from partner_credential where partner_id = ${partnerId} and kind = 'sms' and provider = ${provider}`)[0] ?? null
 
-/** Whether the partner's stores may be texted at all (THIRD-PARTY-ACCESS §4); a partner not found reads as on. */
-export const selectSmsEnabled = async (tx: ScopedSql, partnerId: string): Promise<boolean> =>
-  (await tx<{ sms_enabled: boolean }[]>`select sms_enabled from partner where id = ${partnerId}`)[0]?.sms_enabled ?? true
+/** System scope only: every one of the partner's accounts with its sealed secret, for the deliverer. */
+export const selectSealedSmsAccounts = (tx: ScopedSql, partnerId: string): Promise<{ provider: SmsProvider; key_enc: string; settings: unknown }[]> =>
+  tx<{ provider: SmsProvider; key_enc: string; settings: unknown }[]>`select provider, key_enc, settings from partner_credential where partner_id = ${partnerId} and kind = 'sms'`
+
+export interface SmsPrefs {
+  enabled: boolean
+  /** The partner's provider for each route; null leaves it to the accounts it holds (THIRD-PARTY-ACCESS §4). */
+  routes: Record<SmsRoute, SmsProvider | null>
+}
+
+/** Whether the partner's stores may be texted at all, and its routes; a partner not found reads as on, with no choice. */
+export const selectSmsPrefs = async (tx: ScopedSql, partnerId: string): Promise<SmsPrefs> => {
+  const row = (await tx<{ sms_enabled: boolean; sms_route_india: SmsProvider | null; sms_route_rest: SmsProvider | null }[]>`select sms_enabled, sms_route_india, sms_route_rest from partner where id = ${partnerId}`)[0]
+  return { enabled: row?.sms_enabled ?? true, routes: { india: row?.sms_route_india ?? null, rest: row?.sms_route_rest ?? null } }
+}
 
 export const updateSmsEnabled = async (tx: ScopedSql, partnerId: string, enabled: boolean): Promise<void> => {
   await tx`update partner set sms_enabled = ${enabled} where id = ${partnerId}`
+}
+
+export const updateSmsRoute = async (tx: ScopedSql, partnerId: string, route: SmsRoute, provider: SmsProvider | null): Promise<void> => {
+  if (route === 'india') await tx`update partner set sms_route_india = ${provider} where id = ${partnerId}`
+  else await tx`update partner set sms_route_rest = ${provider} where id = ${partnerId}`
 }

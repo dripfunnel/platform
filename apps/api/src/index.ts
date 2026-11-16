@@ -74,6 +74,7 @@ import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#s
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { msg91Sender } from '#integrations/msg91/index'
 import { twilioSender } from '#integrations/twilio/index'
+import { snsSender } from '#integrations/sns/index'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { localGoogleSignIn } from '#integrations/google/local'
@@ -181,7 +182,7 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, smsAccountsFor, smsKind, smsMessages, type OurSmsAccounts } from '#saas/sms/index'
+import { expireUnsentSms, ourSmsRoutesOf, smsAccountsFor, smsKind, smsMessages, type OurSmsRoutes } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -270,24 +271,19 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
-// DripFunnel's own SMS accounts (#1017): locally (SMS_LOCAL) one on each provider whose texts the stand-in prints, else the
-// Worker's values. A partner's complete account replaces ours per provider (saas/sms smsAccountsFor).
-const smsFor = (config: Config): { ours: OurSmsAccounts; senders: SmsSenders } | null => {
+// DripFunnel's own SMS account per route (#1017): locally (SMS_LOCAL) the stand-in's, whose texts it prints, else the
+// Worker's values. A partner's complete account for a route replaces ours (saas/sms smsAccountsFor).
+const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | null => {
   if (config.SMS_LOCAL === '1') {
-    const ours: OurSmsAccounts = {
-      msg91: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
-      twilio: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+    const ours: OurSmsRoutes = {
+      india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+      rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
     }
-    return { ours, senders: { msg91: localSms, twilio: localSms } }
+    return { ours, senders: { msg91: localSms, twilio: localSms, sns: localSms } }
   }
-  const ours: OurSmsAccounts = {
-    ...(config.MSG91_AUTH_KEY && config.MSG91_TEMPLATES ? { msg91: { provider: 'msg91', authKey: config.MSG91_AUTH_KEY, templates: config.MSG91_TEMPLATES } } : {}),
-    ...(config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN && config.TWILIO_MESSAGING_SERVICE_SID
-      ? { twilio: { provider: 'twilio', accountSid: config.TWILIO_ACCOUNT_SID, authToken: config.TWILIO_AUTH_TOKEN, messagingServiceSid: config.TWILIO_MESSAGING_SERVICE_SID } }
-      : {}),
-  }
-  if (!ours.msg91 && !ours.twilio) return null
-  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c) } }
+  const ours = ourSmsRoutesOf(config)
+  if (!ours.india && !ours.rest) return null
+  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
 }
 
 // Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).

@@ -4,13 +4,14 @@ import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import { secretBox, type SecretBox } from '#auth/secretBox'
-import { smsMessages, type OutgoingSms, type SmsAccountCheck } from '#core/sms'
+import { smsMessages, type OutgoingSms, type SmsAccountCheck, type SmsMessage, type SmsRoute } from '#core/sms'
 import { withSystemScope } from '#db/scoped/index'
+import { snsSender } from '#integrations/sns/index'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerSmsService } from '#saas/partnerCredentials/index'
-import { queueSms, smsAccountsFor, type OurSmsAccounts, type PartnerSmsAccount, type SmsPayload } from '#saas/sms/index'
+import { ourSmsRoutesOf, queueSms, smsAccountsFor, type OurSmsRoutes, type PartnerSmsAccount, type SmsPayload } from '#saas/sms/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -61,12 +62,16 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
 
 const list = `{ smsAccounts { enabled accounts { provider hint status lastTestedAt templatesComplete } } }`
 type Listed = { smsAccounts: { enabled: boolean; accounts: { provider: string; hint: string; status: string; lastTestedAt: string | null; templatesComplete: boolean | null }[] } }
-const save = `mutation($provider: String!, $authKey: String, $templates: [PartnerSmsTemplateInput!], $accountSid: String, $authToken: String, $messagingServiceSid: String) {
-  saveSmsAccount(provider: $provider, authKey: $authKey, templates: $templates, accountSid: $accountSid, authToken: $authToken, messagingServiceSid: $messagingServiceSid) { ok reason status } }`
+const save = `mutation($provider: String!, $authKey: String, $templates: [PartnerSmsTemplateInput!], $accountSid: String, $authToken: String, $messagingServiceSid: String,
+  $accessKeyId: String, $secretAccessKey: String, $region: String, $senderId: String, $entityId: String) {
+  saveSmsAccount(provider: $provider, authKey: $authKey, templates: $templates, accountSid: $accountSid, authToken: $authToken, messagingServiceSid: $messagingServiceSid,
+    accessKeyId: $accessKeyId, secretAccessKey: $secretAccessKey, region: $region, senderId: $senderId, entityId: $entityId) { ok reason status } }`
 type Saved = { saveSmsAccount: { ok: boolean; reason: string | null; status: string | null } }
 const test = `mutation($provider: String!) { testSmsAccount(provider: $provider) { ok reason status } }`
 const remove = `mutation($provider: String!) { removeSmsAccount(provider: $provider) { ok reason } }`
 const setEnabled = `mutation($enabled: Boolean!) { setSmsEnabled(enabled: $enabled) { ok reason } }`
+const setRoute = `mutation($route: String!, $provider: String) { setSmsRoute(route: $route, provider: $provider) { ok reason } }`
+type Routed = { setSmsRoute: { ok: boolean; reason: string | null } }
 const msg91Input = { provider: 'msg91', authKey: msg91Key, templates }
 const twilioInput = { provider: 'twilio', accountSid, authToken: twilioToken, messagingServiceSid: serviceSid }
 
@@ -178,14 +183,14 @@ describe('who may', () => {
   it('lets Owner, Admin and a setup session manage SMS, and refuses Support, Finance and Read-only every field', async () => {
     for (const [role, staff, ok] of [['partner-owner', false, true], ['partner-admin', false, true], ['partner-owner', true, true], ['partner-support', false, false], ['partner-finance', false, false], ['partner-read-only', false, false]] as const) {
       const caller = callerOf(ids.kl, role, staff)
-      const results = [await run(list, caller), await run(save, caller, twilioInput), await run(test, caller, { provider: 'twilio' }), await run(setEnabled, caller, { enabled: true }), await run(remove, caller, { provider: 'twilio' })]
+      const results = [await run(list, caller), await run(save, caller, twilioInput), await run(test, caller, { provider: 'twilio' }), await run(setEnabled, caller, { enabled: true }), await run(setRoute, caller, { route: 'rest', provider: null }), await run(remove, caller, { provider: 'twilio' })]
       for (const r of results) expect(r.code, `${role}${staff ? ' setup' : ''}`).toBe(ok ? undefined : 'FORBIDDEN')
     }
   })
 
   it('refuses every SMS field to an impersonation', async () => {
     const imp = callerOf(ids.ns, 'partner-owner', false, true)
-    for (const [source, variables] of [[list, {}], [save, twilioInput], [test, { provider: 'twilio' }], [remove, { provider: 'twilio' }], [setEnabled, { enabled: false }]] as const) {
+    for (const [source, variables] of [[list, {}], [save, twilioInput], [test, { provider: 'twilio' }], [remove, { provider: 'twilio' }], [setEnabled, { enabled: false }], [setRoute, { route: 'rest', provider: 'twilio' }]] as const) {
       expect((await run(source, imp, variables)).code).toBe('BLOCKED_WHILE_IMPERSONATING')
     }
   })
@@ -212,59 +217,139 @@ describe('isolation between partners', () => {
   })
 })
 
+const snsSecret = 'wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEK3y9Z'
+const snsInput = { provider: 'sns', accessKeyId: 'AKIAKLAUFLADEN000001', secretAccessKey: snsSecret, region: 'ap-south-1', senderId: 'KAUFLD', entityId: '1101234567890123456', templates: smsMessages.map((message, i) => ({ message, templateId: `110716${i}` })) }
+
+describe('an SNS account and the partner’s routes', () => {
+  it('saves an SNS account with India’s DLT part, sealed, shown back as its last four', async () => {
+    const caller = callerOf(ids.kl, 'partner-owner')
+    expect((await run<Saved>(save, caller, snsInput)).data?.saveSmsAccount).toEqual({ ok: true, reason: null, status: 'ok' })
+    expect((await run<Listed>(list, caller)).data?.smsAccounts.accounts).toEqual([{ provider: 'sns', hint: '…3y9Z', status: 'ok', lastTestedAt: now.toISOString(), templatesComplete: true }])
+    const [row] = await db.sql<{ key_enc: string; settings: unknown }[]>`select key_enc, settings from partner_credential where partner_id = ${ids.kl} and provider = 'sns'`
+    expect(JSON.stringify(row)).not.toContain(snsSecret)
+    expect(row?.settings).toMatchObject({ accessKeyId: 'AKIAKLAUFLADEN000001', region: 'ap-south-1', india: { senderId: 'KAUFLD', entityId: '1101234567890123456' } })
+  })
+
+  it('takes an SNS account without India’s part for the rest of the world, and refuses half of it', async () => {
+    const caller = callerOf(ids.fresh, 'partner-owner')
+    const reason = async (input: Record<string, unknown>) => (await run<Saved>(save, caller, input)).data?.saveSmsAccount.reason
+    expect(await reason({ ...snsInput, templates: snsInput.templates.slice(1) })).toBe('TEMPLATES_INCOMPLETE')
+    expect(await reason({ provider: 'sns', accessKeyId: snsInput.accessKeyId, secretAccessKey: snsSecret, region: 'ap-south-1', senderId: 'KAUFLD' })).toBe('TEMPLATES_INCOMPLETE')
+    expect(await reason({ ...snsInput, entityId: undefined })).toBe('INVALID_INPUT')
+    expect(await reason({ ...snsInput, region: 'mumbai' })).toBe('INVALID_INPUT')
+    expect(await reason({ ...snsInput, secretAccessKey: 'short' })).toBe('INVALID_INPUT')
+    const restOnly = { provider: 'sns', accessKeyId: snsInput.accessKeyId, secretAccessKey: snsSecret, region: 'us-east-1' }
+    expect((await run<Saved>(save, caller, restOnly)).data?.saveSmsAccount.ok).toBe(true)
+    expect((await run<Listed>(list, caller)).data?.smsAccounts.accounts[0]?.templatesComplete).toBe(false)
+    expect((await run<Routed>(setRoute, caller, { route: 'india', provider: 'sns' })).data?.setSmsRoute.reason).toBe('ACCOUNT_INCOMPLETE')
+    await run(remove, caller, { provider: 'sns' })
+  })
+
+  it('sets a route only to a saved account that serves it, and records the change', async () => {
+    const caller = callerOf(ids.kl, 'partner-owner')
+    expect((await run<Routed>(setRoute, caller, { route: 'india', provider: 'twilio' })).data?.setSmsRoute.reason).toBe('INVALID_INPUT')
+    expect((await run<Routed>(setRoute, caller, { route: 'moon', provider: 'sns' })).data?.setSmsRoute.reason).toBe('INVALID_INPUT')
+    expect((await run<Routed>(setRoute, caller, { route: 'india', provider: 'msg91' })).data?.setSmsRoute.reason).toBe('ACCOUNT_INCOMPLETE')
+    expect((await run<Routed>(setRoute, caller, { route: 'india', provider: 'sns' })).data?.setSmsRoute).toEqual({ ok: true, reason: null })
+    const routes = await run<{ smsAccounts: { routes: { route: string; provider: string | null }[] } }>(`{ smsAccounts { routes { route provider } } }`, caller)
+    expect(routes.data?.smsAccounts.routes).toEqual([{ route: 'india', provider: 'sns' }, { route: 'rest', provider: null }])
+    expect((await db.sql`select 1 from activity_log where partner_id = ${ids.kl} and action = 'partner.sms_route_set'`).length).toBe(1)
+  })
+})
+
 describe('which account sends', () => {
   const ourMsg91 = { provider: 'msg91', authKey: 'ours-msg91', templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) } as const
-  const ours: OurSmsAccounts = { msg91: ourMsg91, twilio: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' } }
-  const resolve = (partnerId: string, provider: 'msg91' | 'twilio', accounts = ours) => withSystemScope(db.sql, (tx) => smsAccountsFor(box, accounts).forPartner(tx, partnerId, provider))
+  const ours: OurSmsRoutes = { india: ourMsg91, rest: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' } }
+  const resolve = (partnerId: string, route: SmsRoute, accounts = ours) => withSystemScope(db.sql, (tx) => smsAccountsFor(box, accounts).forPartner(tx, partnerId, route))
 
-  it('uses the partner’s complete account per provider, and DripFunnel’s where it has none', async () => {
-    expect(await resolve(ids.ns, 'msg91')).toMatchObject({ provider: 'msg91', authKey: msg91Key, templates: { 'code.second_factor': '65a00c0ffee' } })
-    expect(await resolve(ids.ns, 'twilio')).toEqual({ provider: 'twilio', accountSid, authToken: twilioToken, messagingServiceSid: serviceSid })
-    expect(await resolve(ids.fresh, 'msg91')).toBe(ours.msg91)
-    expect(await resolve(ids.fresh, 'twilio')).toBe(ours.twilio)
-    expect(await resolve(ids.fresh, 'twilio', { msg91: ourMsg91 })).toBeNull()
+  it('uses the partner’s complete account per route, and DripFunnel’s where it has none', async () => {
+    expect(await resolve(ids.ns, 'india')).toMatchObject({ provider: 'msg91', authKey: msg91Key, templates: { 'code.second_factor': '65a00c0ffee' } })
+    expect(await resolve(ids.ns, 'rest')).toEqual({ provider: 'twilio', accountSid, authToken: twilioToken, messagingServiceSid: serviceSid })
+    expect(await resolve(ids.fresh, 'india')).toBe(ours.india)
+    expect(await resolve(ids.fresh, 'rest')).toBe(ours.rest)
+    expect(await resolve(ids.fresh, 'rest', { india: ourMsg91 })).toBeNull()
+  })
+
+  it('sends both routes through a partner’s only account, SNS, and never through another partner’s', async () => {
+    expect(await resolve(ids.kl, 'india')).toMatchObject({ provider: 'sns', accessKeyId: 'AKIAKLAUFLADEN000001', secretAccessKey: snsSecret, india: { senderId: 'KAUFLD' } })
+    expect(await resolve(ids.kl, 'rest')).toMatchObject({ provider: 'sns', accessKeyId: 'AKIAKLAUFLADEN000001' })
+    expect(await resolve(ids.ns, 'rest')).toMatchObject({ provider: 'twilio' })
+  })
+
+  it('falls back to DripFunnel’s, not to another of its own, when the partner’s chosen provider can’t serve the route', async () => {
+    await db.sql`update partner set sms_route_india = 'sns' where id = ${ids.ns}`
+    expect(await resolve(ids.ns, 'india')).toBe(ours.india)
+    await db.sql`update partner set sms_route_india = null where id = ${ids.ns}`
   })
 
   it('falls back to DripFunnel’s MSG91 when the partner’s is missing a template, and when its secret can’t be opened', async () => {
     const sealed = await box.seal(msg91Key)
     const partial = { templates: Object.fromEntries(smsMessages.slice(1).map((m) => [m, 'x1'])) }
     await db.sql`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, settings, created_by) values (${ids.fresh}, 'sms', 'msg91', 'MSG91', ${sealed}, '…OpQr', ${JSON.stringify(partial)}::text::jsonb, 'test')`
-    expect(await resolve(ids.fresh, 'msg91')).toBe(ours.msg91)
+    expect(await resolve(ids.fresh, 'india')).toBe(ours.india)
     await db.sql`update partner_credential set key_enc = 'v1.broken.broken', settings = ${JSON.stringify({ templates: Object.fromEntries(smsMessages.map((m) => [m, 'x1'])) })}::text::jsonb where partner_id = ${ids.fresh} and kind = 'sms'`
-    expect(await resolve(ids.fresh, 'msg91')).toBe(ours.msg91)
+    expect(await resolve(ids.fresh, 'india')).toBe(ours.india)
     await db.sql`delete from partner_credential where partner_id = ${ids.fresh} and kind = 'sms'`
   })
 
   it('answers off for a partner whose SMS is off, whatever accounts exist', async () => {
     await db.sql`update partner set sms_enabled = false where id = ${ids.fresh}`
-    expect(await resolve(ids.fresh, 'twilio')).toBe('off')
+    expect(await resolve(ids.fresh, 'rest')).toBe('off')
     await db.sql`update partner set sms_enabled = true where id = ${ids.fresh}`
   })
 })
 
 describe('the sms deliverer with real accounts', () => {
-  const ours: OurSmsAccounts = { twilio: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' }, msg91: { provider: 'msg91', authKey: 'ours-msg91', templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) } }
+  const ourValues = { MSG91_AUTH_KEY: '400000OursOursOursOurs', MSG91_TEMPLATES: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) as Record<SmsMessage, string>, TWILIO_ACCOUNT_SID: `AC${'0'.repeat(32)}`, TWILIO_AUTH_TOKEN: '0'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'0'.repeat(32)}` }
+  const ourSns = { SNS_ACCESS_KEY_ID: 'AKIADRIPFUNNEL000001', SNS_SECRET_ACCESS_KEY: 'o'.repeat(40), SNS_REGION: 'ap-south-1', SNS_SENDER_ID: 'DRPFNL', SNS_DLT_ENTITY_ID: '1109999999999999999', SNS_DLT_TEMPLATES: Object.fromEntries(smsMessages.map((m, i) => [m, `999${i}`])) as Record<SmsMessage, string> }
   const used: string[] = []
+  // SNS itself is mocked at the network: the real adapter signs and sends, and the request is read back.
+  const snsFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init)
+    const form = new URLSearchParams(await request.text())
+    const attrs = [...form.entries()].filter(([k]) => k.endsWith('.StringValue')).map(([, v]) => v)
+    const key = /Credential=([A-Z0-9]+)\//.exec(request.headers.get('authorization') ?? '')?.[1]
+    used.push(`sns:${key}:${form.get('PhoneNumber')?.slice(0, 3)}:${attrs.join('|')}`)
+    return new Response('<PublishResponse><PublishResult><MessageId>m-1</MessageId></PublishResult></PublishResponse>', { status: 200 })
+  }) as typeof fetch
   const senders: SmsSenders = {
     msg91: (c) => ({ send: async (sms: OutgoingSms) => (used.push(`msg91:${c.authKey}:${sms.dlt?.templateId ?? ''}`), { providerId: 'm' }) }),
     twilio: (c) => ({ send: async () => (used.push(`twilio:${c.accountSid}`), { providerId: 't' }) }),
+    sns: (c) => snsSender({ ...c, fetchImpl: snsFetch }),
   }
   const dbNow = async () => (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
   const code = async (to: string): Promise<SmsPayload> => ({ message: 'code.second_factor', to, brand: 'Northstar', vars: { code: '482913' }, expiresAt: new Date((await dbNow()).getTime() + 600_000).toISOString() })
   const queue = async (partnerId: string, to: string) => withSystemScope(db.sql, async (tx) => queueSms(tx, { partnerId, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload: await code(to) }))
-  const relay = async () => {
+  const relay = async (ours: OurSmsRoutes) => {
     const at = new Date((await dbNow()).getTime() + 1000)
     return relayDue(db.sql, { sms: smsDeliverer(db.sql, smsAccountsFor(box, ours), senders, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
   }
 
-  it('sends each partner’s texts through its own account, and the rest through DripFunnel’s', async () => {
+  it('sends each partner’s texts through its own account, and the rest through DripFunnel’s default routes', async () => {
     used.length = 0
     await queue(ids.ns, '+919845022180')
     await queue(ids.ns, '+16145550180')
     await queue(ids.fresh, '+919845022181')
     await queue(ids.fresh, '+16145550181')
-    expect((await relay()).delivered).toBe(4)
-    expect(used.sort()).toEqual([`msg91:${msg91Key}:65a00c0ffee`, `twilio:${accountSid}`, 'msg91:ours-msg91:ours-code.second_factor', 'twilio:AC-ours'].sort())
+    expect((await relay(ourSmsRoutesOf(ourValues))).delivered).toBe(4)
+    expect(used.sort()).toEqual([`msg91:${msg91Key}:65a00c0ffee`, `twilio:${accountSid}`, 'msg91:400000OursOursOursOurs:ours-code.second_factor', `twilio:AC${'0'.repeat(32)}`].sort())
+  })
+
+  it('sends a +91 code and a US one through DripFunnel’s SNS when both routes are set to sns, India with its DLT header, entity and template', async () => {
+    used.length = 0
+    await queue(ids.fresh, '+919845022183')
+    await queue(ids.fresh, '+16145550183')
+    expect((await relay(ourSmsRoutesOf({ ...ourValues, ...ourSns, SMS_ROUTE_INDIA: 'sns', SMS_ROUTE_REST: 'sns' }))).delivered).toBe(2)
+    expect(used.sort()).toEqual(['sns:AKIADRIPFUNNEL000001:+16:Transactional', 'sns:AKIADRIPFUNNEL000001:+91:Transactional|DRPFNL|1109999999999999999|9990'].sort())
+  })
+
+  it('sends a partner’s +91 and US codes through its own SNS, and never another partner’s through it', async () => {
+    used.length = 0
+    await queue(ids.kl, '+919845022184')
+    await queue(ids.kl, '+16145550184')
+    await queue(ids.fresh, '+16145550185')
+    expect((await relay(ourSmsRoutesOf({ ...ourValues, ...ourSns, SMS_ROUTE_REST: 'sns' }))).delivered).toBe(3)
+    expect(used.sort()).toEqual(['sns:AKIADRIPFUNNEL000001:+16:Transactional', 'sns:AKIAKLAUFLADEN000001:+16:Transactional', 'sns:AKIAKLAUFLADEN000001:+91:Transactional|KAUFLD|1101234567890123456|1107160'].sort())
   })
 
   it('sends no text for a partner whose SMS is off, through any account, and gives it up as sms_off', async () => {
@@ -272,7 +357,7 @@ describe('the sms deliverer with real accounts', () => {
     await db.sql`update partner set sms_enabled = false where id in ${db.sql([ids.ns, ids.fresh])}`
     const mine = await queue(ids.ns, '+16145550182')
     const ourText = await queue(ids.fresh, '+919845022182')
-    const counts = await relay()
+    const counts = await relay(ourSmsRoutesOf(ourValues))
     expect(used).toEqual([])
     expect(counts.dropped).toBe(2)
     const rows = await db.sql<{ last_error: string; delivered_at: Date | null; payload: unknown }[]>`select last_error, delivered_at, payload from outbox where id in ${db.sql([mine ?? '', ourText ?? ''])}`
@@ -281,3 +366,4 @@ describe('the sms deliverer with real accounts', () => {
     await db.sql`update partner set sms_enabled = true where id in ${db.sql([ids.ns, ids.fresh])}`
   })
 })
+

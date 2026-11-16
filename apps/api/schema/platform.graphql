@@ -395,13 +395,14 @@ type Mutation {
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
-  saveSmsAccount(accountSid: String, authKey: String, authToken: String, messagingServiceSid: String, provider: String!, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
+  saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
   setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
   setSmsEnabled(enabled: Boolean!): PartnerSmsResult
+  setSmsRoute(provider: String, route: String!): PartnerSmsResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
@@ -658,6 +659,7 @@ type PartnerPlanFee {
 type PartnerSms {
   accounts: [PartnerSmsAccount!]
   enabled: Boolean
+  routes: [PartnerSmsRoute!]
 }
 
 type PartnerSmsAccount {
@@ -672,6 +674,11 @@ type PartnerSmsResult {
   ok: Boolean
   reason: String
   status: String
+}
+
+type PartnerSmsRoute {
+  provider: String
+  route: String
 }
 
 input PartnerSmsTemplateInput {

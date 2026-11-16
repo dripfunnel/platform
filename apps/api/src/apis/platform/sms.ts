@@ -18,9 +18,18 @@ const AccountType = builder.objectRef<Sms['accounts'][number]>('PartnerSmsAccoun
   }),
 })
 
+const RouteType = builder.objectRef<Sms['routes'][number]>('PartnerSmsRoute').implement({
+  fields: (t) => ({
+    route: t.exposeString('route'),
+    // The partner's choice; null leaves the route to the first of its providers the partner holds an account for.
+    provider: t.string({ nullable: true, resolve: (r) => r.provider }),
+  }),
+})
+
 const SmsType = builder.objectRef<Sms>('PartnerSms').implement({
   fields: (t) => ({
     enabled: t.exposeBoolean('enabled'),
+    routes: t.field({ type: [RouteType], resolve: (s) => s.routes }),
     accounts: t.field({ type: [AccountType], resolve: (s) => s.accounts }),
   }),
 })
@@ -52,6 +61,11 @@ builder.mutationFields((t) => ({
       accountSid: t.arg.string(),
       authToken: t.arg.string(),
       messagingServiceSid: t.arg.string(),
+      accessKeyId: t.arg.string(),
+      secretAccessKey: t.arg.string(),
+      region: t.arg.string(),
+      senderId: t.arg.string(),
+      entityId: t.arg.string(),
     },
     extensions: { access: { ...access, audit: smsAudit.save } },
     // Only the arguments given reach the service, which refuses any its provider doesn't take.
@@ -68,6 +82,12 @@ builder.mutationFields((t) => ({
     args: { provider: t.arg.string({ required: true }) },
     extensions: { access: { ...access, audit: smsAudit.remove } },
     resolve: (_, { provider }, ctx) => signedIn(ctx.sms).remove(provider),
+  }),
+  setSmsRoute: t.field({
+    type: OutcomeType,
+    args: { route: t.arg.string({ required: true }), provider: t.arg.string() },
+    extensions: { access: { ...access, audit: smsAudit.route } },
+    resolve: (_, { route, provider }, ctx) => signedIn(ctx.sms).setRoute(route, provider ?? null),
   }),
   setSmsEnabled: t.field({
     type: OutcomeType,

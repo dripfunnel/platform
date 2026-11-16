@@ -228,7 +228,7 @@ describe('the blocked lists', () => {
   const aiKeyWrites = ['addPartnerAiKey', 'beginPartnerAiOauth', 'finishPartnerAiOauth', 'removePartnerAiKey', 'setDefaultPartnerAiKey']
   const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']
   // The partner's SMS accounts and switch, the read included: the partner's or a setup session's (#1017).
-  const sms = ['removeSmsAccount', 'saveSmsAccount', 'setSmsEnabled', 'smsAccounts', 'testSmsAccount']
+  const sms = ['removeSmsAccount', 'saveSmsAccount', 'setSmsEnabled', 'setSmsRoute', 'smsAccounts', 'testSmsAccount']
   // A user's own name and password are theirs alone (My profile, #1053): neither staff session changes them.
   const ownAccount = ['changeMyPassword', 'updateMyName']
   // Archiving a store is the partner's own decision, never staff acting as a partner user (#1056).

@@ -13,6 +13,7 @@ import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerCredentialsService, createPartnerSmsService } from '#saas/partnerCredentials/index'
 import type { SmsAccountCheck } from '#core/sms'
 import { checkMsg91Account } from '#integrations/msg91/index'
+import { checkSnsAccount } from '#integrations/sns/index'
 import { checkTwilioAccount } from '#integrations/twilio/index'
 import type { PartnerSmsAccount } from '#saas/sms/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
@@ -56,7 +57,11 @@ export interface PlatformContextDeps {
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
 /** One read-only call to the account's provider: nothing is sent (#1017). */
-const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> => (account.provider === 'msg91' ? checkMsg91Account({ authKey: account.authKey }) : checkTwilioAccount(account))
+const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> => {
+  if (account.provider === 'msg91') return checkMsg91Account({ authKey: account.authKey })
+  if (account.provider === 'twilio') return checkTwilioAccount(account)
+  return checkSnsAccount({ accessKeyId: account.accessKeyId, secretAccessKey: account.secretAccessKey, region: account.region })
+}
 
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
