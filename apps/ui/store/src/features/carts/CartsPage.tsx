@@ -273,7 +273,7 @@ export const CartsPage = () => {
                 </div>
                 {rows.map((cart) => (
                   <div key={cart.id} className="df-carts-row" role="row">
-                    <span role="cell" className="df-carts-cell">
+                    <span role="cell" className="df-carts-cell df-carts-shopper">
                       <Link className="df-carts-name" to="/carts/$cartId" params={{ cartId: cart.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)}>
                         {cart.name ?? words.guest}
                       </Link>
