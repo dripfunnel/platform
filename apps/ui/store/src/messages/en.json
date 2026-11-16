@@ -993,6 +993,8 @@
         "person.signed_out": "Signed out",
         "person.sign_in_refused": "A sign-in was refused",
         "person.second_factor_refused": "A sign-in code was refused",
+        "person.code_sent": "A code was sent to your phone",
+        "person.second_factor_skipped": "Signed in without a code, as codes can’t reach phones right now",
         "person.locked": "Sign-in was paused after too many tries",
         "person.switched_store": "Opened {target}",
         "person.profile_updated": "Updated your details",

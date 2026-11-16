@@ -10,6 +10,7 @@ import { mintStoreInvitationToken } from '#auth/storeTokens'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -91,7 +92,7 @@ type SupplierOut = { id: string; name: string; accessLevel: string; shippingMode
 const supplierOf = async (who: Who, id: string) =>
   (await gql('query S($id: ID!) { supplier(id: $id) { id name accessLevel shippingMode labelAccount status users products hideProductsWhileSuspended } }', who, { id })).data?.['supplier'] as SupplierOut | null
 
-const authDeps = (): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true })
+const authDeps = (): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels })
 const accept = async (email: string) => {
   const [row] = await db.sql<{ id: string }[]>`select id from invitation where lower(email) = lower(${email}) and accepted_at is null and revoked_at is null order by created_at desc limit 1`
   const token = await withSystemScope(db.sql, (tx) => mintStoreInvitationToken(tx, row?.id ?? '', now))

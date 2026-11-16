@@ -13,7 +13,7 @@ import {
 import { emailChangeValidMs } from '#auth/emailChangeTokens'
 import { hashPassword, minPasswordLength, verifyPassword } from '#auth/password'
 import { standingPerson, type StorePerson } from '#auth/storeCaller'
-import { hashBackupCode, maxSmsCodesPer10Min, newBackupCodes, phoneHint } from '#auth/storeCodes'
+import { codeChannels as channelNames, hashBackupCode, newBackupCodes, type CodeChannel } from '#auth/storeCodes'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { pageOf } from '#core/paging'
 import { isE164 } from '#core/sms'
@@ -34,18 +34,19 @@ import {
   updateUserTheme,
   type ProfileRow,
 } from '#db/scoped/profile'
-import { countCodesSince, replaceBackupCodes, selectSignInCandidate, setUserSecondFactor } from '#db/scoped/userSignIn'
+import { replaceBackupCodes, selectSignInCandidate, setUserSecondFactor } from '#db/scoped/userSignIn'
 import { queueSideEffect } from '#saas/outbox/index'
+import { noCodeChannels } from '#saas/portalCodes/index'
 import { forbidden } from '../graphql/scope'
 import type { StoreContext } from './access'
-import { pageInfoType, type StoreBuilder } from './builder'
-import { brandName, checkTextedCode, countWrong, textCode } from './codes'
+import { codeChannelsType, pageInfoType, type StoreBuilder } from './builder'
+import { brandName, checkTextedCode, countWrong, sendPersonCode } from './codes'
 import { storePage } from './refusals'
 
 // My profile (FIRST-RELEASE §4, PortalProfile): one account across the partner's stores, so every
 // field here is the session's, never an acting store's (ACCESS.md §4 says why it runs in system scope).
 
-const refused = (code: string, message: string) => new GraphQLError(message, { extensions: { code } })
+const refused = (code: string, message: string, facts: Record<string, unknown> = {}) => new GraphQLError(message, { extensions: { code, ...facts } })
 
 const sqlOf = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
@@ -94,9 +95,12 @@ interface SecondFactorStep {
   hint: string | null
   done: boolean
   backupCodes: string[] | null
+  channel: CodeChannel | null
 }
 
-const step = (s: Partial<SecondFactorStep>): SecondFactorStep => ({ secret: null, uri: null, hint: null, done: false, backupCodes: null, ...s })
+const step = (s: Partial<SecondFactorStep>): SecondFactorStep => ({ secret: null, uri: null, hint: null, done: false, backupCodes: null, channel: null, ...s })
+
+const isChannel = (value: string): value is CodeChannel => (channelNames as readonly string[]).includes(value)
 
 /**
  * The current password, counted like sign-in's (a wrong one is committed before the refusal, the fifth
@@ -113,6 +117,7 @@ const provePassword = async (tx: ScopedSql, ctx: StoreContext, person: StorePers
 
 export const registerProfile = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
+  const CodeChannels = codeChannelsType(builder)
 
   const TwoFactor = builder.objectRef<Profile['twoFactor']>('TwoFactor').implement({
     fields: (t) => ({
@@ -132,6 +137,8 @@ export const registerProfile = (builder: StoreBuilder) => {
       theme: t.exposeString('theme', { nullable: true }),
       passwordChangedAt: t.exposeString('passwordChangedAt', { nullable: true }),
       twoFactor: t.field({ type: TwoFactor, resolve: (p) => p.twoFactor }),
+      // Where a phone-method code can go now, for the person's own number (ACCESS.md §4); with both off, no phone method.
+      codeChannels: t.field({ type: CodeChannels, resolve: (p, _, ctx) => withSystemScope(sqlOf(ctx), (tx) => (ctx.codeChannels ?? noCodeChannels).forPartner(tx, personOf(ctx).partnerId, p.phone)) }),
     }),
   })
 
@@ -183,6 +190,8 @@ export const registerProfile = (builder: StoreBuilder) => {
       hint: t.exposeString('hint', { nullable: true }),
       done: t.exposeBoolean('done'),
       backupCodes: t.exposeStringList('backupCodes', { nullable: true }),
+      // Where the code went: `whatsapp` or `sms`.
+      channel: t.exposeString('channel', { nullable: true }),
     }),
   })
 
@@ -317,7 +326,7 @@ export const registerProfile = (builder: StoreBuilder) => {
     }),
     setSecondFactor: t.field({
       type: StepType,
-      args: { method: t.arg.string({ required: true }), code: t.arg.string(), password: t.arg.string() },
+      args: { method: t.arg.string({ required: true }), code: t.arg.string(), password: t.arg.string(), channel: t.arg.string() },
       extensions: { access: { ...session, audit: 'two_factor.method_changed', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
@@ -374,10 +383,16 @@ export const registerProfile = (builder: StoreBuilder) => {
             const phone = profile.phone
             if (!phone) throw refused('PHONE_REQUIRED', 'Add your mobile number first.')
             if (code === null) {
-              if ((await countCodesSince(tx, person.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) throw refused('RATE_LIMITED', 'Wait a few minutes before asking for another code.')
+              const asked = args.channel ?? undefined
+              if (asked !== undefined && !isChannel(asked)) throw refused('INVALID_INPUT', 'Choose whatsapp or sms.')
+              const deps = { codeChannels: ctx.codeChannels ?? noCodeChannels, activity: ctx.activity, facts: ctx.facts }
+              const sent = await sendPersonCode(tx, deps, { id: person.id, partnerId: person.partnerId, phone }, 'enrol_phone', asked, now)
+              if ('code' in sent) {
+                if (sent.code === 'TOO_SOON') return refused('TOO_SOON', 'Wait a few seconds before asking for a text.', { seconds: sent.seconds })
+                return sent.code === 'CHANNEL_OFF' ? refused('CHANNEL_OFF', 'Codes can’t reach your number right now. Use an authenticator app instead.') : refused('RATE_LIMITED', 'Wait a few minutes before asking for another code.')
+              }
               await setPendingSecondFactor(tx, person.sessionHash, person.id, { secretEnc: null, phone })
-              await textCode(tx, person.partnerId, person.id, phone, 'enrol_phone', now)
-              return step({ hint: phoneHint(phone) })
+              return step({ hint: sent.hint, channel: sent.channel })
             }
             const pending = await selectPendingSecondFactor(tx, person.sessionHash, person.id)
             // The code proves the number it was sent to; a number changed since needs a new code.

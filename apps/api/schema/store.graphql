@@ -225,6 +225,7 @@ input BlogPostInput {
 type Brand {
   accentColor: String
   background: String
+  codeChannels: CodeChannels
   corner: String
   files: BrandFiles
   font: String
@@ -363,6 +364,11 @@ type CatalogueSettings {
   pricingCurrency: String
   translationLanguages: [String!]
   unitSystem: String
+}
+
+type CodeChannels {
+  sms: Boolean
+  whatsapp: Boolean
 }
 
 type Collection {
@@ -1314,7 +1320,7 @@ type Mutation {
   setPricesIncludeTax(included: Boolean!): Boolean
   setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
-  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setSecondFactor(channel: String, code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setStoreAiFallback(on: Boolean!): Boolean
   setStoreAiSwitch(on: Boolean!): Boolean
@@ -2325,6 +2331,7 @@ input ProductsPatch {
 }
 
 type Profile {
+  codeChannels: CodeChannels
   email: String
   name: String
   passwordChangedAt: String
@@ -2730,6 +2737,7 @@ type ScheduledPlanChange {
 
 type SecondFactorStep {
   backupCodes: [String!]
+  channel: String
   done: Boolean
   hint: String
   secret: String

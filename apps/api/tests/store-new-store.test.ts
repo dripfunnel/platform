@@ -3,6 +3,7 @@ import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { createUserSession } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -32,7 +33,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets: null, now: () => now, allowAttempt: async () => true, ...overrides })
+const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets: null, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels, ...overrides })
 
 /** A person of the partner with one membership, signed in on its portal; `twoFactor` as an Owner must have it. */
 const person = async (email: string, membership: { storeId: string; role: string; sellerId?: string }, twoFactor = false, partnerId = t.partnerA) => {
