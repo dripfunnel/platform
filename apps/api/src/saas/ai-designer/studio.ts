@@ -24,7 +24,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type FileEdit, type StudioState } from '#saas/studio/index'
 import { agentBuildMs, agentChangeMs, chatReply, designModel, type CopiedImage, type DesignTools, type DesignBrief, type Device, type ReferenceBrief } from './model'
-import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, sectionRequests, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { answersOf, chunkRequests, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, sectionRequests, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -73,6 +73,8 @@ export type TextEntry = { key: string; text: string }
 
 /** design_message.text's limit (migration 0395): a whole design brief fits. */
 const maxRequest = 10_000
+/** A request longer than this is a brief: planned and built step by step at once (AI-STUDIO §4 "A plan", decided 2026-11-16). */
+const longBrief = 1_500
 /** Less of the clock than this left after the plan, and its card waits for Build it rather than squeeze the sections. */
 const minAutoBuildMs = 5 * 60_000
 /** A sample site's own pictures copied into Assets for one request (AI-STUDIO §8). */
@@ -305,7 +307,7 @@ export const createStudioService = (deps: StudioDeps) => {
     return { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] }
   }
 
-  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshots: AiImage[], summary: StoreSummary | null, mayAsk = false, reference: ReferenceBrief | null = null): Promise<DesignBrief> => {
+  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshots: AiImage[], summary: StoreSummary | null, mayAsk = false, reference: ReferenceBrief | null = null, brief = false): Promise<DesignBrief> => {
     const recent = await withScope(sql, context, (tx) => selectRecentTurns(tx, storeId, recentTurns))
     return {
       page: input.page,
@@ -318,6 +320,7 @@ export const createStudioService = (deps: StudioDeps) => {
       screenshots,
       reference,
       mayAsk,
+      longBrief: brief,
     }
   }
 
@@ -411,7 +414,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const stopLoop = new AbortController()
     const known = await currentSummary()
     const lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
-    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? [], known, true, reference), photoTools(added), () => undefined, stopLoop.signal, lookups, agentChangeMs)
+    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? [], known, true, reference, text.length > longBrief), photoTools(added), () => undefined, stopLoop.signal, lookups, agentChangeMs)
     let modelAsked = false
     let modelFailure: unknown = null
     let proposed = ''
@@ -465,7 +468,7 @@ export const createStudioService = (deps: StudioDeps) => {
       const message = await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId)
       // A plan for a site this request names is built at once, section by section, inside one build's clock (AI-STUDIO §4).
       const wallMs = agentBuildMs - (now().getTime() - started.getTime())
-      if (fresh && 'plan' in askedBack && wallMs >= minAutoBuildMs) return buildIn(message.id, input.model, run, live, { shots: shot?.value ?? [], reference, wallMs })
+      if ((fresh || text.length > longBrief) && 'plan' in askedBack && wallMs >= minAutoBuildMs) return buildIn(message.id, input.model, run, live, { shots: shot?.value ?? [], reference, wallMs })
       return { ok: true, value: { outcome: 'asked', message } }
     }
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
@@ -668,8 +671,8 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       let answer: Awaited<ReturnType<NonNullable<typeof studio>['build']>> | { outcome: 'failed' }
       try {
-        // A plan drawn from a sample site builds its home page section by section.
-        answer = await studio.build(storeId, { pages: siteIn(flow.request, maxUrl) ? sectionRequests(flow) : pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
+        // A sample site's plan builds its home page section by section; a long brief's, then each other page.
+        answer = await studio.build(storeId, { pages: siteIn(flow.request, maxUrl) ? sectionRequests(flow) : flow.request.length > longBrief ? chunkRequests(flow) : pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
       } catch (error) {
         logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
         // An answer lost after a page was built still records the build as it stood, so its pages have their one Undo.

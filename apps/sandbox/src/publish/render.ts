@@ -33,8 +33,10 @@ const resolveOwn = (): Plugin => ({
       const allowed = args.namespace === 'df' || Object.hasOwn(runtimeModules, args.path) || bundledModules.has(args.path) || !args.importer.includes('/src/theme/')
       if (!allowed) return { errors: [{ text: `${args.path} isn't a module a theme may import.` }] }
       if (isBuiltin(args.path)) return { path: args.path, external: true }
+      // A package's own dependency resolves from that package (pnpm keeps motion's framer-motion beside it); a theme's never.
+      const from = args.importer.includes('/node_modules/') ? createRequire(args.importer) : fromHere
       try {
-        return { path: fromHere.resolve(args.path) }
+        return { path: from.resolve(args.path) }
       } catch {
         return { errors: [{ text: `${args.path} can't be found in the build image.` }] }
       }

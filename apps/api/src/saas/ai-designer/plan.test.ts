@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AiProvider } from '#integrations/ai/index'
-import { answersOf, buildOrder, flowOf, pageRequests, planReply, planRules, sectionRequests, type DesignPlan, type PlanFlow } from './plan'
+import { answersOf, buildOrder, chunkRequests, flowOf, maxBuildSteps, pageRequests, planReply, planRules, sectionRequests, type DesignPlan, type PlanFlow } from './plan'
 
 const plan: DesignPlan = {
   header: 'logo and a short menu',
@@ -30,6 +30,16 @@ describe('the build’s pages (#1243)', () => {
     expect(product?.request).toContain('The merchant first asked: Make my store look premium')
     expect(product).toMatchObject({ page: 'product', title: 'Product' })
   })
+  it('builds a long brief’s plan as its home page’s sections, then each other page, one change each', () => {
+    const steps = chunkRequests(flow)
+    expect(steps.map((s) => [s.page, s.title])).toEqual([['home', 'Section 1: hero with silk sarees'], ['home', 'Section 2: 3 collection tiles'], ['product', 'Product'], ['about', 'About'], ['lookbook', 'Lookbook']])
+    expect(steps[0]?.request).toContain('Build section 1 of 2 of the Home page (home): hero with silk sarees.')
+    expect(steps[0]?.request).not.toContain('sample site')
+    expect(steps[2]?.request).toContain('Build the Product page (product), with large gallery; zoom.')
+    expect(steps[2]?.request).toContain('The merchant first asked: Make my store look premium')
+    expect(steps.length).toBeLessThanOrEqual(maxBuildSteps)
+  })
+
   it('builds a sample site’s plan as its home page’s sections, one change each, matched to the same part of that site', () => {
     const steps = sectionRequests({ ...flow, request: 'Copy https://example.com/ exactly' })
     expect(steps.map((s) => s.title)).toEqual(['Section 1: hero with silk sarees', 'Section 2: 3 collection tiles'])
