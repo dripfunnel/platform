@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-16 (PortalAuth: sign-up's number step and codes by WhatsApp first). Before: 2026-11-12 (#1404: Change mobile number is built, the prototype only toasts). Before: 2026-11-09 (#1367: a supplier sees its own lines' answers, the vendors note). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-16 (#1507: the portal builds the WhatsApp and SMS code states, PortalAuth, PortalProfile). Before: 2026-11-16 (PortalAuth: sign-up's number step and codes by WhatsApp first). Before: 2026-11-12 (#1404: Change mobile number is built, the prototype only toasts). Before: 2026-11-09 (#1367: a supplier sees its own lines' answers, the vendors note). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -47,7 +47,12 @@ the missing backend.
 - ~~There is no screen to set up or turn off two-step sign-in, and only SMS codes are supported.~~
 - Sign-up never asks for country, currency or language. That is left to a card on Home.
 - Sign-up step 4 always asks for a number and says "We text you a code". The docs ask for the number only while the partner's WhatsApp is on and send every portal code by WhatsApp first, "Send by SMS instead" after 20
-  seconds (ACCESS §4, decided 2026-11-16). The docs win.
+  seconds (ACCESS §4, decided 2026-11-16). The docs win. **The portal builds these states and the prototypes don't draw
+  them** (#1507, no prototype by decision): sign-up numbered as three steps with WhatsApp off, the store step then
+  "Create my store"; one code panel on su4, the sign-in code (`tfa`) and the enrol view, and PortalProfile's phone set-up:
+  "We sent a code to WhatsApp on •••• 1234", a 20-second countdown, then "Send again on WhatsApp" and, while SMS is on,
+  "Send by SMS instead", then "Sent by SMS to •••• 1234"; PortalProfile's Two-step sign-in offers only the authenticator
+  app with both channels off and says a phone method's codes are paused.
 - ~~An invitation always assigns the Staff role, whatever the inviter chose.~~
 - ~~The "Privacy" and "Help" footer items aren't links.~~
 

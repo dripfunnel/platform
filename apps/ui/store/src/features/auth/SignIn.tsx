@@ -1,13 +1,14 @@
 import { safeNext, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { backupCodeFrom, confirmEnrolBySms, enrolBySms, isRefusal, requestPasswordReset, sendCode, signIn, useBackupCode, verifyCode, type Admitted, type AuthRefusal } from '../../api/auth'
+import { backupCodeFrom, confirmEnrolBySms, enrolBySms, isRefusal, requestPasswordReset, sendCode, signIn, useBackupCode, verifyCode, type Admitted, type AuthRefusal, type CodeChannel, type CodeChannels } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { sampleCodes, sampleEmail, sampleHint, signInStates, type SignInState } from './authStates'
 import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
-import { CodeField, Field, Foot, GoogleButton, PasswordField, Primary, Secondary, useResendWait } from './fields'
+import { CodeField, Field, Foot, GoogleButton, PasswordField, Primary, Secondary } from './fields'
+import { afterRefusedSend, CodeResend, noCodeChannels, useResendWait, type SentCode } from '../common/CodeResend'
 import { productName } from '../common/productName'
 import { googleOutcomeText, refusalText, type GoogleOutcome } from './refusals'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
@@ -16,9 +17,9 @@ const words = messages.auth
 
 type View =
   | { kind: 'login' }
-  | { kind: 'code'; method: 'app' | 'sms'; hint: string | null }
+  | { kind: 'code'; method: 'app' | 'sms'; sent: SentCode | null; channels: CodeChannels }
   | { kind: 'backup' }
-  | { kind: 'enrol'; hint: string | null }
+  | { kind: 'enrol'; sent: SentCode | null; channels: CodeChannels }
   | { kind: 'codes'; codes: string[] }
   | { kind: 'locked'; minutes: number }
   | { kind: 'forgot' }
@@ -38,6 +39,11 @@ export interface SignInProps {
 }
 
 
+type PhoneView = Extract<View, { kind: 'code' | 'enrol' }>
+
+const bothChannels: CodeChannels = { whatsapp: true, sms: true }
+const sampleSent = (channel: CodeChannel): SentCode => ({ channel, hint: sampleHint })
+
 const forcedNote = (state: SignInState | null): 'expired' | 'signedOut' | undefined => (state === 'sessionExpired' ? 'expired' : state === 'signedOut' ? state : undefined)
 
 // Where a harness state opens the screen, and the words it shows there.
@@ -46,17 +52,23 @@ const forcedStart = (state: SignInState): { view: View; error: string | null } =
     case 'wrong':
       return { view: { kind: 'login' }, error: refusalText({ ok: false, code: 'INVALID_CREDENTIALS' }) }
     case 'code':
-      return { view: { kind: 'code', method: 'sms', hint: sampleHint }, error: null }
+      return { view: { kind: 'code', method: 'sms', sent: sampleSent('whatsapp'), channels: bothChannels }, error: null }
+    case 'codeSms':
+      return { view: { kind: 'code', method: 'sms', sent: sampleSent('sms'), channels: bothChannels }, error: null }
+    case 'codeNoSms':
+      return { view: { kind: 'code', method: 'sms', sent: sampleSent('whatsapp'), channels: { whatsapp: true, sms: false } }, error: null }
+    case 'codeNoChannel':
+      return { view: { kind: 'code', method: 'sms', sent: null, channels: noCodeChannels }, error: words.secondFactor.noChannel }
     case 'codeApp':
-      return { view: { kind: 'code', method: 'app', hint: null }, error: null }
+      return { view: { kind: 'code', method: 'app', sent: null, channels: noCodeChannels }, error: null }
     case 'wrongCode':
-      return { view: { kind: 'code', method: 'sms', hint: sampleHint }, error: refusalText({ ok: false, code: 'WRONG_CODE', triesLeft: 2 }) }
+      return { view: { kind: 'code', method: 'sms', sent: sampleSent('whatsapp'), channels: bothChannels }, error: refusalText({ ok: false, code: 'WRONG_CODE', triesLeft: 2 }) }
     case 'backup':
       return { view: { kind: 'backup' }, error: null }
     case 'enrol':
-      return { view: { kind: 'enrol', hint: null }, error: null }
+      return { view: { kind: 'enrol', sent: null, channels: noCodeChannels }, error: null }
     case 'enrolCode':
-      return { view: { kind: 'enrol', hint: sampleHint }, error: null }
+      return { view: { kind: 'enrol', sent: sampleSent('whatsapp'), channels: bothChannels }, error: null }
     case 'codes':
       return { view: { kind: 'codes', codes: [...sampleCodes] }, error: null }
     case 'locked':
@@ -92,7 +104,16 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
   const navigate = useNavigate()
   const forced = useScreenState(signInStates, harnessEnabled)
   const start = forced ? forcedStart(forced) : googleStart(google)
-  const [view, setView] = useState<View>(start?.view ?? (opening === 'forgot' ? { kind: 'forgot' } : resume?.step === 'enrol' ? { kind: 'enrol', hint: null } : resume?.step === 'second-factor' ? { kind: 'code', method: resume.method, hint: null } : { kind: 'login' }))
+  const [view, setView] = useState<View>(
+    start?.view ??
+      (opening === 'forgot'
+        ? { kind: 'forgot' }
+        : resume?.step === 'enrol'
+          ? { kind: 'enrol', sent: null, channels: noCodeChannels }
+          : resume?.step === 'second-factor'
+            ? { kind: 'code', method: resume.method, sent: null, channels: noCodeChannels }
+            : { kind: 'login' }),
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -123,13 +144,35 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
     }
   }
 
+  // A phone code's answer: where it went and where the next can go, or why none went (ACCESS.md §4).
+  const showSend = (base: PhoneView, asked: CodeChannel | undefined, answer: { ok: true; hint: string; channel: CodeChannel; codeChannels: CodeChannels } | AuthRefusal, noneLeft: string) => {
+    if (isRefusal(answer)) {
+      const after = afterRefusedSend(answer, asked, base.channels, noneLeft)
+      if (!after) return refused(answer)
+      if (after.wait !== null) startWait(after.wait)
+      setView({ ...base, channels: after.channels })
+      setInfo(null)
+      return setError(after.text)
+    }
+    startWait()
+    setView({ ...base, sent: { channel: answer.channel, hint: answer.hint }, channels: answer.codeChannels })
+    setError(null)
+    setInfo(base.sent ? words.secondFactor.sent : null)
+  }
+  const sendSignInCode = async (base: PhoneView, asked?: CodeChannel) => showSend(base, asked, await sendCode(asked), words.secondFactor.noChannel)
+  const sendEnrolCode = async (base: PhoneView, asked?: CodeChannel) => {
+    const answer = await enrolBySms(phone.trim(), asked)
+    if (isRefusal(answer)) return answer.code === 'INVALID_CREDENTIALS' ? setError(words.enrol.stale) : showSend(base, asked, answer, messages.codeResend.none)
+    if ('hint' in answer) showSend(base, asked, answer, messages.codeResend.none)
+  }
+
   const admitted = async (answer: Admitted) => {
     if (answer.step === 'done') return enter()
-    if (answer.step === 'enrol') return go({ kind: 'enrol', hint: null })
-    if (answer.method === 'app') return go({ kind: 'code', method: 'app', hint: null })
-    const sent = await sendCode()
-    startWait()
-    go({ kind: 'code', method: 'sms', hint: isRefusal(sent) ? null : sent.hint })
+    if (answer.step === 'enrol') return go({ kind: 'enrol', sent: null, channels: noCodeChannels })
+    if (answer.method === 'app') return go({ kind: 'code', method: 'app', sent: null, channels: noCodeChannels })
+    const base: PhoneView = { kind: 'code', method: 'sms', sent: null, channels: answer.codeChannels ?? noCodeChannels }
+    go(base)
+    await sendSignInCode(base)
   }
 
   const submit = (event: FormEvent) => {
@@ -152,16 +195,7 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
         return isRefusal(answer) ? refused(answer) : enter()
       }
       if (view.kind === 'enrol') {
-        if (view.hint === null) {
-          const answer = await enrolBySms(phone.trim())
-          if (isRefusal(answer)) return answer.code === 'INVALID_CREDENTIALS' ? setError(words.enrol.stale) : refused(answer)
-          if ('hint' in answer) {
-            startWait()
-            setView({ kind: 'enrol', hint: answer.hint })
-            setError(null)
-          }
-          return
-        }
+        if (view.sent === null) return sendEnrolCode(view)
         if (code.length !== 6) return setError(words.secondFactor.incomplete)
         const answer = await confirmEnrolBySms(code)
         if (isRefusal(answer)) return refused(answer)
@@ -183,25 +217,13 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
     setError(next.error)
   }, [forced])
 
-  // A resumed SMS step texts its code once, as a fresh sign-in would.
+  // A resumed phone step sends its code once, as a fresh sign-in would.
   const texted = useRef(false)
   useEffect(() => {
     if (resume?.step !== 'second-factor' || resume.method !== 'sms' || texted.current) return
     texted.current = true
-    void sendCode().then((sent) => {
-      if (isRefusal(sent)) return setError(refusalText(sent))
-      startWait()
-      setView({ kind: 'code', method: 'sms', hint: sent.hint })
-    })
-  }, [resume, startWait])
-
-  const resendSignIn = () =>
-    void run(async () => {
-      const sent = await sendCode()
-      if (isRefusal(sent)) return setError(refusalText(sent))
-      startWait()
-      setInfo(words.secondFactor.sent)
-    })
+    void sendSignInCode({ kind: 'code', method: 'sms', sent: null, channels: noCodeChannels })
+  }, [resume])
   const shownNote = note ?? forcedNote(forced)
   const notice = error ? { text: error, tone: 'error' as const } : info ? { text: info, tone: 'info' as const } : view.kind === 'login' && shownNote ? { text: words.signIn[shownNote], tone: 'info' as const } : null
 
@@ -227,13 +249,14 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
         <AuthFrame
           panel="in"
           title={words.secondFactor.title}
-          sub={view.method === 'app' ? words.secondFactor.app : view.hint ? fill(words.secondFactor.sms, { hint: view.hint.replace(/\D/g, '') }) : words.secondFactor.smsUnsent}
+          sub={view.method === 'app' ? words.secondFactor.app : view.sent ? words.secondFactor.sms : words.secondFactor.smsUnsent}
           back={{ label: words.back, onBack: () => go({ kind: 'login' }) }}
           icon={{ name: 'phone', tone: 'info' }}
           notice={notice}
         >
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
-            <CodeField value={code} onValue={setCode} wait={wait} onResend={view.method === 'sms' ? resendSignIn : undefined} invalid={error !== null} />
+            <CodeField value={code} onValue={setCode} invalid={error !== null} />
+            {view.method === 'sms' && view.sent && <CodeResend sent={view.sent} channels={view.channels} wait={wait} busy={busy} onSend={(channel) => void run(() => sendSignInCode(view, channel))} />}
             <Primary busy={busy}>{words.secondFactor.primary}</Primary>
             <Secondary onClick={() => go({ kind: 'backup' })}>{words.secondFactor.backup}</Secondary>
           </form>
@@ -253,18 +276,21 @@ export const SignIn = ({ next, note, resume, start: opening, google }: SignInPro
         <AuthFrame
           panel="in"
           title={words.enrol.title}
-          sub={view.hint ? fill(words.enrol.subSent, { hint: view.hint.replace(/\D/g, '') }) : words.enrol.sub}
-          back={view.hint ? { label: words.enrol.changeNumber, onBack: () => go({ kind: 'enrol', hint: null }) } : { label: words.back, onBack: () => go({ kind: 'login' }) }}
+          sub={view.sent ? words.enrol.subSent : words.enrol.sub}
+          back={view.sent ? { label: words.enrol.changeNumber, onBack: () => go({ kind: 'enrol', sent: null, channels: view.channels }) } : { label: words.back, onBack: () => go({ kind: 'login' }) }}
           icon={{ name: 'phone', tone: 'info' }}
           notice={notice}
         >
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
-            {view.hint ? (
-              <CodeField value={code} onValue={setCode} wait={wait} invalid={error !== null} />
+            {view.sent ? (
+              <>
+                <CodeField value={code} onValue={setCode} invalid={error !== null} />
+                <CodeResend sent={view.sent} channels={view.channels} wait={wait} busy={busy} onSend={(channel) => void run(() => sendEnrolCode(view, channel))} />
+              </>
             ) : (
               <Field label={words.fields.phone} type="tel" inputMode="tel" autoComplete="tel" placeholder={words.fields.phonePlaceholder} value={phone} onValue={setPhone} invalid={error !== null} />
             )}
-            <Primary busy={busy}>{view.hint ? words.enrol.confirmPrimary : words.enrol.sendPrimary}</Primary>
+            <Primary busy={busy}>{view.sent ? words.enrol.confirmPrimary : words.enrol.sendPrimary}</Primary>
           </form>
         </AuthFrame>
       )
