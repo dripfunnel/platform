@@ -2,7 +2,7 @@ import type { MyActivityEntry, Profile, SignedInSession } from '../../api/profil
 import type { Setup } from './TwoStep'
 
 // My profile's states under ?state= (ui/README.md §6), named apart from StaffSessionRoot's.
-export const profileStates = ['loading', 'error', 'owner', 'off', 'sms', 'lowCodes', 'pendingEmail', 'setupPick', 'setupApp', 'setupSms', 'setupCodes'] as const
+export const profileStates = ['loading', 'error', 'owner', 'off', 'sms', 'smsPaused', 'lowCodes', 'pendingEmail', 'setupPick', 'setupPickAppOnly', 'setupApp', 'setupSms', 'setupSmsBySms', 'setupCodes'] as const
 
 export type ProfileState = (typeof profileStates)[number]
 
@@ -25,6 +25,7 @@ const base =
           theme: null,
           passwordChangedAt: '2026-08-14T09:30:00.000Z',
           twoFactor: { method: 'app', backupCodesLeft: 8 },
+          codeChannels: { whatsapp: true, sms: true },
         } satisfies Profile,
         sessions: [
           { device: 'Chrome on Mac', current: true, createdAt: '2026-10-05T08:00:00.000Z', lastUsedAt: '2026-10-05T10:40:00.000Z' },
@@ -52,18 +53,24 @@ export const profileSample = (state: ProfileState | null): ProfileSample | null 
       return { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0 } } }
     case 'sms':
       return { ...base, profile: { ...profile, twoFactor: { ...profile.twoFactor, method: 'sms' } } }
+    case 'smsPaused':
+      return { ...base, profile: { ...profile, twoFactor: { ...profile.twoFactor, method: 'sms' }, codeChannels: { whatsapp: false, sms: false } } }
     case 'lowCodes':
       return { ...base, profile: { ...profile, twoFactor: { ...profile.twoFactor, backupCodesLeft: 2 } } }
     case 'pendingEmail':
       return { ...base, profile: { ...profile, pendingEmail: 'farhan.ali@gmail.com' } }
     case 'setupPick':
+    case 'setupPickAppOnly':
     case 'setupApp':
     case 'setupSms':
+    case 'setupSmsBySms':
     case 'setupCodes': {
       const off = { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0 } } }
       if (state === 'setupPick') return { ...off, setup: { step: 'pick', method: 'app', switching: false } }
+      if (state === 'setupPickAppOnly') return { ...off, profile: { ...off.profile, codeChannels: { whatsapp: false, sms: false } }, setup: { step: 'pick', method: 'app', switching: false } }
       if (state === 'setupCodes') return { ...off, setup: { step: 'codes', codes: base.codes } }
-      return { ...off, setup: { step: 'verify', method: state === 'setupApp' ? 'app' : 'sms', switching: false, secret: base.secret, hint: '•••• 1234' } }
+      if (state === 'setupApp') return { ...off, setup: { step: 'verify', method: 'app', switching: false, secret: base.secret, sent: null, proof: '' } }
+      return { ...off, setup: { step: 'verify', method: 'sms', switching: false, secret: null, sent: { channel: state === 'setupSms' ? 'whatsapp' : 'sms', hint: '•••• 1234' }, proof: '' } }
     }
   }
 }

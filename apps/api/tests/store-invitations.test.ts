@@ -13,6 +13,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -39,7 +40,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, ...overrides })
+const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels, ...overrides })
 const onB = () => deps({ partnerId: t.partnerB, host: hostB })
 
 const cookieOf = (response: Response) => /__Host-portal_session=([^;]*)/.exec(response.headers.get('set-cookie') ?? '')?.[1] ?? ''
@@ -259,7 +260,7 @@ describe('resetting a password', () => {
     expect((await post('/api/auth/reset-password', { token, password: 'short' })).body).toEqual({ ok: false, code: 'WEAK_PASSWORD' })
     expect((await post('/api/auth/reset-password', { token, password: 'a brand new passphrase' }, '', onB())).body).toEqual({ ok: false, code: 'RESET_INVALID' })
     const res = await post('/api/auth/reset-password', { token, password: 'a brand new passphrase' })
-    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms' })
+    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: { whatsapp: false, sms: true } })
     // Only the session this reset opened is left: the one from before is gone.
     const left = await db.sql<{ id_hash: string }[]>`select id_hash from user_session where user_id = ${id}`
     expect(left.map((r) => r.id_hash)).toEqual([await hashSessionId(res.cookie)])

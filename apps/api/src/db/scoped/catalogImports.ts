@@ -39,7 +39,7 @@ export interface CatalogImportRow {
   started_at: Date | null
   finished_at: Date | null
   expires_at: Date | null
-  /** The store category whose sample catalog this import is (0400); null for every other import. */
+  /** The store category whose sample catalog this import is (0404); null for every other import. */
   sample_category_id: string | null
 }
 

@@ -39,6 +39,8 @@
     "CODE_EXPIRED": "That code has expired. Ask for a new one.",
     "WRONG_CODE": "That code doesn’t match.",
     "WRONG_CODE_TRIES": "That code doesn’t match. {triesLeft} tries left before sign-in is paused.",
+    "CHANNEL_OFF": "Codes can’t reach your phone right now. Try again later.",
+    "TOO_SOON": "Wait {seconds}s, then ask again.",
     "settingsStore": {
       "INVALID_INPUT": "Something here isn’t valid. Check the name (up to 80 characters), description (up to 120) and order prefix (letters, numbers and -, up to 6).",
       "INVALID_EMAIL": "That contact email doesn’t look right.",
@@ -197,11 +199,13 @@
       "INVALID_CREDENTIALS": "That isn’t your current password."
     },
     "profile": {
-      "INVALID_CREDENTIALS": "That isn’t your password."
+      "INVALID_CREDENTIALS": "That isn’t your password.",
+      "CHANNEL_OFF": "Codes can’t reach your phone right now. Use an authenticator app instead."
     },
     "code": {
       "INVALID_CREDENTIALS": "Your sign-in timed out. Start again.",
-      "CODE_EXPIRED": "That code has expired. Ask for a new one."
+      "CODE_EXPIRED": "That code has expired. Ask for a new one.",
+      "CHANNEL_OFF": "Codes can’t reach your phone right now. Use a backup code instead."
     },
     "products": {
       "NAME_REQUIRED": "Give the product a name.",
@@ -508,6 +512,25 @@
       "FORBIDDEN": "Only the store owner can export the activity log."
     }
   },
+  "codeResend": {
+    "sentWhatsapp": "We sent a code to WhatsApp on {hint}.",
+    "sentSms": "Sent by SMS to {hint}.",
+    "wait": "Didn’t get it? You can ask again in {seconds}s.",
+    "waiting": "You can ask for another code in a few seconds.",
+    "ready": "Didn’t get it?",
+    "readyAnnounced": "You can ask for another code now.",
+    "againWhatsapp": "Send again on WhatsApp",
+    "insteadWhatsapp": "Send on WhatsApp instead",
+    "againSms": "Send again by SMS",
+    "insteadSms": "Send by SMS instead",
+    "sendWhatsapp": "Send a code on WhatsApp",
+    "sendSms": "Send a code by SMS",
+    "tooSoon": "Wait {seconds}s, then ask again.",
+    "off": {
+      "whatsapp": "WhatsApp codes are off right now. Ask for one by SMS instead.",
+      "sms": "SMS codes are off right now. Ask for one on WhatsApp instead."
+    }
+  },
   "auth": {
     "email": "Email",
     "emailPlaceholder": "you@example.com",
@@ -528,11 +551,10 @@
     },
     "twoStepTitle": "Two-step sign-in",
     "twoStepApp": "Type the 6-digit code from your authenticator app.",
-    "twoStepSms": "We texted a 6-digit code to {hint}.",
+    "twoStepSms": "Type the 6-digit code we sent to your phone.",
+    "twoStepSmsUnsent": "We’ll send a 6-digit code to the phone on your account.",
     "code": "Code",
     "codePlaceholder": "• • • • • •",
-    "resendWait": "Didn’t get it? You can ask again in {seconds}s.",
-    "resend": "Send again",
     "resent": "We’ve sent a new code.",
     "codeLength": "The code has 6 digits — check it again.",
     "verifyButton": "Verify and sign in",
@@ -625,9 +647,10 @@
     "pillOff": "Off",
     "methodApp": "Authenticator app",
     "methodAppSub": "Codes come from the app on your phone. Works without signal.",
-    "methodSms": "Text message",
-    "methodSmsSub": "Codes are texted to your mobile number.",
-    "useSms": "Use text messages",
+    "methodSms": "Code to your phone",
+    "methodSmsSub": "Codes come by WhatsApp, or by SMS if you ask, to your mobile number.",
+    "methodSmsPaused": "Phone codes are paused: {product} has WhatsApp and SMS codes off right now. Switch to an authenticator app to keep two-step sign-in working.",
+    "useSms": "Use codes to my phone",
     "useApp": "Use an authenticator app",
     "backupCodes": "Backup codes",
     "backupLeft": "{count} of 10 backup codes left",
@@ -651,11 +674,12 @@
     "verifyAppTitle": "Add this account to your authenticator app, then type the code it shows",
     "setupKey": "Setup key — type it into Google Authenticator, 1Password, Authy or similar",
     "openAuthenticator": "Open authenticator app",
-    "verifySmsTitle": "We texted a code to {hint}",
+    "verifySmsTitle": "Type the code we sent to {hint}",
     "sixDigitCode": "6-digit code",
     "verify": "Verify",
     "turnedOn": "Two-step sign-in is on.",
-    "switched": "Codes now come by {method}.",
+    "switchedApp": "Codes now come from your authenticator app.",
+    "switchedSms": "Codes now come to your phone.",
     "codesTitle": "Save your backup codes",
     "codesSub": "If you lose your phone, each code signs you in once. We won’t show them again.",
     "shareCodes": "Share codes",

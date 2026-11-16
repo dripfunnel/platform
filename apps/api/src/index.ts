@@ -64,15 +64,21 @@ import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/c
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp, localWhatsAppCheck } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
 import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
-import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
-import { smsDeliverer } from '#jobs/queues/deliverers/sms'
+import { expireUnsentWhatsAppCodes, whatsappAccountsFor, whatsappKind, whatsappTemplates, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { codeChannelsFor, type CodeChannelCheck } from '#saas/portalCodes/index'
+import type { WhatsAppSender } from '#core/whatsapp'
+import { metaWhatsAppSender } from '#integrations/meta/index'
+import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
+import { msg91Sender } from '#integrations/msg91/index'
+import { twilioSender } from '#integrations/twilio/index'
+import { snsSender } from '#integrations/sns/index'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { localGoogleSignIn } from '#integrations/google/local'
@@ -181,7 +187,7 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
+import { expireUnsentSms, ourSmsRoutesOf, smsAccountsFor, smsKind, smsMessages, type OurSmsRoutes } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -270,17 +276,35 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
-// Locally (SMS_LOCAL) every partner has an account on each provider, whose texts the stand-in prints (#275 sets the real ones).
-const localSmsAccounts: PartnerSmsAccounts = {
-  forPartner: async (_, __, provider) =>
-    provider === 'msg91'
-      ? { provider, authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) }
-      : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+// DripFunnel's own SMS account per route (#1017): locally (SMS_LOCAL) the stand-in's, whose texts it prints, else the
+// Worker's values. A partner's complete account for a route replaces ours (saas/sms smsAccountsFor).
+const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | null => {
+  if (config.SMS_LOCAL === '1') {
+    const ours: OurSmsRoutes = {
+      india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+      rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+    }
+    return { ours, senders: { msg91: localSms, twilio: localSms, sns: localSms } }
+  }
+  const ours = ourSmsRoutesOf(config)
+  if (!ours.india && !ours.rest) return null
+  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
 }
 
-// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
+/** Which channels reach a portal code's number (ACCESS.md §4): SMS only through an account the `sms` deliverer can use. */
+const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => {
+  const sms = smsFor(config)
+  return codeChannelsFor(sms ? smsAccountsFor(secrets, sms.ours) : null)
+}
+
+// WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints; else each
+// partner's own account on Meta, wherever the Worker can open credentials (CREDENTIALS_KEK).
 const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
-  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+  forPartner: async () => ({ accessToken: 'local', businessAccountId: '00000', phoneNumberId: '00000', language: 'en', templates: Object.fromEntries(whatsappTemplates.map((m) => [m, m.replace('.', '_')])) }),
+}
+const whatsappFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerWhatsAppAccounts; sender: (account: PartnerWhatsAppAccount) => WhatsAppSender } | null => {
+  if (config.SMS_LOCAL === '1') return { accounts: localWhatsAppAccounts, sender: localWhatsApp }
+  return secrets ? { accounts: whatsappAccountsFor(secrets), sender: (account) => metaWhatsAppSender(account) } : null
 }
 
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
@@ -309,7 +333,7 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
+// (outbox-relay.ts); `sms` likewise until DripFunnel's own account (or SMS_LOCAL) is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
@@ -317,6 +341,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
+  const sms = smsFor(config)
+  const whatsapp = whatsappFor(config, secrets)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
@@ -324,10 +350,10 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(sql, assets) } : {}),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
-    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, whatsapp?.accounts ?? null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
-    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
-    ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
+    ...(whatsapp && ses ? { [whatsappKind]: whatsappDeliverer(sql, whatsapp.accounts, whatsapp.sender, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
+    ...(sms ? { [smsKind]: smsDeliverer(sql, smsAccountsFor(secrets, sms.ours), sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -616,7 +642,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), now: () => new Date() }))
   })
 }
 
@@ -657,12 +683,12 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (isStoreGooglePath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
+      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets), google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
     }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets) })
     }
     const facts = factsOf(request)
     if (machineCredentialOf(request) !== null) {
@@ -676,7 +702,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
@@ -1087,6 +1113,15 @@ const expireSms: CronJob = async (sql) => {
   if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
 }
 
+// Portal codes by WhatsApp unsent in time, as texts are above (#1506); cart reminders carry no expiry and are left.
+const expireWhatsAppCodes: CronJob = async (sql) => {
+  const expired = await withSystemScope(sql, (tx) => expireUnsentWhatsAppCodes(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+    logEvent({ event: 'whatsapp_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (expired > 0) logEvent({ event: 'whatsapp_expired', api: 'system', code: 'expired', count: expired })
+}
+
 const queueDomainChecks: CronJob = async (sql) => {
   const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
     logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -1283,7 +1318,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
+  '* * * * *': [sweepDeliveries, expireSms, expireWhatsAppCodes, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],

@@ -1,8 +1,8 @@
 import { safeNext } from '@dripfunnel/shared/ui'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import googleMark from '../../assets/google-mark.svg'
 import { currentBrand } from '../../brand/current'
-import { fill, messages } from '../../messages'
+import { messages } from '../../messages'
 import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
 const words = messages.auth
@@ -53,20 +53,8 @@ export const NewPasswordField = (props: Omit<FieldProps, 'type' | 'trailing' | '
   )
 }
 
-/** Seconds until another code may be asked for, counted down once a second. */
-export const useResendWait = (): [number, () => void] => {
-  const [wait, setWait] = useState(0)
-  useEffect(() => {
-    if (wait <= 0) return
-    const timer = setTimeout(() => setWait((w) => w - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [wait])
-  const start = useCallback(() => setWait(30), [])
-  return [wait, start]
-}
-
-/** Six digits, with PortalAuth's "Send again" and its 30-second wait. */
-export const CodeField = ({ value, onValue, onResend, wait, invalid }: { value: string; onValue: (v: string) => void; onResend?: (() => void) | undefined; wait: number; invalid?: boolean | undefined }) => (
+/** Six digits; a phone code's "Send again" is CodeResend's, under it. */
+export const CodeField = ({ value, onValue, invalid }: { value: string; onValue: (v: string) => void; invalid?: boolean | undefined }) => (
   <Field
     label={words.fields.code}
     value={value}
@@ -76,8 +64,6 @@ export const CodeField = ({ value, onValue, onResend, wait, invalid }: { value: 
     autoComplete="one-time-code"
     placeholder={words.fields.codePlaceholder}
     invalid={invalid}
-    aside={onResend && wait <= 0 ? { label: words.sendAgain, onClick: onResend } : undefined}
-    help={onResend && wait > 0 ? fill(words.waitToResend, { seconds: String(wait) }) : undefined}
   />
 )
 

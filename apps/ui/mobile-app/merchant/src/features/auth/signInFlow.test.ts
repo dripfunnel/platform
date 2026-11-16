@@ -1,7 +1,7 @@
 import { createSessionStore, type SessionStorage } from '../../session/sessionStore'
 import { t } from '../../messages'
 import { createPendingStore } from './pending'
-import { confirmEnrolCode, failureOf, finishEnrol, resendCode, sendEnrolCode, signOut, startGoogleSignIn, startSignIn, submitBackupCode, submitCode } from './signInFlow'
+import { confirmEnrolCode, failureOf, finishEnrol, sendEnrolCode, sendSignInCode, signOut, startGoogleSignIn, startSignIn, submitBackupCode, submitCode } from './signInFlow'
 
 type Call = { path: string; body: Record<string, unknown>; authorization: string | null; credentials: string | undefined }
 
@@ -66,9 +66,10 @@ describe('signing in', () => {
 })
 
 describe('the second factor', () => {
+  const both = { whatsapp: true, sms: true }
   const twoFactor = (method: 'app' | 'sms') => ({
-    '/api/auth/sign-in': () => ({ ok: true, step: 'second-factor', method, token: 'pending-token' }),
-    '/api/auth/send-code': () => ({ ok: true, hint: '•••• 0142' }),
+    '/api/auth/sign-in': () => ({ ok: true, step: 'second-factor', method, token: 'pending-token', ...(method === 'sms' ? { codeChannels: both } : {}) }),
+    '/api/auth/send-code': (body: Record<string, unknown>) => ({ ok: true, hint: '•••• 0142', channel: body.channel ?? 'whatsapp', codeChannels: both }),
     '/api/auth/second-factor': (body: Record<string, unknown>) => (body.code === '123456' ? { ok: true, token: 'full-token' } : refusal('WRONG_CODE', { triesLeft: 4 })),
     '/api/auth/backup-code': (body: Record<string, unknown>) => (body.code === 'K4P2-9XQM' ? { ok: true, left: 9, token: 'full-token' } : refusal('WRONG_CODE', { triesLeft: 4 })),
   })
@@ -86,21 +87,59 @@ describe('the second factor', () => {
     expect(calls.at(-1)).toMatchObject({ path: '/api/auth/second-factor', authorization: 'Bearer pending-token', body: { code: '123456' } })
   })
 
-  it('by text message: texts the code as the step opens, and can ask again', async () => {
+  it('by phone: sends the code by the default channel as the step opens, and can ask again by either', async () => {
     const { deps, calls, pending } = setup(twoFactor('sms'))
 
     await startSignIn(deps, 'owner@example.com', 'a long password')
-    expect(pending.get()).toMatchObject({ step: 'second-factor', method: 'sms', hint: '•••• 0142' })
+    expect(pending.get()).toMatchObject({ step: 'second-factor', method: 'sms', sent: { channel: 'whatsapp', hint: '•••• 0142' }, channels: both, opening: null })
     expect(calls.map((call) => call.path)).toEqual(['/api/auth/sign-in', '/api/auth/send-code'])
+    expect(calls[1]?.body).toEqual({})
 
-    await resendCode(deps)
-    expect(calls.at(-1)).toMatchObject({ path: '/api/auth/send-code', authorization: 'Bearer pending-token' })
+    await expect(sendSignInCode(deps, 'whatsapp')).resolves.toBeNull()
+    expect(calls.at(-1)).toMatchObject({ path: '/api/auth/send-code', authorization: 'Bearer pending-token', body: { channel: 'whatsapp' } })
+
+    await expect(sendSignInCode(deps, 'sms')).resolves.toBeNull()
+    expect(calls.at(-1)?.body).toEqual({ channel: 'sms' })
+    expect(pending.get()).toMatchObject({ sent: { channel: 'sms', hint: '•••• 0142' } })
   })
 
-  it('still opens the code step when the text could not be sent', async () => {
-    const { deps, pending } = setup({ '/api/auth/sign-in': () => ({ ok: true, step: 'second-factor', method: 'sms', token: 'pending-token' }) })
+  it('opens the code step saying why when the first code could not go, offline included', async () => {
+    const offline = setup({ '/api/auth/sign-in': () => ({ ok: true, step: 'second-factor', method: 'sms', codeChannels: both, token: 'pending-token' }) })
+    await startSignIn(offline.deps, 'owner@example.com', 'a long password')
+    expect(offline.pending.get()).toMatchObject({ step: 'second-factor', sent: null, opening: { text: 'We couldn’t reach the server. Check your connection and try again.', wait: null } })
+
+    const closed = setup({ ...twoFactor('sms'), '/api/auth/send-code': () => refusal('CHANNEL_OFF') })
+    await startSignIn(closed.deps, 'owner@example.com', 'a long password')
+    expect(closed.pending.get()).toMatchObject({ sent: null, channels: { whatsapp: false, sms: false }, opening: { text: t('errors.code.CHANNEL_OFF') } })
+  })
+
+  it('waits the seconds the API gives when SMS is asked for too soon', async () => {
+    const { deps, pending } = setup({ ...twoFactor('sms'), '/api/auth/send-code': (body: Record<string, unknown>) => (body.channel === 'sms' ? refusal('TOO_SOON', { seconds: 12 }) : { ok: true, hint: '•••• 0142', channel: 'whatsapp', codeChannels: both }) })
     await startSignIn(deps, 'owner@example.com', 'a long password')
-    expect(pending.get()).toMatchObject({ step: 'second-factor', method: 'sms', hint: null })
+
+    await expect(sendSignInCode(deps, 'sms')).resolves.toEqual({ text: 'Wait 12s, then ask again.', wait: 12, channels: both })
+    expect(pending.get()).toMatchObject({ sent: { channel: 'whatsapp' } })
+  })
+
+  it('drops a channel the API says is off, and says to use the other', async () => {
+    const { deps, pending } = setup({ ...twoFactor('sms'), '/api/auth/send-code': (body: Record<string, unknown>) => (body.channel === 'sms' ? refusal('CHANNEL_OFF') : { ok: true, hint: '•••• 0142', channel: 'whatsapp', codeChannels: both }) })
+    await startSignIn(deps, 'owner@example.com', 'a long password')
+
+    await expect(sendSignInCode(deps, 'sms')).resolves.toMatchObject({ text: t('codeResend.off.sms'), wait: null })
+    expect(pending.get()).toMatchObject({ channels: { whatsapp: true, sms: false } })
+  })
+
+  it('throws any other refusal of a send, offline included, for the screen', async () => {
+    const { deps } = setup({ ...twoFactor('sms'), '/api/auth/send-code': (body: Record<string, unknown>) => (body.channel ? refusal('LOCKED', { minutes: 15 }) : { ok: true, hint: '•••• 0142', channel: 'whatsapp', codeChannels: both }) })
+    await startSignIn(deps, 'owner@example.com', 'a long password')
+    expect(failureOf(await sendSignInCode(deps, 'sms').catch((e: unknown) => e), 'code')).toMatchObject({ locked: 15 })
+  })
+
+  it('opens the session for a phone-method person while the partner has WhatsApp and SMS off, sending no code', async () => {
+    const { deps, session, calls } = setup({ ...twoFactor('sms'), '/api/auth/sign-in': () => ({ ok: true, step: 'done', token: 'full-token' }) })
+    await expect(startSignIn(deps, 'owner@example.com', 'a long password')).resolves.toBe('done')
+    expect(session.token()).toBe('full-token')
+    expect(calls.map((call) => call.path)).toEqual(['/api/auth/sign-in'])
   })
 
   it('by backup code: opens the session', async () => {
@@ -141,7 +180,7 @@ describe('an Owner without two-step sign-in', () => {
   const enrolment = {
     '/api/auth/sign-in': () => ({ ok: true, step: 'enrol', token: 'enrol-token' }),
     '/api/auth/enrol-second-factor': (body: Record<string, unknown>) =>
-      body.code === undefined ? { ok: true, hint: '•••• 0142' } : body.code === '654321' ? { ok: true, done: true, backupCodes: ['AAAA-1111', 'BBBB-2222'], token: 'full-token' } : refusal('WRONG_CODE'),
+      body.code === undefined ? { ok: true, hint: '•••• 0142', channel: 'whatsapp', codeChannels: { whatsapp: true, sms: true } } : body.code === '654321' ? { ok: true, done: true, backupCodes: ['AAAA-1111', 'BBBB-2222'], token: 'full-token' } : refusal('WRONG_CODE'),
   }
 
   it('is held at set-up: the number, the code, then the backup codes shown once, and only then signed in', async () => {

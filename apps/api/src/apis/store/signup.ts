@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { hashSessionId, newSessionId } from '#auth/session'
-import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, phoneHint, smsCodeMs } from '#auth/storeCodes'
+import { chooseCodeChannel, codeChannels, hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, phoneHint, smsCodeMs, type CodeChannel, type OpenCodeChannels } from '#auth/storeCodes'
 import { codeMatches, type CodeCheck } from '#auth/codeCheck'
 import { setStoreCookie } from '#auth/storeSession'
 import { countriesIn, countryOf } from '#core/countries'
@@ -15,6 +15,7 @@ import {
   countSignupTextsSince,
   deleteSignup,
   insertSignup,
+  selectLastSignupText,
   selectPartnerState,
   selectSignup,
   selectSignupCurrencies,
@@ -25,14 +26,15 @@ import {
 import { selectSignInCandidate } from '#db/scoped/userSignIn'
 import { queueSideEffect } from '#saas/outbox/index'
 import { isReservedSlug, slugPattern } from '#saas/stores/slug'
+import { queuePortalCode } from '#saas/portalCodes/index'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
-import { queueSms } from '#saas/sms/index'
 import { admit, type Admission, type StoreAuthDeps } from './admission'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 import { brandName } from './codes'
 
 // Merchant sign-up on a partner's portal host (FIRST-RELEASE §4, PortalAuth su1–su4, SAAS.md §4.1,
-// §5): name, email and password; the emailed code; the store; the texted code; then the store is made.
+// §5): name, email and password; the emailed code; the store; while the partner's WhatsApp is on, the
+// number's code; then the store is made.
 
 export const signupCookieName = '__Host-portal_signup'
 const signupMs = 24 * 60 * 60 * 1000
@@ -46,7 +48,7 @@ export const startsPerPartnerPerHour = 500
 const startInput = z.strictObject({ name: z.string().max(120), email: z.string().max(320), password: z.string().max(1024) })
 const codeInput = z.strictObject({ code: z.string().max(16) })
 export const storeInput = z.strictObject({ storeName: z.string().max(120), subdomain: z.string().max(60), country: z.string().max(2) })
-const phoneInput = z.strictObject({ phone: z.string().max(20) })
+const phoneInput = z.strictObject({ phone: z.string().max(20), channel: z.enum(codeChannels).optional() })
 
 export type SignupRefusal = Refusal | { code: 'SUBDOMAIN_TAKEN'; suggestions: string[] }
 
@@ -102,6 +104,7 @@ export const resumeSignup = async (deps: StoreAuthDeps, cookie: string | null): 
     email: s.email,
     countries: await offeredCountries(tx, deps.partnerId),
     shopDomain: deps.shopDomain ?? null,
+    codeChannels: await deps.codeChannels.forPartner(tx, deps.partnerId, null),
   }))
   return answer(outcome, isRefusal(outcome) ? {} : outcome)
 }
@@ -174,84 +177,118 @@ export const checkStoreStep = async (tx: ScopedSql, partnerId: string, input: z.
   return { storeName, subdomain, country: input.country }
 }
 
-/** Step 3: the store's name, its web address on the partner's domain, and its country (which sets the currency). */
-export const signupStore = async (request: Request, deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
-  const input = await readBody(request, storeInput)
-  const outcome = await withSignup(deps, cookie, ['store', 'phone'], async (tx, s): Promise<SignupRefusal | Record<string, never>> => {
-    if (!input) return { code: 'INVALID_INPUT' }
-    const store = await checkStoreStep(tx, deps.partnerId, input, s.id)
-    if (isRefusal(store)) return store
-    await advanceSignup(tx, s.id, 'phone', { store_name: store.storeName, subdomain: store.subdomain, country: store.country })
-    return {}
-  })
-  return answer(outcome, { step: 'phone' })
-}
-
-/** Step 4a: texts a code to the number, so nobody opens a store in someone else's name (PortalAuth su4). */
-export const sendSignupPhoneCode = async (request: Request, deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
-  const input = await readBody(request, phoneInput)
-  const now = deps.now()
-  const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | { hint: string }> => {
-    const phone = input?.phone.trim() ?? ''
-    if (!isE164(phone)) return { code: 'INVALID_PHONE' }
-    // Per sign-up, per number and per partner, so texts can't be pumped to numbers nobody here owns.
-    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 10 * 60_000), { signupId: s.id })) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
-    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - signupMs), { phone })) >= textsPerNumberPerDay) return { code: 'RATE_LIMITED' }
-    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000), {})) >= textsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
-    const code = newSmsCode()
-    const expiresAt = new Date(now.getTime() + smsCodeMs)
-    await setSignupPhoneCode(tx, { id: s.id, partnerId: deps.partnerId }, phone, await hashSmsCode(`signup-phone:${s.id}`, code), expiresAt, now)
-    await queueSms(tx, {
-      partnerId: deps.partnerId,
-      storeId: null,
-      idempotencyKey: `signup-phone:${s.id}:${now.toISOString()}`,
-      payload: { message: 'code.verify_phone', to: phone, brand: await brandName(tx, deps.partnerId, now), vars: { code }, expiresAt: expiresAt.toISOString() },
-    })
-    return { hint: phoneHint(phone) }
-  })
-  return answer(outcome, isRefusal(outcome) ? {} : outcome)
+interface Provisioned {
+  admission: Admission
+  storeId: string
 }
 
 /**
- * Step 4b: the texted code proves the number, and the store is made in the same transaction (SAAS.md §5,
- * steps 1–3). The Owner's session then opens as sign-in would: 2-factor is optional (ACCESS.md §4, #1008).
+ * The store is made in the sign-up's transaction (SAAS.md §5, steps 1–3), with the proven number or none, and the Owner's
+ * session opens as sign-in would: 2-factor is optional (ACCESS.md §4, #1008).
  */
-export const verifySignupPhone = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null, failAt?: FailAt): Promise<Response> => {
-  const input = await readBody(request, codeInput)
-  const now = deps.now()
-  const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | { admission: Admission; storeId: string }> => {
-    const wrong = input ? await checkCode(tx, s, 'phone', input.code, now, deps.codeCheck) : { code: 'WRONG_CODE' as const }
-    if (wrong) return wrong
-    const country = s.country ? countryOf(s.country) : null
-    if (!s.phone || !s.store_name || !s.subdomain || !country) return { code: 'SIGNUP_EXPIRED' }
-    // The address was proven by email; an account made since then keeps it, and this sign-up stops here.
-    if (await selectSignInCandidate(tx, deps.partnerId, s.email)) return { code: 'SIGNUP_EXPIRED' }
-    const made = await provisionStore(tx, { partnerId: deps.partnerId, owner: { name: s.name, email: s.email, passwordHash: s.password_hash, phone: s.phone }, store: { name: s.store_name, code: s.subdomain, country: country.code, currency: country.currency } }, now, failAt)
-    if (!made.ok) return made.reason === 'SUBDOMAIN_TAKEN' ? { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, s.subdomain, s.id) } : { code: 'COUNTRY_UNAVAILABLE' }
-    await deps.activity.record(tx, {
-      category: 'auth',
-      action: 'store.created',
-      result: 'success',
-      actorKind: 'person',
-      actorId: made.userId,
-      actorLabel: null,
-      partnerId: deps.partnerId,
-      storeId: made.storeId,
-      target: { type: 'store', id: made.storeId, label: s.store_name },
-      reason: 'signup',
-      api: 'store',
-      visibility: 'store',
-      ...facts,
-    })
-    await deleteSignup(tx, s.id)
-    const candidate = await selectSignInCandidate(tx, deps.partnerId, s.email)
-    if (!candidate) throw new Error('signup: the new account is not readable')
-    return { admission: await admit(tx, deps, facts, candidate, false, now), storeId: made.storeId }
+const provisionSignup = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, s: SignupRow, store: StoreStep, phone: string | null, now: Date, failAt?: FailAt): Promise<SignupRefusal | Provisioned> => {
+  const country = countryOf(store.country)
+  if (!country) return { code: 'SIGNUP_EXPIRED' }
+  // The address was proven by email; an account made since then keeps it, and this sign-up stops here.
+  if (await selectSignInCandidate(tx, deps.partnerId, s.email)) return { code: 'SIGNUP_EXPIRED' }
+  const made = await provisionStore(tx, { partnerId: deps.partnerId, owner: { name: s.name, email: s.email, passwordHash: s.password_hash, phone }, store: { name: store.storeName, code: store.subdomain, country: country.code, currency: country.currency } }, now, failAt)
+  if (!made.ok) return made.reason === 'SUBDOMAIN_TAKEN' ? { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, store.subdomain, s.id) } : { code: 'COUNTRY_UNAVAILABLE' }
+  await deps.activity.record(tx, {
+    category: 'auth',
+    action: 'store.created',
+    result: 'success',
+    actorKind: 'person',
+    actorId: made.userId,
+    actorLabel: null,
+    partnerId: deps.partnerId,
+    storeId: made.storeId,
+    target: { type: 'store', id: made.storeId, label: store.storeName },
+    reason: 'signup',
+    api: 'store',
+    visibility: 'store',
+    ...facts,
   })
+  await deleteSignup(tx, s.id)
+  const candidate = await selectSignInCandidate(tx, deps.partnerId, s.email)
+  if (!candidate) throw new Error('signup: the new account is not readable')
+  return { admission: await admit(tx, deps, facts, candidate, false, now), storeId: made.storeId }
+}
+
+const provisioned = (outcome: SignupRefusal | Provisioned): Response => {
   if (isRefusal(outcome)) return refuseSignup(outcome)
   const { admission } = outcome
   const headers = new Headers({ 'content-type': 'application/json' })
   headers.append('set-cookie', clearSignupCookie())
   headers.append('set-cookie', setStoreCookie(admission.session, admission.remember, admission.stage))
   return new Response(JSON.stringify({ ok: true, step: admission.stage === 'full' ? 'done' : admission.stage, storeId: outcome.storeId }), { status: 200, headers })
+}
+
+/**
+ * Step 3: the store's name, its web address on the partner's domain, and its country (which sets the currency). While the
+ * partner's WhatsApp is on the number's step follows; with it off the store is made now (SAAS.md §4.1).
+ */
+export const signupStore = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
+  const input = await readBody(request, storeInput)
+  const now = deps.now()
+  const outcome = await withSignup(deps, cookie, ['store', 'phone'], async (tx, s): Promise<SignupRefusal | Provisioned | { codeChannels: OpenCodeChannels }> => {
+    if (!input) return { code: 'INVALID_INPUT' }
+    const store = await checkStoreStep(tx, deps.partnerId, input, s.id)
+    if (isRefusal(store)) return store
+    const codeChannels = await deps.codeChannels.forPartner(tx, deps.partnerId, null)
+    if (!codeChannels.whatsapp) return provisionSignup(tx, deps, facts, s, store, null, now)
+    await advanceSignup(tx, s.id, 'phone', { store_name: store.storeName, subdomain: store.subdomain, country: store.country })
+    return { codeChannels }
+  })
+  if (!isRefusal(outcome) && 'codeChannels' in outcome) return answer(outcome, { step: 'phone', codeChannels: outcome.codeChannels })
+  return provisioned(outcome)
+}
+
+/** The number's step is there only while the partner's WhatsApp is on (SAAS.md §4.1); otherwise the store step makes the store. */
+const numberStepOpen = async (tx: ScopedSql, deps: StoreAuthDeps): Promise<boolean> => (await deps.codeChannels.forPartner(tx, deps.partnerId, null)).whatsapp
+
+/** Step 4a: sends a code to the number, by WhatsApp first, so nobody opens a store in someone else's name (PortalAuth su4). */
+export const sendSignupPhoneCode = async (request: Request, deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
+  const input = await readBody(request, phoneInput)
+  const now = deps.now()
+  const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | { hint: string; channel: CodeChannel; codeChannels: OpenCodeChannels }> => {
+    if (!(await numberStepOpen(tx, deps))) return { code: 'STEP_SKIPPED' }
+    const phone = input?.phone.trim() ?? ''
+    if (!isE164(phone)) return { code: 'INVALID_PHONE' }
+    const open = await deps.codeChannels.forPartner(tx, deps.partnerId, phone)
+    const channel = chooseCodeChannel(input?.channel, open, await selectLastSignupText(tx, s.id), now)
+    if (typeof channel !== 'string') return channel
+    // Per sign-up, per number and per partner, both channels together, so codes can't be pumped to numbers nobody here owns.
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 10 * 60_000), { signupId: s.id })) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - signupMs), { phone })) >= textsPerNumberPerDay) return { code: 'RATE_LIMITED' }
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000), {})) >= textsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
+    const code = newSmsCode()
+    const expiresAt = new Date(now.getTime() + smsCodeMs)
+    await setSignupPhoneCode(tx, { id: s.id, partnerId: deps.partnerId }, phone, channel, await hashSmsCode(`signup-phone:${s.id}`, code), expiresAt, now)
+    await queuePortalCode(tx, {
+      partnerId: deps.partnerId,
+      channel,
+      to: phone,
+      purpose: 'verify_phone',
+      code,
+      expiresAt,
+      brand: () => brandName(tx, deps.partnerId, now),
+      idempotencyKey: `signup-phone:${s.id}:${now.toISOString()}`,
+    })
+    return { hint: phoneHint(phone), channel, codeChannels: open }
+  })
+  return answer(outcome, isRefusal(outcome) ? {} : outcome)
+}
+
+/** Step 4b: the code proves the number, and the store is made in the same transaction. */
+export const verifySignupPhone = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null, failAt?: FailAt): Promise<Response> => {
+  const input = await readBody(request, codeInput)
+  const now = deps.now()
+  const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | Provisioned> => {
+    if (!(await numberStepOpen(tx, deps))) return { code: 'STEP_SKIPPED' }
+    const wrong = input ? await checkCode(tx, s, 'phone', input.code, now, deps.codeCheck) : { code: 'WRONG_CODE' as const }
+    if (wrong) return wrong
+    if (!s.phone || !s.store_name || !s.subdomain || !s.country) return { code: 'SIGNUP_EXPIRED' }
+    return provisionSignup(tx, deps, facts, s, { storeName: s.store_name, subdomain: s.subdomain, country: s.country }, s.phone, now, failAt)
+  })
+  return provisioned(outcome)
 }

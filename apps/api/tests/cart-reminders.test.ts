@@ -17,7 +17,8 @@ import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
 import type { OutgoingWhatsApp, WhatsAppSender } from '#core/whatsapp'
-import type { PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { whatsappAccountsFor, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { secretBox } from '#auth/secretBox'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -45,9 +46,10 @@ let attempts: { allow: boolean; keys: string[] } = { allow: true, keys: [] }
 const sent: OutgoingEmail[] = []
 const texts: OutgoingWhatsApp[] = []
 const whatsappSender: WhatsAppSender = { send: async (m) => (texts.push(m), { providerId: `wa-${texts.length}` }) }
-/** The partners' WhatsApp accounts the relay reads; null as on dev today, where none can be read yet (#275). */
+/** The partners' WhatsApp accounts the relay reads; null as on a Worker that can't open credentials. */
 let whatsappAccounts: PartnerWhatsAppAccounts | null = null
-const anAccount: PartnerWhatsAppAccounts = { forPartner: async () => ({ authKey: 'k', integratedNumber: '919800000000', language: 'en', templates: { 'cart.reminder': 'cart_reminder', 'cart.reminder_code': 'cart_reminder_code' } }) }
+const metaIds = { accessToken: 'EAAG-test-token', businessAccountId: '102290129340398', phoneNumberId: '106540352242922', language: 'en' }
+const anAccount: PartnerWhatsAppAccounts = { forPartner: async () => ({ ...metaIds, templates: { 'cart.reminder': 'cart_reminder', 'cart.reminder_code': 'cart_reminder_code' } }) }
 const ses: SesApi = { send: async (email) => (sent.push(email), { messageId: `m-${sent.length}` }) }
 
 const facts = { requestId: 'r', ip: '203.0.113.5', userAgent: null }
@@ -644,7 +646,7 @@ describe('WhatsApp in India (#337)', () => {
   })
 
   it('sends the email instead when the account or its template is gone by the time it goes', async () => {
-    for (const gone of [{ forPartner: async () => null }, { forPartner: async () => ({ authKey: 'k', integratedNumber: '1', language: 'en', templates: {} }) }] as PartnerWhatsAppAccounts[]) {
+    for (const gone of [{ forPartner: async () => null }, { forPartner: async () => ({ ...metaIds, templates: {} }) }] as PartnerWhatsAppAccounts[]) {
       await whatsappFlow()
       const cart = await memberCart()
       await sweep()
@@ -656,6 +658,42 @@ describe('WhatsApp in India (#337)', () => {
       for (let i = 0; i < 2; i++) await relay()
       expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'sent', channel: 'email' }], 1])
     }
+  })
+
+  it('goes through the partner’s own Meta account while its WhatsApp is on, by email while it is off or missing, never through another partner’s', async () => {
+    const box = await secretBox(Buffer.alloc(32, 7).toString('base64'))
+    const accounts = whatsappAccountsFor(box)
+    const used: string[] = []
+    const sender = (account: PartnerWhatsAppAccount): WhatsAppSender => ({ send: async (m) => (used.push(`${account.phoneNumberId}:${m.template}`), { providerId: 'wamid.1' }) })
+    const save = async (partnerId: string, phoneNumberId: string) => {
+      const settings = { businessAccountId: metaIds.businessAccountId, phoneNumberId, language: 'en', templates: { 'cart.reminder': 'cart_reminder', 'cart.reminder_code': 'cart_reminder_code' } }
+      await db.sql`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, settings, created_by) values (${partnerId}, 'whatsapp', 'meta', 'WhatsApp', ${await box.seal('EAAG-partner-token')}, '…oken', ${JSON.stringify(settings)}::text::jsonb, 'test')`
+    }
+    const remind = async () => {
+      await whatsappFlow()
+      const cart = await memberCart()
+      await sweep()
+      const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+      const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test', shopDomain: 'shop.example' }
+      const deliverers = {
+        'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, accounts),
+        email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }),
+        whatsapp: whatsappDeliverer(db.sql, accounts, sender, suppressionKey, 'shop.example'),
+      }
+      for (let i = 0; i < 3; i++) await relayDue(db.sql, deliverers, { ...defaultRelayOptions, now: () => row?.now ?? new Date() })
+      return (await reminders(cart))[0]?.channel
+    }
+    // Partner B's account is on; the store is partner A's, which has none.
+    await save(t.partnerB, '200000000000002')
+    await db.sql`update partner set whatsapp_enabled = true where id = ${t.partnerB}`
+    expect(await remind()).toBe('email')
+    await save(t.partnerA, '100000000000001')
+    expect(await remind()).toBe('email')
+    await db.sql`update partner set whatsapp_enabled = true where id = ${t.partnerA}`
+    expect(await remind()).toBe('whatsapp')
+    expect(used).toEqual(['100000000000001:cart_reminder'])
+    await db.sql`delete from partner_credential where kind = 'whatsapp'`
+    await db.sql`update partner set whatsapp_enabled = false where id in ${db.sql([t.partnerA, t.partnerB])}`
   })
 
   it('falls back to email only under email’s own rules: a shopper who stopped since, agreed to WhatsApp alone, or whose address bounced gets nothing', async () => {
@@ -693,7 +731,7 @@ describe('WhatsApp in India (#337)', () => {
       const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
       await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
       expect((await reminders(cart))[0]?.channel).toBe(channel)
-      // The first try failed (MSG91 or SES down) and the shopper unsubscribed before the retry.
+      // The first try failed (Meta or SES down) and the shopper unsubscribed before the retry.
       await db.sql`update customer set consent_state = 'stopped' where id = ${member}`
       const before = [texts.length, mailTo('member.wa@example.com').length]
       await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => whatsappSender, suppressionKey, 'shop.example') }, opts)
@@ -733,7 +771,7 @@ describe('WhatsApp in India (#337)', () => {
   it('marks a WhatsApp reminder the provider refuses for good as undeliverable, and gives it up', async () => {
     await whatsappFlow()
     const cart = await memberCart()
-    const refusing: WhatsAppSender = { send: async () => { throw new SmsRefused('msg91_wa_131026') } }
+    const refusing: WhatsAppSender = { send: async () => { throw new SmsRefused('meta_wa_131026') } }
     await sweep()
     const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
     const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }

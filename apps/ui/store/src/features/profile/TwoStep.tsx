@@ -1,22 +1,30 @@
 import { ConfirmDialog, StatusPill } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
-import { confirmSecondFactor, regenerateBackupCodes, startSecondFactor, turnOffSecondFactor, type Profile } from '../../api/profile'
+import type { CodeChannel } from '../../api/auth'
+import { isApiError } from '../../api/client'
+import { confirmSecondFactor, regenerateBackupCodes, resendSecondFactorCode, startSecondFactor, turnOffSecondFactor, type Profile, type SecondFactorStep } from '../../api/profile'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { BackupCodeList, downloadCodes } from '../common/BackupCodes'
+import { afterRefusedSend, CodeResend, useResendWait, type SentCode } from '../common/CodeResend'
 import { productName } from '../common/productName'
 import { Alert, Card, Field, Primary, Secondary } from './parts'
-import { lastFour, profileRefusal } from './profileWords'
+import { lastFour, profileRefusal, refusalSeconds } from './profileWords'
 
 const words = messages.profile.twoStep
 
 type Method = 'app' | 'sms'
 
 /** Where setting up stands: choosing (turning it on), proving it is you (switching), the first code, then the codes. */
+// `proof` is the password the step was proven with: another phone code needs it again (src/apis/store/profile.ts).
 export type Setup =
   | { step: 'pick'; method: Method; switching: false }
   | { step: 'prove'; method: Method; switching: true }
-  | { step: 'verify'; method: Method; switching: boolean; secret: string | null; hint: string | null }
+  | { step: 'verify'; method: Method; switching: boolean; secret: string | null; sent: SentCode | null; proof: string }
   | { step: 'codes'; codes: string[] }
+
+type Verify = Extract<Setup, { step: 'verify' }>
+
+const sentOf = (step: SecondFactorStep): SentCode | null => (step.channel && step.hint ? { channel: step.channel, hint: step.hint } : null)
 
 /** A setup key in groups of four, as an authenticator app asks for it. */
 export const groupedKey = (secret: string): string => secret.replace(/(.{4})(?=.)/g, '$1 ')
@@ -39,8 +47,12 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState<'newCodes' | 'off' | null>(null)
+  const [channels, setChannels] = useState(profile.codeChannels)
+  const [wait, startWait] = useResendWait()
   const last4 = lastFour(profile.phone)
   const on = method !== null
+  // With neither WhatsApp nor SMS open for this number, only the authenticator app is offered (ACCESS.md §4).
+  const phoneCodes = profile.codeChannels.whatsapp || profile.codeChannels.sms
 
   const go = (next: Setup | null) => {
     setSetup(next)
@@ -60,11 +72,31 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
     if (picked === 'sms' && !profile.phone) return setError(words.needPhone)
     run(async () => {
       const step = await startSecondFactor(picked, password)
-      go({ step: 'verify', method: picked, switching, secret: step.secret, hint: step.hint })
+      if (picked === 'sms') startWait()
+      setChannels(profile.codeChannels)
+      go({ step: 'verify', method: picked, switching, secret: step.secret, sent: sentOf(step), proof: password })
     })
   }
 
-  const verify = (current: Extract<Setup, { step: 'verify' }>) => {
+  const resend = (current: Verify, channel: CodeChannel) => {
+    setBusy(true)
+    void resendSecondFactorCode(current.proof, channel)
+      .then((step) => {
+        startWait()
+        setError(null)
+        setSetup({ ...current, sent: sentOf(step) ?? current.sent })
+      })
+      .catch((failure: unknown) => {
+        const after = isApiError(failure) ? afterRefusedSend({ code: failure.code, seconds: refusalSeconds(failure) }, channel, channels, words.noChannel) : null
+        if (!after) return setError(profileRefusal(failure, messages.auth.notConnected))
+        if (after.wait !== null) startWait(after.wait)
+        setChannels(after.channels)
+        setError(after.text)
+      })
+      .finally(() => setBusy(false))
+  }
+
+  const verify = (current: Verify) => {
     if (!/^\d{6}$/.test(code)) return setError(words.codeIncomplete)
     run(async () => {
       const step = await confirmSecondFactor(current.method, code)
@@ -87,10 +119,13 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
               <span className="df-profile-row-text">
                 <strong>{method === 'app' ? words.app : words.sms}</strong>
                 <span>{method === 'app' ? words.appSub : fill(words.smsSub, { last4 })}</span>
+                {method === 'sms' && !phoneCodes && <span className="df-profile-low">{fill(words.paused, { product: productName() })}</span>}
               </span>
-              <Secondary size="small" onClick={() => go({ step: 'prove', method: method === 'app' ? 'sms' : 'app', switching: true })}>
-                {method === 'app' ? words.useSms : words.useApp}
-              </Secondary>
+              {(method === 'sms' || phoneCodes) && (
+                <Secondary size="small" onClick={() => go({ step: 'prove', method: method === 'app' ? 'sms' : 'app', switching: true })}>
+                  {method === 'app' ? words.useSms : words.useApp}
+                </Secondary>
+              )}
             </div>
             <div className="df-profile-row">
               <span className="df-profile-row-text">
@@ -126,7 +161,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
                     {words.pick}
                   </span>
                   <div role="radiogroup" aria-labelledby="df-profile-methods" className="df-profile-methods">
-                    {(['app', 'sms'] as const).map((m) => (
+                    {(phoneCodes ? (['app', 'sms'] as const) : (['app'] as const)).map((m) => (
                       <button key={m} type="button" role="radio" aria-checked={setup.method === m} className="df-profile-method" onClick={() => setSetup({ ...setup, method: m })}>
                         <span className="df-profile-method-dot" aria-hidden="true" />
                         <span className="df-profile-row-text">
@@ -153,7 +188,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
           )}
           {setup.step === 'verify' && (
             <>
-              <span className="df-profile-setup-title">{setup.method === 'app' ? fill(words.appTitle, { product: productName() }) : fill(words.smsTitle, { last4: setup.hint ? lastFour(setup.hint) : last4 })}</span>
+              <span className="df-profile-setup-title">{setup.method === 'app' ? fill(words.appTitle, { product: productName() }) : fill(words.smsTitle, { last4: setup.sent ? lastFour(setup.sent.hint) : last4 })}</span>
               {setup.method === 'app' && setup.secret && (
                 <div className="df-profile-key">
                   <span>{words.key}</span>
@@ -163,6 +198,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
               <div className="df-profile-narrow">
                 <Field label={words.code} variant="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder={words.codePlaceholder} value={code} onValue={(v) => (setCode(v.replace(/\D/g, '').slice(0, 6)), setError(null))} />
               </div>
+              {setup.method === 'sms' && <CodeResend sent={setup.sent} channels={channels} wait={wait} busy={busy} onSend={(channel) => resend(setup, channel)} />}
               <Alert text={error} />
               <div className="df-profile-actions">
                 <Secondary onClick={() => go(null)}>{words.cancel}</Secondary>

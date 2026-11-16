@@ -82,7 +82,7 @@ export const registerStoreCategory = (builder: StoreBuilder) => {
         })
         const { categoryId, file, currency } = sample.value
         const started = await imports.start(file, 'csv', null, currency, categoryId).catch((error: unknown) => {
-          // A second click while the first is on its way: the database keeps one (0400 catalog_import_one_sample).
+          // A second click while the first is on its way: the database keeps one (0404 catalog_import_one_sample).
           if (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'catalog_import_one_sample') return null
           throw error
         })

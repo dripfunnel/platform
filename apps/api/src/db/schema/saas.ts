@@ -1,3 +1,5 @@
+import type { SmsProvider } from '#core/sms'
+
 // The partner and store rows of migrations/0007 (SAAS.md §3.1, §4.2, §5; DATA-MODEL.md §3.2, §3.3).
 
 export const partnerStates = ['draft', 'awaiting', 'live', 'paused', 'offboarding', 'closed'] as const
@@ -99,6 +101,19 @@ export interface PartnerCredentialRow {
   created_at: Date
 }
 
+/** A partner's own SMS account (#1017): one per provider; the secret stays in key_enc, never in this row. */
+export interface PartnerSmsAccountRow {
+  id: string
+  provider: SmsProvider
+  key_prefix: string
+  status: 'untested' | 'ok' | 'rejected'
+  last_tested_at: Date | null
+  settings: unknown
+}
+
+/** A partner's own WhatsApp Business account on Meta (#1504): one per partner; the token stays in key_enc. */
+export type PartnerWhatsAppAccountRow = Omit<PartnerSmsAccountRow, 'provider'>
+
 /** ui/platform/FIRST-RELEASE.md §4, in order. */
 export const setupItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
 export type SetupItem = (typeof setupItems)[number]
@@ -145,7 +160,7 @@ export interface StoreRow {
   country: string | null
   status: StoreStatus
   plan_id: string | null
-  /** store_category (0399): what the store sells; null until the Owner picks. */
+  /** store_category (0403): what the store sells; null until the Owner picks. */
   category_id: string | null
   trial_ends_at: Date | null
   past_due_since: Date | null

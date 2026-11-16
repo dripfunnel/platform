@@ -2,8 +2,8 @@ import type postgres from 'postgres'
 import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couriers'
 import { easyPostHook } from '../couriers/easypost'
 import { shiprocketHook } from '../couriers/shiprocket'
-import type { SmsSender } from '#core/sms'
-import type { WhatsAppSender } from '#core/whatsapp'
+import type { SmsAccountCheck, SmsSender } from '#core/sms'
+import type { WhatsAppAccountCheck, WhatsAppSender } from '#core/whatsapp'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
 import type { CloudflareApi } from '../cloudflare/api'
@@ -37,6 +37,9 @@ export const localSms = (): SmsSender => ({
   },
 })
 
+/** A partner's SMS account check on this machine: every account works, since none reaches MSG91 or Twilio here. */
+export const localSmsCheck = async (): Promise<SmsAccountCheck> => 'ok'
+
 /** Expo's last step on this machine: each push to its subject, never its token; every receipt delivered. */
 export const localPush = (): ExpoPush => ({
   send: async (messages) =>
@@ -54,6 +57,9 @@ export const localWhatsApp = (): WhatsAppSender => ({
     return { providerId: `local-${crypto.randomUUID()}` }
   },
 })
+
+/** A partner's WhatsApp account check on this machine: every account works, since none reaches Meta here. */
+export const localWhatsAppCheck = async (): Promise<WhatsAppAccountCheck> => ({ status: 'ok' })
 
 const isLocalName = (host: string) => host.toLowerCase().endsWith('.localhost')
 

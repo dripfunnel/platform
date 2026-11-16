@@ -1,11 +1,13 @@
 import type postgres from 'postgres'
-import { personSignedIn, type ActivityLog, type RequestFacts } from '#auth/activity'
+import { personSecondFactorSkipped, personSignedIn, type ActivityLog, type RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
 import type { SecretBox } from '#auth/secretBox'
+import type { OpenCodeChannels } from '#auth/storeCodes'
 import { wantsBodySession } from '#auth/storeCredential'
 import { createUserSession, setStoreCookie, type UserSessionStage } from '#auth/storeSession'
 import type { ScopedSql } from '#db/scoped/index'
 import { markUserSignedIn, type SignInCandidate } from '#db/scoped/userSignIn'
+import type { CodeChannelCheck } from '#saas/portalCodes/index'
 import { json } from './authHttp'
 
 export interface StoreAuthDeps {
@@ -23,6 +25,8 @@ export interface StoreAuthDeps {
   allowAttempt: (key: string) => Promise<boolean>
   /** CODE_CHECK: 0 accepts any text code; email codes are always checked (#1002). */
   codeCheck?: CodeCheck
+  /** Which channels reach a number: the partner's WhatsApp, and SMS through an account for its route (ACCESS.md §4). */
+  codeChannels: CodeChannelCheck
 }
 
 export interface Admission {
@@ -30,18 +34,27 @@ export interface Admission {
   stage: UserSessionStage
   remember: boolean
   method: 'app' | 'sms' | null
+  /** For a phone-method second factor: where its code can go. */
+  codeChannels: OpenCodeChannels | null
 }
 
-/** A proven password opens a session as far as the person's second factor allows (ACCESS.md §4): reset and invitations too. */
+/**
+ * A proven password opens a session as far as the person's second factor allows (ACCESS.md §4): reset and invitations too.
+ * A phone-method person goes in without it while the partner has turned both WhatsApp and SMS off; the method is kept.
+ */
 export const admit = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, candidate: SignInCandidate, remember: boolean, now: Date, via: 'google' | null = null): Promise<Admission> => {
   const user = { id: candidate.id, partnerId: candidate.partner_id }
-  const stage: UserSessionStage = candidate.two_factor_method ? 'second-factor' : 'full'
+  const codeChannels = candidate.two_factor_method === 'sms' ? await deps.codeChannels.forPartner(tx, candidate.partner_id, candidate.phone) : null
+  // Fails closed: a Worker or account that can't send leaves the code (and the backup codes) asked for.
+  const skipped = codeChannels !== null && (await deps.codeChannels.switchedOff(tx, candidate.partner_id))
+  const stage: UserSessionStage = candidate.two_factor_method && !skipped ? 'second-factor' : 'full'
   if (stage === 'full') {
     await markUserSignedIn(tx, user.id, now)
+    if (skipped) await deps.activity.record(tx, personSecondFactorSkipped(user, facts))
     await deps.activity.record(tx, personSignedIn(user, facts, via))
   }
   const session = await createUserSession(tx, user, now, { stage, remember, userAgent: facts.userAgent })
-  return { session, stage, remember, method: candidate.two_factor_method }
+  return { session, stage, remember, method: candidate.two_factor_method, codeChannels: stage === 'second-factor' ? codeChannels : null }
 }
 
 export interface OpenedSession {
@@ -56,5 +69,12 @@ export const withSession = (request: Request, body: Record<string, unknown>, ses
   return wantsBodySession(request) ? json(200, { ...body, token: session.id }) : json(200, body, setStoreCookie(session.id, session.remember, session.stage))
 }
 
-export const admitted = (request: Request, a: Admission): Response =>
-  withSession(request, { ok: true, step: a.stage === 'full' ? 'done' : a.stage, ...(a.stage === 'second-factor' ? { method: a.method } : {}) }, { id: a.session, remember: a.remember, stage: a.stage })
+/** What follows the password: `done`, or the second factor with its method and, for a phone code, the open channels. */
+export const stepOf = (a: Admission): Record<string, unknown> => ({
+  ok: true,
+  step: a.stage === 'full' ? 'done' : a.stage,
+  ...(a.stage === 'second-factor' ? { method: a.method } : {}),
+  ...(a.codeChannels ? { codeChannels: a.codeChannels } : {}),
+})
+
+export const admitted = (request: Request, a: Admission): Response => withSession(request, stepOf(a), { id: a.session, remember: a.remember, stage: a.stage })

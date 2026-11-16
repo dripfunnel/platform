@@ -524,11 +524,15 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
             return w.answer(a.label, value, BigInt(a.amount) > 0n ? money(a.amount) : null)
           })
         const paragraphs = [
+          w.greeting(o.ship_to?.name.trim().split(/\s+/)[0] || null),
           w.intro(o.number),
-          ...o.lines.flatMap((l) => [w.line(l.quantity, item(l), money(l.amount)), ...answers(l)]),
+          w.summary,
+          ...o.lines.flatMap((l) => [w.line(l.quantity, w.item(l.name, l.version_name), money(l.amount)), ...answers(l)]),
           w.total(money(o.total_amount)),
-          ...(o.payment_method === 'cod' ? [w.cod(money(o.total_amount))] : o.payment_method === 'bank_transfer' ? [w.transfer] : []),
+          ...(o.payment_method === 'cod' ? [w.cod] : o.payment_method === 'bank_transfer' ? [w.transferPayment, w.transfer] : []),
           ...(o.ship_to ? [w.shipTo(o.ship_to.name, o.ship_to.city)] : []),
+          w.dispatch,
+          w.thanks,
         ]
         return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs } }
       }

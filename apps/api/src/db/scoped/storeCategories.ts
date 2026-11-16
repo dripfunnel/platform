@@ -1,7 +1,7 @@
 import { pgArray, type ScopedSql } from './index'
 
 // Store categories (DATA-MODEL §7.2): platform data staff keep; every scope reads it, a store picks one through
-// 0399's definer.
+// 0403's definer.
 
 export const sectionKeys = ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'] as const
 export type SectionKey = (typeof sectionKeys)[number]
@@ -85,7 +85,7 @@ export const selectCategoriesForStore = async (tx: ScopedSql, storeId: string): 
 export const selectStoreCategoryId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ category_id: string | null }[]>`select category_id from store where id = ${storeId}`)[0]?.category_id ?? null
 
-/** Through 0399's definer: the merchant side of a store, never a supplier or a read-only support session. */
+/** Through 0403's definer: the merchant side of a store, never a supplier or a read-only support session. */
 export const setStoreCategory = async (tx: ScopedSql, categoryId: string): Promise<void> => {
   await tx`select set_store_category(${categoryId})`
 }
@@ -100,7 +100,7 @@ export interface CategorySampleRow {
   file: string
   currency: string
   collections: SampleCollection[]
-  /** {url: R2 key}, each photo copied once at upload (0400). */
+  /** {url: R2 key}, each photo copied once at upload (0404). */
   photos: Record<string, string>
   uploaded_at: Date
 }
@@ -150,7 +150,7 @@ export const selectSampleStanding = async (tx: ScopedSql, storeId: string): Prom
     `
   )[0] ?? null
 
-/** Through 0400's definer, once the sample import finishes: the merchant side of a store only. */
+/** Through 0404's definer, once the sample import finishes: the merchant side of a store only. */
 export const markSampleCatalogAdded = async (tx: ScopedSql): Promise<void> => {
   await tx`select set_sample_catalog_added()`
 }

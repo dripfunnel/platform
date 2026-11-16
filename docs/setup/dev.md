@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.dev` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`, §2.9 restored and §2.10 added). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-16 (#1017 part 2: AWS SNS and the SMS routes, §2.8 item 6, §3, §6). Before: 2026-11-16 (#1017: DripFunnel's own test SMS accounts are Worker values, §2.8 item 6, §3, §6). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`, §2.9 restored and §2.10 added). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §3). Before: 2026-11-05 (#1301: `RELAY_KEY`, §3). Before: 2026-11-05 (#1244: `AI_PHOTOS` on by default and `AI_PHOTO_SOURCES` only Openverse and Commons, §3). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §2.8 item 1). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -202,16 +202,21 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
    redirect `https://hooks.dripfunnel.dev/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
-6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
-   partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
-   - **Twilio** (US, no wait): sign up and verify, keep the trial account's Account SID, Auth Token
-     and phone number. A trial texts only verified numbers: verify the team's.
+6. **SMS**: DripFunnel's own test accounts, which send every partner's texts on dev, as the
+   Worker values in §3 (#1017): MSG91 and Twilio, or AWS SNS on either route with `SMS_ROUTE_INDIA` /
+   `SMS_ROUTE_REST` set to `sns`. A partner's own account, to try the override, is a partner
+   credential entered through the Platform API (the console's panel is #1018), never a Worker value
+   (THIRD-PARTY-ACCESS §4, §8.3).
+   - **Twilio** (US, no wait): sign up and verify, keep the trial account's Account SID and Auth Token,
+     and create a Messaging Service holding the trial number (its `MG…` SID). A trial texts only
+     verified numbers: verify the team's.
    - **MSG91** (India): sign up and verify the account. Delivery to Indian numbers waits for DLT.
    - **India DLT** (start now, takes days): on an operator's DLT portal (Jio, Airtel or Vi; one
      registration covers all) register DripFunnel as the **entity** (company documents, PAN,
      authorised signatory letter), then a **sender ID**, then the **templates** (sign-in codes,
-     order updates). MSG91 asks for the entity and template ids once approved. Check the
-     portal for its current documents.
+     order updates, the seven in THIRD-PARTY-ACCESS §4, word for word). MSG91 asks for the entity
+     and template ids once approved; each template's MSG91 Flow id goes into `MSG91_TEMPLATES`. Check
+     the portal for its current documents.
 7. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
    EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
 8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
@@ -262,9 +267,13 @@ Never reuse a value from local or production.
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.dev` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.dev` | fixed |
-| `CODE_CHECK` | Text | `0` | Any **text (SMS)** code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). **Email codes are always checked** (#1002), because email reaches the people who test. Prod leaves it unset unless it accepts any code too (prod.md §4) |
+| `CODE_CHECK` | Text | `0` | Any **text (SMS)** code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work while dev has no SMS values or a trial can't reach the tester's number (#1017). **Email codes are always checked** (#1002), because email reaches the people who test. Prod leaves it unset unless it accepts any code too (prod.md §4) |
 | `PUBLISH_CHECKS` | Text | `off` | A failing check no longer refuses a store build's publish, so a theme that breaks `sealed`, `checkout` or the others still goes live; the report keeps each check's real result (#1164, LIVE-SHOP §4 step 7). Unset or `on` restores the walls |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATES` | Secret, Text | the test MSG91 account's auth key; JSON of the seven template ids | §2.8 item 6. Both or neither; `+91` texts of a partner without its own MSG91 account go through it (THIRD-PARTY-ACCESS §8.1, #1017) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` | Text, Secret, Text | the trial account's values | §2.8 item 6. All three or none; every other text of a partner without its own Twilio account goes through it |
+| `SNS_ACCESS_KEY_ID`, `SNS_SECRET_ACCESS_KEY`, `SNS_REGION`; `SNS_SENDER_ID`, `SNS_DLT_ENTITY_ID`, `SNS_DLT_TEMPLATES` | Text, Secret, Text; Text | optional: a sandbox SNS account (IAM user with only `sns:Publish` and `sns:GetSMSAttributes`) | THIRD-PARTY-ACCESS §8.1. The first three together; the India three together, with them |
+| `SMS_ROUTE_INDIA`, `SMS_ROUTE_REST` | Text | unset, or `sns` | Which of the accounts above serves `+91` (`msg91` unless set) and the rest (`twilio` unless set); a route set by hand needs its provider's values |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://admin.dripfunnel.dev/api/auth/callback` |
 | `STRIPE_SECRET_KEY` | Secret | **test-mode** restricted key `rk_test_…` | Stripe › Developers › API keys › *Create restricted key*, with the permissions in §8 |
@@ -343,6 +352,7 @@ spent support link's "Back to the partner console" points at production's partne
 - [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
 - [x] Queue `dripfunnel-outbox-wake-dev`, created 2026-10-08, and *Queues: Edit* on the deploy token (§2.4, §2.2); the first deploy shows whether the token has it
 - [ ] `CODE_CHECK` = `0` on the Worker (§3): any text code is accepted, email codes are still checked
+- [ ] DripFunnel's test SMS accounts as the `MSG91_*`, `TWILIO_*` or `SNS_*` values with `SMS_ROUTE_*` (§3, §2.8 item 6), or none, and texts wait in the outbox (#1017)
 - [ ] `PUBLISH_CHECKS` = `off` on the Worker (§3), only while store builds must publish despite failing checks
 - [ ] `AI_PHOTOS` unset or `1`, and `AI_PHOTO_SOURCES` set to the sources wanted, on the Worker (§3, #1244)
 - [ ] GitHub environment `dev`: three secrets, three variables (§2.5)

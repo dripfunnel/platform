@@ -32,6 +32,9 @@ export const knownErrorCodes = [
   'PHONE_REQUIRED',
   'PHONE_IN_USE_FOR_SIGN_IN',
   'SECOND_FACTOR_REQUIRED',
+  // A portal code's channel (ACCESS.md §4, #1506): one that is off, or SMS asked for within 20 s of WhatsApp (with `seconds`).
+  'CHANNEL_OFF',
+  'TOO_SOON',
   // The catalogue's refusals (apps/api src/apis/store/products.ts, inventory.ts, approval.ts, story.ts, assets.ts).
   'CATEGORY_REFUSED',
   'TOO_MANY_OPTIONS',

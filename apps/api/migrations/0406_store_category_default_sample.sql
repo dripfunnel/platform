@@ -1,6 +1,6 @@
 -- DripFunnel's built-in sample catalog per store category (DATA-MODEL §7.2): six products in two collections, prices in
 -- INR (converted at import), each photo public domain or CC0 from Openverse. Staff add it as the category's sample with
--- one click ("Add default sample"), which checks it and copies the photos once, as 0400's samples are.
+-- one click ("Add default sample"), which checks it and copies the photos once, as 0404's samples are.
 
 create table store_category_default_sample (
   category_id uuid primary key references store_category (id),

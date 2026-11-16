@@ -1,4 +1,33 @@
 import { z } from 'zod'
+import {
+  awsAccessKeyIdSchema,
+  awsRegionSchema,
+  awsSecretAccessKeySchema,
+  dltEntityIdSchema,
+  dltSenderIdSchema,
+  msg91AuthKeySchema,
+  routeProviders,
+  smsTemplatesSchema,
+  twilioAccountSidSchema,
+  twilioAuthTokenSchema,
+  twilioMessagingServiceSidSchema,
+  type SmsProvider,
+} from './sms'
+
+/** JSON naming the template id of each of the seven messages, all seven. */
+const templatesJson = (name: string) =>
+  z
+    .string()
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value) as unknown
+      } catch {
+        ctx.addIssue({ code: 'custom', message: `${name} must be JSON` })
+        return z.NEVER
+      }
+    })
+    .pipe(smsTemplatesSchema)
+    .optional()
 
 /** The stock photo sources (`integrations/stockImages`); the AI's come from `AI_PHOTO_SOURCES` (AI-STUDIO §8). */
 export const photoSources = ['pexels', 'pixabay', 'openverse', 'commons'] as const
@@ -131,6 +160,22 @@ const configSchema = z.object({
   PUBLISH_CHECKS: z.enum(['on', 'off']).optional(),
   // `0` accepts any text (SMS) code; email codes are always checked (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
+  // DripFunnel's own SMS accounts (THIRD-PARTY-ACCESS §2.8, §8.1; #1017), all or none per provider, and which one serves
+  // each route. A partner's own complete account for a route replaces ours.
+  MSG91_AUTH_KEY: msg91AuthKeySchema.optional(),
+  MSG91_TEMPLATES: templatesJson('MSG91_TEMPLATES'),
+  TWILIO_ACCOUNT_SID: twilioAccountSidSchema.optional(),
+  TWILIO_AUTH_TOKEN: twilioAuthTokenSchema.optional(),
+  TWILIO_MESSAGING_SERVICE_SID: twilioMessagingServiceSidSchema.optional(),
+  SNS_ACCESS_KEY_ID: awsAccessKeyIdSchema.optional(),
+  SNS_SECRET_ACCESS_KEY: awsSecretAccessKeySchema.optional(),
+  SNS_REGION: awsRegionSchema.optional(),
+  // India's DLT through SNS: the header, the entity and the seven templates, together; needed only to send +91 by SNS.
+  SNS_SENDER_ID: dltSenderIdSchema.optional(),
+  SNS_DLT_ENTITY_ID: dltEntityIdSchema.optional(),
+  SNS_DLT_TEMPLATES: templatesJson('SNS_DLT_TEMPLATES'),
+  SMS_ROUTE_INDIA: z.enum(routeProviders.india).optional(),
+  SMS_ROUTE_REST: z.enum(routeProviders.rest).optional(),
 })
 
 const devHooksHost = 'hooks.dripfunnel.dev'
@@ -150,6 +195,21 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
+  if ((c.MSG91_AUTH_KEY === undefined) !== (c.MSG91_TEMPLATES === undefined)) ctx.addIssue({ code: 'custom', message: 'MSG91_AUTH_KEY and MSG91_TEMPLATES go together', path: ['MSG91_AUTH_KEY'] })
+  const twilio = [c.TWILIO_ACCOUNT_SID, c.TWILIO_AUTH_TOKEN, c.TWILIO_MESSAGING_SERVICE_SID].filter((v) => v !== undefined).length
+  if (twilio !== 0 && twilio !== 3) ctx.addIssue({ code: 'custom', message: 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_MESSAGING_SERVICE_SID go together', path: ['TWILIO_ACCOUNT_SID'] })
+  const sns = [c.SNS_ACCESS_KEY_ID, c.SNS_SECRET_ACCESS_KEY, c.SNS_REGION].filter((v) => v !== undefined).length
+  if (sns !== 0 && sns !== 3) ctx.addIssue({ code: 'custom', message: 'SNS_ACCESS_KEY_ID, SNS_SECRET_ACCESS_KEY and SNS_REGION go together', path: ['SNS_ACCESS_KEY_ID'] })
+  const snsIndia = [c.SNS_SENDER_ID, c.SNS_DLT_ENTITY_ID, c.SNS_DLT_TEMPLATES].filter((v) => v !== undefined).length
+  if (snsIndia !== 0 && (snsIndia !== 3 || sns !== 3)) ctx.addIssue({ code: 'custom', message: 'SNS_SENDER_ID, SNS_DLT_ENTITY_ID and SNS_DLT_TEMPLATES go together, with the SNS account', path: ['SNS_SENDER_ID'] })
+  // A route set by hand must name a provider whose values are here; unset, a route's default may still be unconfigured.
+  const configured: Record<SmsProvider, { india: boolean; rest: boolean }> = {
+    msg91: { india: c.MSG91_AUTH_KEY !== undefined, rest: false },
+    twilio: { india: false, rest: twilio === 3 },
+    sns: { india: sns === 3 && snsIndia === 3, rest: sns === 3 },
+  }
+  if (c.SMS_LOCAL === undefined && c.SMS_ROUTE_INDIA !== undefined && !configured[c.SMS_ROUTE_INDIA].india) ctx.addIssue({ code: 'custom', message: `SMS_ROUTE_INDIA is ${c.SMS_ROUTE_INDIA}, whose values aren't all set`, path: ['SMS_ROUTE_INDIA'] })
+  if (c.SMS_LOCAL === undefined && c.SMS_ROUTE_REST !== undefined && !configured[c.SMS_ROUTE_REST].rest) ctx.addIssue({ code: 'custom', message: `SMS_ROUTE_REST is ${c.SMS_ROUTE_REST}, whose values aren't all set`, path: ['SMS_ROUTE_REST'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))
     ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['SHOP_DOMAIN'] })

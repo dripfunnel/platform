@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { codeChannelSchema, codeChannelsSchema, type CodeChannel } from './auth'
 import { query } from './client'
 
 // My profile's reads and writes (FIRST-RELEASE §4; apps/api/schema/store.graphql, src/apis/store/profile.ts):
@@ -12,11 +13,13 @@ const profileSchema = z.object({
   theme: z.enum(['light', 'dark']).nullable(),
   passwordChangedAt: z.string().nullable(),
   twoFactor: z.object({ method: z.enum(['app', 'sms']).nullable(), backupCodesLeft: z.number().int() }),
+  // Where a phone code can go now, for this person's number (ACCESS.md §4).
+  codeChannels: codeChannelsSchema,
 })
 
 export type Profile = z.infer<typeof profileSchema>
 
-const profileFields = 'name email pendingEmail phone theme passwordChangedAt twoFactor { method backupCodesLeft }'
+const profileFields = 'name email pendingEmail phone theme passwordChangedAt twoFactor { method backupCodesLeft } codeChannels { whatsapp sms }'
 
 export const loadProfile = async (): Promise<Profile | null> => (await query(`{ profile { ${profileFields} } }`, z.object({ profile: profileSchema.nullable() }))).profile
 
@@ -69,15 +72,24 @@ export const changePassword = async (current: string, next: string): Promise<voi
   await query(`mutation Password($current: String!, $next: String!) { changePassword(current: $current, next: $next) }`, z.object({ changePassword: z.boolean().nullable() }), { current, next })
 }
 
-const stepSchema = z.object({ secret: z.string().nullable(), uri: z.string().nullable(), hint: z.string().nullable(), done: z.boolean(), backupCodes: z.array(z.string()).nullable() })
+const stepSchema = z.object({ secret: z.string().nullable(), uri: z.string().nullable(), hint: z.string().nullable(), done: z.boolean(), backupCodes: z.array(z.string()).nullable(), channel: codeChannelSchema.nullable() })
 
 export type SecondFactorStep = z.infer<typeof stepSchema>
 
-const setSecondFactor = async (variables: { method: 'app' | 'sms' | 'off'; code?: string; password?: string }): Promise<SecondFactorStep> =>
-  (await query(`mutation Second($method: String!, $code: String, $password: String) { setSecondFactor(method: $method, code: $code, password: $password) { secret uri hint done backupCodes } }`, z.object({ setSecondFactor: stepSchema }), variables)).setSecondFactor
+const setSecondFactor = async (variables: { method: 'app' | 'sms' | 'off'; code?: string; password?: string; channel?: CodeChannel }): Promise<SecondFactorStep> =>
+  (
+    await query(
+      `mutation Second($method: String!, $code: String, $password: String, $channel: String) { setSecondFactor(method: $method, code: $code, password: $password, channel: $channel) { secret uri hint done backupCodes channel } }`,
+      z.object({ setSecondFactor: stepSchema }),
+      variables,
+    )
+  ).setSecondFactor
 
-/** Starts setting up a method, proven by the password: an app gets its setup key, SMS texts the profile's number. */
+/** Starts setting up a method, proven by the password: an app gets its setup key, the phone a code by WhatsApp first. */
 export const startSecondFactor = (method: 'app' | 'sms', password: string) => setSecondFactor({ method, password })
+
+/** Another phone code for the set-up, by the channel asked for; the password again, as every start needs it. */
+export const resendSecondFactorCode = (password: string, channel: CodeChannel) => setSecondFactor({ method: 'sms', password, channel })
 
 /** Confirms the method with its first code; turning it on answers ten backup codes, once. */
 export const confirmSecondFactor = (method: 'app' | 'sms', code: string) => setSecondFactor({ method, code })

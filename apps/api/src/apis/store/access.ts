@@ -23,6 +23,7 @@ import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import type { StoreBillingStripe, StripeApi } from '#integrations/stripe/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
+import type { CodeChannelCheck } from '#saas/portalCodes/index'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -48,6 +49,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** Which channels reach a number (ACCESS.md §4): the brand's and My profile's `codeChannels`, and the phone method's code; none where unset. */
+  codeChannels?: CodeChannelCheck | null
   /** DNS for checking a merchant's webhook address (SSRF, AGENTS.md "Security"); null where none can be asked. */
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */

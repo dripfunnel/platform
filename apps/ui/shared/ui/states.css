@@ -203,6 +203,10 @@
   margin-bottom: var(--df-space-6);
 }
 
+.df-dialog-body--spaced {
+  padding-top: var(--df-space-3);
+}
+
 .df-dialog-body p {
   margin: 0;
 }
