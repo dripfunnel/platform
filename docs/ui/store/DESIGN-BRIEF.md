@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-09 (#1367: a vendor sees its own lines' answers to a product's questions in either shipping mode, item 39). Before: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
+Last updated: 2026-11-16 (two-step sign-in's phone code goes by WhatsApp first, ACCESS §4). Before: 2026-11-09 (#1367: a vendor sees its own lines' answers to a product's questions in either shipping mode, item 39). Before: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -198,7 +198,8 @@ line says who it is for and the thing most likely to be missed.
 13. **My profile**: everyone (`PortalProfile`, designed 2026-10-02). Name, email (changed
     through a link to the new address), mobile number, password (changing it signs out every
     other device), **two-step sign-in** (optional for everyone, Owners included, #1008;
-    authenticator app or SMS; ten backup codes shown once), appearance (light or dark) and
+    authenticator app or a code to the phone, by WhatsApp first with SMS on request, ACCESS.md §4;
+    ten backup codes shown once), appearance (light or dark) and
     **where you're signed in** with "Sign out everywhere else" (ACCESS.md §2, §4).
 
 ### C. Vendors
