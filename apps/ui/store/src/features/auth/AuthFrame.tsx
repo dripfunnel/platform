@@ -46,8 +46,10 @@ export interface AuthFrameProps {
   title?: string | undefined
   sub?: ReactNode
   back?: { label: string; onBack: () => void } | undefined
-  /** The sign-up's four steps (0–3), or `building` for the last bar. */
+  /** The sign-up's steps (0–3), or `building` for the last bar. */
   step?: number | 'building' | undefined
+  /** Three while the partner's WhatsApp is off, as sign-up then asks for no number (SAAS.md §4.1). */
+  stepCount?: 3 | 4 | undefined
   /** An icon, or a store's initial (an invitation shows the store it is for). */
   icon?: ({ name: IconName } | { letter: string }) & { tone: 'info' | 'warning' } | undefined
   notice?: { text: string; tone: 'info' | 'error' } | null | undefined
@@ -56,7 +58,7 @@ export interface AuthFrameProps {
 
 // PortalAuth's frame (designs/PortalAuth.dc.html): the brand panel on the left, in the partner's look
 // on its host (its mark and name, never DripFunnel's; store README §2), the form on the right; on a phone, the form alone.
-export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, children }: AuthFrameProps) => {
+export const AuthFrame = ({ panel, title, sub, back, step, stepCount = 4, icon, notice, children }: AuthFrameProps) => {
   const brand = currentBrand()
   const heading = useRef<HTMLHeadingElement>(null)
   const shownTitle = useRef(title)
@@ -144,11 +146,11 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
             {step !== undefined && (
               <div className="df-portal-auth-stepper">
                 <div className="df-portal-auth-dots" aria-hidden="true">
-                  {[0, 1, 2, 3].map((i) => (
+                  {Array.from({ length: stepCount }, (_, i) => (
                     <span key={i} className={step === 'building' || i <= step ? 'df-on' : undefined} />
                   ))}
                 </div>
-                <span>{step === 'building' ? words.signup.building.label : words.signup.steps[step]}</span>
+                <span>{step === 'building' ? words.signup.building.label : (stepCount === 3 ? words.signup.stepsNoPhone : words.signup.steps)[step]}</span>
               </div>
             )}
             {icon && (

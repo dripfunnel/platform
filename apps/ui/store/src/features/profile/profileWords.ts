@@ -1,6 +1,7 @@
 import { isApiError } from '../../api/client'
 import type { MyActivityEntry } from '../../api/profile'
 import { fill, messages } from '../../messages'
+import { resendWaitSeconds } from '../common/CodeResend'
 
 const words = messages.profile
 const actions: Record<string, string> = words.activity.actions
@@ -31,9 +32,19 @@ export const profileRefusal = (error: unknown, fallback: string): string => {
       return messages.auth.secondFactor.wrongPlain
     case 'CODE_EXPIRED':
       return words.twoStep.expired
+    case 'CHANNEL_OFF':
+      return words.twoStep.noChannel
+    case 'TOO_SOON':
+      return fill(messages.codeResend.tooSoon, { seconds: String(refusalSeconds(error) ?? resendWaitSeconds) })
     default:
       return fallback
   }
+}
+
+/** TOO_SOON's seconds left, as the API sends them in the refusal's extensions. */
+export const refusalSeconds = (error: unknown): number | undefined => {
+  const seconds = isApiError(error) ? error.details['seconds'] : undefined
+  return typeof seconds === 'number' ? seconds : undefined
 }
 
 /** One entry of the person's own activity in words; a code this release doesn't word names itself. */

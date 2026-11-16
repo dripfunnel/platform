@@ -2,6 +2,26 @@
   "phone": {
     "countryCode": "Country code"
   },
+  "codeResend": {
+    "sentWhatsapp": "We sent a code to WhatsApp on {hint}.",
+    "sentSms": "Sent by SMS to {hint}.",
+    "wait": "Didn’t get it? You can ask again in {seconds}s.",
+    "waiting": "You can ask for another code in a few seconds.",
+    "ready": "Didn’t get it?",
+    "readyAnnounced": "You can ask for another code now.",
+    "againWhatsapp": "Send again on WhatsApp",
+    "insteadWhatsapp": "Send on WhatsApp instead",
+    "againSms": "Send again by SMS",
+    "insteadSms": "Send by SMS instead",
+    "sendWhatsapp": "Send a code on WhatsApp",
+    "sendSms": "Send a code by SMS",
+    "tooSoon": "Wait {seconds}s, then ask again.",
+    "off": {
+      "whatsapp": "WhatsApp codes are off right now. Ask for one by SMS instead.",
+      "sms": "SMS codes are off right now. Ask for one on WhatsApp instead."
+    },
+    "none": "Codes can’t reach your phone right now. Try again later."
+  },
   "home": {
     "title": "Home",
     "greeting": {
@@ -628,8 +648,6 @@
       "Good password.",
       "Strong password."
     ],
-    "sendAgain": "Send again",
-    "waitToResend": "Didn’t get it? You can ask again in {seconds}s.",
     "signIn": {
       "title": "Sign in",
       "sub": "Welcome back. Sign in to manage your store.",
@@ -645,11 +663,12 @@
     "secondFactor": {
       "title": "Two-step sign-in",
       "app": "Type the 6-digit code from your authenticator app.",
-      "sms": "We texted a 6-digit code to the phone ending {hint}.",
-      "smsUnsent": "We’ll text a 6-digit code to the phone on your account.",
+      "sms": "Type the 6-digit code we sent to your phone.",
+      "smsUnsent": "We’ll send a 6-digit code to the phone on your account.",
+      "noChannel": "Codes can’t reach your phone right now. Use a backup code instead.",
       "primary": "Verify and sign in",
       "backup": "Use a backup code instead",
-      "incomplete": "The code has 6 digits — check the text again.",
+      "incomplete": "The code has 6 digits — check the message again.",
       "wrong": "That code doesn’t match. {tries} left.",
       "tries": {
         "one": "{count} try",
@@ -669,9 +688,9 @@
     },
     "enrol": {
       "title": "Turn on two-step sign-in",
-      "sub": "It protects your payouts and your customers’ data. We’ll text you a code each time you sign in.",
-      "subSent": "Type the 6-digit code we texted to the number ending {hint}.",
-      "sendPrimary": "Text me a code",
+      "sub": "It protects your payouts and your customers’ data. We’ll send a code to your phone each time you sign in.",
+      "subSent": "Type the 6-digit code we sent to your phone.",
+      "sendPrimary": "Send me a code",
       "confirmPrimary": "Turn on and sign in",
       "changeNumber": "Change number",
       "invalidPhone": "Check the country code and the number.",
@@ -770,6 +789,11 @@
         "Step 3 of 4 · Your store",
         "Step 4 of 4 · Verify phone"
       ],
+      "stepsNoPhone": [
+        "Step 1 of 3 · Your account",
+        "Step 2 of 3 · Verify email",
+        "Step 3 of 3 · Your store"
+      ],
       "su1": {
         "title": "Create your store",
         "sub": "It takes about two minutes.",
@@ -800,6 +824,7 @@
         "country": "Country",
         "countryHelp": "Sets your currency and tax rules.",
         "primary": "Continue",
+        "primaryBuild": "Create my store",
         "nameMissing": "Give your store a name.",
         "subBad": "Use letters, numbers and hyphens.",
         "taken": "That address is taken. Try {suggestions}.",
@@ -809,12 +834,12 @@
       },
       "su4": {
         "title": "Last step: your phone",
-        "titleSent": "Enter the code we texted",
-        "sub": "We text you a code so nobody else can open a store in your name. We won’t call or share it.",
-        "subSent": "Sent to the number ending {hint}.",
-        "primarySend": "Text me a code",
+        "titleSent": "Enter the code we sent",
+        "sub": "We send you a code on WhatsApp so nobody else can open a store in your name. We won’t call or share your number.",
+        "primarySend": "Send me a code",
         "primaryVerify": "Verify and build my store",
-        "changeNumber": "Change number"
+        "changeNumber": "Change number",
+        "skipped": "Your number isn’t needed any more. Check your store’s details, then create your store."
       },
       "building": {
         "title": "Setting up {store}",
@@ -907,9 +932,11 @@
       "off": "Off",
       "app": "Authenticator app",
       "appSub": "Codes come from the app on your phone. Works without signal.",
-      "sms": "Text message",
-      "smsSub": "Codes are texted to the number ending {last4}.",
-      "useSms": "Use text messages",
+      "sms": "Code to your phone",
+      "smsSub": "Codes come by WhatsApp, or by SMS if you ask, to the number ending {last4}.",
+      "paused": "Phone codes are paused: {product} has WhatsApp and SMS codes off right now. Switch to an authenticator app to keep two-step sign-in working.",
+      "noChannel": "Codes can’t reach your phone right now. Use an authenticator app instead.",
+      "useSms": "Use codes to my phone",
       "useApp": "Use an authenticator app",
       "backup": "Backup codes",
       "left": {
@@ -932,7 +959,7 @@
       "verify": "Verify",
       "appTitle": "Add {product} to your authenticator app, then type the code it shows",
       "key": "Setup key — type it into Google Authenticator, 1Password, Authy or similar",
-      "smsTitle": "We texted a code to the number ending {last4}",
+      "smsTitle": "Type the code we sent to the number ending {last4}",
       "code": "6-digit code",
       "codeIncomplete": "Type all 6 digits.",
       "codesTitle": "Save your backup codes",
@@ -941,7 +968,7 @@
       "saved": "I’ve saved them",
       "nowOn": "Two-step sign-in is on",
       "nowApp": "Codes now come from your authenticator app",
-      "nowSms": "Codes now come by text message",
+      "nowSms": "Codes now come to your phone",
       "nowOff": "Two-step sign-in is off",
       "newTitle": "Make new backup codes?",
       "newBody": "Your old codes stop working straight away.",

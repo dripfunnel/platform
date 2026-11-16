@@ -104,7 +104,7 @@ describe('back from Google', () => {
     const asked: string[] = []
     vi.stubGlobal('fetch', async (url: string) => {
       asked.push(url)
-      return new Response(JSON.stringify({ ok: true, step: 'store', name: 'Zoë New', email: 'zoe@gmail.example', countries: [{ code: 'US', name: 'United States', currency: 'USD' }], shopDomain: 'my-store.one' }))
+      return new Response(JSON.stringify({ ok: true, step: 'store', name: 'Zoë New', email: 'zoe@gmail.example', countries: [{ code: 'US', name: 'United States', currency: 'USD' }], shopDomain: 'my-store.one', codeChannels: { whatsapp: true, sms: true } }))
     })
     await show(<SignUp fromGoogle />)
     await settle()
@@ -118,14 +118,14 @@ describe('back from Google', () => {
     vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => (answer = resolve)))
     await show(<SignUp fromGoogle />)
     expect(screen.getByRole('status').textContent).toBe(words.google.resuming)
-    await act(async () => answer(new Response(JSON.stringify({ ok: true, step: 'phone', name: 'Zoë New', email: 'zoe@gmail.example', countries: [], shopDomain: null }))))
+    await act(async () => answer(new Response(JSON.stringify({ ok: true, step: 'phone', name: 'Zoë New', email: 'zoe@gmail.example', countries: [], shopDomain: null, codeChannels: { whatsapp: true, sms: true } }))))
     await settle()
     expect(screen.getByRole('heading', { name: words.signup.su4.title })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: words.signup.su3.title })).toBeNull()
   })
 
   it('keeps a Google sign-up that is still there when reading it back fails, and reads it again when asked', async () => {
-    const answers = [{ status: 429, body: { ok: false, code: 'RATE_LIMITED' } }, { status: 200, body: { ok: true, step: 'store', name: 'Zoë New', email: 'zoe@gmail.example', countries: [{ code: 'US', name: 'United States', currency: 'USD' }], shopDomain: null } }]
+    const answers = [{ status: 429, body: { ok: false, code: 'RATE_LIMITED' } }, { status: 200, body: { ok: true, step: 'store', name: 'Zoë New', email: 'zoe@gmail.example', countries: [{ code: 'US', name: 'United States', currency: 'USD' }], shopDomain: null, codeChannels: { whatsapp: true, sms: true } } }]
     vi.stubGlobal('fetch', async () => {
       const next = answers.shift()
       return new Response(JSON.stringify(next?.body), { status: next?.status ?? 500 })
