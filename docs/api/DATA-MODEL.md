@@ -1158,7 +1158,8 @@ partner_credential  (id, partner_id, kind ('ai'|'sms'|'whatsapp'), provider, nam
                     -- per partner; the system-user token sealed in key_enc, key_prefix its last four; settings holds
                     -- { businessAccountId, phoneNumberId, language, templates: { 'code.portal'?, 'cart.reminder'?,
                     -- 'cart.reminder_code'? } }; partner.whatsapp_enabled boolean default false is the WhatsApp
-                    -- switch, turned on only with a saved account and off when it is removed (THIRD-PARTY-ACCESS §4)
+                    -- switch, turned on only with a saved account naming 'code.portal' whose last check is 'ok', and
+                    -- off when a check is rejected or the account removed (THIRD-PARTY-ACCESS §4; Gaurav, 2026-11-16)
 partner_google_sign_in (partner_id PK, client_id, secret_enc, secret_hint, enabled boolean,
                      set_by, set_at, updated_at)
                     -- built on #1046 (0377): the partner's Google client for "Continue with Google" on its

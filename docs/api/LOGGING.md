@@ -83,7 +83,8 @@ carries an auth key, a token, an access key, a SID or a template id.
 (the phone-number id before and after, `replaced` as its reason when it replaced the account), `partner.whatsapp_account_tested`
 (the status before and after, and what Meta refused as its reason: `token`, `phone_number`, `business_account` or `template`),
 `partner.whatsapp_account_removed` (the switch going off with it, when it was on), `partner.whatsapp_enabled` and
-`partner.whatsapp_disabled` (the switch's before and after, only when it changed). None carries the token.
+`partner.whatsapp_disabled` (the switch's before and after, only when it changed; `test_rejected` as its reason when a
+rejected check turned it off). None carries the token.
 
 **#842 dispatch entries.** `delivery.created`, `delivery.ready`, `delivery.offered` (one per broadcast),
 `delivery.accepted`, `delivery.assigned`, `delivery.cancelled`, `delivery.declined`, `delivery.unassigned`
