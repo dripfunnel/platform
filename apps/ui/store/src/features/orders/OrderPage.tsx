@@ -295,7 +295,9 @@ export const OrderPage = () => {
       case 'note':
         return {
           ...shared,
-          title: words.note.title,
+          title: fill(words.note.title, { number: order.number }),
+          target: '',
+          spaced: true,
           consequence: words.note.body,
           confirmLabel: words.note.confirm,
           cancelLabel: words.note.cancel,

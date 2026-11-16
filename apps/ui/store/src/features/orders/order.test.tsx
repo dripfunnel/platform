@@ -379,6 +379,15 @@ describe('an order’s page', () => {
     expect(screen.getByText(words.shipments.added)).toBeTruthy()
   })
 
+  it('names the order in the note window’s title', async () => {
+    await show(owner, placed)
+    fireEvent.click(button(words.note.add))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByRole('heading', { name: 'Add a note to order KT-1042' })).toBeTruthy()
+    expect(dialog.queryByText('Order KT-1042')).toBeNull()
+    expect(dialog.getByText(words.note.body).closest('.df-dialog-body--spaced')).not.toBeNull()
+  })
+
   it('adds a team note to the history', async () => {
     await show(owner, placed)
     fireEvent.click(button(words.note.add))
