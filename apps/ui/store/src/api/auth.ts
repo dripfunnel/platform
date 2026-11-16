@@ -28,6 +28,9 @@ export const authCodes = [
   'EMAIL_CHANGE_INVALID',
   'FORBIDDEN',
   'STORE_LIMIT',
+  'CHANNEL_OFF',
+  'TOO_SOON',
+  'STEP_SKIPPED',
 ] as const
 
 export type AuthCode = (typeof authCodes)[number]
@@ -45,10 +48,22 @@ export const isRefusal = (value: { ok: boolean }): value is AuthRefusal => value
 const ok = z.object({ ok: z.literal(true) })
 const method = z.enum(['app', 'sms'])
 
+export const codeChannelSchema = z.enum(['whatsapp', 'sms'])
+export type CodeChannel = z.infer<typeof codeChannelSchema>
+
+/** Where a portal code can go now (ACCESS.md §4): the partner's WhatsApp, and SMS for the number's route. */
+export const codeChannelsSchema = z.object({ whatsapp: z.boolean(), sms: z.boolean() })
+export type CodeChannels = z.infer<typeof codeChannelsSchema>
+
+/** A code sent: by which channel, to the number's last four (`•••• 2113`), and where the next one can go. */
+const codeSent = z.object({ ok: z.literal(true), hint: z.string(), channel: codeChannelSchema, codeChannels: codeChannelsSchema })
+
+const channelOf = (channel: CodeChannel | undefined) => (channel ? { channel } : {})
+
 /** What follows a password, an accepted invitation or a reset: the portal, a code, or setting one up. */
 const step = z.discriminatedUnion('step', [
   z.object({ ok: z.literal(true), step: z.literal('done') }),
-  z.object({ ok: z.literal(true), step: z.literal('second-factor'), method }),
+  z.object({ ok: z.literal(true), step: z.literal('second-factor'), method, codeChannels: codeChannelsSchema.optional() }),
   z.object({ ok: z.literal(true), step: z.literal('enrol') }),
 ])
 
@@ -56,8 +71,8 @@ export type Admitted = z.infer<typeof step>
 
 export const signIn = (email: string, password: string, remember: boolean) => post('sign-in', { email, password, remember }, step)
 
-/** Texts the sign-in code; the hint is the number's last four digits (`•••• 2113`). */
-export const sendCode = () => post('send-code', {}, z.object({ ok: z.literal(true), hint: z.string() }))
+/** Sends the sign-in code, by WhatsApp unless another channel is asked for (ACCESS.md §4). */
+export const sendCode = (channel?: CodeChannel) => post('send-code', channelOf(channel), codeSent)
 
 export const verifyCode = (code: string) => post('second-factor', { code }, ok)
 
@@ -65,14 +80,14 @@ export const useBackupCode = (code: string) => post('backup-code', { code }, z.o
 
 const enrolStep = z.union([
   z.object({ ok: z.literal(true), done: z.literal(true), backupCodes: z.array(z.string()) }),
-  z.object({ ok: z.literal(true), hint: z.string() }),
+  codeSent,
   z.object({ ok: z.literal(true), secret: z.string(), uri: z.string() }),
 ])
 
 export type EnrolStep = z.infer<typeof enrolStep>
 
-/** Set-up for a session held at enrolment (a team that requires 2-factor, #1008): by SMS, the number then its code; ten backup codes come back once at the end. */
-export const enrolBySms = (phone: string) => post('enrol-second-factor', { method: 'sms', phone }, enrolStep)
+/** Set-up for a session held at enrolment (a team that requires 2-factor, #1008): the number, then its code; ten backup codes come back once at the end. */
+export const enrolBySms = (phone: string, channel?: CodeChannel) => post('enrol-second-factor', { method: 'sms', phone, ...channelOf(channel) }, enrolStep)
 export const confirmEnrolBySms = (code: string) => post('enrol-second-factor', { method: 'sms', code }, enrolStep)
 
 /** The same answer for any email (ACCESS.md §2); only RATE_LIMITED differs. */
@@ -138,13 +153,17 @@ export const verifySignupEmail = (code: string) => post('sign-up/verify-email', 
 
 /** Where a sign-up stands, for a portal coming back from Google: who it's for and what step 3 offers. */
 export const resumeSignup = () =>
-  post('sign-up/resume', {}, z.object({ ok: z.literal(true), step: z.enum(['verify-email', 'store', 'phone']), name: z.string(), email: z.string(), countries: z.array(countrySchema), shopDomain: z.string().nullable() }))
+  post('sign-up/resume', {}, z.object({ ok: z.literal(true), step: z.enum(['verify-email', 'store', 'phone']), name: z.string(), email: z.string(), countries: z.array(countrySchema), shopDomain: z.string().nullable(), codeChannels: codeChannelsSchema }))
 
 /** The number's step follows while the partner's WhatsApp is on; with it off the store is made here (SAAS.md §4.1). */
 export const signupStore = (storeName: string, subdomain: string, country: string) =>
-  post('sign-up/store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.enum(['phone', 'done', 'enrol']), storeId: z.string().optional() }))
+  post(
+    'sign-up/store',
+    { storeName, subdomain, country },
+    z.discriminatedUnion('step', [z.object({ ok: z.literal(true), step: z.literal('phone'), codeChannels: codeChannelsSchema }), z.object({ ok: z.literal(true), step: z.enum(['done', 'enrol']), storeId: z.string() })]),
+  )
 
-export const sendSignupPhone = (phone: string) => post('sign-up/send-phone', { phone }, z.object({ ok: z.literal(true), hint: z.string() }))
+export const sendSignupPhone = (phone: string, channel?: CodeChannel) => post('sign-up/send-phone', { phone, ...channelOf(channel) }, codeSent)
 
 export const verifySignupPhone = (code: string) => post('sign-up/verify-phone', { code }, z.object({ ok: z.literal(true), step: z.enum(['done', 'enrol']), storeId: z.string() }))
 
