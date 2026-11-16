@@ -4,6 +4,7 @@ import { addAiKey, aiProviders, beginAiOauth, finishAiOauth, loadAiKeys, loadAiS
 import { fill, locale, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
 import { GoogleSignInPanel } from './GoogleSignInPanel'
+import { SmsPanel } from './SmsPanel'
 import { WhatsAppPanel } from './WhatsAppPanel'
 const words = messages.settings.integrations
 const look: Record<AiKey['status'], [StatusTone, StatusIconName]> = { ok: ['success', 'ok'], untested: ['neutral', 'clock'], rejected: ['danger', 'cross'] }
@@ -13,8 +14,8 @@ const shapes: Record<AiProvider, RegExp> = { anthropic: /^sk-ant-[A-Za-z0-9_-]{2
 export interface IntegrationsTabProps {
   // False for a role other than Owner and Admin, and for a read-only console.
   mayChange: boolean
-  // Why an impersonation can't use WhatsApp, or null outside one.
-  blocked: string | null
+  // The user support is signed in as, or null outside an impersonation: WhatsApp and SMS are refused to one.
+  actingAs: string | null
   onToast: (message: string) => void
 }
 
@@ -98,7 +99,7 @@ const RemoveDialog = ({ target, keys, onDone, onCancel }: { target: AiKey; keys:
 }
 
 // Integrations (§14.5): the partner's AI key profiles. The key is typed once and never read back.
-export const IntegrationsTab = ({ mayChange, blocked, onToast }: IntegrationsTabProps) => {
+export const IntegrationsTab = ({ mayChange, actingAs, onToast }: IntegrationsTabProps) => {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [open, setOpen] = useState<{ kind: 'add' } | { kind: 'remove'; key: AiKey } | null>(null)
@@ -269,7 +270,8 @@ export const IntegrationsTab = ({ mayChange, blocked, onToast }: IntegrationsTab
         </ul>
       </section>
       {mayChange && <GoogleSignInPanel mayChange={mayChange} onToast={onToast} />}
-      <WhatsAppPanel mayChange={mayChange} blocked={blocked} onToast={onToast} />
+      <WhatsAppPanel mayChange={mayChange} blocked={actingAs === null ? null : fill(words.whatsapp.blocked, { user: actingAs })} onToast={onToast} />
+      <SmsPanel mayChange={mayChange} blocked={actingAs === null ? null : fill(words.sms.blocked, { user: actingAs })} onToast={onToast} />
       {open?.kind === 'add' && (
         <AddDialog
           onDone={() => {

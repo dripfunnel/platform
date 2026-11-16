@@ -142,7 +142,7 @@ export const SettingsScreen = () => {
             onToast={setToast}
           />
         )}
-        {tab === 'integrations' && (mayManage ? <IntegrationsTab mayChange={!readOnly} blocked={impersonating ? fill(messages.settings.integrations.whatsapp.blocked, { user: firstName(impersonating.actingAs?.name ?? '') }) : null} onToast={setToast} /> : <PermissionDenied actionLabel={messages.settings.integrations.title} reason={messages.settings.integrations.mayNot} />)}
+        {tab === 'integrations' && (mayManage ? <IntegrationsTab mayChange={!readOnly} actingAs={impersonating ? firstName(impersonating.actingAs?.name ?? '') : null} onToast={setToast} /> : <PermissionDenied actionLabel={messages.settings.integrations.title} reason={messages.settings.integrations.mayNot} />)}
         {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={impersonating ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />
