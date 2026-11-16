@@ -27,7 +27,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', (_: string, init: RequestInit) => {
     const body = String(init.body)
     sent.push(body)
-    const data = body.includes('partnerGoogleSignIn')
+    const data = body.includes('whatsAppAccount')
+      ? { whatsAppAccount: { enabled: false, account: null } }
+      : body.includes('partnerGoogleSignIn')
       ? { partnerGoogleSignIn: { enabled: false, clientId: null, secretHint: null, setBy: null, setAt: null, redirectUri: null } }
       : body.includes('addPartnerAiKey')
       ? { addPartnerAiKey: { ok: true, reason: null } }
@@ -54,7 +56,7 @@ afterEach(() => {
 
 describe('Integrations', () => {
   it('lists each profile with its masked key, status and default tag', async () => {
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText('Production')).toBeTruthy()
     expect(screen.getByText(/sk-ant-…x7Qd/)).toBeTruthy()
     expect(screen.getByText(words.statuses.untested)).toBeTruthy()
@@ -66,12 +68,12 @@ describe('Integrations', () => {
 
   it('shows the empty state when there are no keys', async () => {
     keys = []
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText(words.empty)).toBeTruthy()
   })
 
   it('offers no change to a role that may not', async () => {
-    render(<IntegrationsTab mayChange={false} onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange={false} blocked={null} onToast={vi.fn()} />)
     await screen.findByText('Production')
     expect(screen.queryByRole('button', { name: words.add })).toBeNull()
     expect(screen.queryByRole('button', { name: words.remove })).toBeNull()
@@ -80,7 +82,7 @@ describe('Integrations', () => {
   it('sends the typed key once, in a masked field, and the list never carries it back', async () => {
     const user = userEvent.setup()
     const toast = vi.fn()
-    render(<IntegrationsTab mayChange onToast={toast} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={toast} />)
     await user.click(await screen.findByRole('button', { name: words.add }))
     const field = await screen.findByLabelText(words.addDialog.key)
     expect(field.getAttribute('type')).toBe('password')
@@ -99,7 +101,7 @@ describe('Sign in with ChatGPT or Claude', () => {
   it('opens the provider in a new tab, then finishes with the pasted code once', async () => {
     const user = userEvent.setup()
     const toast = vi.fn()
-    render(<IntegrationsTab mayChange onToast={toast} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={toast} />)
     await user.click(await screen.findByRole('button', { name: words.signIn.chatgpt.button }))
     await waitFor(() => expect(open).toHaveBeenCalledWith('https://auth.openai.com/oauth/authorize?state=s', '_blank', 'noopener,noreferrer'))
     expect(sentWith('beginPartnerAiOauth')[0]).toContain('"provider":"openai"')
@@ -119,7 +121,7 @@ describe('Sign in with ChatGPT or Claude', () => {
   it('starts Claude\'s sign-in the same way', async () => {
     begun = { ok: true, reason: null, url: 'https://claude.ai/oauth/authorize?state=s' }
     const user = userEvent.setup()
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: words.signIn.claude.button }))
     await waitFor(() => expect(open).toHaveBeenCalledWith('https://claude.ai/oauth/authorize?state=s', '_blank', 'noopener,noreferrer'))
     expect(sentWith('beginPartnerAiOauth')[0]).toContain('"provider":"anthropic"')
@@ -129,7 +131,7 @@ describe('Sign in with ChatGPT or Claude', () => {
     begun = { ok: true, reason: null, url: 'http://evil.example/' }
     const user = userEvent.setup()
     const toast = vi.fn()
-    render(<IntegrationsTab mayChange onToast={toast} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={toast} />)
     await user.click(await screen.findByRole('button', { name: words.signIn.chatgpt.button }))
     await waitFor(() => expect(toast).toHaveBeenCalledWith(words.toasts.failed))
     expect(open).not.toHaveBeenCalled()
@@ -138,7 +140,7 @@ describe('Sign in with ChatGPT or Claude', () => {
   it('says why a pasted code was refused', async () => {
     finished = { ok: false, reason: 'OAUTH_EXPIRED' }
     const user = userEvent.setup()
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     await user.click(await screen.findByRole('button', { name: words.signIn.chatgpt.button }))
     await user.type(await screen.findByLabelText(words.signIn.pasteLabel), 'bad#code')
     await user.click(screen.getByRole('button', { name: words.signIn.finish }))
@@ -147,7 +149,7 @@ describe('Sign in with ChatGPT or Claude', () => {
 
   it('says why sign-in is off for a provider the API does not offer', async () => {
     chatgpt = false
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText(words.signIn.off)).toBeTruthy()
     expect(screen.getByRole('button', { name: words.signIn.chatgpt.button }).hasAttribute('disabled')).toBe(true)
     expect(screen.getByText(words.signIn.claude.risk)).toBeTruthy()
@@ -157,7 +159,7 @@ describe('Sign in with ChatGPT or Claude', () => {
   it('shows a connected sign-in with its account and reconnects that profile', async () => {
     keys = [key('k1'), signIn()]
     const user = userEvent.setup()
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText('Signed in · ai@northstar.example')).toBeTruthy()
     expect(screen.getByText(words.signInStatuses.ok)).toBeTruthy()
     expect(screen.queryByRole('button', { name: words.signIn.chatgpt.button })).toBeNull()
@@ -171,7 +173,7 @@ describe('Sign in with ChatGPT or Claude', () => {
   it('says a rejected sign-in needs reconnecting, and disconnects it after saying what happens', async () => {
     keys = [signIn({ status: 'rejected', isDefault: true })]
     const user = userEvent.setup()
-    render(<IntegrationsTab mayChange onToast={vi.fn()} />)
+    render(<IntegrationsTab mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText(words.signInStatuses.rejected)).toBeTruthy()
     expect(screen.getByText(words.signInRejectedNote)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: words.disconnect }))
