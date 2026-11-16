@@ -50,6 +50,36 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/at least 20 characters/)
   })
 
+  it('takes DripFunnel’s SMS accounts all or none per provider, MSG91 with all seven templates', () => {
+    const templates = { 'code.second_factor': 't1', 'code.verify_phone': 't2', 'code.shopper_sign_in': 't3', 'order.confirmed': 't4', 'order.shipped': 't5', 'order.delivered': 't6', 'rider.invited': 't7' }
+    const msg91 = { MSG91_AUTH_KEY: '412345AbCdEfGhIjKlMnOp', MSG91_TEMPLATES: JSON.stringify(templates) }
+    const twilio = { TWILIO_ACCOUNT_SID: `AC${'a'.repeat(32)}`, TWILIO_AUTH_TOKEN: 'b'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'c'.repeat(32)}` }
+    expect(parseConfig({ ...hosts, ...msg91, ...twilio }).MSG91_TEMPLATES).toEqual(templates)
+    expect(parseConfig({ ...hosts, ...twilio }).TWILIO_AUTH_TOKEN).toBe('b'.repeat(32))
+    expect(() => parseConfig({ ...hosts, MSG91_AUTH_KEY: msg91.MSG91_AUTH_KEY })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, TWILIO_ACCOUNT_SID: twilio.TWILIO_ACCOUNT_SID })).toThrow(/go together/)
+    const six = Object.fromEntries(Object.entries(templates).filter(([message]) => message !== 'rider.invited'))
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: JSON.stringify(six) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: JSON.stringify({ ...templates, 'marketing.blast': 't8' }) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...msg91, MSG91_TEMPLATES: 'not json' })).toThrow(/must be JSON/)
+    expect(() => parseConfig({ ...hosts, ...twilio, TWILIO_ACCOUNT_SID: 'SK123' })).toThrow(/account SID/)
+  })
+
+  it('takes DripFunnel’s SNS account all or none, its India part only whole, and a route only to a configured provider', () => {
+    const templates = { 'code.second_factor': '1107161', 'code.verify_phone': '1107162', 'code.shopper_sign_in': '1107163', 'order.confirmed': '1107164', 'order.shipped': '1107165', 'order.delivered': '1107166', 'rider.invited': '1107167' }
+    const sns = { SNS_ACCESS_KEY_ID: 'AKIAABCDEFGHIJKLMNOP', SNS_SECRET_ACCESS_KEY: 'a'.repeat(40), SNS_REGION: 'ap-south-1' }
+    const india = { SNS_SENDER_ID: 'DRPFNL', SNS_DLT_ENTITY_ID: '1101234567890123456', SNS_DLT_TEMPLATES: JSON.stringify(templates) }
+    expect(parseConfig({ ...hosts, ...sns, ...india, SMS_ROUTE_INDIA: 'sns', SMS_ROUTE_REST: 'sns' }).SNS_DLT_TEMPLATES).toEqual(templates)
+    expect(parseConfig({ ...hosts, ...sns, SMS_ROUTE_REST: 'sns' }).SMS_ROUTE_REST).toBe('sns')
+    expect(() => parseConfig({ ...hosts, SNS_ACCESS_KEY_ID: sns.SNS_ACCESS_KEY_ID })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, ...india })).toThrow(/with the SNS account/)
+    expect(() => parseConfig({ ...hosts, ...sns, SNS_SENDER_ID: 'DRPFNL' })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, ...sns, SMS_ROUTE_INDIA: 'sns' })).toThrow(/SMS_ROUTE_INDIA is sns/)
+    expect(() => parseConfig({ ...hosts, SMS_ROUTE_REST: 'twilio' })).toThrow(/SMS_ROUTE_REST is twilio/)
+    expect(() => parseConfig({ ...hosts, ...sns, SMS_ROUTE_REST: 'msg91' })).toThrow()
+    expect(parseConfig(hosts).SMS_ROUTE_INDIA).toBeUndefined()
+  })
+
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.dripfunnel.dev', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')

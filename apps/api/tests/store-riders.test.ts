@@ -96,9 +96,9 @@ describe('inviting a rider', () => {
   it('sends that text through the partner’s SMS account, as the local stand-in does', async () => {
     const sent: OutgoingSms[] = []
     const sender: SmsSender = { send: async (sms) => (sent.push(sms), { providerId: 'local' }) }
-    const local: PartnerSmsAccounts = { forPartner: async (_, __, provider) => (provider === 'msg91' ? { provider, authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) } : null) }
+    const local: PartnerSmsAccounts = { forPartner: async (_, __, route) => (route === 'india' ? { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) } : null) }
     const at = new Date(((await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()).getTime() + 1000)
-    await relayDue(db.sql, { sms: smsDeliverer(db.sql, local, { msg91: () => sender, twilio: () => sender }, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+    await relayDue(db.sql, { sms: smsDeliverer(db.sql, local, { msg91: () => sender, twilio: () => sender, sns: () => sender }, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
     const text = sent.find((s) => s.to === '+919800000011')
     expect(text?.text).toMatch(/^Store A1: you're invited to deliver our orders\. Get the app and sign in with this number: https:\/\/.+\.shop\.example\/app\/delivery\.apk$/)
   })

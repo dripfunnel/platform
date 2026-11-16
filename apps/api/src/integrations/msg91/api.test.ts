@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SmsRefused, SmsUnavailable, type OutgoingSms } from '#core/sms'
-import { msg91Sender } from './api'
+import { checkMsg91Account, msg91Sender } from './api'
 
 const sms: OutgoingSms = { to: '+919845022113', text: 'Kesari Threads: 482913 is your sign-in code.', dlt: { templateId: 'tmpl-1', vars: ['Kesari Threads', '482913'] } }
 
@@ -45,5 +45,25 @@ describe('the MSG91 sender', () => {
     const pending = msg91Sender({ authKey: 'k', fetchImpl: hanging }).send(sms, controller.signal)
     controller.abort()
     await expect(pending).rejects.toBeInstanceOf(SmsUnavailable)
+  })
+})
+
+describe('the MSG91 account check', () => {
+  it('reads the balance with the key and sends nothing', async () => {
+    const seen: Request[] = []
+    expect(await checkMsg91Account({ authKey: 'k-1', fetchImpl: answering(200, 1250, seen) })).toBe('ok')
+    expect(seen[0]?.method).toBe('GET')
+    expect(seen[0]?.url).toBe('https://control.msg91.com/api/balance.php?authkey=k-1&type=4')
+  })
+
+  it('calls a refused key rejected, however MSG91 answers it, and an outage unavailable', async () => {
+    expect(await checkMsg91Account({ authKey: 'k', fetchImpl: answering(200, 'Invalid authkey') })).toBe('rejected')
+    expect(await checkMsg91Account({ authKey: 'k', fetchImpl: answering(200, { type: 'error', message: 'Authentication failure' }) })).toBe('rejected')
+    expect(await checkMsg91Account({ authKey: 'k', fetchImpl: answering(401, {}) })).toBe('rejected')
+    expect(await checkMsg91Account({ authKey: 'k', fetchImpl: answering(503, {}) })).toBe('unavailable')
+    const failing = (async () => {
+      throw new TypeError('network')
+    }) as typeof fetch
+    expect(await checkMsg91Account({ authKey: 'k', fetchImpl: failing })).toBe('unavailable')
   })
 })

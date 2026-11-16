@@ -385,6 +385,7 @@ type Mutation {
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
   removePartnerAiKey(id: ID!): PartnerAiKeyResult
   removePartnerDomain(kind: String!): PartnerDomainResult
+  removeSmsAccount(provider: String!): PartnerSmsResult
   removeTeamMember(id: ID!): TeamResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
   resendTeamInvite(id: ID!): TeamResult
@@ -394,16 +395,20 @@ type Mutation {
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
+  saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
   setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
+  setSmsEnabled(enabled: Boolean!): PartnerSmsResult
+  setSmsRoute(provider: String, route: String!): PartnerSmsResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
+  testSmsAccount(provider: String!): PartnerSmsResult
   transferOwnership(toUserId: ID!): TeamResult
   turnOffPartnerGoogleSignIn: PartnerGoogleSignInResult
   updateMyName(name: String!): MyProfileResult
@@ -649,6 +654,36 @@ type PartnerPayoutsPage {
 type PartnerPlanFee {
   fee: Money
   plan: String
+}
+
+type PartnerSms {
+  accounts: [PartnerSmsAccount!]
+  enabled: Boolean
+  routes: [PartnerSmsRoute!]
+}
+
+type PartnerSmsAccount {
+  hint: String
+  lastTestedAt: String
+  provider: String
+  status: String
+  templatesComplete: Boolean
+}
+
+type PartnerSmsResult {
+  ok: Boolean
+  reason: String
+  status: String
+}
+
+type PartnerSmsRoute {
+  provider: String
+  route: String
+}
+
+input PartnerSmsTemplateInput {
+  message: String!
+  templateId: String!
 }
 
 type PartnerState {
@@ -906,6 +941,7 @@ type Query {
   reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
   reportUsage(filter: ReportFilterInput): UsageReport
   search(query: String!): [StoreSearchMatch!]
+  smsAccounts: PartnerSms
   staffSessionNotice: StaffSessionNotice
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
