@@ -220,7 +220,8 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
 - **Sign-up** (`PortalAuth` `su1`–`su4`, SAAS §4.1, §5): name, email, password (10 characters or
   more, ACCESS §4) → email code → store name, web address and country, which sets the currency (languages are set later in Settings, decided on #290) → phone
   code (decided 2026-11-16; the API built on #1506, the screens on #1507: only while the partner's WhatsApp is on, sent by
-  WhatsApp first with "Send by SMS instead" after 20 seconds, ACCESS §4) → a real progress screen driven by the provisioning job. Open only while the partner is
+  WhatsApp first with "Send by SMS instead" after 20 seconds, ACCESS §4; with it off the store step goes straight to the
+  progress screen, already so on #1506) → a real progress screen driven by the provisioning job. Open only while the partner is
   Live. Responds identically whether or not the email has an account.
 - **Store created by the partner**: the Owner gets an invitation, never a password.
 - **Sign-in**: email and password, then the second factor **only when the person has it on**. 2-factor is optional for everyone, Owners included, and off by default (decided 2026-10-29 on #1008, reversing the earlier "required for Owners"): a new Owner goes straight into the store after sign-up step 4, with no set-up screen. The prototype still shows the Owner held at its `enrol` view; the docs win here (designs/INCOMPLETE-FEATURES.md). Five wrong passwords or codes (one count) pause sign-in for 15 minutes and email the account's own address, the prototype's "we've emailed the account owner" (built on #290).

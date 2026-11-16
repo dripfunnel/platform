@@ -37,7 +37,7 @@ export type AuthRefusal = SharedAuthRefusal<AuthCode>
 // The routes after which this browser is someone else (sharedSessionReads.ts `identityChanged`).
 const { post } = createAuthClient({
   codes: authCodes,
-  identityRoutes: new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/verify-phone', 'new-store']),
+  identityRoutes: new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/store', 'sign-up/verify-phone', 'new-store']),
 })
 
 export const isRefusal = (value: { ok: boolean }): value is AuthRefusal => value.ok === false
@@ -140,7 +140,9 @@ export const verifySignupEmail = (code: string) => post('sign-up/verify-email', 
 export const resumeSignup = () =>
   post('sign-up/resume', {}, z.object({ ok: z.literal(true), step: z.enum(['verify-email', 'store', 'phone']), name: z.string(), email: z.string(), countries: z.array(countrySchema), shopDomain: z.string().nullable() }))
 
-export const signupStore = (storeName: string, subdomain: string, country: string) => post('sign-up/store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.literal('phone') }))
+/** The number's step follows while the partner's WhatsApp is on; with it off the store is made here (SAAS.md §4.1). */
+export const signupStore = (storeName: string, subdomain: string, country: string) =>
+  post('sign-up/store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.enum(['phone', 'done', 'enrol']), storeId: z.string().optional() }))
 
 export const sendSignupPhone = (phone: string) => post('sign-up/send-phone', { phone }, z.object({ ok: z.literal(true), hint: z.string() }))
 

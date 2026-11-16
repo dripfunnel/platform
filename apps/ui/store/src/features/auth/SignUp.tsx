@@ -136,7 +136,8 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
           const problem = storeDraftProblem(draft)
           if (problem) return setError(problem)
           const answer = await signupStore(draft.store.trim(), draftSubdomain(draft), draft.country)
-          return isRefusal(answer) ? refused(answer) : go({ kind: 'phone', hint: null })
+          if (isRefusal(answer)) return refused(answer)
+          return answer.step === 'phone' ? go({ kind: 'phone', hint: null }) : go({ kind: 'building', enrol: answer.step === 'enrol' })
         }
         if (view.kind === 'phone') {
           if (view.hint === null) {
