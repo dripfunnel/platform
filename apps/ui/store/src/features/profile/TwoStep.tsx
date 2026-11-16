@@ -119,6 +119,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
               <span className="df-profile-row-text">
                 <strong>{method === 'app' ? words.app : words.sms}</strong>
                 <span>{method === 'app' ? words.appSub : fill(words.smsSub, { last4 })}</span>
+                {method === 'sms' && !phoneCodes && <span className="df-profile-low">{fill(words.paused, { product: productName() })}</span>}
               </span>
               {(method === 'sms' || phoneCodes) && (
                 <Secondary size="small" onClick={() => go({ step: 'prove', method: method === 'app' ? 'sms' : 'app', switching: true })}>
@@ -126,7 +127,6 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
                 </Secondary>
               )}
             </div>
-            {method === 'sms' && !phoneCodes && <p className="df-profile-note">{fill(words.paused, { product: productName() })}</p>}
             <div className="df-profile-row">
               <span className="df-profile-row-text">
                 <strong>{words.backup}</strong>
