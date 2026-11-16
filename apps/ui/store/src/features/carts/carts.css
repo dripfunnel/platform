@@ -226,6 +226,10 @@
   min-width: 0;
 }
 
+.df-carts-shopper {
+  overflow-wrap: anywhere;
+}
+
 .df-carts-cell .df-pill {
   align-self: flex-start;
 }

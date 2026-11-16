@@ -1323,6 +1323,7 @@
       "gift_card": "A gift card",
       "gift_cardSub": "Sent by email",
       "merchantOnly": "Suppliers sell physical items. Downloads, services and gift cards are the store’s own.",
+      "locked": "You can’t change what you’re selling once the product is saved. To sell it another way, add a new product.",
       "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
     },
     "photos": {
@@ -1466,6 +1467,14 @@
       "makesPart": "{name} ({count})",
       "create": "Create {count} versions",
       "createOne": "Create 1 version",
+      "createTitle": {
+        "one": "Create 1 version?",
+        "other": "Create {count} versions?"
+      },
+      "createBody": "Each version gets its own price, starting at {price}, and its own stock, starting at 0.",
+      "createBodyUnpriced": "Each version gets its own price and its own stock, starting at 0.",
+      "createStockLost": "The {count} in stock now won’t carry over.",
+      "createConfirm": "Create versions",
       "update": "Update versions",
       "newOnes": {
         "one": "1 new version to create — pre-filled from the first one.",
@@ -2224,7 +2233,12 @@
       "fromFaqs": "questions",
       "video": "Video link",
       "videoPlaceholder": "https://www.youtube.com/watch?v=…",
-      "videoHint": "A YouTube or Vimeo link.",
+      "videoHint": "Upload an MP4 or WebM video of up to 30 seconds and 4 MB, or paste a YouTube or Vimeo link. One replaces the other.",
+      "videoUpload": "Upload a video",
+      "videoReplace": "Replace the video",
+      "videoRemove": "Remove the video",
+      "videoRetry": "Try again",
+      "videoUploaded": "Uploaded video",
       "brandFailed": "We couldn’t load your brand stories. Try again in a moment.",
       "compareGone": "A product no longer here"
     },
@@ -2251,6 +2265,8 @@
       "INVALID_STORY": "Something in a module isn’t valid.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can look at A+ content but not change it.",
+      "VIDEO_LIMIT": "A video here can be up to 30 seconds and 4 MB, an MP4 or WebM. Use a shorter or smaller one, or paste a link.",
+      "NOT_CONNECTED": "Files aren’t available right now. Your changes are still here; try again in a moment.",
       "other": "That didn’t save. Your changes are still here; try again."
     },
     "viewOnly": "You can look at A+ content but not change it.",
@@ -2971,6 +2987,7 @@
       "title": "Main menu",
       "add": "+ Add a collection",
       "addLabel": "Add a collection to the menu",
+      "noneToAdd": "Every collection is already in the menu. Create a collection first to add more.",
       "added": "Added to the menu",
       "removed": "Removed from the menu. The collection is still there.",
       "products": {

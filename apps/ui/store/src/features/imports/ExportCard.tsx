@@ -92,7 +92,9 @@ export const ExportCard = () => {
   return (
     <section className="df-import-card df-import-export" aria-labelledby={`${id}-title`}>
       <div className="df-import-export-head">
-        <h2 id={`${id}-title`}>{words.title}</h2>
+        <h2 id={`${id}-title`} className="df-visually-hidden">
+          {words.title}
+        </h2>
         <span className="df-import-row-actions">
           <button type="button" className="df-button df-button--small" disabled={asking} onClick={() => void ask('hidden')}>
             {sizes === null ? words.hidden : fill(words.withCounts, { action: words.hidden, counts: countsOf(sizes.hidden, sizes.hiddenVersions) })}

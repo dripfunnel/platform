@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -568,7 +568,8 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     different tax rules (EU and UK digital VAT is charged where the shopper lives). The engine's
     product type (PLATFORM-PROMPT §3.3) covers physical, digital, services and gift cards, all in
     the first release (FIRST-RELEASE §1). Design the "What are you selling?" choice
-    (Physical · Digital · Service · Gift card).
+    (Physical · Digital · Service · Gift card). Once a product is saved as a physical item the choice is
+    locked to it (#1459); a new product, or a saved download, service or gift card, can still pick any kind.
 
 ### Questions the shopper answers (product customisation)
 
@@ -802,6 +803,11 @@ depend on an engine capability whose release is not yet chosen.
   shoes US / UK / EU / JP / CM, jeans W×L, and ring sizes US / UK / EU.
 - D3. The version count is previewed before generating ("This makes 12 versions"). Up to 3
   options and 100 versions (decided 2026-10-05 on #337), and a clear message at the version limit.
+  The first time a product without choices gets versions, **Create versions** asks first (#1450):
+  "Create 3 versions?" with "Each version gets its own price, starting at $15.00, and its own stock,
+  starting at 0. The 10 in stock now won't carry over." (the last sentence only when there is stock to
+  lose). Cancel changes nothing; **Update versions** never asks, as existing versions keep their price and
+  stock. Versions still start at the first price and at stock 0.
 - D4. A generated versions table showing each combination's price, stock, SKU, photo and
   visibility, with "Apply to all" for price and stock, and per-choice apply ("All XL:
   $34.99"). **Built (#1117, #1182)**: **Set values for all…** sets Price, Compare-at price, What it
@@ -1230,7 +1236,7 @@ with validation before any write, partial-failure reports, and translation and c
   - "What's in the box"
   - specifications block (pulls from part S, never retyped)
   - brand story
-  - video *(plan-gated)*
+  - video *(plan-gated)*: an uploaded MP4 or WebM of at most 30 seconds and 4 MB, as a product's own video (S7), or a YouTube or Vimeo link, one replacing the other (#1448)
   - FAQ (pulls from part S)
 - Q3. Add, reorder by dragging, duplicate, delete a module, and a module limit per plan.
 - Q4. **Templates**: start from "Fashion", "Electronics", "Home" or "Beauty", pre-filled with
@@ -1337,7 +1343,9 @@ information (S4)**, which is configuration only.
   collection)". Vendors can pick only their own products.
 - S7. **Video**: upload or paste a YouTube link, with a poster image *(plan-gated; ask whether
   hosted or linked only)*. **Built so far (#1401):** one uploaded MP4 or WebM of at most 30 seconds and 4 MB,
-  added from Add more; the link box and the poster image are not built.
+  added from Add more; the link box and the poster image are not built. **Built on #1448:** an A+ Video block takes
+  the same upload (checked in the editor before uploading and by the server on save, `VIDEO_LIMIT`) or a YouTube or
+  Vimeo link, each replacing the other; still no poster image.
 - S8. **Warranty and returns**: per product, overriding the store policy (e.g. "No returns on
   underwear"). Consumer law sets floors that a seller cannot go below: the EU's 14-day
   withdrawal right and 2-year legal guarantee, and the UK's equivalents. A per-product override

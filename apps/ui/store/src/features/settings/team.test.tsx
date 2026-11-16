@@ -183,6 +183,25 @@ describe('suppliers', () => {
     expect(row('Kutch Weaves').getByText(w.supplierStatus.invited)).toBeTruthy()
   })
 
+  it('opens Invite a supplier wide on all three steps, so the window keeps its width, and no other window wide (#1352)', async () => {
+    api.inviteSupplier.mockResolvedValue('v9')
+    await show('supplier')
+    const classes = () => (document.querySelector('dialog') as HTMLDialogElement).className
+    fireEvent.click(screen.getByRole('button', { name: w.inviteSupplier }))
+    expect(classes()).toBe('df-dialog df-dialog--wide')
+    fireEvent.change(dialog().getByLabelText(w.companyName), { target: { value: 'Jaipur Blue' } })
+    confirm(w.next)
+    expect(classes()).toBe('df-dialog df-dialog--wide')
+    fireEvent.change(dialog().getByLabelText(w.theirEmail), { target: { value: 'om@jaipurblue.in' } })
+    confirm(w.next)
+    expect(dialog().getByRole('combobox')).toBeTruthy()
+    expect(classes()).toBe('df-dialog df-dialog--wide')
+    cleanup()
+    await show('people')
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Meera Joshi' }))
+    expect(classes()).toBe('df-dialog')
+  })
+
   it('invites a supplier in three steps: the company, its first user, what it can do', async () => {
     api.inviteSupplier.mockResolvedValue('v9')
     await show('supplier')

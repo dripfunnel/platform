@@ -5,7 +5,8 @@ import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { hashSessionId } from '#auth/session'
 import type { TenantContext } from '#core/tenancy'
-import { deleteExpiredCarts } from '#db/scoped/cart'
+import { deleteExpiredCarts, selectCartLineDisplays } from '#db/scoped/cart'
+import { selectShopAsset } from '#db/scoped/shop'
 import { defaultFeatures } from '#db/scoped/catalogListing'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { createCartService } from '#engine/modules/cart/index'
@@ -327,5 +328,88 @@ describe('a line’s version (#1347)', () => {
       (${stores.india}, 'option_name', 'length', 'name', 'hi-IN', 'लंबाई', ${'0'.repeat(32)}), (${stores.india}, 'choice_name', 'long', 'name', 'hi-IN', 'लंबा', ${'0'.repeat(32)})`
     expect(await linesOf([scarf ?? ''], 'hi-IN')).toEqual(['लंबाई: लंबा'])
     expect(await linesOf([scarf ?? ''])).toEqual(['Length: Long'])
+  })
+})
+
+describe('a line that can’t be bought any more keeps what names it (#1465)', () => {
+  const seen = async (state: (productId: string, versionId: string) => Promise<unknown>) => {
+    const [version] = await productWithChoices(db.sql, stores.india, `Sleepsuit ${crypto.randomUUID().slice(0, 8)}`, ['Size', 'Colour'], [{ choices: ['3-6 m', 'Blue'] }])
+    const productId = (await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${version ?? ''}`)[0]?.product_id ?? ''
+    const asset = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${stores.india}, ${`stores/${stores.india}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${productId}, ${stores.india}, ${asset}, 0)`
+    const added = await gql(`mutation { addToCart(versionId: "${version ?? ''}", quantity: 2) { cartToken } }`)
+    const held = (added.data?.['addToCart'] as { cartToken: string }).cartToken
+    const changed = await state(productId, version ?? '')
+    const lines = ((await gql('{ cart { lines { productName productSlug versionName photoUrl unitPrice { amount } lineTotal { amount } problem } subtotal { amount } problems readyToPay } }', { token: held })).data?.['cart'] as { lines: Record<string, unknown>[]; subtotal: { amount: string }; problems: string[]; readyToPay: boolean })
+    return { asset, changed, ...lines }
+  }
+
+  const keepsItsName = (result: Awaited<ReturnType<typeof seen>>) => {
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0]).toMatchObject({ productSlug: null, versionName: 'Size: 3-6 m · Colour: Blue', unitPrice: null, lineTotal: null, problem: 'unavailable' })
+    expect(String(result.lines[0]?.['productName'])).toMatch(/^Sleepsuit /)
+    expect(String(result.lines[0]?.['photoUrl'])).toContain(result.asset)
+    expect(result.subtotal.amount).toBe('0')
+    expect(result.readyToPay).toBe(false)
+  }
+
+  it('keeps the name, version and photo of a hidden product, with no price, no link and checkout blocked', async () => {
+    keepsItsName(await seen((p) => db.sql`update product set visibility = 'hidden' where id = ${p}`))
+  })
+
+  it('keeps them for a deleted product', async () => {
+    keepsItsName(await seen((p) => db.sql`update product set deleted_at = now() where id = ${p}`))
+  })
+
+  it('keeps them for a hidden version', async () => {
+    keepsItsName(await seen((_, v) => db.sql`update product_version set visibility = 'hidden' where id = ${v}`))
+  })
+
+  it('keeps them for a removed version', async () => {
+    keepsItsName(await seen((_, v) => db.sql`update product_version set deleted_at = now() where id = ${v}`))
+  })
+
+  it('shows a version’s own photo before the product’s first', async () => {
+    const result = await seen(async (p, v) => {
+      const own = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${stores.india}, ${`stores/${stores.india}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'1'.repeat(64)}) returning id`)[0]?.id ?? ''
+      await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${p}, ${stores.india}, ${own}, 1)`
+      await db.sql`update product_version set photo_asset_id = ${own} where id = ${v}`
+      await db.sql`update product set visibility = 'hidden' where id = ${p}`
+      return own
+    })
+    expect(String(result.lines[0]?.['photoUrl'])).toContain(String(result.changed))
+    expect(String(result.lines[0]?.['photoUrl'])).not.toContain(result.asset)
+  })
+
+  it('lets the shop read the photo file of a product it no longer shows', async () => {
+    const asShopper: TenantContext = { caller: { kind: 'shopper', customerId: null, orderTokenHash: null }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const result = await seen((p) => db.sql`update product set visibility = 'hidden' where id = ${p}`)
+    const loose = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${stores.india}, ${`stores/${stores.india}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'2'.repeat(64)}) returning id`)[0]?.id ?? ''
+    expect((await withScope(db.sql, asShopper, (tx) => selectShopAsset(tx, stores.india, result.asset)))?.mime).toBe('image/png')
+    expect(await withScope(db.sql, asShopper, (tx) => selectShopAsset(tx, stores.india, loose))).toBeNull()
+  })
+
+  it('never lets the shop read another store’s hidden product photo, nor answer for it', async () => {
+    const asShopper = (storeId: string): TenantContext => ({ caller: { kind: 'shopper', customerId: null, orderTokenHash: null }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+    const photoOf = async (storeId: string) => {
+      const [version] = await productWithChoices(db.sql, storeId, `Hidden ${crypto.randomUUID().slice(0, 8)}`, ['Size'], [{ choices: ['M'] }])
+      const productId = (await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${version ?? ''}`)[0]?.product_id ?? ''
+      const asset = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'3'.repeat(64)}) returning id`)[0]?.id ?? ''
+      await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${productId}, ${storeId}, ${asset}, 0)`
+      await db.sql`update product set visibility = 'hidden' where id = ${productId}`
+      return asset
+    }
+    const mine = await photoOf(stores.india)
+    const theirs = await photoOf(stores.other)
+    const answers = (asset: string) => withScope(db.sql, asShopper(stores.india), async (tx) => (await tx<{ x: boolean }[]>`select asset_is_product_photo(${asset}) as x`)[0]?.x)
+    expect(await answers(mine)).toBe(true)
+    expect(await answers(theirs)).toBe(false)
+    expect(await withScope(db.sql, asShopper(stores.india), (tx) => selectShopAsset(tx, stores.india, theirs))).toBeNull()
+  })
+
+  it('never names another store’s version', async () => {
+    const [mine] = await productWithChoices(db.sql, stores.india, 'Private cushion', ['Size'], [{ choices: ['M'] }])
+    expect(await withSystemScope(db.sql, (tx) => selectCartLineDisplays(tx, stores.other, [mine ?? ''], 'en-US'))).toEqual([])
+    expect(await withSystemScope(db.sql, (tx) => selectCartLineDisplays(tx, stores.india, [mine ?? ''], 'en-US'))).toHaveLength(1)
   })
 })

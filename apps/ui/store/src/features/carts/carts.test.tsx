@@ -104,6 +104,18 @@ describe('how a cart is worded', () => {
 })
 
 describe('the Abandoned carts list', () => {
+  it('puts a long email in the Shopper cell, which can break it, beside the Cart cell it must not overlap (#1398)', async () => {
+    const longEmail = 'swati.mishra+neworder1@softobotics.com'
+    api.loadCarts.mockImplementation(() => Promise.resolve(page([{ ...vikram, email: longEmail }])))
+    await show(owner)
+    const cells = within(row('Vikram Shah')).getAllByRole('cell')
+    const shopper = cells[0] as HTMLElement
+    expect(shopper.className).toBe('df-carts-cell df-carts-shopper')
+    expect(within(shopper).getByRole('link', { name: 'Vikram Shah' })).toBeTruthy()
+    expect(within(shopper).getByText(longEmail).className).toBe('df-carts-sub')
+    expect(cells.slice(1).every((c) => !c.className.includes('df-carts-shopper'))).toBe(true)
+  })
+
   it('shows the last 14 days and the In progress tab, then another tab and a search', async () => {
     const router = await show(owner)
     expect(screen.getByText('₹15,445.00 left behind')).toBeTruthy()

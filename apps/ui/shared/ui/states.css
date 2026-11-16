@@ -179,6 +179,16 @@
   font-family: var(--df-font);
 }
 
+.df-dialog--wide {
+  box-sizing: border-box;
+  width: min(100% - 2 * var(--df-space-4), 720px);
+}
+
+.df-dialog .df-field :is(input, select) {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .df-dialog::backdrop {
   background: var(--df-color-backdrop);
 }
