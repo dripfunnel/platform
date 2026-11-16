@@ -70,7 +70,8 @@ import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
-import { whatsappAccountsFor, whatsappKind, whatsappTemplates, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { expireUnsentWhatsAppCodes, whatsappAccountsFor, whatsappKind, whatsappTemplates, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { codeChannelsFor, type CodeChannelCheck } from '#saas/portalCodes/index'
 import type { WhatsAppSender } from '#core/whatsapp'
 import { metaWhatsAppSender } from '#integrations/meta/index'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
@@ -286,6 +287,12 @@ const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | n
   const ours = ourSmsRoutesOf(config)
   if (!ours.india && !ours.rest) return null
   return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
+}
+
+/** Which channels reach a portal code's number (ACCESS.md §4): SMS only through an account the `sms` deliverer can use. */
+const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => {
+  const sms = smsFor(config)
+  return codeChannelsFor(sms ? smsAccountsFor(secrets, sms.ours) : null)
 }
 
 // WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints; else each
@@ -663,12 +670,12 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (isStoreGooglePath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
+      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets), google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
     }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets) })
     }
     const facts = factsOf(request)
     if (machineCredentialOf(request) !== null) {
@@ -682,7 +689,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
@@ -1093,6 +1100,15 @@ const expireSms: CronJob = async (sql) => {
   if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
 }
 
+// Portal codes by WhatsApp unsent in time, as texts are above (#1506); cart reminders carry no expiry and are left.
+const expireWhatsAppCodes: CronJob = async (sql) => {
+  const expired = await withSystemScope(sql, (tx) => expireUnsentWhatsAppCodes(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+    logEvent({ event: 'whatsapp_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (expired > 0) logEvent({ event: 'whatsapp_expired', api: 'system', code: 'expired', count: expired })
+}
+
 const queueDomainChecks: CronJob = async (sql) => {
   const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
     logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -1289,7 +1305,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
+  '* * * * *': [sweepDeliveries, expireSms, expireWhatsAppCodes, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],

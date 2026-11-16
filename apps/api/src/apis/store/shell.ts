@@ -8,11 +8,12 @@ import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
 import { selectOpenStoreImpersonation } from '#db/scoped/storeStaff'
 import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
+import { noCodeChannels } from '#saas/portalCodes/index'
 import { writeRequestOf } from '#saas/storeSupport/index'
 import { supportAccessOf, type SupportSeat } from '#auth/storeSupport'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, readOnlyFor, type StoreContext } from './access'
-import { pageInfoType, type StoreBuilder } from './builder'
+import { codeChannelsType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
 // The portal's shell (FIRST-RELEASE §3, §19; #290): the brand before sign-in, who is signed in and
@@ -112,6 +113,7 @@ const merchantBannerOf = (s: StoreSupportRow): Banner => {
 
 export const registerShell = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
+  const CodeChannels = codeChannelsType(builder)
 
   const BrandFiles = builder.objectRef<Brand['files']>('BrandFiles').implement({
     fields: (t) => ({
@@ -139,6 +141,15 @@ export const registerShell = (builder: StoreBuilder) => {
       poweredBy: t.exposeBoolean('poweredBy'),
       // Whether Sign in and Create your store offer Google: the partner's own client is on (#1046).
       googleSignIn: t.exposeBoolean('googleSignIn'),
+      // Whether a portal code can go by the partner's WhatsApp, and by SMS on some route (ACCESS.md §4): read when asked for.
+      codeChannels: t.field({
+        type: CodeChannels,
+        resolve: async (_, __, ctx) => {
+          const { sql, partnerId } = ctx
+          if (!sql || !partnerId) return { whatsapp: false, sms: false }
+          return withSystemScope(sql, (tx) => (ctx.codeChannels ?? noCodeChannels).forPartner(tx, partnerId, null))
+        },
+      }),
     }),
   })
 
