@@ -40,12 +40,13 @@ export interface Admission {
 
 /**
  * A proven password opens a session as far as the person's second factor allows (ACCESS.md §4): reset and invitations too.
- * A phone-method person whose number neither WhatsApp nor SMS reaches goes in without it; the method is kept.
+ * A phone-method person goes in without it while the partner has turned both WhatsApp and SMS off; the method is kept.
  */
 export const admit = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, candidate: SignInCandidate, remember: boolean, now: Date, via: 'google' | null = null): Promise<Admission> => {
   const user = { id: candidate.id, partnerId: candidate.partner_id }
   const codeChannels = candidate.two_factor_method === 'sms' ? await deps.codeChannels.forPartner(tx, candidate.partner_id, candidate.phone) : null
-  const skipped = codeChannels !== null && !codeChannels.whatsapp && !codeChannels.sms
+  // Fails closed: a Worker or account that can't send leaves the code (and the backup codes) asked for.
+  const skipped = codeChannels !== null && (await deps.codeChannels.switchedOff(tx, candidate.partner_id))
   const stage: UserSessionStage = candidate.two_factor_method && !skipped ? 'second-factor' : 'full'
   if (stage === 'full') {
     await markUserSignedIn(tx, user.id, now)

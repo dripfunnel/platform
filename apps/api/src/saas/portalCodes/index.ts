@@ -1,7 +1,7 @@
 import type { CodeChannel, OpenCodeChannels } from '#auth/storeCodes'
 import { smsRouteFor, smsRoutes } from '#core/sms'
 import type { ScopedSql } from '#db/scoped/index'
-import { selectWhatsAppEnabled } from '#db/scoped/partnerCredentials'
+import { selectSmsPrefs, selectWhatsAppEnabled } from '#db/scoped/partnerCredentials'
 import { queueSms, type PartnerSmsAccounts } from '#saas/sms/index'
 import { queueWhatsAppCode } from '#saas/whatsapp/index'
 
@@ -10,6 +10,8 @@ import { queueWhatsAppCode } from '#saas/whatsapp/index'
 /** Which channels reach a number, or with none yet (the brand, sign-up's number step) the partner's at all. Called in system scope. */
 export interface CodeChannelCheck {
   forPartner: (tx: ScopedSql, partnerId: string, phone: string | null) => Promise<OpenCodeChannels>
+  /** Both of the partner's own switches off: only that choice, never a Worker that can't send, lifts the phone method's code. */
+  switchedOff: (tx: ScopedSql, partnerId: string) => Promise<boolean>
 }
 
 /**
@@ -28,10 +30,11 @@ export const codeChannelsFor = (sms: PartnerSmsAccounts | null): CodeChannelChec
     }
     return { whatsapp, sms: open }
   },
+  switchedOff: async (tx, partnerId) => !(await selectWhatsAppEnabled(tx, partnerId)) && !(await selectSmsPrefs(tx, partnerId)).enabled,
 })
 
 /** Where nothing can send a code: the Worker's context without a check. */
-export const noCodeChannels: CodeChannelCheck = { forPartner: async () => ({ whatsapp: false, sms: false }) }
+export const noCodeChannels: CodeChannelCheck = { forPartner: async () => ({ whatsapp: false, sms: false }), switchedOff: async () => false }
 
 export interface PortalCode {
   partnerId: string

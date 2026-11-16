@@ -11,6 +11,7 @@ import { createUserSession, setStoreCookie, storeCookieName } from '#auth/storeS
 import { codeAt, stepAt } from '#auth/totp'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { codeChannelsFor } from '#saas/portalCodes/index'
 import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -632,7 +633,8 @@ describe('portal codes by WhatsApp first, SMS on request after 20 seconds (#1506
     const id = await phonePerson('both.off@a.example', '+16145550303')
     expect((await post('/api/auth/sign-in', { email: 'both.off@a.example', password })).body).toEqual({ ok: true, step: 'done' })
     expect((await db.sql<{ two_factor_method: string }[]>`select two_factor_method from "user" where id = ${id}`)[0]?.two_factor_method).toBe('sms')
-    const entries = await db.sql<{ action: string; reason: string | null }[]>`select action, reason from activity_log where actor_id = ${id} order by occurred_at, id`
+    // Both are written in the sign-in's transaction, so they share a time: compared by action.
+    const entries = await db.sql<{ action: string; reason: string | null }[]>`select action, reason from activity_log where actor_id = ${id} order by action`
     expect(entries).toEqual([
       { action: 'person.second_factor_skipped', reason: 'phone_channels_off' },
       { action: 'person.signed_in', reason: null },
@@ -644,6 +646,15 @@ describe('portal codes by WhatsApp first, SMS on request after 20 seconds (#1506
     expect((await post('/api/auth/sign-in', { email: 'app.both.off@a.example', password })).body).toEqual({ ok: true, step: 'second-factor', method: 'app' })
     await switches(t.partnerA, { sms: true })
     expect((await post('/api/auth/sign-in', { email: 'both.off@a.example', password })).body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: textOnly })
+  })
+
+  it('still asks for the code where the partner’s switches are on but nothing here can send it, and skips nothing', async () => {
+    const cannotSend = deps({ codeChannels: codeChannelsFor(null) })
+    const id = await phonePerson('cannot.send@a.example', '+16145550306')
+    const res = await post('/api/auth/sign-in', { email: 'cannot.send@a.example', password }, '', cannotSend)
+    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: { whatsapp: false, sms: false } })
+    expect((await post('/api/auth/send-code', {}, res.cookie, cannotSend)).body).toEqual({ ok: false, code: 'CHANNEL_OFF' })
+    expect(await db.sql`select 1 from activity_log where actor_id = ${id} and action in ('person.second_factor_skipped', 'person.signed_in')`).toHaveLength(0)
   })
 
   it('sends by the host partner’s own channels only, never another partner’s', async () => {

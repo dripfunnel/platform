@@ -376,11 +376,14 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
     step and `sign-up/resume` carry `codeChannels: { whatsapp, sms }`; a send's answer adds `channel` (where the code went)
     and the number's last four (`hint`), never the number. The Store API's `brand` and `profile` have `codeChannels`, and
     `SecondFactorStep` has `channel`.
-  - **With both channels off** for a person's number nothing reaches it: `setSecondFactor('sms')` is refused `CHANNEL_OFF`,
-    and a person already on the phone method **signs in without 2-factor** (decided 2026-11-16 by Gaurav), at sign-in,
-    Google sign-in, reset and an accepted invitation alike: the full session opens as for no 2-factor, the method is kept
-    and applies again once either channel is on, and `person.second_factor_skipped` (reason `phone_channels_off`) is
-    logged with the sign-in (LOGGING.md §3). An authenticator-app person is still asked for their code.
+  - **With neither channel open** for a person's number, `setSecondFactor('sms')` is refused `CHANNEL_OFF`.
+  - **With the partner's WhatsApp and SMS both turned off**, a person already on the phone method **signs in without
+    2-factor** (decided 2026-11-16 by Gaurav), at sign-in, Google sign-in, reset and an accepted invitation alike: the full
+    session opens as for no 2-factor, the method is kept and applies again once either is turned on, and
+    `person.second_factor_skipped` (reason `phone_channels_off`) is logged with the sign-in (LOGGING.md §3). Only the
+    partner's two switches lift the code (#1524's review): where a switch is on but nothing can send (no account for the
+    number's route, or a Worker without SMS), the second factor is still asked for, and a backup code stands in. An
+    authenticator-app person is always asked for their code.
   - **The `whatsapp` outbox row** for a code holds the number, the code and its expiry; the deliverer drops it once
     expired, the cron sweeps one nobody sent in time, as for texts, and once it is sent or given up only the message kind
     is left. Each send is logged as `person.code_sent` with its channel, never the number or the code.
