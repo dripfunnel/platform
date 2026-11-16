@@ -351,7 +351,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   **once**, at creation, and never again (ui/README.md §3). Codes are rate-limited like
   passwords; a used backup code is spent in the same transaction that admits the session.
 - **How a portal code reaches a phone** (decided 2026-11-16 with Gaurav; not built yet, today every code is texted, through
-  the partner's own SMS account for the number's provider or else DripFunnel's, and not at all while the partner's SMS is
+  the partner's own SMS account for the number's route or else DripFunnel's, and not at all while the partner's SMS is
   off: the text is given up as `sms_off` (built on #1017, [THIRD-PARTY-ACCESS](../code/THIRD-PARTY-ACCESS.md) §4)): the
   sign-up number check, the code that sets up the phone method in My profile (`setSecondFactor`) and the 2-factor sign-in
   code go **by WhatsApp first**, through the partner's own WhatsApp Business account on Meta's Cloud API, as its approved
@@ -626,7 +626,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
-| `integrations.write` (add, test, default and remove an AI key; built on #275. List, save, test and remove the SMS accounts and turn SMS on or off; built on #1017) | §14.5 | ✓ | ✓ | | | |
+| `integrations.write` (add, test, default and remove an AI key; built on #275. List, save, test and remove the SMS accounts, choose each route's provider and turn SMS on or off; built on #1017) | §14.5 | ✓ | ✓ | | | |
 
 The Billing menu is absent for Support and the Support menu for Finance and Read-only
 (FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,
@@ -1334,7 +1334,7 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     whole team signs in, which a setup session (the Owner's powers) may set (decided on #193), and
     `removePartnerDomain`: it takes down a live address merchants sign in at, which no
     impersonated Owner should do for them, while adding or re-checking one can be undone (#429). An impersonation is refused every SMS field too, `smsAccounts`,
-    `saveSmsAccount`, `testSmsAccount`, `removeSmsAccount` and `setSmsEnabled` (#1017), which a setup session may use. In the team service, inviting an Owner, changing a role to or from
+    `saveSmsAccount`, `testSmsAccount`, `removeSmsAccount`, `setSmsRoute` and `setSmsEnabled` (#1017), which a setup session may use. In the team service, inviting an Owner, changing a role to or from
     Owner, or removing an Owner refuses both kinds with their codes.
   - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
     read only a partner user's cookie, so no staff session reaches them. Payment method and

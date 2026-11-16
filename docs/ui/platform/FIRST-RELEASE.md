@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-16 (#1017: the SMS panel's API built, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -789,9 +789,10 @@ replace DripFunnel's once complete, plus On (the default) or Off, where Off send
 account. WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by WhatsApp first; SMS On adds
 "Send by SMS instead" (ACCESS §4). Each Turn off restates its consequence: no number at sign-up and codes texted, or no
 texts at all. Owner and Admin only, as the tab; never in an impersonation. **SMS's API is built on #1017** (migration
-0399): `smsAccounts` (the switch, and per provider its last four, *Working* or *Rejected*, when last checked and whether
-MSG91's seven template ids are complete), `saveSmsAccount` (checked before it is kept; MSG91 refused without all seven
-template ids), `testSmsAccount`, `removeSmsAccount` and `setSmsEnabled`, all `integrations.write` and refused to an
+0399, 0400): `smsAccounts` (the switch, the partner's provider for each route, and per provider, MSG91, Twilio or AWS SNS, its
+last four, *Working* or *Rejected*, when last checked and whether India's seven template ids are complete), `saveSmsAccount`
+(checked before it is kept; India's template ids refused unless all seven), `testSmsAccount`, `removeSmsAccount`,
+`setSmsRoute` (India: MSG91 or SNS; the rest: Twilio or SNS; only an account that serves the route) and `setSmsEnabled`, all `integrations.write` and refused to an
 impersonation; the panel is #1018, WhatsApp #1504.
 
 

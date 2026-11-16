@@ -199,8 +199,8 @@ isn't set up.
 
 With `EMAIL_LOCAL`, `SMS_LOCAL`, `PUSH_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
 runs as on dev up to the provider: the outbox, the every-minute relay, the templates in the
-partner's look, the SMS provider (MSG91 for +91, Twilio otherwise) and account (the partner's own once saved, else
-DripFunnel's, which locally is the stand-in's; none while the partner's SMS is off, #1017), the domain-check
+partner's look, the SMS route (+91 or the rest) and account (the partner's own once complete, else
+DripFunnel's, which locally is the stand-in's for both routes; none while the partner's SMS is off, #1017), the domain-check
 job. Only the last call is local (`apps/api/src/integrations/local/`), and a partner's SMS account checks as *Working* without one:
 
 - **Email, SMS and push** print in the `pnpm dev` terminal as a block, and each is kept as a file in
