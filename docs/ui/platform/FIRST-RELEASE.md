@@ -784,9 +784,10 @@ tab; never in an impersonation. Built on #1046 (migration 0377; `partnerGoogleSi
 built from these docs), two separate panels under Google sign-in, built from the tab's own parts like it, each with its own
 On or Off. **SMS** is #1018's panel on #1017's API, not built yet: the partner's own MSG91 (India) and Twilio (the rest)
 accounts, which replace DripFunnel's once complete, plus On (the default) or Off, where Off sends the partner's stores no
-text through any account; its Turn off restates that no texts go at all and, while WhatsApp is off too, that people who use
-phone codes sign in without 2-factor (ACCESS §4). WhatsApp On is what makes merchant sign-up ask for a number, and portal
-codes go by WhatsApp first; SMS On adds "Send by SMS instead" (ACCESS §4). Owner and Admin only, as the tab; never in an
+text through any account; its Turn off restates "No texts will go to your merchants or their shoppers. While WhatsApp is
+off too, no codes are sent and people who use phone codes sign in without 2-factor.", the WhatsApp panel's sentence with
+the other channel named (ACCESS §4). WhatsApp On is what makes merchant sign-up ask for a number, and portal codes go by
+WhatsApp first; SMS On adds "Send by SMS instead" (ACCESS §4). Owner and Admin only, as the tab; never in an
 impersonation. **SMS's API is built on #1017** (migration 0399, 0400): `smsAccounts` (the switch, the
 partner's provider for each route, and per provider, MSG91, Twilio or AWS SNS, its last four, *Working* or *Rejected*, when
 last checked and whether India's seven template ids are complete), `saveSmsAccount` (checked before it is kept; India's
