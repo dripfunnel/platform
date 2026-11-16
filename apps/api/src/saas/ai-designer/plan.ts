@@ -107,6 +107,33 @@ export const pageRequests = (flow: PlanFlow): BuildPage[] => {
   }))
 }
 
+/**
+ * A plan drawn from a sample site (decided 2026-11-13, AI-STUDIO §4): its home page is built section by section, each its own
+ * change matched to the same part of that site, so a long page isn't one change that runs out of time.
+ */
+export const sectionRequests = (flow: PlanFlow): BuildPage[] => {
+  const pages = buildOrder(flow.plan)
+  const home = pages.find((p) => p.page === 'home') ?? pages[0]
+  if (!home) return []
+  const whole = home.sections.map((section, i) => `${i + 1}. ${section}`).join('\n')
+  return home.sections.map((section, i) => ({
+    page: home.page,
+    title: `Section ${i + 1}: ${section}`.slice(0, 60).trim(),
+    request: [
+      `Build section ${i + 1} of ${home.sections.length} of the ${home.title} page (${home.page}) so it matches the same section of the sample site, counted from the top in its screenshots and its measured sections: ${section}.`,
+      i === 0
+        ? ['Build the header and the footer first, as the sample site draws them.', flow.plan.header ? `The header: ${flow.plan.header}.` : '', flow.plan.footer ? `The footer: ${flow.plan.footer}.` : '', 'Leave out of the page any old section the plan has no place for.'].filter(Boolean).join(' ')
+        : 'Keep the header, the footer and the sections already built as they are, and put this one after them in the plan\'s order.',
+      'Before you finish, take a screenshot of the page if you can, compare this section with the same part of the sample site, and fix what differs: sizes, spacing, colours, type and the order of things.',
+      `The whole page, top down:\n${whole}`,
+      `The merchant first asked: ${flow.request}`,
+      ...(answered(flow).length > 0 ? [`Their answers:\n${answered(flow).join('\n')}`] : []),
+    ]
+      .join('\n\n')
+      .slice(0, 4000),
+  }))
+}
+
 export const planRules = `You plan one online shop's storefront for DripFunnel before it is built. The merchant asked for a new look in a
 few words; you write the plan the AI designer then builds page by page. Plan only the look and the words: the shop's
 commerce (prices, stock, products, discounts, shipping, checkout) belongs to the platform.

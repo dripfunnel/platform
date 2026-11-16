@@ -3,6 +3,7 @@ import { UnsupportedFeature, type CanonicalRequest } from '../canonical'
 import type { Executor } from '../executors/types'
 import { GatewayError, type GatewayErrorCode } from '../gateway'
 import { anthropicMessagesRequest, anthropicMessagesResponse, anthropicMessagesStream } from '../translators/anthropic-messages'
+import { registerModels } from '../registry'
 import { collectStream, createRouter } from './router'
 import type { CooldownStore, Route } from './types'
 
@@ -120,6 +121,30 @@ describe('fallback', () => {
     route.executor = { ...route.executor, capabilities: { ...route.executor.capabilities, images: false } }
     const withImage: CanonicalRequest = { ...request, messages: [{ role: 'user', content: [{ type: 'image', mediaType: 'image/png', base64: 'aGk=' }] }] }
     await expect(createRouter({ primary: route, fallbacks: [], retry }, deps).complete(withImage)).rejects.toBeInstanceOf(UnsupportedFeature)
+  })
+  it('leaves the effort out for a model that refuses it, and sends it to one that takes it', async () => {
+    const bodies: unknown[] = []
+    for (const model of ['claude-haiku-4-5', 'claude-opus-5-5']) {
+      const route = { ...fake('a', []).route(model), reasoningEffort: 'high' as const }
+      const execute = route.executor.execute
+      route.executor = { ...route.executor, execute: (prepared, ...rest) => (bodies.push(prepared.body), execute(prepared, ...rest)) }
+      await createRouter({ primary: route, fallbacks: [], retry }, deps).complete(request)
+    }
+    expect(bodies[0]).not.toHaveProperty('output_config')
+    expect(bodies[1]).toMatchObject({ output_config: { effort: 'high' } })
+  })
+
+  it('tells a model listed as unable to see images that one was attached, instead of sending it', async () => {
+    registerModels([{ provider: 'anthropic', id: 'blind-model', maxOutputTokens: 1000, temperature: [0, 1], centsPerMillion: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, images: false }])
+    const bodies: unknown[] = []
+    const a = fake('a', [])
+    const route = a.route('blind-model')
+    const execute = route.executor.execute
+    route.executor = { ...route.executor, execute: (prepared, ...rest) => (bodies.push(prepared.body), execute(prepared, ...rest)) }
+    const withImage: CanonicalRequest = { ...request, messages: [{ role: 'user', content: [{ type: 'image', mediaType: 'image/png', base64: 'aGk=' }, { type: 'text', text: 'look' }] }] }
+    await createRouter({ primary: route, fallbacks: [], retry }, deps).complete(withImage)
+    expect(JSON.stringify(bodies[0])).not.toContain('aGk=')
+    expect(bodies[0]).toMatchObject({ messages: [{ role: 'user', content: [{ type: 'text', text: expect.stringContaining('cannot see images') }, { type: 'text', text: 'look' }] }] })
   })
 })
 

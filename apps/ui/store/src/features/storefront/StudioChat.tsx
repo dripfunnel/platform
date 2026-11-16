@@ -625,8 +625,9 @@ const ChatLine = ({ message: m, assistant, templateName, canUndo, onUndo, onRetr
         <span className="df-sf-eyebrow">{assistant}</span>
         <span>{buildSummary(m.build)}</span>
         <ul className="df-studio-build-list">
-          {m.build.pages.map((p) => (
-            <li key={p.page} className={`df-studio-build-item df-studio-build-item--${p.outcome}`}>
+          {/* A sample site's build lists one home page's sections, so a page can repeat. */}
+          {m.build.pages.map((p, i) => (
+            <li key={`${i}-${p.page}`} className={`df-studio-build-item df-studio-build-item--${p.outcome}`}>
               {fill(bw.outcomes[p.outcome], { title: p.title })}
             </li>
           ))}

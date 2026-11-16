@@ -38,7 +38,8 @@ export const field = (value: unknown, ...path: readonly string[]): unknown => pa
 /** A provider's error type or code as one of ours; the message text is never read. */
 export const codeOfKind = (kind: unknown): GatewayErrorCode => {
   const text = typeof kind === 'string' ? kind : ''
-  if (/rate_limit|insufficient_quota/.test(text)) return 'RATE_LIMITED'
+  if (/insufficient_quota/.test(text)) return 'OUT_OF_CREDIT'
+  if (/rate_limit/.test(text)) return 'RATE_LIMITED'
   if (/authentication|permission|invalid_api_key/.test(text)) return 'INVALID_CREDENTIALS'
   if (/not_found/.test(text)) return 'MODEL_NOT_FOUND'
   if (/invalid_request|context_length/.test(text)) return 'BAD_REQUEST'
@@ -48,6 +49,7 @@ export const codeOfKind = (kind: unknown): GatewayErrorCode => {
 /** An upstream status as one of ours: no body, header or key goes on. */
 export const failureOfStatus = (status: number, retryAfter: string | null, now: Date): GatewayError => {
   if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
+  if (status === 402) return new GatewayError('OUT_OF_CREDIT')
   if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
   if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(retryAfter, now))
   if (status === 408) return new GatewayError('TIMEOUT')

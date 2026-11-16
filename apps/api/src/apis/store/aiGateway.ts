@@ -15,7 +15,7 @@ const failure = (code: string, status: number, headers: Record<string, string> =
 
 const authStatus: Record<string, number> = { UNAUTHENTICATED: 401, RATE_LIMITED: 429, STORE_SUSPENDED: 403, FORBIDDEN: 403 }
 const refusalStatus: Record<GatewayRefusal, number> = { INVALID_INPUT: 400, MODEL_NOT_FOUND: 404, AI_NOT_CONNECTED: 409, AI_BUDGET_REACHED: 429, NOT_CONFIGURED: 503, AI_ACCOUNT_EXPIRED: 409, AI_ACCOUNT_UNAVAILABLE: 503 }
-const errorStatus: Record<GatewayErrorCode, number> = { INVALID_CREDENTIALS: 502, RATE_LIMITED: 429, PROVIDER_UNAVAILABLE: 502, TIMEOUT: 504, CANCELLED: 499, BAD_REQUEST: 400, MODEL_NOT_FOUND: 404, CONTENT_REFUSED: 422 }
+const errorStatus: Record<GatewayErrorCode, number> = { INVALID_CREDENTIALS: 502, RATE_LIMITED: 429, PROVIDER_UNAVAILABLE: 502, TIMEOUT: 504, CANCELLED: 499, BAD_REQUEST: 400, MODEL_NOT_FOUND: 404, CONTENT_REFUSED: 422, OUT_OF_CREDIT: 402 }
 
 // Keys only: a signed-in person's cookie never reaches a call that spends money, so no CSRF path exists.
 const authorise = async (ctx: StoreContext, name: string) => {

@@ -1,4 +1,4 @@
-import { UnsupportedFeature, type CanonicalRequest, type CanonicalResponse, type CanonicalStreamEvent, type ReasoningEffort } from '../canonical'
+import { UnsupportedFeature, type CanonicalMessage, type CanonicalRequest, type CanonicalResponse, type CanonicalStreamEvent, type ReasoningEffort } from '../canonical'
 import { executorFor } from '../executors/registry'
 import type { ExecutorOptions } from '../executors/base'
 import type { ResolvedConnection } from '../executors/types'
@@ -31,10 +31,18 @@ export interface RouterDeps {
   random?: () => number
 }
 
+const imageNote = '[An image was attached here, but this model cannot see images.]'
+
+/** A model that can't see images is told one was there, rather than refusing the whole call. */
+const withoutImages = (messages: readonly CanonicalMessage[]): CanonicalMessage[] =>
+  messages.map((message) => ({ ...message, content: message.content.map((part) => (part.type === 'image' ? { type: 'text' as const, text: imageNote } : part)) }))
+
 /** The route's model and effort win over the request's, and the answer may be as long as that model allows (never more). */
 const bodyOf = (route: Route, request: CanonicalRequest): object => {
-  const limit = Math.min(capabilityOf(route.provider, route.model)?.maxOutputTokens ?? Infinity, route.executor.capabilities.maxOutputTokens)
-  const body = route.requestTranslator.translate({ ...request, model: route.model, maxTokens: Math.min(request.maxTokens, limit), ...(route.reasoningEffort ? { reasoningEffort: route.reasoningEffort } : {}) }, route.executor.capabilities)
+  const capability = capabilityOf(route.provider, route.model)
+  const limit = Math.min(capability?.maxOutputTokens ?? Infinity, route.executor.capabilities.maxOutputTokens)
+  const messages = capability?.images === false ? withoutImages(request.messages) : request.messages
+  const body = route.requestTranslator.translate({ ...request, messages, model: route.model, maxTokens: Math.min(request.maxTokens, limit), ...(route.reasoningEffort && capability?.effort !== false ? { reasoningEffort: route.reasoningEffort } : {}) }, route.executor.capabilities)
   if (typeof body !== 'object' || body === null) throw new GatewayError('BAD_REQUEST')
   return body
 }

@@ -1,0 +1,13 @@
+{
+  "api": "http://localhost:8787",
+  "host": "store.akshaylocal.localhost",
+  "cases": [
+    {
+      "name": "sk-classical-home",
+      "text": "Make my home page look exactly like https://skclassical.my-store.one/ — the same sections in the same order, with the same fonts, colours, spacing and pictures.",
+      "sampleUrl": "https://skclassical.my-store.one/",
+      "model": null,
+      "device": "desktop"
+    }
+  ]
+}

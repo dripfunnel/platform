@@ -141,6 +141,7 @@ import { handleStudioFrame } from '#apis/studio/frame'
 import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
 import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
+import { browserReference } from '#integrations/cloudflare/reference'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
 import { commonsImages } from '#integrations/stockImages/commons'
 import { stockImages } from '#integrations/stockImages/combine'
@@ -845,6 +846,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
+    reference: accountId && token ? browserReference({ accountId, token }) : null,
     aiPhotos: aiPhotoSourcesOf(config),
     stock: stockImages({
       ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),

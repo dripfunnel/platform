@@ -14,6 +14,9 @@ export const openaiEndpointFor = (key: string): string => (isDeepInfraKey(key) ?
 
 /** Tried first in the studio when the key lists it: strong at code and tool calls. */
 export const deepinfraPreferred = 'Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo'
+/** DeepInfra lists no tool support, and the studio's agent needs tools: only families known to call them (decided 2026-11-13). */
+const toolFamilies = [/^anthropic\/claude-/, /^deepseek-ai\/DeepSeek-V[3-9]/, /^Qwen\/Qwen3/, /^zai-org\/GLM-(4\.[5-9]|[5-9])/, /^moonshotai\/Kimi-K[2-9]/, /^google\/gemini-/, /^openai\/gpt-oss-/, /^meta-llama\/Llama-4-/]
+export const callsTools = (id: string): boolean => toolFamilies.some((family) => family.test(id))
 const answerCap = 32_000
 const timeoutMs = 15_000
 
@@ -35,7 +38,7 @@ const listed = z.object({
     .max(2000),
 })
 
-/** The chat models the key can use, priced from DeepInfra's own list (US dollars per million tokens, kept in cents). */
+/** The chat models the key can use that call tools, priced from DeepInfra's own list (US dollars per million tokens, kept in cents). */
 export const deepinfraModels = async (key: string, fetcher: typeof fetch = fetch): Promise<ModelCapability[]> => {
   let response: Response
   try {
@@ -49,7 +52,7 @@ export const deepinfraModels = async (key: string, fetcher: typeof fetch = fetch
   if (!parsed.success) throw new GatewayError('PROVIDER_UNAVAILABLE')
   const models = parsed.data.data.flatMap(({ id, metadata }): ModelCapability[] => {
     const price = metadata?.pricing
-    if (!metadata?.tags?.includes('chat') || price?.input_tokens === undefined || price.output_tokens === undefined) return []
+    if (!metadata?.tags?.includes('chat') || !callsTools(id) || price?.input_tokens === undefined || price.output_tokens === undefined) return []
     const cents = (dollars: number) => dollars * 100
     return [
       {
@@ -58,6 +61,7 @@ export const deepinfraModels = async (key: string, fetcher: typeof fetch = fetch
         maxOutputTokens: Math.min(metadata.max_tokens ?? answerCap, answerCap),
         temperature: [0, 2],
         centsPerMillion: { input: cents(price.input_tokens), output: cents(price.output_tokens), cacheRead: cents(price.cache_read_tokens ?? price.input_tokens), cacheWrite: cents(price.input_tokens) },
+        images: metadata.tags.includes('vision'),
       },
     ]
   })

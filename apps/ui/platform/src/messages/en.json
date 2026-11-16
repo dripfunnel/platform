@@ -688,7 +688,7 @@
         "title": "Add an AI key",
         "target": "AI provider key",
         "consequenceAnthropic": "DripFunnel tests the key with one small request before saving it. It is stored encrypted and can’t be shown again.",
-        "consequenceOpenai": "Saved encrypted and can’t be shown again. OpenAI keys aren’t tested yet, so this one shows “Not tested”; a DeepInfra key (sk-di-…) is tested first.",
+        "consequenceOpenai": "Saved encrypted and can’t be shown again. It’s tested first with OpenAI (or DeepInfra, for a key starting sk-di-).",
         "provider": "Provider",
         "name": "Name",
         "namePlaceholder": "Production",

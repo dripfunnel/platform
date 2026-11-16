@@ -27,6 +27,7 @@ const studioFor = (ctx: StoreContext) => {
     ai: design?.ai ?? (() => null),
     models: design?.models ?? (() => []),
     screenshots: design?.screenshots ?? null,
+    reference: design?.reference ?? null,
     lookup: ctx.lookup ?? null,
     assets: ctx.files ?? null,
     readAsset: design?.readAsset ?? null,
