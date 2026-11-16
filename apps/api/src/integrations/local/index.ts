@@ -3,7 +3,7 @@ import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couri
 import { easyPostHook } from '../couriers/easypost'
 import { shiprocketHook } from '../couriers/shiprocket'
 import type { SmsAccountCheck, SmsSender } from '#core/sms'
-import type { WhatsAppSender } from '#core/whatsapp'
+import type { WhatsAppAccountCheck, WhatsAppSender } from '#core/whatsapp'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
 import type { CloudflareApi } from '../cloudflare/api'
@@ -57,6 +57,9 @@ export const localWhatsApp = (): WhatsAppSender => ({
     return { providerId: `local-${crypto.randomUUID()}` }
   },
 })
+
+/** A partner's WhatsApp account check on this machine: every account works, since none reaches Meta here. */
+export const localWhatsAppCheck = async (): Promise<WhatsAppAccountCheck> => ({ status: 'ok' })
 
 const isLocalName = (host: string) => host.toLowerCase().endsWith('.localhost')
 

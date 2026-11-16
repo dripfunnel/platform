@@ -1,19 +1,25 @@
 import { z } from 'zod'
 import { hashSessionId, newSessionId } from '#auth/session'
+import type { SecretBox } from '#auth/secretBox'
 import { isE164 } from '#core/sms'
 import type { OutgoingWhatsApp } from '#core/whatsapp'
 import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import type { ScopedSql } from '#db/scoped/index'
+import { selectSealedWhatsAppAccount } from '#db/scoped/partnerCredentials'
 import { mayWhatsApp } from '#engine/modules/cartReminders/index'
 
-// What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, decided on #337): abandoned-cart reminders, for stores in
-// India. Each message is a template the partner has Meta approve, worded here exactly as it is registered, variables in
-// this order; the store's own subject and message never go by WhatsApp, as an approved template can't carry them.
+// What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, §4): abandoned-cart reminders for stores in India, through
+// the partner's own account on Meta's Cloud API (#1504). Each message is a template the partner has Meta approve, worded
+// here exactly as it is registered, variables in this order; the store's own subject and message never go by WhatsApp.
 
 export const whatsappKind = 'whatsapp'
 
 export const whatsappMessages = ['cart.reminder', 'cart.reminder_code'] as const
 export type WhatsAppMessage = (typeof whatsappMessages)[number]
+
+/** Every template an account names: the cart reminders, and the portal code's authentication template (#1506 sends it). */
+export const whatsappTemplates = ['code.portal', ...whatsappMessages] as const
+export type WhatsAppTemplate = (typeof whatsappTemplates)[number]
 
 // English for the first release, as the texts are (saas/sms).
 export const whatsappWording: Record<WhatsAppMessage, string> = {
@@ -21,17 +27,41 @@ export const whatsappWording: Record<WhatsAppMessage, string> = {
   'cart.reminder_code': '{{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}}',
 }
 
-/** A partner's WhatsApp Business number on its own MSG91 account (THIRD-PARTY-ACCESS §8.3), as #275 will read it. */
-export interface PartnerWhatsAppAccount {
-  authKey: string
-  integratedNumber: string
-  language: string
-  templates: Partial<Record<WhatsAppMessage, string>>
+const metaIdSchema = z.string().regex(/^\d{5,25}$/)
+
+/** What `partner_credential.settings` holds for a `whatsapp` row: everything but the token (THIRD-PARTY-ACCESS §8.3). */
+export const whatsappSettingsSchema = z.strictObject({
+  businessAccountId: metaIdSchema,
+  phoneNumberId: metaIdSchema,
+  // Meta's template language codes: `en`, `en_US`, `pt_BR`.
+  language: z.string().regex(/^[a-z]{2,3}(_[A-Za-z]{2,4})?$/),
+  templates: z.partialRecord(z.enum(whatsappTemplates), z.string().regex(/^[a-z0-9_]{1,512}$/)),
+})
+export type WhatsAppSettings = z.infer<typeof whatsappSettingsSchema>
+
+/** A partner's WhatsApp Business account on Meta's Cloud API, its token opened (THIRD-PARTY-ACCESS §8.3). */
+export interface PartnerWhatsAppAccount extends WhatsAppSettings {
+  accessToken: string
 }
 
+/** The partner's account while its WhatsApp is on; null when it is off, missing, or can't be opened. Called in system scope. */
 export interface PartnerWhatsAppAccounts {
   forPartner: (tx: ScopedSql, partnerId: string) => Promise<PartnerWhatsAppAccount | null>
 }
+
+/** A saved account, opened; null where its token or settings can't be read, so it never half sends. */
+export const openWhatsAppAccount = async (secrets: SecretBox | null, row: { key_enc: string; settings: unknown }): Promise<PartnerWhatsAppAccount | null> => {
+  const settings = whatsappSettingsSchema.safeParse(row.settings)
+  const accessToken = settings.success && secrets ? await secrets.open(row.key_enc) : null
+  return settings.success && accessToken ? { ...settings.data, accessToken } : null
+}
+
+export const whatsappAccountsFor = (secrets: SecretBox | null): PartnerWhatsAppAccounts => ({
+  forPartner: async (tx, partnerId) => {
+    const sealed = await selectSealedWhatsAppAccount(tx, partnerId)
+    return sealed?.enabled ? openWhatsAppAccount(secrets, sealed) : null
+  },
+})
 
 export type PreparedWhatsApp = { send: true; message: OutgoingWhatsApp } | { send: false; reason: 'link_closed' | 'tenant_mismatch' | 'no_recipient' | 'no_template' | 'no_shop_host' | 'opted_out' }
 

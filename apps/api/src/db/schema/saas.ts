@@ -111,6 +111,9 @@ export interface PartnerSmsAccountRow {
   settings: unknown
 }
 
+/** A partner's own WhatsApp Business account on Meta (#1504): one per partner; the token stays in key_enc. */
+export type PartnerWhatsAppAccountRow = Omit<PartnerSmsAccountRow, 'provider'>
+
 /** ui/platform/FIRST-RELEASE.md §4, in order. */
 export const setupItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
 export type SetupItem = (typeof setupItems)[number]

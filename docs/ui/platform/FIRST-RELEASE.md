@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-16 (#1504: the WhatsApp panel's API built, §14.5). Before: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -793,7 +793,11 @@ texts at all. Owner and Admin only, as the tab; never in an impersonation. **SMS
 last four, *Working* or *Rejected*, when last checked and whether India's seven template ids are complete), `saveSmsAccount`
 (checked before it is kept; India's template ids refused unless all seven), `testSmsAccount`, `removeSmsAccount`,
 `setSmsRoute` (India: MSG91 or SNS; the rest: Twilio or SNS; only an account that serves the route) and `setSmsEnabled`, all `integrations.write` and refused to an
-impersonation; the panel is #1018, WhatsApp #1504.
+impersonation; the panel is #1018. **WhatsApp's API is built on #1504** (migration 0401): `whatsAppAccount` (the switch,
+and the account's token hint, ids, language, each template's name, *Working* or *Rejected* and when last checked),
+`saveWhatsAppAccount` (checked with Meta before it is kept), `testWhatsAppAccount` (naming what Meta refused: the token,
+the number, the business account or a template), `setWhatsAppEnabled` (On only with a saved account) and
+`removeWhatsAppAccount` (which turns it off), with the same access; the panel is #1505.
 
 
 ### 14.6 My profile
