@@ -7,6 +7,7 @@ import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { handleDeliveryApp, matchDeliveryAppPath } from '#apis/admin/deliveryApp'
+import { handleSamplePhoto, matchSamplePhotoPath } from '#apis/admin/samplePhotos'
 import { deliveryApkPath, handleDeliveryApk } from '#apis/delivery/apk'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
@@ -163,6 +164,7 @@ import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
+import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
@@ -475,11 +477,13 @@ const handleAdmin = async (
   }
 
   const deliveryAppRoute = matchDeliveryAppPath(url.pathname)
+  const samplePhotoRoute = matchSamplePhotoPath(url.pathname)
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
     if (deliveryAppRoute) return handleDeliveryApp(request, deliveryAppRoute, null)
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
+    if (samplePhotoRoute) return handleSamplePhoto(request, samplePhotoRoute, null, null)
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null, storeCategories: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -487,6 +491,12 @@ const handleAdmin = async (
     if (deliveryAppRoute) {
       const files = caller ? createDeliveryApp({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, files: env.ASSETS ?? null }) : null
       return handleDeliveryApp(request, deliveryAppRoute, files)
+    }
+    if (samplePhotoRoute) {
+      const categories = caller
+        ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
+        : null
+      return handleSamplePhoto(request, samplePhotoRoute, caller?.staff ?? null, categories)
     }
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
@@ -504,6 +514,9 @@ const handleAdmin = async (
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
       fleet: caller ? createFleetService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
+      storeCategories: caller
+        ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
+        : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })

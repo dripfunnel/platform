@@ -54,6 +54,8 @@ export interface StoreRow {
   owner: { name: string | null; email: string | null }
   // No price: plans are priced on their own card (decided on #33).
   plan: { name: string | null }
+  // What the store sells (DATA-MODEL §7.2): on the list's rows only; null until its Owner picks.
+  category?: { id: string; name: string } | null | undefined
   state: StoreState
   storefront: StorefrontState
   domain: StoreDomain
@@ -83,6 +85,7 @@ export interface StoreFilter {
   storefront?: StorefrontState | undefined
   setup?: SetupState | undefined
   created?: CreatedWindow | undefined
+  category?: string | undefined
   q?: string | undefined
 }
 
@@ -91,6 +94,8 @@ export interface StorePage {
   items: readonly StoreRow[]
   pageInfo: PageInfo
   partners: readonly { id: string; name: string }[]
+  // The Category filter's choices, active ones first (api/storeCategories.ts).
+  categories?: readonly { id: string; name: string }[] | undefined
 }
 
 // `action` is the activity log's code for the event (LOGGING.md §4), which messages/ words;
@@ -210,6 +215,7 @@ const rowFields = {
   partner: refSchema,
   owner: z.object({ name: z.string().nullable(), email: z.string().nullable() }),
   plan: z.object({ name: z.string().nullable() }),
+  category: refSchema.nullable().optional(),
   state,
   storefront: z.enum(storefrontStates),
   domain: z.object({ host: z.string(), custom: z.boolean(), status: hostStatusSchema.exclude(['notSet']) }),
@@ -302,7 +308,7 @@ const rowSelection = `id name code partner { id name } owner { name email } plan
 
 const storesQuery = `query Stores($filter: StoreFilter, $after: String, $before: String) {
   stores(filter: $filter, after: $after, before: $before) {
-    items { ${rowSelection} }
+    items { ${rowSelection} category { id name } }
     pageInfo { startCursor endCursor hasPreviousPage hasNextPage }
     partners { id name }
   }

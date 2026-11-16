@@ -3,6 +3,7 @@ import { secureSchema } from '../graphql/scope'
 import { storePolicy } from './access'
 import { createStoreBuilder } from './builder'
 import { registerListing } from './listing'
+import { registerStoreCategory } from './storeCategory'
 import { registerPeople } from './people'
 import { registerProducts } from './products'
 import { registerProductKinds } from './productKinds'
@@ -94,6 +95,7 @@ registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)
 registerListing(builder)
+registerStoreCategory(builder)
 registerSupport(builder)
 registerActivity(builder)
 registerDevelopers(builder)

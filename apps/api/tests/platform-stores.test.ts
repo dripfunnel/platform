@@ -89,6 +89,18 @@ describe('the list', () => {
     expect((await list(owner, { filter: { q: theirs?.code } }))?.items).toEqual([])
   })
 
+  it('shows and filters by what a store sells, never counting another partner’s store', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner')
+    const [footwear] = await db.sql<{ id: string }[]>`select id from store_category where key = 'footwear'`
+    const [mine] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} order by created_at limit 1`
+    await db.sql`update store set category_id = ${footwear?.id ?? ''} where id = ${mine?.id ?? ''} or id = (select id from store where partner_id = ${ids.bz} limit 1)`
+    const q = `query($filter: StoreFilterInput) { stores(filter: $filter, first: 25) { items { id category { id name } } categories { id name } } }`
+    const page = (await run<{ stores: { items: { id: string; category: { name: string } | null }[]; categories: { name: string }[] } }>(q, owner, { filter: { category: footwear?.id } })).data?.stores
+    expect(page?.items).toEqual([{ id: mine?.id, category: { id: footwear?.id, name: 'Footwear' } }])
+    expect(page?.categories[0]?.name).toBe('General')
+    await db.sql`update store set category_id = null where category_id = ${footwear?.id ?? ''}`
+  })
+
   it('counts a closed store as cancelled', async () => {
     const owner = callerOf(ids.ns, 'partner-owner')
     const [store] = await db.sql<{ id: string }[]>`update store set status = 'closed' where id = (select id from store where partner_id = ${ids.ns} and status = 'cancelled' limit 1) returning id`

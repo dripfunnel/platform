@@ -48,6 +48,8 @@ export interface StoreRow {
   owner: { name: string; email: string }
   // Null for a store with no plan on record.
   plan: { id: string; name: string } | null
+  // What the store sells (DATA-MODEL §7.2); null until its Owner picks.
+  category: { id: string; name: string } | null
   // The API's figure when a limit is at 80% or more (§6.1), null otherwise.
   near: { percent: number; limit: LimitKey } | null
   state: StoreState
@@ -63,6 +65,7 @@ export interface StoreRow {
 export interface StoreFilter {
   status?: StoreStatus | undefined
   plan?: string | undefined
+  category?: string | undefined
   created?: CreatedWindow | undefined
   storefront?: StorefrontState | undefined
   near?: 'yes' | undefined
@@ -105,6 +108,7 @@ export interface StorePage {
   items: readonly StoreRow[]
   pageInfo: PageInfo
   plans: readonly { id: string; name: string }[]
+  categories: readonly { id: string; name: string }[]
   billingMode: BillingMode
   // Every role may export (ACCESS.md §5.3); `billingStatus` is offered only in own-billing mode, to Owner, Admin and Finance.
   actions: { create: CreatePermission; export: ActionPermission; billingStatus?: ActionPermission }
@@ -317,6 +321,7 @@ const rowSchema = z.object({
   // A store with no owner on record has neither.
   owner: z.object({ name: z.string().nullable().transform((v) => v ?? ''), email: z.string().nullable().transform((v) => v ?? '') }),
   plan: ref.nullable(),
+  category: ref.nullable(),
   near: z.object({ percent: z.number().int(), limit: limitOf }).nullable(),
   state: stateSchema,
   storefront: z.enum(storefrontStates),
@@ -324,7 +329,7 @@ const rowSchema = z.object({
   createdAt: z.string(),
   billingStatus: z.enum(['active', 'past_due', 'suspended']).nullable(),
 })
-const rowFields = `id name code owner { name email } plan { id name } near { percent limit }
+const rowFields = `id name code owner { name email } plan { id name } category { id name } near { percent limit }
   state { kind trialEndsAt daysLeft daysPastDue reason since } storefront domain { host custom status } createdAt billingStatus`
 
 // The list has no sales figure from the API yet (#166's findings).
@@ -335,6 +340,7 @@ const pageSchema = z.object({
     items: z.array(rowSchema),
     pageInfo: z.object({ startCursor: z.string().nullable(), endCursor: z.string().nullable(), hasPreviousPage: z.boolean(), hasNextPage: z.boolean() }),
     plans: z.array(ref),
+    categories: z.array(ref),
     billingMode: z.enum(billingModes),
     createPermission,
     exportPermission: actionPermission,
@@ -343,13 +349,13 @@ const pageSchema = z.object({
 })
 
 // The filter as the API's input declares it: a harness key never reaches it.
-const filterOf = (filter: StoreFilter): StoreFilter => ({ status: filter.status, plan: filter.plan, created: filter.created, storefront: filter.storefront, near: filter.near, q: filter.q })
+const filterOf = (filter: StoreFilter): StoreFilter => ({ status: filter.status, plan: filter.plan, category: filter.category, created: filter.created, storefront: filter.storefront, near: filter.near, q: filter.q })
 
 export const loadStores = async (filter: StoreFilter, page: PageRequest): Promise<StorePage> => {
   const { stores } = await query(
     `query Stores($filter: StoreFilterInput, $after: String, $before: String) {
       stores(filter: $filter, after: $after, before: $before, first: ${storePageSize}) {
-        items { ${rowFields} } pageInfo { startCursor endCursor hasPreviousPage hasNextPage } plans { id name } billingMode
+        items { ${rowFields} } pageInfo { startCursor endCursor hasPreviousPage hasNextPage } plans { id name } categories { id name } billingMode
         createPermission { allowed reason } exportPermission { allowed reason } billingStatusPermission { allowed reason }
       }
     }`,
@@ -360,6 +366,7 @@ export const loadStores = async (filter: StoreFilter, page: PageRequest): Promis
     items: stores.items.map(rowOf),
     pageInfo: stores.pageInfo,
     plans: stores.plans,
+    categories: stores.categories,
     billingMode: stores.billingMode,
     actions: { create: stores.createPermission, export: stores.exportPermission, ...(stores.billingStatusPermission ? { billingStatus: stores.billingStatusPermission } : {}) },
   }

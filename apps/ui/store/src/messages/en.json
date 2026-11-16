@@ -2,6 +2,18 @@
   "phone": {
     "countryCode": "Country code"
   },
+  "sampleCatalog": {
+    "add": "Add sample catalog",
+    "adding": "Adding sample catalog…",
+    "refused": {
+      "NO_CATEGORY": "Choose what your shop sells first.",
+      "NO_SAMPLE": "There’s no sample catalog for what your shop sells yet.",
+      "HAS_ORDERS": "The sample catalog is only for a shop that has no orders yet.",
+      "ALREADY_ADDED": "The sample catalog is already in your shop, or on its way.",
+      "FORBIDDEN": "Your role can’t import products.",
+      "other": "Couldn’t add the sample catalog. Try again."
+    }
+  },
   "codeResend": {
     "sentWhatsapp": "We sent a code to WhatsApp on {hint}.",
     "sentSms": "Sent by SMS to {hint}.",
@@ -82,9 +94,23 @@
         "note": "{country} · {currency} · {language}",
         "cta": "Change"
       },
+      "category": {
+        "label": "Choose what your shop sells",
+        "cta": "Choose",
+        "change": "Change",
+        "picker": "What your shop sells",
+        "placeholder": "Search or pick one",
+        "noMatches": "No category matches that.",
+        "save": "Save",
+        "cancel": "Cancel",
+        "error": "Couldn’t save that. Try again."
+      },
       "products": {
         "label": "Add your first product",
-        "cta": "Add"
+        "cta": "Add",
+        "import": "Import",
+        "manual": "Add manually",
+        "manualNote": "Add 3 products and 1 collection to get started."
       },
       "collections": {
         "label": "Group products into a collection",
@@ -98,6 +124,18 @@
         "label": "Choose how you ship",
         "cta": "Set up"
       },
+      "brand": {
+        "label": "Add your logo and favicon",
+        "cta": "Change",
+        "logo": "Upload logo",
+        "favicon": "Upload favicon",
+        "uploading": "Uploading…",
+        "logoAdded": "Logo added",
+        "faviconAdded": "Favicon added",
+        "faviconAfterLogo": "Add your logo first, then the favicon.",
+        "later": "You can change both later in Your shop › Storefront › Site settings.",
+        "error": "Couldn’t upload that. Use a PNG, JPG, WebP or SVG image and try again."
+      },
       "done": "Done",
       "mark": "✓",
       "skippedMark": "–",
@@ -109,7 +147,7 @@
       "skipFor": "Skip: {step}",
       "undoFor": "Undo skipping: {step}",
       "skipError": "Couldn’t save that. Try again.",
-      "ownerNote": "Payments, shipping and your country settings are set by the store owner — they’re not on your list.",
+      "ownerNote": "What the shop sells, payments, shipping and your country settings are set by the store owner — they’re not on your list.",
       "footer": "This list disappears once your first order arrives."
     },
     "staffWait": {
@@ -3884,16 +3922,14 @@
       "pathUnset": "…"
     },
     "catalogue": {
-      "sellTitle": "What do you mostly sell?",
-      "sellSub": "We’ll switch on the sections that fit. Change any of them below.",
-      "presets": {
-        "clothing": "Clothing",
-        "electronics": "Electronics",
-        "food": "Food & drink",
-        "beauty": "Beauty",
-        "handmade": "Handmade"
-      },
-      "presetApplied": "{name} sections switched on — press Save sections to keep them",
+      "sellTitle": "What does your shop sell?",
+      "sellSub": "Pick the closest. We’ll suggest the product page sections shops like yours use — you decide which go on.",
+      "categoryPlaceholder": "Search or pick one",
+      "categoryNoMatches": "No category matches that.",
+      "categorySaved": "Saved: {name}",
+      "suggested": "Shops selling {name} usually show {sections}.",
+      "switchOn": "Switch them on",
+      "suggestedOn": "Sections for {name} switched on — press Save sections to keep them",
       "sectionsTitle": "Product page sections",
       "yourPlan": "Your plan: {plan}",
       "sections": {

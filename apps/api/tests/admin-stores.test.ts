@@ -156,6 +156,16 @@ describe('stores(filter, after, before) (§5.1)', () => {
     expect((await run(list, sa, { filter: { status: 'bogus' } })).code).toBe('INVALID_INPUT')
   })
 
+  it('shows and filters by what a store sells (DATA-MODEL §7.2)', async () => {
+    const sa = as('staff-super-admin')
+    const [watches] = await db.sql<{ id: string }[]>`select id from store_category where key = 'watches'`
+    await db.sql`update store set category_id = ${watches?.id ?? ''} where name = 'Kiko Kids'`
+    const q = `query($filter: StoreFilter) { stores(filter: $filter) { items { name category { id name } } } }`
+    const r = await run<{ stores: { items: { name: string; category: { name: string } | null }[] } }>(q, sa, { filter: { category: watches?.id } })
+    expect(r.data?.stores.items).toEqual([{ name: 'Kiko Kids', category: { id: watches?.id, name: 'Watches' } }])
+    await db.sql`update store set category_id = null where name = 'Kiko Kids'`
+  })
+
   it('a Partner manager sees only their assigned partners stores, and the partner filter offers only those', async () => {
     const page = await items(as('staff-partner-manager'), {}, { first: 25 })
     expect(page.items.length).toBeGreaterThan(0)

@@ -221,6 +221,8 @@ export interface StoreFilter {
   /** A Partner manager's list is their assigned partners' stores (ACCESS.md §5.4). */
   assignedTo?: string | undefined
   planId?: string | undefined
+  /** What the store sells (store_category, DATA-MODEL §7.2). */
+  categoryId?: string | undefined
   /** At 80% or more of some limit (ui/platform/FIRST-RELEASE.md §6.1). */
   nearLimit?: boolean | undefined
 }
@@ -235,6 +237,8 @@ export interface StoreListRow extends StoreRow {
   partner_name: string
   partner_state: string
   plan_name: string | null
+  /** The store category's English name; null until the Owner picks. */
+  category_name: string | null
   owner_name: string | null
   owner_email: string | null
   owner_status: UserRow['status'] | null
@@ -256,7 +260,7 @@ export interface StoreListRow extends StoreRow {
 
 // The list's projection, shared with the single-row read so the two can never disagree.
 const storeProjection = (tx: ScopedSql, now: Date) => tx`
-  select s.*, p.name as partner_name, p.state as partner_state, pl.name as plan_name,
+  select s.*, p.name as partner_name, p.state as partner_state, pl.name as plan_name, sc.names ->> 'en' as category_name,
     o.name as owner_name, o.email as owner_email, o.status as owner_status,
     exists (
       select 1 from invitation i where i.store_id = s.id and i.seller_id is null and i.role_key = 'owner' and i.accepted_at is null and i.revoked_at is null
@@ -268,6 +272,7 @@ const storeProjection = (tx: ScopedSql, now: Date) => tx`
   from store s
   join partner p on p.id = s.partner_id
   left join plan pl on pl.id = s.plan_id
+  left join store_category sc on sc.id = s.category_id
   left join lateral (
     select u.name, u.email, u.status from membership m join "user" u on u.id = m.user_id
     where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' order by m.created_at limit 1
@@ -375,6 +380,7 @@ export const selectStores = async (
       ${filter.setup === 'running' ? tx`and j.state = 'running' and not ${stuck}` : tx``}
       ${filter.createdAfter !== undefined ? tx`and s.created_at >= ${filter.createdAfter}` : tx``}
       ${filter.planId !== undefined ? tx`and s.plan_id = ${filter.planId}` : tx``}
+      ${filter.categoryId !== undefined ? tx`and s.category_id = ${filter.categoryId}` : tx``}
       ${filter.nearLimit === true ? tx`and nr.percent >= 80` : tx``}
       ${q !== null ? tx`and (s.name ilike ${q} or s.code ilike ${q} or cd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${page.after !== undefined ? tx`and s.created_at <= ${page.after.occurredAt} and (s.created_at, s.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}

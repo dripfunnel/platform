@@ -62,7 +62,7 @@ const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
 
 const fields = `timeZone hasOrders toShip partlyShipped oldestToShipAt paymentsToCollect { count firstOrderId } awaitingApproval lowStock { count names } rejectedCouriers
   ordersToday ordersYesterday sales { yesterday { amount currency } dayBefore { amount } averageWeek { amount } } returningCustomers
-  latestOrders { number items total { amount currency } } setup { products collections payments shipping paymentsSkipped shippingSkipped }`
+  latestOrders { number items total { amount currency } } setup { category products collections payments shipping paymentsSkipped shippingSkipped brand brandSkipped }`
 const home = async (who: Who, as: { support?: 'read' } = {}) => (await gql(`{ home { ${fields} } }`, who, as)).data?.['home'] as Record<string, unknown> | null
 
 beforeAll(async () => {
@@ -178,7 +178,7 @@ describe('Home for each seat', () => {
   it('shows a new store its checklist, each item only to a seat that can do it', async () => {
     expect(await home('fresh')).toMatchObject({ hasOrders: false, toShip: 0, ordersToday: 0, sales: [], returningCustomers: 0, latestOrders: [], setup: { products: false, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false } })
     await db.sql`insert into store_shipping (store_id, currency, saved_at) values (${t.storeB1}, 'INR', now())`
-    expect((await home('fresh'))?.['setup']).toEqual({ products: false, collections: false, payments: false, shipping: true, paymentsSkipped: false, shippingSkipped: false })
+    expect((await home('fresh'))?.['setup']).toEqual({ category: false, products: false, collections: false, payments: false, shipping: true, paymentsSkipped: false, shippingSkipped: false, brand: false, brandSkipped: false })
   })
 })
 
@@ -235,6 +235,16 @@ describe('skipping an optional setup step', () => {
     expect(await setupOf()).toMatchObject({ paymentsSkipped: false, shippingSkipped: true })
     await skip('fresh', 'shipping', false)
     expect((await stored())[t.storeB1]).toEqual([])
+  })
+
+  it('skips the logo and favicon step, which is done once the storefront has a logo', async () => {
+    expect((await gql('mutation { skipSetupStep(step: brand, skipped: true) }', 'fresh')).data).toEqual({ skipSetupStep: true })
+    expect(await setupOf()).toMatchObject({ brand: false, brandSkipped: true })
+    await gql('mutation { skipSetupStep(step: brand, skipped: false) }', 'fresh')
+    const [logo] = await db.sql<{ id: string }[]>`insert into asset (store_id, kind, r2_key, mime, bytes, checksum) values (${t.storeB1}, 'image', ${`stores/${t.storeB1}/assets/${crypto.randomUUID()}.png`}, 'image/png', 10, ${'a'.repeat(64)}) returning id`
+    await db.sql`insert into storefront_brand (store_id, logo_asset_id) values (${t.storeB1}, ${logo?.id ?? ''})`
+    expect(await setupOf()).toMatchObject({ brand: true, brandSkipped: false })
+    await db.sql`delete from storefront_brand where store_id = ${t.storeB1}`
   })
 
   it('refuses a step that is not one of the two, and keeps the column to them', async () => {
