@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-11-06 (#1312: L2 Rollouts built). Before: 2026-10-15 (#744, #745: every store's free addresses on `my-store.one`; no shop wildcard, built). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
+> Last updated: 2026-11-17 (#1544: R1's Messaging built, Platform settings › Messaging, and a partner's DripFunnel's messaging switches). Before: 2026-11-06 (#1312: L2 Rollouts built). Before: 2026-10-15 (#744, #745: every store's free addresses on `my-store.one`; no shop wildcard, built). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
 
 ---
 
@@ -219,7 +219,9 @@ why it shapes the interface. The engine is specified in
     Cloudflare API token, SES credentials, the AI provider key and the Neon connection all
     live in Workers secrets; merchants' API keys and public store keys are hashed at rest.
     The admin console shows **that** a credential is set, when it was rotated and whether it
-    works, never the value.
+    works, never the value. DripFunnel's own SMS and WhatsApp accounts are the exception to
+    where they live (THIRD-PARTY-ACCESS §1): a Super admin types them in once on Platform
+    settings › Messaging, they are sealed in Postgres, and only their last four come back (#1544).
 14. **Privacy rules from the portal still hold.** Never reveal whether an email has an account
     (DESIGN-BRIEF §1). In the admin console staff *can* see that, but a **Partner user**
     must never learn that their merchant also has a store under another partner
@@ -637,7 +639,14 @@ staff notes. Not in the first release: the prototype draws no Announcements scre
 
 - R1. Integration health and credentials: Stripe (platform billing), the GitHub App, the
   Cloudflare API token, SES, the AI provider, Neon. Status, last check, rotated on, **never
-  the value** (§3 fact 13).
+  the value** (§3 fact 13). **Messaging is built** (#1544, on #1543's API), as **Platform
+  settings › Messaging**, the menu's first screen: DripFunnel's own SMS accounts (MSG91, Twilio,
+  AWS SNS) and which sends each route, and its WhatsApp account with its On or Off, entered here
+  because they live in Postgres, not as Worker secrets (THIRD-PARTY-ACCESS §1, §4). A Super admin
+  sets up, tests, replaces and removes them, picks each route's account and turns WhatsApp on or
+  off, each with a reason; every other role sees the status only (last four, *Working* or
+  *Rejected*, last check). On a partner's page, **DripFunnel's SMS** and **DripFunnel's WhatsApp**
+  switch whether that partner may use them (FIRST-RELEASE §4.2).
 - R2. Platform-wide feature flags (on for DripFunnel only, for chosen brands, or for a
   percentage of stores), with "affects every brand" warnings (§3 fact 16).
 - R3. Platform limits a brand cannot exceed (G2).

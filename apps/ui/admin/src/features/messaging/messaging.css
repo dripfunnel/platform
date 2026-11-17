@@ -1,0 +1,52 @@
+/* What only Platform settings › Messaging draws; panels and lists are detail.css and records.css. */
+
+.df-messaging-note {
+  margin: 0;
+}
+
+.df-messaging-panel h3 {
+  margin: var(--df-space-2) 0 0;
+}
+
+.df-messaging-text {
+  display: grid;
+  gap: var(--df-space-1);
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
+.df-messaging-text p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-messaging-text code,
+.df-messaging-dialog code {
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-messaging-side {
+  display: grid;
+  justify-items: end;
+  gap: var(--df-space-2);
+}
+
+.df-messaging-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}
+
+.df-messaging-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+@media (max-width: 520px) {
+  .df-messaging-side {
+    justify-items: start;
+  }
+}
