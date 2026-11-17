@@ -55,7 +55,6 @@ export const HomePage = () => {
   const loading = status === 'loading'
   const newest = useProducts({ sort: 'newest', first: 8 })
   const picks = useProducts({ sort: 'best-selling', first: 8 })
-  const spotlight = useProducts({ sort: 'price-high', first: 4 })
   const featured = collections.find((c) => c.image) ?? null
 
   return (
@@ -158,26 +157,19 @@ export const HomePage = () => {
         </section>
       ) : null}
 
-      {featured && spotlight.products.length ? (
+      {featured ? (
         <section>
           <div className={styles.head}>
             <Heading eyebrow={t('home.featured.eyebrow')} title={t('home.featured.title')} accent={t('home.featured.accent')} />
           </div>
           <div className={styles.feature}>
             <Link href={featured.href} className={styles.featureMain}>
-              {featured.image ? <Image image={featured.image} alt="" ratio={0.75} sizes="(min-width: 900px) 50vw, 100vw" className={styles.image} /> : null}
+              {featured.image ? <Image image={featured.image} alt="" ratio={2} sizes="(min-width: 1240px) 1240px, 100vw" className={styles.featureImage} /> : null}
               <span className={styles.featureCopy}>
                 <span className={styles.featureName}>{featured.name}</span>
                 <span className={styles.button}>{t('home.featured.shop', { name: featured.name })}</span>
               </span>
             </Link>
-            <ul className={styles.featureGrid}>
-              {spotlight.products.map((p) => (
-                <li key={p.id}>
-                  <ProductCard product={p} />
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
       ) : null}

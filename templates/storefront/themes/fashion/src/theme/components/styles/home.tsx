@@ -23,10 +23,10 @@ export const home = {
   buttonLight: clsx(buttonBase, 'border-[#fff] bg-transparent text-[#fff] hover:bg-[rgb(255_255_255/0.12)]'),
   eyebrow: clsx('m-0 flex items-center gap-x-3 text-highlight text-[11px] font-semibold tracking-[0.28em] uppercase before:content-[""] before:block before:w-8 before:h-px before:bg-current'),
   eyebrowLight: clsx('m-0 flex items-center gap-x-3 text-[#fff] text-[11px] font-semibold tracking-[0.28em] uppercase before:content-[""] before:block before:w-8 before:h-px before:bg-current'),
-  feature: clsx(sectionBase, 'pt-6 grid grid-cols-[minmax(0,1fr)] gap-6 min-[900px]:pt-8 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-8'),
+  feature: clsx(sectionBase, 'pt-6 grid grid-cols-[minmax(0,1fr)] gap-6 min-[900px]:pt-8 min-[900px]:gap-8'),
   featureCopy: clsx('absolute inset-0 flex flex-col items-start justify-end gap-y-3 p-6 bg-[linear-gradient(0deg,rgb(0_0_0/0.5),rgb(0_0_0/0)_55%)] text-[#fff] min-[900px]:p-10'),
-  featureGrid: clsx('m-0 p-0 grid list-none grid-cols-[repeat(2,minmax(0,1fr))] gap-x-4 gap-y-6'),
-  featureMain: clsx('relative block overflow-hidden min-h-120 rounded-card [background:var(--picture)] no-underline min-[900px]:min-h-full focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),
+  featureMain: clsx('relative block overflow-hidden h-100 rounded-card [background:var(--picture)] no-underline min-[900px]:h-130 focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),
+  featureImage: clsx('block w-full h-full object-cover'),
   featureName: clsx('m-0 font-heading text-[34px] leading-[1.1]'),
   grid: clsx(sectionBase, 'pt-6 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3 list-none m-0 min-[900px]:pt-8 min-[900px]:grid-cols-[repeat(4,minmax(0,1fr))] min-[900px]:gap-4'),
   head: clsx(sectionBase, 'pt-14 flex flex-wrap items-end justify-between gap-y-3 gap-x-6 min-[900px]:pt-20'),
@@ -67,6 +67,8 @@ const arrowBase = clsx('hidden min-[900px]:flex w-11 h-11 items-center justify-c
 const slideBase = clsx('absolute inset-0 [transition:opacity_700ms_ease] motion-reduce:[transition:none]')
 
 export const hero = {
+  // The page's one stable heading; the slides' titles change as they turn (WCAG 1.3.1).
+  pageTitle: clsx('sr-only'),
   copy: clsx('absolute inset-0 flex items-end pb-20 bg-[linear-gradient(0deg,rgb(0_0_0/0.6),rgb(0_0_0/0.05)_65%)] text-[#fff] min-[900px]:pb-28'),
   copyInner: clsx(sectionBase, 'flex flex-col items-start gap-y-5'),
   controls: clsx(sectionBase, 'absolute bottom-6 left-0 right-0 z-10 flex items-center justify-between min-[900px]:bottom-9'),

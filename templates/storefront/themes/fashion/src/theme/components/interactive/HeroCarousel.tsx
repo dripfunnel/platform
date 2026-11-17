@@ -12,7 +12,7 @@ const Arrow = ({ back = false, className }: { back?: boolean; className: string 
 
 /** The home page's three looks; it turns every 6 s unless the shopper prefers less motion or is using it. */
 export const HeroCarousel = () => {
-  const { t } = useStorefront()
+  const { t, store } = useStorefront()
   const still = useReducedMotion()
   const [shown, setShown] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -34,9 +34,9 @@ export const HeroCarousel = () => {
     <div key="one" className={styles.copy}>
       <div className={styles.copyInner}>
       <p className={home.eyebrowLight}>{t('home.hero.slides.one.eyebrow')}</p>
-      <h1 className={home.heroTitle}>
+      <p className={home.heroTitle}>
         {t('home.hero.slides.one.title')} <em className={styles.em}>{t('home.hero.slides.one.accent')}</em>
-      </h1>
+      </p>
       <Link href="/collections/all/?sort=newest" className={home.button}>
         {t('home.hero.slides.one.action')} <Arrow className={home.arrow} />
       </Link>
@@ -68,6 +68,7 @@ export const HeroCarousel = () => {
 
   return (
     <section className={styles.root} aria-roledescription={t('home.hero.kind')} aria-label={t('home.hero.label')} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+      <h1 className={styles.pageTitle}>{store.name}</h1>
       <div className={shown === 0 ? styles.slideOn : styles.slide} aria-hidden={shown !== 0}>
         <ThemeImage src="hero-field.webp" alt={t('home.hero.slides.one.alt')} ratio={0.67} sizes="100vw" className={styles.image} />
       </div>
