@@ -115,6 +115,15 @@ describe('a store connects its own Shiprocket, and uses it from checkout to trac
     expect(await accounts()).toEqual([])
   })
 
+  it('shows a Shiprocket kept on with no login as needing a fix, and a new login fixes it', async () => {
+    await db.sql`insert into store_courier (store_id, provider, role, label_size) values (${t.storeA1}, 'shiprocket', 'pricing', 'a6')`
+    expect((await courierView()).couriers[0]).toMatchObject({ status: 'failed', accountEmail: null })
+    expect((await connect(login.email, login.password)).data?.['connectCourier']).toBe('pricing')
+    expect((await courierView()).couriers[0]).toMatchObject({ status: 'pricing', accountEmail: login.email })
+    expect((await gql('mutation { disconnectCourier(provider: "shiprocket") }')).errors).toBeUndefined()
+    expect(await accounts()).toEqual([])
+  })
+
   it('refuses a login Shiprocket does not accept, saving nothing', async () => {
     const refused = await connect(login.email, 'not-the-password')
     expect(refused.code).toBe('LOGIN_REFUSED')

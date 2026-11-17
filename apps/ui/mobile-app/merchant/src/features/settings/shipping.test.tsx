@@ -215,6 +215,13 @@ describe('Shipping', () => {
     expect(asked(calls, '{ shippingSettings {')).toHaveLength(2)
   })
 
+  it('leaves Shiprocket to the web portal, which has the form for the store’s own API user, and sends nothing from here', async () => {
+    const { renderer, calls } = await show(<SettingsTabScreen tab="shipping" />, ship({}, withCouriers([courier({ status: 'off' })])))
+    expect(hasText(renderer, 'Connect Shiprocket in the web portal, under Settings › Shipping: it needs your own Shiprocket API user.')).toBe(true)
+    expect(renderer.root.findAll((n) => n.props.accessibilityLabel === 'Connect Shiprocket' && typeof n.props.onPress === 'function')).toHaveLength(0)
+    expect(asked(calls, 'mutation ConnectCourier')).toHaveLength(0)
+  })
+
   it('shows a courier that was disconnected elsewhere as not connected, and says nothing changed', async () => {
     let gone = false
     const settings = () => ({ shippingSettings: withCouriers([courier(), courier({ provider: 'fedex', status: gone ? 'off' : 'standby' })]) })

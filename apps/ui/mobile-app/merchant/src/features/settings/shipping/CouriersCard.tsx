@@ -26,8 +26,11 @@ import { labelSizeOf, nameOf } from './courierNames'
 type Props = { couriers: readonly Courier[]; labelSizes: readonly string[]; timeZone: string; client: ApiClient; canEdit: boolean; readBack: () => Promise<void> }
 type Sheet = { kind: 'connect' | 'pricing' | 'manage' | 'disconnect'; courier: Courier }
 
-// Delivery partners: the partner's own accounts with each courier (THIRD-PARTY-ACCESS §4), so connecting asks for no key. A courier that was
-// disconnected elsewhere answers NOT_CONNECTED; the list is read again so it shows "Not connected" as it now is.
+// Delivery partners: the partner's own accounts (THIRD-PARTY-ACCESS §4), so connecting asks for no key, except Shiprocket, which takes the store's
+// own API user and is connected in the web portal (#1489). A courier that was disconnected elsewhere answers NOT_CONNECTED; the list is read again
+// so it shows "Not connected" as it now is.
+const connectsInPortal = (courier: Courier) => courier.provider === 'shiprocket'
+
 export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, readBack }: Props) {
   const { colors } = useTheme()
   const feedback = useFeedback()
@@ -70,7 +73,9 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
     const lines = [
       courier.status === 'off'
         ? courier.offered
-          ? ''
+          ? connectsInPortal(courier)
+            ? t('settings.shipping.descPortalOnly')
+            : ''
           : t('settings.shipping.descNotOffered')
         : courier.status === 'failed'
           ? t('settings.shipping.descFailed')
@@ -84,7 +89,7 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
 
   const choose = (courier: Courier) => {
     const name = nameOf(courier.provider)
-    if (courier.status === 'off') return courier.offered ? setSheet({ kind: 'connect', courier }) : undefined
+    if (courier.status === 'off') return courier.offered && !connectsInPortal(courier) ? setSheet({ kind: 'connect', courier }) : undefined
     feedback.menu({
       title: name,
       items: [
@@ -126,7 +131,7 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
             sub={describe(courier)}
             status={t(`settings.shipping.status.${courier.status}`)}
             tone={courier.status === 'pricing' ? 'ok' : courier.status === 'failed' ? 'wait' : 'off'}
-            onPress={canEdit && (courier.status !== 'off' || courier.offered) ? () => choose(courier) : null}
+            onPress={canEdit && (courier.status !== 'off' || (courier.offered && !connectsInPortal(courier))) ? () => choose(courier) : null}
             accessibilityLabel={t(courier.status === 'off' ? 'settings.shipping.connectName' : 'settings.shipping.manageName', { name: nameOf(courier.provider) })}
           />
         ))

@@ -142,7 +142,8 @@ export interface DeliveryQuote {
 const maxLines = 100
 const testParcelGrams = 500
 
-const statusOf = (row: CourierRow | undefined): CourierStatus => (!row || row.role === 'off' ? 'off' : row.last_test_result === 'rejected' ? 'failed' : row.role)
+// A courier kept on but with no account to go through (a login lost, or one the key no longer opens) needs fixing, not quoting.
+const statusOf = (row: CourierRow | undefined, held = true): CourierStatus => (!row || row.role === 'off' ? 'off' : row.last_test_result === 'rejected' || !held ? 'failed' : row.role)
 
 export const createShippingService = ({ sql, context, actor, activity, facts, now, couriers, login: loginCheck = null }: ShippingDeps) => {
   const { storeId } = context
@@ -211,7 +212,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
         const found = rows.find((r) => r.provider === provider)
         return {
           provider,
-          status: statusOf(found),
+          status: statusOf(found, couriers?.accounts.has(accountKindOf(provider)) ?? false),
           offered: (couriers?.connectable.has(accountKindOf(provider)) && (provider !== 'shiprocket' || loginCheck?.secrets != null)) ?? false,
           accountEmail: accounts.find((a) => a.provider === provider)?.email ?? null,
           pickupMode: found?.pickup_mode ?? 'scheduled',
