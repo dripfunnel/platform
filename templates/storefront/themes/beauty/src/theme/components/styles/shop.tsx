@@ -4,7 +4,7 @@ import { clsx } from 'clsx'
 const primaryBase = clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 items-center justify-center rounded-button bg-accent text-accent-ink [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold no-underline cursor-pointer group-[:nth-child(n)]/shop-noticeActions:[align-self:auto] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
 
 export const shop = {
-  cardView: clsx('py-2 px-4 absolute left-1/2 bottom-3 -translate-x-1/2 translate-y-2 rounded-full bg-surface text-ink text-[13px] font-bold opacity-0 [box-shadow:0_6px_18px_rgb(61_34_50/0.14)] [transition:opacity_250ms_ease,transform_250ms_ease] group-hover/shop-card:opacity-100 group-hover/shop-card:translate-y-0 group-focus-within/shop-card:opacity-100 group-focus-within/shop-card:translate-y-0'),
+  cardView: clsx('py-2 px-4 absolute left-1/2 bottom-3 -translate-x-1/2 translate-y-2 rounded-full bg-surface text-ink text-[13px] font-bold opacity-0 [box-shadow:0_6px_18px_var(--color-tone-3d2232-14)] [transition:opacity_250ms_ease,transform_250ms_ease] group-hover/shop-card:opacity-100 group-hover/shop-card:translate-y-0 group-focus-within/shop-card:opacity-100 group-focus-within/shop-card:translate-y-0'),
   badge: clsx('py-0.75 px-2.5 absolute top-2.5 left-2.5 rounded-full bg-surface text-ink text-[12px] font-semibold'),
   card: clsx('group/shop-card h-full box-border flex flex-col gap-y-1 rounded-card bg-soft p-2.5 pb-4 min-[900px]:p-3 min-[900px]:pb-5 [transition:background-color_250ms_ease] hover:bg-tint'),
   cardImage: clsx('block w-full h-full object-cover [transition:transform_500ms_ease] group-hover/shop-card:scale-[1.04]'),

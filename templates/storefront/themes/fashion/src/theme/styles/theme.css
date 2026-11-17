@@ -30,4 +30,16 @@
   --color-footer-line: #3d3936;
   --picture: linear-gradient(170deg, #e9e2d8, #c7bba9);
   --picture-alt: linear-gradient(170deg, #f1ece6, #ddd3c6);
+  --color-light-12: rgb(255 255 255 / 0.12);
+  --color-light-45: rgb(255 255 255 / 0.45);
+  --color-light-60: rgb(255 255 255 / 0.6);
+  --color-on-photo: #fff;
+  --color-shade-0: rgb(0 0 0 / 0);
+  --color-shade-20: rgb(0 0 0 / 0.2);
+  --color-shade-35: rgb(0 0 0 / 0.35);
+  --color-shade-45: rgb(0 0 0 / 0.45);
+  --color-shade-5: rgb(0 0 0 / 0.05);
+  --color-shade-50: rgb(0 0 0 / 0.5);
+  --color-shade-55: rgb(0 0 0 / 0.55);
+  --color-shade-60: rgb(0 0 0 / 0.6);
 }
