@@ -64,13 +64,12 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           <div className={styles.row}>
             <Menu label={t('common.nav.menu')}>
               <nav className={styles.nav} aria-label={t('common.nav.label')}>
-                {menu.items.length ? (
-                  menu.items.map((item) => <NavItem key={item.id} item={item} />)
-                ) : (
-                  <Link href="/collections/all/" className={styles.navLink}>
-                    {t('common.nav.shop')}
-                  </Link>
-                )}
+                <Link href="/collections/all/" className={styles.navLink}>
+                  {t('common.nav.shop')}
+                </Link>
+                {menu.items.map((item) => (
+                  <NavItem key={item.id} item={item} />
+                ))}
                 <Link href="/about/" className={styles.navLink}>
                   {t('common.nav.about')}
                 </Link>
