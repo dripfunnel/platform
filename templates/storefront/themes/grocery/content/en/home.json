@@ -13,14 +13,12 @@
     "new": {
       "eyebrow": "Just in",
       "title": "New on the shelves",
-      "action": "Shop what's new",
-      "alt": "Tomatoes, onions, cucumbers and aubergines on a market table"
+      "action": "Shop what's new"
     },
     "value": {
       "eyebrow": "By price",
       "title": "Start with the lowest prices",
-      "action": "Browse by price",
-      "alt": "Bowls of fennel seeds, allspice and turmeric with cinnamon and star anise"
+      "action": "Browse by price"
     }
   },
   "newest": {
@@ -36,7 +34,6 @@
     "eyebrow": "About us",
     "title": "About our store",
     "body": "Tell shoppers who you are, what you stock and what makes your shop worth coming back to.",
-    "collections": "{count, plural, one {# category} other {# categories}} to shop",
     "more": "How we work",
     "alt": "A shopper carrying a red basket of carrots, celery and radishes"
   },
@@ -60,7 +57,7 @@
     },
     "help": {
       "title": "Questions?",
-      "body": "Write to us and we’ll reply"
+      "body": "Write to us on Contact"
     }
   },
   "signup": {

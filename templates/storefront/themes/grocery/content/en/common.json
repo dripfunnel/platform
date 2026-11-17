@@ -14,8 +14,7 @@
     "wishlist": "Wishlist",
     "wishlistCount": "Wishlist, {count, plural, one {# item} other {# items}}",
     "cart": "Cart",
-    "cartCount": "Cart, {count, plural, one {# item} other {# items}}",
-    "searchPrompt": "Search for groceries and essentials"
+    "cartCount": "Cart, {count, plural, one {# item} other {# items}}"
   },
   "footer": {
     "note": "Thanks for shopping with us.",

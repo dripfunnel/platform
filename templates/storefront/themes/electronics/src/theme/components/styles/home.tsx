@@ -3,7 +3,10 @@ import { clsx } from 'clsx'
 // The home styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
 // The header's column (layout.bar), so every section lines up with the logo and the footer.
 const sectionBase = clsx('box-border w-[min(100%,1240px)] mx-auto px-4 min-[900px]:px-8')
-const buttonBase = clsx('py-0 px-5.5 border inline-flex min-h-12 items-center justify-center gap-x-2 rounded-button text-[15px] font-semibold no-underline [transition:background-color_160ms_ease] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+const buttonShape = clsx('py-0 px-5.5 border inline-flex min-h-12 items-center justify-center gap-x-2 rounded-button text-[15px] font-semibold no-underline [transition:background-color_160ms_ease]')
+const buttonBase = clsx(buttonShape, 'focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+// On the dark stage the blue ring is too faint (WCAG 1.4.11), so those buttons ring in volt.
+const buttonOnDark = clsx(buttonShape, 'focus-visible:[outline:2px_solid_var(--color-volt)] focus-visible:outline-offset-[2px]')
 const monoBase = clsx('m-0 font-mono text-[12px] font-medium tracking-[0.12em] uppercase')
 
 export const home = {
@@ -25,12 +28,8 @@ export const home = {
   heroAccent: clsx('block text-volt'),
   heroLead: clsx('m-0 max-w-[46ch] text-stage-muted text-[17px] leading-[1.6]'),
   actions: clsx('flex flex-wrap gap-y-3 gap-x-3'),
-  volt: clsx(buttonBase, 'border-volt bg-volt text-volt-ink hover:bg-stage-ink hover:border-stage-ink'),
-  ghostDark: clsx(buttonBase, 'border-stage-line bg-transparent text-stage-ink hover:bg-stage-raised'),
-  facts: clsx('pt-6 m-0 border-t border-t-stage-line grid w-full grid-cols-[repeat(3,minmax(0,1fr))] gap-x-4 list-none p-0'),
-  fact: clsx('flex min-w-0 flex-col gap-y-1'),
-  factValue: clsx('m-0 font-heading text-[15px] leading-[1.25] font-semibold text-stage-ink wrap-anywhere min-[900px]:text-[18px]'),
-  factLabel: clsx(monoBase, 'text-[11px] text-stage-muted'),
+  volt: clsx(buttonOnDark, 'border-volt bg-volt text-volt-ink hover:bg-stage-ink hover:border-stage-ink'),
+  ghostDark: clsx(buttonOnDark, 'border-stage-line bg-transparent text-stage-ink hover:bg-stage-raised'),
   heroStage: clsx('relative overflow-hidden aspect-square min-[900px]:aspect-[4/5] rounded-[20px] border border-stage-line bg-stage max-w-[520px] w-full justify-self-center min-[900px]:justify-self-end'),
   heroImage: clsx('block w-full h-full object-cover object-[50%_88%]'),
   tag: clsx('py-3 px-4 absolute top-4 left-4 right-4 flex items-center justify-between gap-x-3 rounded-[12px] border border-stage-line bg-[rgb(11_13_18/0.72)] [backdrop-filter:blur(10px)] text-stage-ink no-underline focus-visible:[outline:2px_solid_var(--color-volt)] focus-visible:outline-offset-[2px]'),

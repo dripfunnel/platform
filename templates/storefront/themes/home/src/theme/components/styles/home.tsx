@@ -4,7 +4,10 @@ import { clsx } from 'clsx'
 // The header's column (layout.bar), so every section lines up with the logo and the footer.
 const sectionBase = clsx('box-border w-[min(100%,1240px)] mx-auto px-4 min-[900px]:px-8')
 const focus = clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]')
-const buttonBase = clsx('py-0 px-6 inline-flex min-h-12 items-center justify-center gap-x-2 rounded-button text-[15px] font-semibold no-underline', focus)
+const buttonShape = clsx('py-0 px-6 inline-flex min-h-12 items-center justify-center gap-x-2 rounded-button text-[15px] font-semibold no-underline')
+const buttonBase = clsx(buttonShape, focus)
+// On olive and terracotta the blue ring is too faint (WCAG 1.4.11), so those buttons ring in linen.
+const buttonOnDark = clsx(buttonShape, 'focus-visible:[outline:2px_solid_var(--color-footer-ink)] focus-visible:outline-offset-[3px]')
 const eyebrowBase = clsx('m-0 text-[12px] font-bold tracking-[0.2em] uppercase')
 const headingBase = clsx('m-0 font-heading font-[var(--heading-weight)] tracking-[var(--heading-spacing)] [text-wrap:balance]')
 const gridBase = clsx('p-0 m-0 grid list-none grid-cols-[repeat(2,minmax(0,1fr))] gap-x-4 gap-y-8')
@@ -20,8 +23,8 @@ export const home = {
   bannerTitle: clsx(headingBase, 'text-footer-ink text-[32px] leading-[1.1] min-[900px]:text-[44px]'),
   body: clsx('m-0 max-w-[46ch] text-ink-soft text-[17px] leading-[1.7]'),
   button: clsx(buttonBase, 'bg-accent text-accent-ink hover:bg-ink'),
-  buttonLight: clsx(buttonBase, 'mt-2 bg-footer-ink text-olive hover:bg-surface'),
-  buttonLinen: clsx(buttonBase, 'mt-2 px-8 bg-bg text-accent hover:bg-surface'),
+  buttonLight: clsx(buttonOnDark, 'mt-2 bg-footer-ink text-olive hover:bg-surface'),
+  buttonLinen: clsx(buttonOnDark, 'mt-2 px-8 bg-bg text-accent hover:bg-surface'),
   cell: clsx('min-w-0'),
   collage: clsx('relative w-full aspect-[1/1] min-[900px]:aspect-[6/5]'),
   collageMain: clsx('absolute top-0 left-0 w-[62%] h-[88%] overflow-hidden rounded-card [background:var(--picture)]'),
@@ -68,9 +71,6 @@ export const home = {
   signup: clsx('py-14 px-6 flex flex-col items-center gap-y-4 rounded-card bg-accent text-accent-ink text-center min-[900px]:py-20'),
   signupBody: clsx('m-0 max-w-[50ch] text-[16px] leading-[1.65]'),
   signupTitle: clsx(headingBase, 'text-[32px] leading-[1.1] min-[900px]:text-[44px]'),
-  stat: clsx('py-5 m-0 flex w-full items-baseline gap-x-3 border-y border-line'),
-  statLabel: clsx('text-muted text-[13px] font-bold tracking-[0.18em] uppercase'),
-  statNumber: clsx('font-heading text-[56px] leading-[1] text-accent'),
   story: clsx(sectionBase, 'pt-20 grid items-center gap-y-12 gap-x-16 min-[900px]:pt-28 min-[900px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]'),
   storyCopy: clsx('flex flex-col items-start gap-y-5'),
   storyTitle: clsx(headingBase, 'text-[32px] leading-[1.1] min-[900px]:text-[46px]'),

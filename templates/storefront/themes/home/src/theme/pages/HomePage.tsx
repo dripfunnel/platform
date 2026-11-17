@@ -9,13 +9,10 @@ const Arrow = () => (
   </svg>
 )
 
-const Heading = ({ eyebrow, title, accent }: { eyebrow: string; title: string; accent?: string }) => (
+const Heading = ({ eyebrow, title }: { eyebrow: string; title: string }) => (
   <div className={styles.headCopy}>
     <p className={styles.eyebrow}>{eyebrow}</p>
-    <h2 className={styles.heading}>
-      {title}
-      {accent ? <em className={styles.accent}> {accent}</em> : null}
-    </h2>
+    <h2 className={styles.heading}>{title}</h2>
   </div>
 )
 
@@ -33,7 +30,7 @@ export const HomePage = () => {
   const { store, t } = useStorefront()
   const { collections, status } = useCollections({ first: 5 })
   const newest = useProducts({ sort: 'newest', first: 6 })
-  const favourites = useProducts({ sort: 'best-selling', first: 4 })
+  const picks = useProducts({ sort: 'best-selling', first: 4 })
 
   return (
     <Layout>
@@ -102,7 +99,7 @@ export const HomePage = () => {
               {t('home.newest.all')} <Arrow />
             </Link>
           </div>
-          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} /> : <Grid products={newest.products} wide={false} />}
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} list={styles.gridThree} cell={styles.cell} /> : <Grid products={newest.products} wide={false} />}
         </section>
       ) : null}
 
@@ -124,12 +121,6 @@ export const HomePage = () => {
             {t('home.story.title')} <em className={styles.accent}>{t('home.story.accent')}</em>
           </h2>
           <p className={styles.body}>{t('home.story.body')}</p>
-          {collections.length ? (
-            <p className={styles.stat}>
-              <span className={styles.statNumber}>{collections.length}</span>
-              <span className={styles.statLabel}>{t('home.story.collections', { count: collections.length })}</span>
-            </p>
-          ) : null}
           <Link href="/about/" className={styles.ghost}>
             {t('home.story.more')} <Arrow />
           </Link>
@@ -143,15 +134,15 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {favourites.status === 'loading' || favourites.products.length ? (
+      {picks.status === 'loading' || picks.products.length ? (
         <section className={styles.section}>
           <div className={styles.head}>
-            <Heading eyebrow={t('home.favourites.eyebrow')} title={t('home.favourites.title')} />
+            <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} />
             <Link href="/collections/all/" className={styles.more}>
-              {t('home.favourites.all')} <Arrow />
+              {t('home.picks.all')} <Arrow />
             </Link>
           </div>
-          {favourites.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <Grid products={favourites.products} wide />}
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} list={styles.gridFour} cell={styles.cell} /> : <Grid products={picks.products} wide />}
         </section>
       ) : null}
 

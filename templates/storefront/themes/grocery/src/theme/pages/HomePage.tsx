@@ -102,7 +102,7 @@ export const HomePage = () => {
               </span>
             </span>
             <span className={styles.promoPicture}>
-              <ThemeImage src="promo-greens.webp" alt={t('home.promos.new.alt')} ratio={1} sizes="(min-width: 800px) 260px, 40vw" className={styles.promoImage} />
+              <ThemeImage src="promo-greens.webp" alt="" ratio={1} sizes="(min-width: 800px) 260px, 40vw" className={styles.promoImage} />
             </span>
           </Link>
         </li>
@@ -116,7 +116,7 @@ export const HomePage = () => {
               </span>
             </span>
             <span className={styles.promoPicture}>
-              <ThemeImage src="promo-spices.webp" alt={t('home.promos.value.alt')} ratio={1} sizes="(min-width: 800px) 260px, 40vw" className={styles.promoImage} />
+              <ThemeImage src="promo-spices.webp" alt="" ratio={1} sizes="(min-width: 800px) 260px, 40vw" className={styles.promoImage} />
             </span>
           </Link>
         </li>
@@ -130,11 +130,11 @@ export const HomePage = () => {
               {t('home.newest.all')} <Arrow />
             </Link>
           </div>
-          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} /> : <Grid products={newest.products} />}
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} list={styles.grid} cell={styles.cell} /> : <Grid products={newest.products} />}
         </section>
       ) : null}
 
-      {budget.products.length ? (
+      {budget.status === 'loading' || budget.products.length ? (
         <section className={styles.band}>
           <div className={styles.bandInner}>
             <div className={styles.head}>
@@ -146,13 +146,17 @@ export const HomePage = () => {
                 {t('home.budget.all')} <Arrow />
               </Link>
             </div>
-            <ul className={styles.rail} aria-label={t('home.budget.title')}>
-              {budget.products.map((p) => (
-                <li key={p.id} className={styles.railItem}>
-                  <ProductCard product={p} />
-                </li>
-              ))}
-            </ul>
+            {budget.status === 'loading' ? (
+              <GridPlaceholder label={t('shop.listing.loading')} count={6} list={styles.rail} cell={styles.railItem} />
+            ) : (
+              <ul className={styles.rail} aria-label={t('home.budget.title')}>
+                {budget.products.map((p) => (
+                  <li key={p.id} className={styles.railItem}>
+                    <ProductCard product={p} />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       ) : null}
@@ -166,7 +170,6 @@ export const HomePage = () => {
             <p className={styles.eyebrow}>{t('home.story.eyebrow')}</p>
             <h2 className={styles.heading}>{t('home.story.title')}</h2>
             <p className={styles.storyBody}>{t('home.story.body')}</p>
-            {collections.length ? <p className={styles.storyCount}>{t('home.story.collections', { count: collections.length })}</p> : null}
             <Link href="/about/" className={styles.storyLink}>
               {t('home.story.more')} <Arrow />
             </Link>
@@ -174,7 +177,7 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {picks.products.length ? (
+      {picks.status === 'loading' || picks.products.length ? (
         <section className={styles.section}>
           <div className={styles.head}>
             <h2 className={styles.heading}>{t('home.picks.title')}</h2>
@@ -182,7 +185,7 @@ export const HomePage = () => {
               {t('home.picks.all')} <Arrow />
             </Link>
           </div>
-          <Grid products={picks.products} />
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} list={styles.grid} cell={styles.cell} /> : <Grid products={picks.products} />}
         </section>
       ) : null}
 

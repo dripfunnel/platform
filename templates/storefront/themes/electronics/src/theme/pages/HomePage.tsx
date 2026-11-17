@@ -36,7 +36,7 @@ const PromiseItem = ({ icon, title, body }: { icon: ReactNode; title: string; bo
 
 export const HomePage = () => {
   const { store, locale, t } = useStorefront()
-  const collections = useCollections({ first: 5 }).collections.slice(0, 5)
+  const { collections, status } = useCollections({ first: 5 })
   const newest = useProducts({ sort: 'newest', first: 8 })
   const picks = useProducts({ sort: 'best-selling', first: 4 })
   const top = useProducts({ sort: 'price-high', first: 1 })
@@ -63,22 +63,6 @@ export const HomePage = () => {
                 {t('home.hero.all')}
               </Link>
             </div>
-            <ul className={styles.facts} aria-label={t('home.hero.facts')}>
-              {collections.length ? (
-                <li className={styles.fact}>
-                  <p className={styles.factValue}>{t('home.hero.categories', { count: collections.length })}</p>
-                  <p className={styles.factLabel}>{t('home.categories.eyebrow')}</p>
-                </li>
-              ) : null}
-              <li className={styles.fact}>
-                <p className={styles.factValue}>{t('home.promises.secure.title')}</p>
-                <p className={styles.factLabel}>{t('home.hero.secure')}</p>
-              </li>
-              <li className={styles.fact}>
-                <p className={styles.factValue}>{t('home.promises.track.title')}</p>
-                <p className={styles.factLabel}>{t('home.hero.track')}</p>
-              </li>
-            </ul>
           </div>
           <div className={styles.heroStage}>
             <ThemeImage src="hero-keys.webp" alt={t('home.hero.alt')} ratio={0.8} sizes="(min-width: 900px) 520px, 100vw" className={styles.heroImage} />
@@ -95,12 +79,21 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {collections.length ? (
+      {status === 'loading' || collections.length ? (
         <section className={styles.section}>
           <div className={styles.head}>
             <Heading eyebrow={t('home.categories.eyebrow')} title={t('home.categories.title')} />
           </div>
-          <ul className={styles.categories}>
+          <ul className={styles.categories} aria-busy={status === 'loading' ? 'true' : undefined}>
+            {status === 'loading'
+              ? [0, 1, 2, 3, 4].map((i) => (
+                  <li key={i}>
+                    <span className={styles.category}>
+                      <span className={styles.categoryPicture} />
+                    </span>
+                  </li>
+                ))
+              : null}
             {collections.map((c) => (
               <li key={c.id}>
                 <Link href={c.href} className={styles.category}>
@@ -114,28 +107,40 @@ export const HomePage = () => {
                 </Link>
               </li>
             ))}
-            <li>
-              <Link href="/collections/all/" className={styles.allTile}>
-                <span className={styles.allName}>{t('home.categories.all')}</span>
-                <span className={styles.allArrow} aria-hidden="true">
-                  <Arrow />
-                </span>
-              </Link>
-            </li>
+            {status === 'loading' ? null : (
+              <li>
+                <Link href="/collections/all/" className={styles.allTile}>
+                  <span className={styles.allName}>{t('home.categories.all')}</span>
+                  <span className={styles.allArrow} aria-hidden="true">
+                    <Arrow />
+                  </span>
+                </Link>
+              </li>
+            )}
           </ul>
         </section>
       ) : null}
 
       {newest.status === 'loading' || newest.products.length ? (
-      <section className={styles.section}>
-        <div className={styles.head}>
-          <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} />
-          <Link href="/collections/all/?sort=newest" className={styles.viewAll}>
-            {t('home.newest.all')} <Arrow />
-          </Link>
+        <section className={styles.section}>
+          <div className={styles.head}>
+            <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} />
+            <Link href="/collections/all/?sort=newest" className={styles.viewAll}>
+              {t('home.newest.all')} <Arrow />
+            </Link>
+          </div>
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={8} wide /> : <ProductGrid products={newest.products} wide />}
+        </section>
+      ) : null}
+
+      {top.status === 'loading' ? (
+        <div className={styles.spotlightWrap} aria-busy="true">
+          <div className={styles.spotlight}>
+            <div className={styles.spotlightStage}>
+              <div className={styles.spotlightFrame} />
+            </div>
+          </div>
         </div>
-        {newest.status === 'loading' ? <GridPlaceholder label={t('home.newest.title')} count={4} /> : <ProductGrid products={newest.products} wide />}
-      </section>
       ) : null}
 
       {spotlit ? (
@@ -171,7 +176,7 @@ export const HomePage = () => {
             <h2 id="home-promo-sound" className={styles.promoTitle}>
               {t('home.promos.sound.title')}
             </h2>
-            <Link href="/collections/all/?sort=newest" className={styles.button}>
+            <Link href="/collections/all/" className={styles.button}>
               {t('home.promos.sound.action')} <Arrow />
             </Link>
           </div>
@@ -189,7 +194,7 @@ export const HomePage = () => {
             <h2 id="home-promo-light" className={styles.promoTitle}>
               {t('home.promos.light.title')}
             </h2>
-            <Link href="/collections/all/" className={styles.volt}>
+            <Link href="/collections/all/?sort=newest" className={styles.volt}>
               {t('home.promos.light.action')} <Arrow />
             </Link>
           </div>
@@ -235,15 +240,15 @@ export const HomePage = () => {
       </section>
 
       {picks.status === 'loading' || picks.products.length ? (
-      <section className={styles.section}>
-        <div className={styles.head}>
-          <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} />
-          <Link href="/collections/all/" className={styles.viewAll}>
-            {t('home.picks.all')} <Arrow />
-          </Link>
-        </div>
-        {picks.status === 'loading' ? <GridPlaceholder label={t('home.picks.title')} count={4} /> : <ProductGrid products={picks.products} wide />}
-      </section>
+        <section className={styles.section}>
+          <div className={styles.head}>
+            <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} />
+            <Link href="/collections/all/" className={styles.viewAll}>
+              {t('home.picks.all')} <Arrow />
+            </Link>
+          </div>
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} wide /> : <ProductGrid products={picks.products} wide />}
+        </section>
       ) : null}
 
       <div className={styles.signupWrap}>
@@ -258,7 +263,7 @@ export const HomePage = () => {
             </h2>
             <p className={styles.signupBody}>{t('home.signup.body')}</p>
           </div>
-          <Link href="/account/" className={styles.primary}>
+          <Link href="/register/" className={styles.primary}>
             {t('home.signup.action')} <Arrow />
           </Link>
         </section>

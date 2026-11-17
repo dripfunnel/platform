@@ -5,8 +5,6 @@ const primaryBase = clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 
 
 export const shop = {
   badge: clsx('py-0.75 px-2 absolute top-2.5 left-2.5 rounded-[6px] bg-ink text-bg font-mono text-[11px] font-medium tracking-[0.06em] uppercase'),
-  band: clsx('group/shop-band pt-10 pr-4 pb-0 pl-4 flex box-border w-[min(100%,1240px)] flex-col gap-y-4 gap-x-4 mx-auto min-[900px]:pt-14 min-[900px]:pr-8 min-[900px]:pb-0 min-[900px]:pl-8'),
-  bandHead: clsx('flex items-baseline justify-between gap-y-3 gap-x-3'),
   card: clsx('group/shop-card relative flex flex-1 min-w-0 flex-col gap-y-2 p-2.5 border border-line rounded-card bg-surface [transition:border-color_200ms_ease,transform_200ms_ease] hover:border-ink hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 min-[900px]:p-3'),
   cardImage: clsx('block w-full h-full object-cover [transition:transform_400ms_ease] group-hover/shop-card:scale-[1.03] motion-reduce:group-hover/shop-card:scale-100'),
   cardLink: clsx('flex flex-col gap-y-3 text-ink no-underline focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px] rounded-[10px]'),
