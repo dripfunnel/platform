@@ -12,6 +12,7 @@ import {
   selectOurAccount,
   selectOurAccounts,
   selectOurMessaging,
+  selectPartnerName,
   updateDfMessaging,
   updateOurAccountTest,
   updateOurSmsRoute,
@@ -250,7 +251,7 @@ export const createPlatformMessagingService = ({ sql, staff, facts, activity, se
   }
 
   const asStaff = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, { caller: { kind: 'staff', staffId: staff.id } }, work)
-  const partnerName = async (tx: ScopedSql, partnerId: string) => (await tx<{ name: string }[]>`select name from partner where id = ${partnerId}`)[0]?.name ?? null
+  const partnerName = (tx: ScopedSql, partnerId: string) => selectPartnerName(tx, partnerId)
 
   /** Admin's two switches for a partner; null for one that doesn't exist. */
   const partnerSwitches = (partnerId: string): Promise<Record<MessagingKind, boolean> | null> =>

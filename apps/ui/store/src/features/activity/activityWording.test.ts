@@ -9,7 +9,7 @@ const apiSource = fileURLToPath(new URL('../../../../../api/src/', import.meta.u
 const roots = ['engine/modules', 'apis/store', 'saas', 'auth']
 
 // Codes recorded for the partner and admin consoles' logs only (LOGGING §6); a code not listed here needs wording.
-const consolePrefixes = ['partner.', 'partner_user.', 'plan.', 'staff.', 'staff_session.', 'setup_session.', 'core_rollout.', 'job.', 'branding.', 'report.', 'store_category.']
+const consolePrefixes = ['partner.', 'partner_user.', 'plan.', 'staff.', 'staff_session.', 'setup_session.', 'core_rollout.', 'job.', 'branding.', 'report.', 'store_category.', 'platform.']
 const consoleCodes = new Set([
   'support_session.link_reissued',
   'support_session.entered',

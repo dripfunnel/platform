@@ -80,3 +80,6 @@ export const updateDfMessaging = async (tx: ScopedSql, partnerId: string, kind: 
   if (kind === 'sms') await tx`update partner set df_sms_enabled = ${enabled} where id = ${partnerId}`
   else await tx`update partner set df_whatsapp_enabled = ${enabled} where id = ${partnerId}`
 }
+
+export const selectPartnerName = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
+  (await tx<{ name: string }[]>`select name from partner where id = ${partnerId}`)[0]?.name ?? null
