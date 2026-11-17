@@ -412,7 +412,8 @@ Classic, "Start from scratch", the category themes (#1537) and, until #1218, Mar
 *As built on #486* *(decided there)*:
 - The keys are `classic` (added after #486, from a published store's theme with its store-specific words, collection slugs and asset ids taken out) and `baseline` ("Start from scratch", the D1 look), and the gallery lists them in that order, then the rest by key (`market` until #1218 deletes it). `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
   `storefront_template` rows (DATA-MODEL §7.8) mirror it.
-- *Category themes (#1537):* `fashion` (Thread), `jewelry` (Aurum) and `beauty` (Glow), each built from baseline and
+- *Category themes (#1537):* `fashion` (Thread), `jewelry` (Aurum), `beauty` (Glow), `grocery` (Basket), `home` (Nest)
+  and `electronics` (Volt), each built from baseline and
   styled as it is (Tailwind class constants, below), with its own header, product card, home page and photos in
   `src/theme/media/` (§3.4 "Images"). Their words make no claim a store may not meet: the story bodies are placeholders.
 - `linen`, `concrete`, `bloom`, `circuit` and `atelier` were deleted on #1212 with their rows (migration 0381). A store that started from one keeps its key and its own theme; one that never built has no template files on a core released after that.
