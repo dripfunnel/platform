@@ -16,7 +16,7 @@ import { activityLog } from '#saas/activity/index'
 import { createPartnerSmsService, createPartnerWhatsAppService } from '#saas/partnerCredentials/index'
 import { createPlatformMessagingService } from '#saas/platformMessaging/index'
 import { codeChannelsFor } from '#saas/portalCodes/index'
-import { ourSmsFor, queueSms, savedOurSmsRoutes, smsAccountsFor, smsDeliveryFor, type PartnerSmsAccount } from '#saas/sms/index'
+import { ourSmsFor, queueSms, savedOurSmsRoutes, smsAccountsFor, smsDeliveryFor } from '#saas/sms/index'
 import { ourWhatsAppFor, savedOurWhatsApp, whatsappAccountsFor, whatsappSendsCodes } from '#saas/whatsapp/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -408,8 +408,8 @@ describe('isolation', () => {
     expect(ns.data?.smsAccounts).toEqual({ dripfunnel: false, routes: [{ provider: null }, { provider: null }], accounts: [] })
     await db.sql`update partner set df_sms_enabled = false where id = ${ids.bare}`
     const used: string[] = []
-    const sender = (c: PartnerSmsAccount) => ({ send: async (sms: OutgoingSms) => (used.push(`${c.provider === 'twilio' ? c.accountSid : c.provider}:${sms.to}`), { providerId: 'x' }) })
-    const senders: SmsSenders = { msg91: sender, twilio: sender, sns: sender }
+    const sender = (name: string) => ({ send: async (sms: OutgoingSms) => (used.push(`${name}:${sms.to}`), { providerId: 'x' }) })
+    const senders: SmsSenders = { msg91: () => sender('msg91'), twilio: (c) => sender(c.accountSid), sns: () => sender('sns') }
     const at = new Date((await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`)[0]?.now ?? now)
     const queue = (partnerId: string, to: string) => withSystemScope(db.sql, (tx) => queueSms(tx, { partnerId, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload: { message: 'order.confirmed', to, brand: 'Shop', vars: { order: 'X-1' }, expiresAt: null } }))
     await queue(ids.kl, '+16145550111')
