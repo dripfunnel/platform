@@ -12,7 +12,7 @@ const encoder = new TextEncoder()
 
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
-const sha256 = async (data: string) => hex(await crypto.subtle.digest('SHA-256', encoder.encode(data)))
+const sha256 = async (data: string | Uint8Array<ArrayBuffer>) => hex(await crypto.subtle.digest('SHA-256', typeof data === 'string' ? encoder.encode(data) : data))
 
 const hmac = async (key: ArrayBuffer | Uint8Array<ArrayBuffer>, data: string) => {
   const imported = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
@@ -28,7 +28,7 @@ export const amzDate = (at: Date) => at.toISOString().replace(/[-:]/g, '').repla
  */
 export const authorization = async (
   key: SigningKey,
-  request: { method: string; path: string; query?: string; headers: Record<string, string>; body: string },
+  request: { method: string; path: string; query?: string; headers: Record<string, string>; body: string | Uint8Array<ArrayBuffer> },
 ): Promise<string> => {
   const date = request.headers['x-amz-date']
   if (!date) throw new Error('x-amz-date must be signed')

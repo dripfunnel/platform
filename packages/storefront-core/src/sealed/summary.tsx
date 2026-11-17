@@ -4,7 +4,8 @@ import { answerText } from '../cart/answers'
 import type { Cart, LineAnswer } from '../cart/cart'
 import type { Order } from '../orders/order'
 import type { Translate } from '../platform/i18n/i18n'
-import { resized } from '../platform/media/media'
+import { frameAddress, resized } from '../platform/media/media'
+import { studioBasePath } from '../platform/render/studio'
 import { useOptionalStorefront } from '../platform/store/context'
 import { formatMoney, isZero, type Money } from '../pricing/money'
 import { Sealed } from './Sealed'
@@ -59,7 +60,9 @@ const figuresOf = (props: OrderSummaryProps): Figures => {
 export const OrderSummary = (props: OrderSummaryProps) => {
   const { locale, t, className } = props
   const f = figuresOf(props)
-  const live = useOptionalStorefront()?.mode === 'live'
+  const mode = useOptionalStorefront()?.mode
+  // As <Image> addresses it: resized live, under the frame's path in the studio (AI-STUDIO §3 step 6).
+  const photoSrc = (photo: string) => (mode === 'live' ? resized(photo, 320) : mode === 'studio' ? frameAddress(photo, studioBasePath(import.meta.url)) : photo)
   const money = (m: Money) => formatMoney(m, locale)
   const delivery = f.delivery === 'later' ? t('summary.deliveryAtCheckout') : f.delivery === 'next' ? t('summary.deliveryNext') : f.delivery ? (isZero(f.delivery) ? t('summary.free') : money(f.delivery)) : null
   return (
@@ -69,7 +72,7 @@ export const OrderSummary = (props: OrderSummaryProps) => {
           <ul part="lines">
             {f.lines.map((l) => (
               <li key={l.key} part="line">
-                {l.photo ? <img part="photo" src={live ? resized(l.photo, 320) : l.photo} alt="" width={56} height={70} loading="lazy" decoding="async" /> : <span />}
+                {l.photo ? <img part="photo" src={photoSrc(l.photo)} alt="" width={56} height={70} loading="lazy" decoding="async" /> : <span />}
                 <span>
                   <span part="name">{t('summary.quantity', { name: l.name, quantity: l.quantity })}</span>
                   {l.versionName ? <span part="version"> {l.versionName}</span> : null}

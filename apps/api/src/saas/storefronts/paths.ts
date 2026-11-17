@@ -13,6 +13,9 @@ const themePaths = [
 /** The theme: what a publish or a template change writes and replaces as a whole; anything else under src/theme stays. */
 export const isThemePath = (path: string): boolean => themePaths.some((p) => p.test(path))
 
+/** One of the theme's own images (ARCHITECTURE §3.4 "Images"): bytes, so it travels as base64; only a template brings one. */
+export const isThemeMediaPath = (path: string): boolean => /^src\/theme\/media\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}\.(?:png|jpg|jpeg|webp)$/.test(path)
+
 /** The locked workflow's folder (LIVE-SHOP.md §3 step 4): written once, with the repo, and never pushed to. */
 export const isLockedPath = (path: string): boolean => path.toLowerCase().startsWith('.github/')
 

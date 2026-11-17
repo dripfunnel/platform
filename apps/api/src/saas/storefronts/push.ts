@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { deletePendingPush, finishPush, insertPush, selectPush, selectStoreRepoForUpdate, setPushCommit, type PushRow, type RepoState } from '#db/scoped/storefronts'
 import type { RepoChange, StoreRepos } from '#integrations/github/index'
-import { coreVersionPattern, isLockedPath, isRepoPath, isThemePath } from './paths'
+import { coreVersionPattern, isLockedPath, isRepoPath, isThemeMediaPath, isThemePath } from './paths'
 
 // The push API (storefront AI-STUDIO.md §6, LIVE-SHOP.md §4 step 9): one squashed commit on `main` per call, with a
 // message the platform writes, fast-forward only. Callers: the publish pipeline, the upgrade bot, a template change.
@@ -16,6 +16,12 @@ export interface PushDeps {
 
 const file = z.strictObject({ path: z.string().refine(isRepoPath, 'not a plain relative path'), content: z.string() })
 export type RepoFile = z.infer<typeof file>
+
+// A theme image (ARCHITECTURE §3.4 "Images"): base64, with its git blob id, so main is sent only bytes it doesn't hold.
+const blob = z.string().regex(/^[0-9a-f]{40}$/)
+const image = z.strictObject({ path: z.string().refine(isThemeMediaPath), content: z.string(), encoding: z.literal('base64'), blob })
+export type RepoImage = z.infer<typeof image>
+export type RemovedImage = { path: string; blob: string }
 
 const reason = z.discriminatedUnion('kind', [
   // A design went live: its whole theme, never a merchant's words in the message.
@@ -33,6 +39,9 @@ const request = z.strictObject({
   reason,
   files: z.array(file).max(1000),
   removed: z.array(z.string().refine(isRepoPath)).max(1000).default([]),
+  media: z.array(image).max(100).default([]),
+  // Images the draft's history removed: main loses one only while it still holds those very bytes.
+  mediaRemoved: z.array(z.strictObject({ path: z.string().refine(isThemeMediaPath), blob })).max(1000).default([]),
 })
 
 export type PushRefusal = 'INVALID' | 'NOT_READY' | 'MAIN_MOVED' | 'PATH_NOT_ALLOWED'
@@ -49,8 +58,8 @@ const messageOf = (r: PushReason): string => {
   }
 }
 
-/** Builds the new tree from the parent's; `paths` lists the parent's files when the plan needs them. */
-export type TreePlan = (paths: () => Promise<string[]>) => Promise<{ replace: boolean; changes: RepoChange[] }>
+/** Builds the new tree from the parent's; `paths` lists the parent's files, and `blobs` them with their git blob ids, when the plan needs them. */
+export type TreePlan = (paths: () => Promise<string[]>, blobs: () => Promise<{ path: string; sha: string }[]>) => Promise<{ replace: boolean; changes: RepoChange[] }>
 
 /**
  * One commit on `main` from the store's recorded head, once per `key`. Retried after a crash, it rebuilds the same commit
@@ -84,7 +93,10 @@ export const commitToMain = async (deps: PushDeps, storeId: string, key: string,
   if (head !== push.parent_sha) return refuse()
 
   const parentTree = await deps.repos.treeOf(repo, push.parent_sha)
-  const { replace, changes } = await plan(() => deps.repos.paths(repo, parentTree))
+  const { replace, changes } = await plan(
+    () => deps.repos.paths(repo, parentTree),
+    () => deps.repos.blobs(repo, parentTree),
+  )
   const tree = await deps.repos.writeTree(repo, replace ? null : parentTree, changes)
   const commit = await deps.repos.commit(repo, { tree, parent: push.parent_sha, message, at: push.created_at })
   await withSystemScope(deps.sql, (tx) => setPushCommit(tx, storeId, key, commit))
@@ -97,17 +109,22 @@ export const commitToMain = async (deps: PushDeps, storeId: string, key: string,
 export const pushToRepo = async (deps: PushDeps, input: unknown): Promise<PushResult> => {
   const parsed = request.safeParse(input)
   if (!parsed.success) return { ok: false, code: 'INVALID' }
-  const { storeId, key, reason: why, files, removed } = parsed.data
+  const { storeId, key, reason: why, files, removed, media, mediaRemoved } = parsed.data
   const paths = [...files.map((f) => f.path), ...removed]
   if (paths.some(isLockedPath)) return { ok: false, code: 'PATH_NOT_ALLOWED' }
   const theme = why.kind !== 'upgrade'
   // ARCHITECTURE §3.4: a theme push writes only the allowlist; the platform's own may write anywhere but .github.
   if (theme && (removed.length > 0 || !files.every((f) => isThemePath(f.path)))) return { ok: false, code: 'PATH_NOT_ALLOWED' }
+  if (!theme && (media.length > 0 || mediaRemoved.length > 0)) return { ok: false, code: 'PATH_NOT_ALLOWED' }
 
   const written = new Set(files.map((f) => f.path))
-  const plan: TreePlan = async (parentPaths) => {
+  const plan: TreePlan = async (parentPaths, parentBlobs) => {
     const deleted = theme ? (await parentPaths()).filter((p) => isThemePath(p) && !written.has(p)) : removed
-    return { replace: false, changes: [...deleted.map((path) => ({ path, content: null })), ...files] }
+    const there = media.length > 0 || mediaRemoved.length > 0 ? new Map((await parentBlobs()).map((b) => [b.path, b.sha])) : new Map<string, string>()
+    const kept = new Set(media.map((m) => m.path))
+    const images = media.filter((m) => there.get(m.path) !== m.blob).map(({ path, content, encoding }) => ({ path, content, encoding }))
+    const gone = mediaRemoved.filter((r) => !kept.has(r.path) && there.get(r.path) === r.blob).map((r) => ({ path: r.path, content: null }))
+    return { replace: false, changes: [...deleted.map((path) => ({ path, content: null })), ...files, ...images, ...gone] }
   }
   return commitToMain(deps, storeId, key, messageOf(why), ['ready'], plan)
 }

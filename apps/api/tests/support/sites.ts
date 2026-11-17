@@ -60,8 +60,9 @@ export const fakeSites = (): FakeSites => {
 }
 
 /** Puts a JSON or text file as the release workflow would. */
-export const putText = async (sites: FakeSites, key: string, text: string, contentType?: string) => {
-  const bytes = new TextEncoder().encode(text)
+export const putBytes = async (sites: FakeSites, key: string, bytes: Uint8Array<ArrayBuffer>, contentType?: string) => {
   await sites.put(key, bytes.buffer, { sha256: hex(await sha256(bytes)), ...(contentType ? { httpMetadata: { contentType } } : {}) })
   return hex(await sha256(bytes))
 }
+
+export const putText = (sites: FakeSites, key: string, text: string, contentType?: string) => putBytes(sites, key, new TextEncoder().encode(text), contentType)

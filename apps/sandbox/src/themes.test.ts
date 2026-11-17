@@ -44,7 +44,7 @@ const walk = (dir: string, rel = ''): string[] =>
 const themeFiles = (key: string): ThemeFile[] =>
   walk(join(themesDir, key))
     .filter((path) => path !== 'template.json')
-    .map((path) => ({ path, content: readFileSync(join(themesDir, key, path), 'utf8') }))
+    .map((path): ThemeFile => (path.startsWith('src/theme/media/') ? { path, content: readFileSync(join(themesDir, key, path)).toString('base64'), encoding: 'base64' } : { path, content: readFileSync(join(themesDir, key, path), 'utf8') }))
 
 const brand = { name: 'Northstar Linen', tagline: 'Linen clothes, made slowly', email: 'hello@northstar.example', phone: '+91 98450 22113', address: ['12 Residency Road', 'Bengaluru'], socialLinks: [] }
 // The seed stores offer English only (en-IN and en-US), so the themes are written in English (card #486).
