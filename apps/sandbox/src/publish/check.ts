@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
-import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
+import type { Browser, BrowserContext, Frame, Page, Route } from 'playwright-core'
 import { consentStorageKey, pageHeaders, settleMs, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateTheme, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
@@ -138,17 +138,26 @@ const navigating = /Execution context was destroyed|Frame was detached/i
 const reads = 3
 
 /**
- * A page that navigates while it is read has no state to read yet: wait for the new one to load and read it again, twice at most
- * (a retry can start before the new page has committed). A page that keeps moving is that page's failure (#1539), never an exception
- * that ends the whole check.
+ * A page that navigates while it is read has no state to read yet: wait until the new page has committed and loaded, then read
+ * it again, up to three reads. The wait starts from a listener set before the read, so a retry never runs on the old page, which
+ * the browser reports as destroyed before the new one has committed. A page that keeps moving is that page's failure (#1539),
+ * never an exception that ends the whole check.
  */
 const whenStill = async <T>(page: Page, net: Network, read: () => Promise<T>): Promise<T | null> => {
   for (let attempt = 0; attempt < reads; attempt += 1) {
+    let moved: () => void = () => undefined
+    const committed = new Promise<void>((resolve) => (moved = resolve))
+    const listen = (frame: Frame) => frame === page.mainFrame() && moved()
+    page.on('framenavigated', listen)
     try {
       return await read()
     } catch (e) {
       if (!(e instanceof Error) || !navigating.test(e.message)) throw e
+      // A frame that was only detached never commits another document, so the wait is bounded.
+      await Promise.race([committed, page.waitForTimeout(navigationMs)])
       await page.waitForLoadState('networkidle', { timeout: navigationMs }).catch(() => undefined)
+    } finally {
+      page.off('framenavigated', listen)
     }
   }
   net.errors.push('It kept navigating while loading.')
