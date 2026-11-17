@@ -54,7 +54,7 @@ const appPaymentOf = (ctx: ShopContext, operation: string, input: { scheme: stri
 
 const checkoutOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
-  const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
+  const couriers = ctx.couriers ? await ctx.couriers.forStore(shopper.context.storeId) : null
   return createCheckout({
     sql,
     context: shopper.context,

@@ -2,7 +2,8 @@ import type { Money } from './money'
 import type { Pin } from './pin'
 
 // The one contract every courier adapter keeps (THIRD-PARTY-ACCESS §3.2): Shiprocket in India, and USPS, UPS and
-// FedEx through EasyPost in the US, each on the partner's own account (#272, #337).
+// FedEx through EasyPost in the US. Shiprocket goes through the store's own login (#1489, in place of the partner's, #272);
+// EasyPost's account is not connectable yet.
 
 export const courierProviders = ['shiprocket', 'usps', 'ups', 'fedex'] as const
 export type CourierProvider = (typeof courierProviders)[number]
@@ -106,7 +107,7 @@ export interface CourierGateway {
   readHook: (account: CourierAccountKind, hook: CourierHook) => Promise<TrackingEvent[] | null>
 }
 
-/** The courier's login or key was refused: the partner's account needs fixing, not the parcel. */
+/** The courier's login or key was refused: the store's account needs fixing, not the parcel. */
 export class CourierRejected extends Error {
   override name = 'CourierRejected'
 }
@@ -130,12 +131,18 @@ export const bookingDeadlineMs = 20_000
 /** A label file's cap: a courier's PDF is tens of kilobytes. */
 export const maxLabelBytes = 2 * 1024 * 1024
 
-/** A partner's couriers: which accounts it has connected, and a gateway quoting through them (#275 stores them). */
-export interface PartnerCouriers {
+/** A store's couriers: the accounts it goes through (its own Shiprocket login once connected, #1489), and a gateway quoting through them. */
+export interface StoreCouriers {
   accounts: ReadonlySet<CourierAccountKind>
+  /** The accounts a merchant can connect itself: Shiprocket's. */
+  connectable: ReadonlySet<CourierAccountKind>
   gateway: CourierGateway
 }
 
+/** Whether a login works at the courier, asked before it is kept. */
+export type LoginCheck = 'ok' | 'rejected' | 'unavailable'
+
 export interface CourierDirectory {
-  forPartner: (partnerId: string) => Promise<PartnerCouriers>
+  forStore: (storeId: string) => Promise<StoreCouriers>
+  check: (provider: CourierProvider, login: { email: string; password: string }, signal?: AbortSignal) => Promise<LoginCheck>
 }

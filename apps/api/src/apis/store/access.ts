@@ -40,7 +40,7 @@ export interface StoreContext extends Record<string, unknown> {
   host?: string
   /** Connect Shopify's app, or null where none is set up (CATALOG K7). */
   shopify?: ShopConnect | null
-  /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
+  /** The stores' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached. */
   couriers?: CourierDirectory | null
   /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
   billing?: (StripeApi & StoreBillingStripe) | null
