@@ -20,7 +20,7 @@ const Head = ({ eyebrow, title, more }: { eyebrow: string; title: string; more?:
   </div>
 )
 
-const Promise = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
+const PromiseItem = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
   <li className={styles.promise}>
     <svg className={styles.promiseIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       {icon}
@@ -63,7 +63,7 @@ export const HomePage = () => {
               <Link href="/collections/all/?sort=newest" className={styles.button}>
                 {t('home.hero.shop')} <Arrow />
               </Link>
-              <Link href="/collections/all/?sort=best-selling" className={styles.buttonLight}>
+              <Link href="/collections/all/" className={styles.buttonLight}>
                 {t('home.hero.favourites')}
               </Link>
             </div>
@@ -194,7 +194,7 @@ export const HomePage = () => {
             eyebrow={t('home.picks.eyebrow')}
             title={t('home.picks.title')}
             more={
-              <Link href="/collections/all/?sort=best-selling" className={styles.more}>
+              <Link href="/collections/all/" className={styles.more}>
                 {t('home.picks.all')} <Arrow />
               </Link>
             }
@@ -205,7 +205,7 @@ export const HomePage = () => {
 
       <section className={styles.promises} aria-label={t('home.promises.label')}>
         <ul className={styles.promiseList}>
-          <Promise
+          <PromiseItem
             icon={
               <>
                 <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />
@@ -215,7 +215,7 @@ export const HomePage = () => {
             title={t('home.promises.secure.title')}
             body={t('home.promises.secure.body')}
           />
-          <Promise
+          <PromiseItem
             icon={
               <>
                 <path d="M3.5 7.5h10v9h-10z" />
@@ -227,8 +227,8 @@ export const HomePage = () => {
             title={t('home.promises.track.title')}
             body={t('home.promises.track.body')}
           />
-          <Promise icon={<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />} title={t('home.promises.save.title')} body={t('home.promises.save.body')} />
-          <Promise
+          <PromiseItem icon={<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />} title={t('home.promises.save.title')} body={t('home.promises.save.body')} />
+          <PromiseItem
             icon={
               <>
                 <path d="M4.5 12a7.5 7.5 0 1115 0v4.5a2 2 0 01-2 2h-1.5v-6h3.5" />

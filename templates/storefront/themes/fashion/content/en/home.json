@@ -54,7 +54,7 @@
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely at checkout"
+      "body": "Checkout over an encrypted connection"
     },
     "track": {
       "title": "Track your order",
@@ -70,9 +70,9 @@
     }
   },
   "picks": {
-    "eyebrow": "Top picks",
-    "title": "Customer",
-    "accent": "favourites",
+    "eyebrow": "Keep browsing",
+    "title": "More to",
+    "accent": "explore",
     "all": "View all products"
   },
   "featured": {
