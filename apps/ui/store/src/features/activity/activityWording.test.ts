@@ -9,14 +9,28 @@ const apiSource = fileURLToPath(new URL('../../../../../api/src/', import.meta.u
 const roots = ['engine/modules', 'apis/store', 'saas', 'auth']
 
 // Codes recorded for the partner and admin consoles' logs only (LOGGING §6); a code not listed here needs wording.
-const consolePrefixes = ['partner.', 'partner_user.', 'plan.', 'staff.', 'staff_session.', 'impersonation.', 'setup_session.', 'core_rollout.', 'job.', 'branding.', 'report.', 'store_category.']
+const consolePrefixes = ['partner.', 'partner_user.', 'plan.', 'staff.', 'staff_session.', 'setup_session.', 'core_rollout.', 'job.', 'branding.', 'report.', 'store_category.']
 const consoleCodes = new Set([
   'support_session.link_reissued',
+  'support_session.entered',
+  'impersonation.started',
+  'impersonation.extended',
+  'store.crossing_refused',
+  'storefront.core_pinned',
+  'storefront.baseline_served',
+  'storefront.build_refused',
+  'storefront.build_started',
+  'storefront.build_credentials_issued',
+  'storefront.created',
+  'storefront.create_failed',
+  'storefront.publish_failed',
+  'storefront.published',
+  'storefront.rolled_back',
+  'storefront.publish_refused',
+  'storefront.repo_publish',
   'store.trial_extended',
   'store.limit_override_added',
   'store.limit_override_removed',
-  'store.suspended',
-  'store.restored',
   'store.archived',
   'store.invitation_resent',
   'store.setup_step_retried',
@@ -38,13 +52,18 @@ const sourceFiles = (dir: string): string[] =>
     return path.endsWith('.ts') && !path.endsWith('.test.ts') ? [path] : []
   })
 
-/** Every `xAudit = { key: 'thing.did' }` constant, which is where the API names its action codes. */
+/** The API's `xAudit = { key: 'thing.did' }` constants, and codes written as bare strings where an entry is built. */
 const recordedCodes = (): string[] => {
   const codes = new Set<string>()
   for (const root of roots) {
     for (const file of sourceFiles(join(apiSource, root))) {
-      for (const block of readFileSync(file, 'utf8').matchAll(/\w*[Aa]udit\w*\s*=\s*\{([^}]*)\}/g)) {
+      const source = readFileSync(file, 'utf8')
+      for (const block of source.matchAll(/\w*[Aa]udit\w*\s*=\s*\{([^}]*)\}/g)) {
         for (const code of (block[1] ?? '').matchAll(/:\s*'([a-z_]+\.[a-z_.]+)'/g)) if (code[1]) codes.add(code[1])
+      }
+      for (const bare of source.matchAll(/\baction:\s*'([a-z_]+\.[a-z_.]+)'|(?:systemEntry|entry|record|change)\([^()\n]*?,\s*'([a-z_]+\.[a-z_.]+)'/g)) {
+        const code = bare[1] ?? bare[2]
+        if (code) codes.add(code)
       }
     }
   }
