@@ -1,12 +1,10 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
-import { rejectionOf, whatsAppMessages, type WhatsAppMessage, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
+import { rejectionOf, whatsAppMessages, type WhatsAppAccountInput, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
 import { z } from 'zod'
 import { query } from './client'
 
 // Settings › Integrations, WhatsApp (#1505 on #1504's API): the partner's own WhatsApp Business account on Meta's Cloud
 // API, its switch, and whose account sends where Admin enabled DripFunnel's (#1544). The token comes back as its last four.
-
-export { whatsAppMessages, whatsAppShapes, type WhatsAppMessage, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
 
 const accountSchema = z.object({
   hint: z.string(),
@@ -61,16 +59,7 @@ export const loadWhatsApp = async (): Promise<WhatsAppStatus> =>
     )
   ).whatsAppAccount
 
-export type WhatsAppInput = {
-  accessToken: string
-  businessAccountId: string
-  phoneNumberId: string
-  language: string
-  /** A blank name is a message the partner sends without WhatsApp. */
-  templates: { message: WhatsAppMessage; name: string }[]
-}
-
-export const saveWhatsApp = async (input: WhatsAppInput): Promise<WhatsAppResult> =>
+export const saveWhatsApp = async (input: WhatsAppAccountInput): Promise<WhatsAppResult> =>
   resultOf(
     (
       await query(

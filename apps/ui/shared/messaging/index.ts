@@ -24,6 +24,32 @@ export const smsShapes = {
   entityId: /^\d{10,30}$/,
 }
 
+export type SmsField = Exclude<keyof typeof smsShapes, 'templateId'>
+/** Typed as passwords, never shown again once saved. */
+export const smsSecretFields: readonly SmsField[] = ['authKey', 'authToken', 'secretAccessKey']
+
+type SmsTemplates = { message: SmsMessage; templateId: string }[]
+/** An account as typed, ready to send: India's part of SNS (sender id, entity id, templates) is all or none. */
+export type SmsAccountInput =
+  | { provider: 'msg91'; authKey: string; templates: SmsTemplates }
+  | { provider: 'twilio'; accountSid: string; authToken: string; messagingServiceSid: string }
+  | { provider: 'sns'; accessKeyId: string; secretAccessKey: string; region: string; senderId?: string; entityId?: string; templates?: SmsTemplates }
+
+/** The provider's form as typed, or null while a field isn't in its shape yet. */
+export const smsAccountInput = (provider: SmsProvider, values: Partial<Record<SmsField, string>>, templateIds: Partial<Record<SmsMessage, string>>): SmsAccountInput | null => {
+  const typed = (f: SmsField) => values[f]?.trim() ?? ''
+  const ok = (f: SmsField) => smsShapes[f].test(typed(f))
+  const templates = smsMessages.map((message) => ({ message, templateId: templateIds[message]?.trim() ?? '' }))
+  const allTemplates = templates.every((t) => smsShapes.templateId.test(t.templateId))
+  if (provider === 'msg91') return ok('authKey') && allTemplates ? { provider, authKey: typed('authKey'), templates } : null
+  if (provider === 'twilio')
+    return ok('accountSid') && ok('authToken') && ok('messagingServiceSid') ? { provider, accountSid: typed('accountSid'), authToken: typed('authToken'), messagingServiceSid: typed('messagingServiceSid') } : null
+  const indiaBlank = typed('senderId') === '' && typed('entityId') === '' && templates.every((t) => t.templateId === '')
+  if (!(ok('accessKeyId') && ok('secretAccessKey') && ok('region') && (indiaBlank || (ok('senderId') && ok('entityId') && allTemplates)))) return null
+  const sns = { provider, accessKeyId: typed('accessKeyId'), secretAccessKey: typed('secretAccessKey'), region: typed('region') }
+  return indiaBlank ? sns : { ...sns, senderId: typed('senderId'), entityId: typed('entityId'), templates }
+}
+
 /** A saved SMS account as either API shows it back: never its secret. */
 export interface SavedSmsAccount {
   provider: SmsProvider
@@ -52,6 +78,28 @@ export const whatsAppShapes = {
   token: /^[A-Za-z0-9._-]{20,2048}$/,
   language: /^[a-z]{2,3}(_[A-Za-z]{2,4})?$/,
   template: /^[a-z0-9_]{1,512}$/,
+}
+
+export type WhatsAppAccountInput = {
+  accessToken: string
+  businessAccountId: string
+  phoneNumberId: string
+  language: string
+  /** A blank name is a message sent without WhatsApp. */
+  templates: { message: WhatsAppMessage; name: string }[]
+}
+
+/** The form as typed, or null while a field isn't in Meta's shape yet. */
+export const whatsAppAccountInput = (values: Omit<WhatsAppAccountInput, 'templates'>, names: Partial<Record<WhatsAppMessage, string>>): WhatsAppAccountInput | null => {
+  const typed = { businessAccountId: values.businessAccountId.trim(), phoneNumberId: values.phoneNumberId.trim(), accessToken: values.accessToken.trim(), language: values.language.trim() }
+  const templates = whatsAppMessages.map((message) => ({ message, name: names[message]?.trim() ?? '' }))
+  const shaped =
+    whatsAppShapes.id.test(typed.businessAccountId) &&
+    whatsAppShapes.id.test(typed.phoneNumberId) &&
+    whatsAppShapes.token.test(typed.accessToken) &&
+    whatsAppShapes.language.test(typed.language) &&
+    templates.every((t) => t.name === '' || whatsAppShapes.template.test(t.name))
+  return shaped ? { ...typed, templates } : null
 }
 
 /** What Meta refused: the token, the number, the business account, or the template for one message. */

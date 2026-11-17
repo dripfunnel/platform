@@ -7,17 +7,13 @@ import {
   setWhatsAppChoice,
   setWhatsAppEnabled,
   testWhatsApp,
-  whatsAppMessages,
-  whatsAppShapes,
   type WhatsAppAccount,
   type WhatsAppChoice,
-  type WhatsAppMessage,
   type WhatsAppRefusal,
-  type WhatsAppRejection,
   type WhatsAppResult,
   type WhatsAppStatus,
 } from '../../api/whatsapp'
-import { servesCodes } from '@dripfunnel/shared/messaging'
+import { servesCodes, whatsAppAccountInput, whatsAppMessages, type WhatsAppMessage, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
 import { fill, locale, messages } from '../../messages'
 
 const words = messages.settings.integrations.whatsapp
@@ -52,21 +48,15 @@ const SaveDialog = ({ current, needsCode, onDone, onCancel }: { current: WhatsAp
     return { 'code.portal': named['code.portal'] ?? '', 'cart.reminder': named['cart.reminder'] ?? '', 'cart.reminder_code': named['cart.reminder_code'] ?? '' }
   })
   const [error, setError] = useState<string | null>(null)
-  const typed = { businessAccountId: businessAccountId.trim(), phoneNumberId: phoneNumberId.trim(), accessToken: token.trim(), language: language.trim() }
-  const names = whatsAppMessages.map((message) => ({ message, name: templates[message].trim() }))
-  const shaped =
-    whatsAppShapes.id.test(typed.businessAccountId) &&
-    whatsAppShapes.id.test(typed.phoneNumberId) &&
-    whatsAppShapes.token.test(typed.accessToken) &&
-    whatsAppShapes.language.test(typed.language) &&
-    names.every((t) => t.name === '' || whatsAppShapes.template.test(t.name))
-  const blocked = !shaped ? words.dialog.incomplete : needsCode && templates['code.portal'].trim() === '' ? words.dialog.codeTemplateNeeded : null
+  const input = whatsAppAccountInput({ businessAccountId, phoneNumberId, accessToken: token, language }, templates)
+  const blocked = !input ? words.dialog.incomplete : needsCode && templates['code.portal'].trim() === '' ? words.dialog.codeTemplateNeeded : null
   const save = () => {
+    if (!input) return
     setError(null)
-    saveWhatsApp({ ...typed, templates: names }).then(
+    saveWhatsApp(input).then(
       (r) => {
         if (r.ok) return onDone()
-        setError(r.reason === 'NO_CODE_TEMPLATE' ? words.dialog.codeTemplateNeeded : refusalText(r, { language: typed.language, templates: Object.fromEntries(names.map((t) => [t.message, t.name])) }))
+        setError(r.reason === 'NO_CODE_TEMPLATE' ? words.dialog.codeTemplateNeeded : refusalText(r, { language: input.language, templates: Object.fromEntries(input.templates.map((t) => [t.message, t.name])) }))
       },
       () => setError(words.toasts.failed),
     )

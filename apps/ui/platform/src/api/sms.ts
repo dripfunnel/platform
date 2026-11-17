@@ -1,12 +1,10 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
-import { smsProviders, smsRoutes, type SmsMessage, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
+import { smsProviders, smsRoutes, type SmsAccountInput, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
 import { z } from 'zod'
 import { query } from './client'
 
 // Settings › Integrations, SMS (#1018 on #1017's API): the partner's own MSG91, Twilio and AWS SNS accounts, the account for
 // each route (DripFunnel's too, where Admin enabled it, #1544), and its switch. A secret comes back as its last four.
-
-export { routeProviders, smsMessages, smsProviders, smsRoutes, smsShapes, type SmsMessage, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
 
 const accountSchema = z.object({
   provider: z.enum(smsProviders),
@@ -54,14 +52,7 @@ const resultOf = (r: z.infer<typeof resultSchema> | undefined, field: string): S
 export const loadSms = async (): Promise<SmsStatus> =>
   (await query(`{ smsAccounts { enabled dripfunnel routes { route provider dripfunnel sender } accounts { provider hint status lastTestedAt templatesComplete } } }`, z.object({ smsAccounts: statusSchema }))).smsAccounts
 
-type Templates = { message: SmsMessage; templateId: string }[]
-export type SmsInput =
-  | { provider: 'msg91'; authKey: string; templates: Templates }
-  | { provider: 'twilio'; accountSid: string; authToken: string; messagingServiceSid: string }
-  /** India's part (sender id, entity id, templates) is all or none: left out, the account sends outside India only. */
-  | { provider: 'sns'; accessKeyId: string; secretAccessKey: string; region: string; senderId?: string; entityId?: string; templates?: Templates }
-
-export const saveSms = async (input: SmsInput): Promise<SmsResult> =>
+export const saveSms = async (input: SmsAccountInput): Promise<SmsResult> =>
   resultOf(
     (
       await query(

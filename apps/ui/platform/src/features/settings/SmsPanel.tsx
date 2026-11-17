@@ -3,26 +3,31 @@ import { useEffect, useId, useState } from 'react'
 import {
   loadSms,
   removeSms,
-  routeProviders,
   saveSms,
   setSmsEnabled,
   setSmsRoute,
+  testSms,
+  type SmsAccount,
+  type SmsPick,
+  type SmsRefusal,
+  type SmsResult,
+  type SmsStatus,
+} from '../../api/sms'
+import {
+  accountForRoute,
+  routeProviders,
+  senderOf,
+  servesRoute,
+  smsAccountInput,
   smsMessages,
   smsProviders,
   smsRoutes,
-  smsShapes,
-  testSms,
-  type SmsAccount,
-  type SmsInput,
+  smsSecretFields,
+  type SmsField,
   type SmsMessage,
-  type SmsPick,
   type SmsProvider,
-  type SmsRefusal,
-  type SmsResult,
   type SmsRoute,
-  type SmsStatus,
-} from '../../api/sms'
-import { accountForRoute, senderOf, servesRoute } from '@dripfunnel/shared/messaging'
+} from '@dripfunnel/shared/messaging'
 import { fill, locale, messages } from '../../messages'
 
 const words = messages.settings.integrations.sms
@@ -31,7 +36,6 @@ const look: Record<SmsAccount['status'], [StatusTone, StatusIconName]> = { ok: [
 
 type Loaded = { state: 'loading' } | { state: 'error' } | { state: 'ready'; status: SmsStatus }
 type Open = { kind: 'save' | 'remove'; provider: SmsProvider } | { kind: 'route'; route: SmsRoute } | { kind: 'on' | 'off' } | null
-type Field = 'authKey' | 'accountSid' | 'authToken' | 'messagingServiceSid' | 'accessKeyId' | 'secretAccessKey' | 'region' | 'senderId' | 'entityId'
 
 const name = (provider: SmsProvider) => words.providers[provider]
 const refusalText = (reason: SmsRefusal, provider: SmsPick | null) => fill(words.refusals[reason], { provider: provider && provider !== 'dripfunnel' ? name(provider) : words.title })
@@ -54,26 +58,10 @@ const routeLine = (sender: Sender) => (sender ? fill(words.sentByLine, { who: wh
 
 const SaveDialog = ({ provider, onDone, onCancel }: { provider: SmsProvider; onDone: () => void; onCancel: () => void }) => {
   const prefix = useId()
-  const [values, setValues] = useState<Partial<Record<Field, string>>>({})
+  const [values, setValues] = useState<Partial<Record<SmsField, string>>>({})
   const [templates, setTemplates] = useState<Partial<Record<SmsMessage, string>>>({})
   const [error, setError] = useState<string | null>(null)
-  const typed = (f: Field) => values[f]?.trim() ?? ''
-  const ok = (f: Field) => smsShapes[f].test(typed(f))
-  const ids = smsMessages.map((message) => ({ message, templateId: templates[message]?.trim() ?? '' }))
-  const allTemplates = ids.every((t) => smsShapes.templateId.test(t.templateId))
-  const indiaBlank = typed('senderId') === '' && typed('entityId') === '' && ids.every((t) => t.templateId === '')
-  const input: SmsInput | null =
-    provider === 'msg91'
-      ? ok('authKey') && allTemplates
-        ? { provider, authKey: typed('authKey'), templates: ids }
-        : null
-      : provider === 'twilio'
-        ? ok('accountSid') && ok('authToken') && ok('messagingServiceSid')
-          ? { provider, accountSid: typed('accountSid'), authToken: typed('authToken'), messagingServiceSid: typed('messagingServiceSid') }
-          : null
-        : ok('accessKeyId') && ok('secretAccessKey') && ok('region') && (indiaBlank || (ok('senderId') && ok('entityId') && allTemplates))
-          ? { provider, accessKeyId: typed('accessKeyId'), secretAccessKey: typed('secretAccessKey'), region: typed('region'), ...(indiaBlank ? {} : { senderId: typed('senderId'), entityId: typed('entityId'), templates: ids }) }
-          : null
+  const input = smsAccountInput(provider, values, templates)
   const save = () => {
     if (!input) return
     setError(null)
@@ -82,12 +70,12 @@ const SaveDialog = ({ provider, onDone, onCancel }: { provider: SmsProvider; onD
       () => setError(words.toasts.failed),
     )
   }
-  const field = (f: Field) => (
+  const field = (f: SmsField) => (
     <div className="df-field" key={f}>
       <label htmlFor={`${prefix}-${f}`}>{words.fields[f]}</label>
       <input
         id={`${prefix}-${f}`}
-        type={f === 'authKey' || f === 'authToken' || f === 'secretAccessKey' ? 'password' : 'text'}
+        type={smsSecretFields.includes(f) ? 'password' : 'text'}
         autoComplete="off"
         spellCheck={false}
         maxLength={80}
