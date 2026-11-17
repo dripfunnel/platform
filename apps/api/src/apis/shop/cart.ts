@@ -41,7 +41,7 @@ const giftCardAttempt = (ctx: ShopContext) => limitCodeTries(ctx, 'gift-card', '
 
 export const cartOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
-  const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
+  const couriers = ctx.couriers ? await ctx.couriers.forStore(shopper.context.storeId) : null
   // A guest's new carts are counted per store and address, so a script can't fill the table.
   const { ip } = ctx.facts
   const allowNewCart = async () => ip !== null && (await ctx.allowNewCart(`cart:${shopper.context.storeId}:${ip}`))

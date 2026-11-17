@@ -16,11 +16,13 @@ const tries = 3
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const courierCall = async (url: string, init: RequestInit, o: CallOptions): Promise<Response> => {
+  // Called bare: the Workers runtime refuses `fetch` called as a method of another object ("Illegal invocation").
+  const send = o.fetchImpl
   for (let attempt = 1; ; attempt++) {
     const timeout = AbortSignal.timeout(courierTimeoutMs)
     let response: Response | null
     try {
-      response = await o.fetchImpl(url, { ...init, signal: o.signal ? AbortSignal.any([o.signal, timeout]) : timeout })
+      response = await send(url, { ...init, signal: o.signal ? AbortSignal.any([o.signal, timeout]) : timeout })
     } catch {
       response = null
     }

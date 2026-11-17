@@ -22,7 +22,7 @@ export interface ShopContext extends Record<string, unknown> {
   origin: string
   activity: ActivityLog
   facts: RequestFacts
-  /** The partners' couriers, for a cart's delivery options (SAPI 23); null where none can be reached. */
+  /** The stores' couriers, for a cart's delivery options (SAPI 23); null where none can be reached. */
   couriers?: CourierDirectory | null
   /** The card adapters and Stripe Tax (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null

@@ -33,6 +33,12 @@ const WhatsAppType = builder.objectRef<WhatsApp>('PartnerWhatsApp').implement({
   fields: (t) => ({
     enabled: t.exposeBoolean('enabled'),
     account: t.field({ type: AccountType, nullable: true, resolve: (w) => w.account }),
+    // Whether DripFunnel's account is there for the partner (#1543): Admin enabled it and it can send codes; never its token.
+    dripfunnel: t.exposeBoolean('dripfunnel'),
+    // The partner's choice, `own` or `dripfunnel`; null leaves it to its own account, if it has one.
+    choice: t.string({ nullable: true, resolve: (w) => w.choice }),
+    // Whose account sends while WhatsApp is on, `own` or `dripfunnel`; null where none would.
+    sender: t.string({ nullable: true, resolve: (w) => w.sender }),
   }),
 })
 
@@ -84,5 +90,11 @@ builder.mutationFields((t) => ({
     args: { enabled: t.arg.boolean({ required: true }) },
     extensions: { access: { ...access, audit: whatsappAudit.enabled } },
     resolve: (_, { enabled }, ctx) => signedIn(ctx.whatsapp).setEnabled(enabled),
+  }),
+  setWhatsAppChoice: t.field({
+    type: OutcomeType,
+    args: { account: t.arg.string({ required: true }) },
+    extensions: { access: { ...access, audit: whatsappAudit.chosen } },
+    resolve: (_, { account }, ctx) => signedIn(ctx.whatsapp).setChoice(account),
   }),
 }))

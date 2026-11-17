@@ -26,6 +26,8 @@ export type ProductCard = {
   compareAt: Money | null
   /** The cheapest version's price, when versions cost different amounts ("From"). */
   from: boolean
+  /** The dearest version's price, null unless it differs from `price` (the range's end; `<Price to>`). */
+  maxPrice: Money | null
   stock: Stock
   photo: Photo | null
   badges: Badge[]
@@ -45,7 +47,9 @@ const summarySchema = z.object({
   badges: badgesSchema,
 })
 
-const differs = (a: Money | null | undefined, b: Money | null | undefined) => !!a && !!b && a.currency === b.currency && a.amount !== b.amount
+/** The highest price of a product whose versions differ in price; null when they don't, or it isn't in the lowest's currency. */
+export const rangeEnd = (low: Money | null | undefined, high: Money | null | undefined): Money | null =>
+  low && high && low.currency === high.currency && low.amount !== high.amount ? high : null
 
 /** A listing's products; one the catalogue left without a name or address is left out rather than failing the page. */
 export const cardsSchema = z
@@ -62,7 +66,8 @@ export const cardsSchema = z
               href: productPath(p.slug),
               price: p.price ?? null,
               compareAt: p.compareAt ?? null,
-              from: differs(p.price, p.maxPrice),
+              from: rangeEnd(p.price, p.maxPrice) !== null,
+              maxPrice: rangeEnd(p.price, p.maxPrice),
               stock: stockSchema.parse({ inStock: p.inStock ?? false, available: null }),
               photo: p.photo ?? null,
               badges: p.badges,
