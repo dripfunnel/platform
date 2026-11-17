@@ -353,6 +353,35 @@ describe.skipIf(!chrome)('step check', () => {
     expect(Object.keys(headers)).toEqual(expect.arrayContaining(['products/linen-shirt/index.html', 'products/linen-shirt/v-red/index.html', 'collections/summer/index.html']))
   })
 
+  describe('a page that navigates while it is read (#1539)', () => {
+    // The page's own script moves it from inside the check's first scroll, so the browser destroys the context the check is
+    // reading in, as a redirect or a reload after hydration does. Its inline script is hashed into the page's CSP at check time.
+    const withScroll = async (name: string, script: string) => {
+      const source = await sourceOf(name)
+      const out = join(root, `${name}-built`)
+      const theme = await checkout(source.bundle, source.commit, join(root, `${name}-src`))
+      await buildSite({ repo: join(root, `${name}-src`), theme, snapshot, runtimeDir: runtime, out, work: join(root, `${name}-work`) })
+      expect(existsSync(join(out, 'site/cart/index.html'))).toBe(true)
+      const home = join(out, 'site/index.html')
+      writeFileSync(home, readFileSync(home, 'utf8').replace('<head>', `<head><script>${script}</script>`))
+      return checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics: steady(() => 20) })
+    }
+    // A scroll that never answers, because the page is already on its way elsewhere.
+    const leave = (to: string) => `window.scrollTo = () => { location.replace('${to}'); return new Promise(() => {}) }`
+
+    it('is read again once it has loaded, not thrown at', async () => {
+      const { report } = await withScroll('navigates-once', leave('/cart/'))
+      expect(JSON.stringify(report.checks.filter((c) => !c.passed))).not.toContain('failed while loading')
+    })
+
+    it('is that page’s failure when it never stops, and the other pages are still checked', async () => {
+      const { report } = await withScroll('navigates-always', leave('/'))
+      const failed = JSON.stringify(report.checks.filter((c) => !c.passed))
+      expect(failed).toContain('The home page at 390 px failed while loading.')
+      expect(failed).not.toContain('The cart page')
+    })
+  })
+
   it('fails a page whose loads block the main thread past the budget, by the timings it measured', async () => {
     const source = await sourceOf('blocking')
     const out = join(root, 'blocking-built')
