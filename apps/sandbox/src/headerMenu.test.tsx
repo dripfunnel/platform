@@ -114,7 +114,7 @@ const oldBaselineNav = `              {menu.items.length ? (
 
 describe('the header for a store made before #1481', () => {
   const path = 'src/theme/components/Layout.tsx'
-  const codemods = notesBetween('0.14.0', '0.14.1', coreUpgradeNotes).flatMap((n) => n.codemods)
+  const codemods = notesBetween('0.14.0', '1.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
 
   it.each([
     ['Classic', 'classic', oldClassicNav],
