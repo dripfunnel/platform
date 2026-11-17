@@ -416,6 +416,10 @@ Classic, "Start from scratch", the category themes (#1537) and, until #1218, Mar
   and `electronics` (Volt), each built from baseline and
   styled as it is (Tailwind class constants, below), with its own header, product card, home page and photos in
   `src/theme/media/` (§3.4 "Images"). Their words make no claim a store may not meet: the story bodies are placeholders.
+- *Category templates (#1537):* a store category may name a starting template (`store_category.template_key`, DATA-MODEL §7.2).
+  The gallery lists it first (`StorefrontTemplate.forCategory`) and a first site starts from it without the gallery
+  (store FIRST-RELEASE, Storefront). Mapped: `fashion_apparel` → `fashion`, `jewelry` → `jewelry`, `beauty_personal_care` →
+  `beauty`, `food_grocery` → `grocery`, `home_living` → `home`, `electronics_gadgets` → `electronics`; every other category none.
 - `linen`, `concrete`, `bloom`, `circuit` and `atelier` were deleted on #1212 with their rows (migration 0381). A store that started from one keeps its key and its own theme; one that never built has no template files on a core released after that.
 - Words are in English only, the one language the seed stores offer: the validator refuses words in a language the
   store doesn't offer (`files/locale-not-offered`) as firmly as missing ones, so a store in other languages gets

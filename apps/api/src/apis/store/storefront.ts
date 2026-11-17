@@ -81,6 +81,8 @@ export const registerStorefront = (builder: StoreBuilder) => {
       demoUrl: t.exposeString('demoUrl', { nullable: true }),
       // "Your current look".
       current: t.exposeBoolean('current'),
+      // The store category's starting template, listed first; a first visit skips the gallery for it (#1537).
+      forCategory: t.exposeBoolean('forCategory'),
     }),
   })
 

@@ -708,7 +708,9 @@ through. Your site stays live."), as is a support session.
   Facebook, X, YouTube, TikTok, WhatsApp), the public email, phone and address (filled from
   Store info), and a tone of voice. "Continue to templates" stays disabled until the name and
   logo are set; everything else can be skipped.
-- **Template gallery**: "Choose a starting point" (first time) or "Change template"; Classic,
+- **Category template** (#1537): when the store's category has a template, Continue on "Your brand" starts the site from it
+  ("Starting…", then the studio) and the gallery is skipped; a refusal shows its message and the gallery as below.
+- **Template gallery**: "Choose a starting point" (first time) or "Change template"; the category's template first, then Classic,
   then "Start from scratch", and Market until #1218 (#1212), each shown by one picture of its look, the same for every
   store (decided 2026-10-12, #681), **View demo ↗** (a
   new tab, or the same tab with a Back link), **Use this template**, and "Your current look"

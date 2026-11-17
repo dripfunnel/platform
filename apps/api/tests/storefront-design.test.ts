@@ -118,14 +118,29 @@ afterAll(async () => {
 })
 
 describe('the template gallery', () => {
-  it('lists Classic, then "Start from scratch", then Market; the Manager reads it, Staff and suppliers are refused', async () => {
+  it('lists Classic, then "Start from scratch", then the rest by key; the Manager reads it, Staff and suppliers are refused', async () => {
     const read = await w.gql('owner', '{ storefrontTemplates { key name tag current demoUrl } }')
     const rows = read.data?.['storefrontTemplates'] as { key: string; current: boolean; demoUrl: string | null }[]
-    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline', 'market'])
+    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])
     expect(rows.some((r) => r.current)).toBe(false)
     expect(rows.every((r) => r.demoUrl === null)).toBe(true)
     expect((await w.gql('manager', '{ storefrontTemplates { key } }')).code).toBeUndefined()
     for (const who of ['staff', 'supplier'] as const) expect((await w.gql(who, '{ storefrontTemplates { key } }')).code).toBe('FORBIDDEN')
+  })
+
+  it('lists the store category’s template first, for that store only (#1537)', async () => {
+    const forCategory = async (who: 'owner' | 'bOwner') =>
+      ((await w.gql(who, '{ storefrontTemplates { key forCategory } }')).data?.['storefrontTemplates'] as { key: string; forCategory: boolean }[])
+    await db.sql`update store set category_id = (select id from store_category where key = 'fashion_apparel') where id = ${t.storeA1}`
+    await db.sql`update store set category_id = (select id from store_category where key = 'watches') where id = ${t.storeB1}`
+    try {
+      expect((await forCategory('owner'))[0]).toEqual({ key: 'fashion', forCategory: true })
+      expect((await forCategory('owner')).filter((r) => r.forCategory)).toHaveLength(1)
+      expect((await forCategory('bOwner')).map((r) => r.key)).toEqual(['classic', 'baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])
+      expect((await forCategory('bOwner')).some((r) => r.forCategory)).toBe(false)
+    } finally {
+      await db.sql`update store set category_id = null where id in (${t.storeA1}, ${t.storeB1})`
+    }
   })
 })
 

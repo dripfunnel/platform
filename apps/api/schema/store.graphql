@@ -3440,6 +3440,7 @@ type StorefrontTemplate {
   current: Boolean
   demoUrl: String
   description: String
+  forCategory: Boolean
   key: String
   name: String
   tag: String
