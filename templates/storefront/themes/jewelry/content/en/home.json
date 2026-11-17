@@ -1,0 +1,53 @@
+{
+  "hero": {
+    "eyebrow": "Jewellery",
+    "title": "Find your",
+    "accent": "next piece",
+    "lead": "Every piece in the shop, in one place.",
+    "action": "Discover the collection",
+    "altLeft": "A woman wearing a gold choker with pearls and a matching earring",
+    "altRight": "A raised hand wearing stacked gold rings and a chain bracelet"
+  },
+  "assure": {
+    "label": "Shopping with us",
+    "secure": "Secure checkout",
+    "track": "Follow every order from your account",
+    "save": "Save pieces to your wishlist"
+  },
+  "collections": {
+    "eyebrow": "The collections",
+    "title": "Shop by collection",
+    "all": "Shop all"
+  },
+  "newest": {
+    "eyebrow": "Just arrived",
+    "title": "New in",
+    "all": "View all new pieces"
+  },
+  "story": {
+    "eyebrow": "Our story",
+    "title": "The story behind",
+    "accent": "every piece",
+    "body": "Tell shoppers about your metals and stones, how each piece is finished and polished, and how to care for it so it lasts.",
+    "more": "Read our story",
+    "alt": "A hand lifting a long gold chain with mother-of-pearl charms"
+  },
+  "gift": {
+    "eyebrow": "By price",
+    "title": "Start with",
+    "accent": "our lowest prices",
+    "body": "Browse every piece, lowest price first.",
+    "action": "Shop by price",
+    "alt": "Two gold rings set with small stones resting on a white block in warm light"
+  },
+  "picks": {
+    "eyebrow": "Keep browsing",
+    "title": "More pieces to love",
+    "all": "Shop all"
+  },
+  "signup": {
+    "title": "Keep your favourites close",
+    "body": "Create an account to save favourites, follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}

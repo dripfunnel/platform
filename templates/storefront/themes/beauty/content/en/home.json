@@ -1,0 +1,83 @@
+{
+  "hero": {
+    "eyebrow": "Welcome",
+    "title": "Find what",
+    "accent": "suits you",
+    "lead": "Everything in the shop, in one place.",
+    "shop": "Shop new in",
+    "favourites": "Browse everything",
+    "alt": "A woman with cream on her cheek, smiling softly against a pink wall",
+    "detailAlt": "A dropper bottle resting on a wooden dish among pink rose petals"
+  },
+  "chips": {
+    "label": "Shop by category",
+    "all": "Shop all"
+  },
+  "newest": {
+    "eyebrow": "Just in",
+    "title": "New in",
+    "all": "See everything new"
+  },
+  "routine": {
+    "eyebrow": "How to shop",
+    "title": "Three easy steps",
+    "lead": "Find what you need in a few taps.",
+    "stepOne": {
+      "title": "Browse",
+      "body": "Start from a collection, or search for what you need."
+    },
+    "stepTwo": {
+      "title": "Choose",
+      "body": "Read the details on every product and pick what suits you."
+    },
+    "stepThree": {
+      "title": "Check out",
+      "body": "Pay at checkout and follow your order from your account."
+    },
+    "action": "Start browsing",
+    "alt": "A woman smoothing cream onto her cheek"
+  },
+  "categories": {
+    "eyebrow": "Explore",
+    "title": "Find your favourites",
+    "all": "Shop all"
+  },
+  "story": {
+    "eyebrow": "Our story",
+    "title": "The story behind our products",
+    "body": "Tell shoppers what goes into your products: the ingredients you choose, who each product suits, and how to use it.",
+    "more": "Read our story",
+    "alt": "Amber dropper bottles and a wooden jar on a linen cloth"
+  },
+  "picks": {
+    "eyebrow": "Keep exploring",
+    "title": "More to discover",
+    "all": "See everything"
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Checkout over an encrypted connection"
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow it from your account"
+    },
+    "save": {
+      "title": "Save favourites",
+      "body": "Keep a wishlist for later"
+    },
+    "help": {
+      "title": "Questions?",
+      "body": "Write to us on Contact"
+    }
+  },
+  "signup": {
+    "eyebrow": "Join us",
+    "title": "Your favourites, saved",
+    "body": "Create an account to save favourites, check out faster and follow every order.",
+    "action": "Create an account",
+    "alt": "A smiling woman with her hands on her cheeks"
+  }
+}
