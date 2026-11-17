@@ -30,4 +30,6 @@
   --color-footer-line: #2a4a33;
   --picture: linear-gradient(150deg, #e3f1dc, #c4e1b5);
   --picture-alt: #f1f7ee;
+  --color-shade-10: rgb(22 35 26 / 0.10);
+  --color-shade-12: rgb(22 35 26 / 0.12);
 }

@@ -39,4 +39,7 @@
   --glow: radial-gradient(60% 60% at 70% 40%, rgb(31 92 240 / 0.35), rgb(11 13 18 / 0) 70%);
   --glow-volt: radial-gradient(50% 50% at 50% 55%, rgb(198 244 50 / 0.18), rgb(21 26 36 / 0) 70%);
   --grid-lines: linear-gradient(rgb(11 13 18 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(11 13 18 / 0.05) 1px, transparent 1px);
+  --color-shade-20: rgb(11 13 18 / 0.2);
+  --color-shade-72: rgb(11 13 18 / 0.72);
+  --color-shade-92: rgb(11 13 18 / 0.92);
 }

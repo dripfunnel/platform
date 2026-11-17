@@ -31,4 +31,10 @@
   --color-footer-line: #555c47;
   --picture: linear-gradient(165deg, #d9cbb4, #a88d6c);
   --picture-alt: linear-gradient(165deg, #ebe4d8, #d6c9b3);
+  --color-on-photo: #fff;
+  --color-shade-0: rgb(30 26 18 / 0);
+  --color-shade-32: rgb(30 26 18 / 0.32);
+  --color-shade-35: rgb(30 26 18 / 0.35);
+  --color-shade-78: rgb(30 26 18 / 0.78);
+  --color-tone-2f2b22-16: rgb(47 43 34 / 0.16);
 }
