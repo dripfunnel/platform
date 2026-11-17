@@ -252,6 +252,9 @@ class Component extends DCLogic {
       nest: () => { if (i === 0 && !m.depth) { app.toast('The first item can’t be nested'); return; } app.setMenu(mm => mm.map((x, j) => j === i ? { ...x, depth: x.depth ? 0 : 1 } : x)); },
       remove: () => { app.setMenu(mm => mm.filter((_, j) => j !== i)); app.toast('Removed from the menu. The collection is still there.'); } }; });
     const tops = []; menu.forEach(m => { const col = colls.find(x => x.id === m.cid); if (!col || !col.visible) return; if (!m.depth || !tops.length) tops.push({ label: col.name, kids: [] }); else tops[tops.length - 1].kids.push(col.name); });
+    // The live header (#1481): Home and Shop all, the menu's items (every visible collection while there are none), then About and Contact.
+    const fixedLink = label => ({ label, kids: [] });
+    const links = [fixedLink('Home'), fixedLink('Shop all'), ...(tops.length ? tops : colls.filter(x => x.visible).map(x => ({ label: x.name, kids: [] }))), fixedLink('About'), fixedLink('Contact')];
 
     const seasonal = R.seasonal.filter(n => !colls.some(x => x.name === n)).map(n => ({ label: n, onClick: () => this.setState({ tab: 'edit', e: { ...this.blank(), name: n, type: 'manual', rules: [] } }) }));
     return {
@@ -266,7 +269,7 @@ class Component extends DCLogic {
       vis: { bg: e.visible ? '#1D6B47' : 'var(--off,#C9CDD3)', knob: e.visible ? '19px' : '3px', label: e.visible ? 'Visible on your store' : 'Hidden — for offers or internal use' },
       canDelete: canEdit && !!e.id, matchLabel: `${matchList.length} product${matchList.length === 1 ? '' : 's'} ${e.type === 'manual' ? 'picked' : 'match'}`, preview, noMatch: matchList.length === 0,
       facetRows, menuRows, menuAddable: colls.filter(x => !menu.some(m => m.cid === x.id)).map(x => ({ id: x.id, name: x.name })),
-      menuPreview: tops.map(t => ({ label: t.label + (t.kids.length ? ' ▾' : ''), kids: t.kids.join(' · ') })), menuPhone: tops.flatMap(t => [{ label: t.label, pl: '14px' }, ...t.kids.map(k => ({ label: k, pl: '30px' }))]),
+      menuPreview: links.map(t => ({ label: t.label + (t.kids.length ? ' ▾' : ''), kids: t.kids.join(' · ') })), menuPhone: links.flatMap(t => [{ label: t.label, pl: '14px' }, ...t.kids.map(k => ({ label: k, pl: '30px' }))]),
       on: { name: ev => this.setE({ name: ev.target.value }), desc: ev => this.setE({ desc: ev.target.value }), match: ev => this.setE({ match: ev.target.value }), pSearch: ev => this.setState({ pSearch: ev.target.value }),
         parent: ev => this.setE({ parentId: ev.target.value || null, inherit: !!ev.target.value }),
         addMenu: ev => { const id = ev.target.value; if (!id) return; app.setMenu(m => [...m, { cid: id, depth: 0 }]); app.toast('Added to the menu'); } },

@@ -40,8 +40,12 @@ const items = (rows: readonly Row[] | null | undefined): MenuItem[] =>
     return row.id && row.label && href ? [{ id: row.id, label: row.label, href, children: items(row.children) }] : []
   })
 
-/** The menu's links, one level of children; an item whose link no longer resolves (a hidden collection) is left out. */
+/**
+ * The menu's links, one level of children; an item whose link no longer resolves (a hidden collection) is left out. A live
+ * page keeps the menu it was built with, so its header never changes after it has loaded and shows the same on every
+ * reload; a menu change reaches it with the next publish (#1481). The preview and the studio load the current one.
+ */
 export const useMenu = () => {
-  const menu = useShopData('menu', async (client) => items((await client.query(menuQuery, menuSchema)).menu))
+  const menu = useShopData('menu', async (client) => items((await client.query(menuQuery, menuSchema)).menu), { keepBuilt: true })
   return { status: menu.status, items: menu.data ?? [] }
 }

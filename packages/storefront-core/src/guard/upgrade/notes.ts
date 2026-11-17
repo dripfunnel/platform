@@ -33,6 +33,32 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  // Numbered for the first release after 0.14.0: it only has to fall between a store's version and the release it goes to, and
+  // the release card gives it the number of the release that ships it (§7.1).
+  {
+    version: '0.14.1',
+    kind: 'major',
+    security: false,
+    notes: [
+      'The header menu now always draws the fixed links around the merchant\'s own items (#1481): Home, Shop all, the items of `useMenu().items` (or, while there are none, the automatic list of collections), About and Contact. Before, the merchant\'s first menu item replaced Shop all, About and Contact. The phone menu draws the same links.',
+      '`useMenu` now keeps the menu a live page was built with and never asks the Shop API for another, so a header cannot change after the page has loaded and shows the same on every reload; a menu change reaches the live site with the next publish. The preview and the studio still load the current menu.',
+      'The codemods rewrite the header of a Classic or Baseline theme that still has the shipped markup. A theme that draws its own header places the fixed links around `menu.items` itself and draws nothing that depends on the menu changing after load.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/Layout.tsx'],
+        find: '              <Link href="/" className={styles.navLink}>\n                {t(\'common.nav.home\')}\n              </Link>\n              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                <>\n                  <Link href="/collections/all/" className={styles.navLink}>\n                    {t(\'common.nav.shopAll\')}\n                  </Link>\n                  {collections.map((c) => (\n                    <Link key={c.id} href={c.href} className={styles.navLink}>\n                      {c.name}\n                    </Link>\n                  ))}\n                  <Link href="/about/" className={styles.navLink}>\n                    {t(\'common.nav.about\')}\n                  </Link>\n                  <Link href="/contact/" className={styles.navLink}>\n                    {t(\'common.nav.contact\')}\n                  </Link>\n                </>\n              )}\n            </nav>',
+        replace: '              <Link href="/" className={styles.navLink}>\n                {t(\'common.nav.home\')}\n              </Link>\n              <Link href="/collections/all/" className={styles.navLink}>\n                {t(\'common.nav.shopAll\')}\n              </Link>\n              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                collections.map((c) => (\n                  <Link key={c.id} href={c.href} className={styles.navLink}>\n                    {c.name}\n                  </Link>\n                ))\n              )}\n              <Link href="/about/" className={styles.navLink}>\n                {t(\'common.nav.about\')}\n              </Link>\n              <Link href="/contact/" className={styles.navLink}>\n                {t(\'common.nav.contact\')}\n              </Link>\n            </nav>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/Layout.tsx'],
+        find: '              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                <Link href="/collections/all/" className={styles.navLink}>\n                  {t(\'common.nav.shop\')}\n                </Link>\n              )}\n              <Link href="/about/" className={styles.navLink}>',
+        replace: '              <Link href="/collections/all/" className={styles.navLink}>\n                {t(\'common.nav.shop\')}\n              </Link>\n              {menu.items.map((item) => (\n                <NavItem key={item.id} item={item} />\n              ))}\n              <Link href="/about/" className={styles.navLink}>',
+      },
+    ],
+  },
   {
     version: '0.14.0',
     kind: 'minor',

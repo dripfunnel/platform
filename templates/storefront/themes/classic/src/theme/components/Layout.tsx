@@ -67,26 +67,24 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               <Link href="/" className={styles.navLink}>
                 {t('common.nav.home')}
               </Link>
+              <Link href="/collections/all/" className={styles.navLink}>
+                {t('common.nav.shopAll')}
+              </Link>
               {menu.items.length ? (
                 menu.items.map((item) => <NavItem key={item.id} item={item} />)
               ) : (
-                <>
-                  <Link href="/collections/all/" className={styles.navLink}>
-                    {t('common.nav.shopAll')}
+                collections.map((c) => (
+                  <Link key={c.id} href={c.href} className={styles.navLink}>
+                    {c.name}
                   </Link>
-                  {collections.map((c) => (
-                    <Link key={c.id} href={c.href} className={styles.navLink}>
-                      {c.name}
-                    </Link>
-                  ))}
-                  <Link href="/about/" className={styles.navLink}>
-                    {t('common.nav.about')}
-                  </Link>
-                  <Link href="/contact/" className={styles.navLink}>
-                    {t('common.nav.contact')}
-                  </Link>
-                </>
+                ))
               )}
+              <Link href="/about/" className={styles.navLink}>
+                {t('common.nav.about')}
+              </Link>
+              <Link href="/contact/" className={styles.navLink}>
+                {t('common.nav.contact')}
+              </Link>
             </nav>
           </Menu>
           <ul className={styles.chips}>

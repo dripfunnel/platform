@@ -3071,8 +3071,14 @@
       "remove": "Remove {label}",
       "firstNest": "The first item can’t be nested",
       "nestHasKids": "An item with items under it can’t be nested — the menu goes one level deep. Move its items out first.",
-      "note": "→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them.",
-      "empty": "No items yet. Add a collection to start your menu.",
+      "note": "→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them. Home, Shop all, About and Contact always show around your items, and a change reaches your live site with its next publish.",
+      "empty": "No items yet, so shoppers see all your collections. Add a collection to choose them yourself.",
+      "fixed": {
+        "home": "Home",
+        "shopAll": "Shop all",
+        "about": "About",
+        "contact": "Contact"
+      },
       "desktop": "How shoppers see it · desktop",
       "phone": "Phone menu",
       "saving": "Saving…",
