@@ -253,10 +253,22 @@ describe('delivery partners', () => {
       await show()
       fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
       typeLogin()
-      fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: ' hook-1 ' } })
+      fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: ' hook-token-12345678 ' } })
       fireEvent.click(dialog().getByRole('button', { name: w.login.confirm }))
       await settle()
-      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: 'hook-1' })
+      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: 'hook-token-12345678' })
+    })
+
+    it('will not send a tracking token shorter than 16 characters, and says why', async () => {
+      offShiprocket()
+      await show()
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
+      typeLogin()
+      fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: 'short' } })
+      expect((dialog().getByRole('button', { name: w.login.confirm }) as HTMLButtonElement).disabled).toBe(true)
+      expect(dialog().getByText(w.login.tokenShort)).toBeTruthy()
+      fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: 'sixteen-chars-ok!' } })
+      expect((dialog().getByRole('button', { name: w.login.confirm }) as HTMLButtonElement).disabled).toBe(false)
     })
 
     it.each([

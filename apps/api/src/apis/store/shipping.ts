@@ -17,6 +17,7 @@ const words: Record<ShippingRefusal, string> = {
   TOO_MANY: 'That list is longer than a store can have. Keep it to 50,000 codes.',
   COURIER_NOT_OFFERED: 'This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.',
   LOGIN_REFUSED: 'Shiprocket didn’t accept that login. Check the API user’s email and password.',
+  WEAK_TOKEN: 'The tracking token needs at least 16 characters, so no one can guess it.',
   COURIER_UNAVAILABLE: 'Shiprocket didn’t answer. Try again in a moment.',
   NOT_CONNECTED: 'Connect this courier first.',
   NOT_FOUND: 'That is no longer here.',

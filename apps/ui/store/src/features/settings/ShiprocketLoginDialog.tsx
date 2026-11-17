@@ -7,6 +7,9 @@ import { refusalIn } from '../common/refusal'
 const words = messages.settings.shipping
 const refusalOf = refusalIn(words.refused)
 
+/** The shortest tracking token the API keeps (apps/api/src/engine/modules/shipping/index.ts). */
+const tokenMin = 16
+
 export interface ShiprocketLoginDialogProps {
   name: string
   /** Connects with the login; a refusal is thrown, and the dialog stays open with what was typed. */
@@ -37,7 +40,7 @@ export const ShiprocketLoginDialog = ({ name, onConnect, onCancel }: ShiprocketL
       consequence={words.login.body}
       confirmLabel={busy ? words.login.connecting : words.login.confirm}
       cancelLabel={messages.settings.payments.cancel}
-      blocked={email.trim() === '' || password === '' ? words.login.missing : null}
+      blocked={email.trim() === '' || password === '' ? words.login.missing : token.trim() !== '' && token.trim().length < tokenMin ? words.login.tokenShort : null}
       error={error}
       onCancel={onCancel}
       onConfirm={() => {

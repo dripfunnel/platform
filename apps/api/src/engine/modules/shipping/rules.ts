@@ -14,6 +14,7 @@ export type ShippingRefusal =
   | 'TOO_MANY'
   | 'COURIER_NOT_OFFERED'
   | 'LOGIN_REFUSED'
+  | 'WEAK_TOKEN'
   | 'COURIER_UNAVAILABLE'
   | 'NOT_CONNECTED'
   | 'NOT_FOUND'

@@ -27,7 +27,7 @@ let ownerCookie = ''
 let main = ''
 let house = ''
 
-const login = { email: 'api-user@jaipurlooms.example', password: 'S3cret!pass', webhookToken: 'hook-token-jl' }
+const login = { email: 'api-user@jaipurlooms.example', password: 'S3cret!pass', webhookToken: 'hook-token-jl-long-enough' }
 
 // Shiprocket: a login hands back a token naming who logged in, and every later call is held to it.
 const calls: { path: string; bearer: string | null }[] = []

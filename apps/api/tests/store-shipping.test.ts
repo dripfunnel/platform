@@ -125,7 +125,7 @@ const settings = async (who: Who) =>
   (await gql('{ shippingSettings { revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestResult } } }', who)).data?.['shippingSettings'] as Settings
 const save = async (who: Who, input: Record<string, unknown>, revision?: number) =>
   gql('mutation S($r: Int!, $i: ShippingInput!) { saveShipping(revision: $r, input: $i) }', who, { r: revision ?? (await settings(who)).revision, i: { courierRate: false, flatRate: false, pickup: false, freeMode: 'never', areaMode: 'everywhere', ...input } })
-const login = { email: 'api-user@jaipur.example', password: 'S3cret!pass', webhookToken: 'hook-token-1' }
+const login = { email: 'api-user@jaipur.example', password: 'S3cret!pass', webhookToken: 'hook-token-1-long-enough' }
 const courier = (who: Who, mutation: 'connectCourier' | 'useCourierForPricing' | 'disconnectCourier', provider: string, as?: { email: string; password: string; webhookToken?: string }) =>
   as
     ? gql('mutation C($p: String!, $e: String, $w: String, $t: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t) }', who, { p: provider, e: as.email, w: as.password, t: as.webhookToken ?? null })
@@ -218,6 +218,11 @@ describe('an Indian store', () => {
     // Connecting again with another login replaces it, and keeps the courier where it was.
     expect((await courier('india', 'connectCourier', 'shiprocket', { ...login, email: 'api-user-2@jaipur.example' })).data?.['connectCourier']).toBe('pricing')
     expect((await accountRows()).map((r) => r.email)).toEqual(['api-user-2@jaipur.example'])
+    // A login connected again without a token keeps the one saved; a token that is too short is refused.
+    expect((await courier('india', 'connectCourier', 'shiprocket', { email: login.email, password: login.password })).data?.['connectCourier']).toBe('pricing')
+    const [kept] = await accountRows()
+    expect(JSON.parse((await secrets.open(kept?.credentials_sealed ?? '')) ?? 'null')).toEqual({ password: login.password, webhookToken: login.webhookToken })
+    expect((await courier('india', 'connectCourier', 'shiprocket', { ...login, webhookToken: 'too-short' })).code).toBe('WEAK_TOKEN')
     expect((await courier('india', 'connectCourier', 'shiprocket', login)).data?.['connectCourier']).toBe('pricing')
   })
 

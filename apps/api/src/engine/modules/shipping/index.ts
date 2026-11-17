@@ -7,7 +7,7 @@ import { accountKindOf, CourierRejected, couriersFor, type CourierDirectory, typ
 import { isUuid } from '#core/ids'
 import { isCurrency, type Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { deleteCourierAccount, saveCourierAccount, selectCourierAccounts, type CourierAccountRow } from '#db/scoped/courierAccounts'
+import { deleteCourierAccount, saveCourierAccount, selectCourierAccounts, selectSealedCourierAccounts, type CourierAccountRow } from '#db/scoped/courierAccounts'
 import { selectRates } from '#db/scoped/rates'
 import { moneyIn } from '#engine/modules/markets/index'
 import { selectStoreEntitlement } from '#db/scoped/entitlements'
@@ -140,6 +140,8 @@ export interface DeliveryQuote {
 }
 
 const maxLines = 100
+/** The shortest tracking token kept: the store's hook address is guessable, so the token is what protects it. */
+const minTokenLength = 16
 const testParcelGrams = 500
 
 // A courier kept on but with no account to go through (a login lost, or one the key no longer opens) needs fixing, not quoting.
@@ -294,7 +296,22 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     const email = input?.email.trim() ?? ''
     const token = input?.webhookToken?.trim() ?? ''
     if (!input || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || input.password === '' || input.password.length > 200 || token.length > 200) throw new Refused('INVALID_INPUT')
+    // The hook's address holds the store's id, which is no secret, so the token alone keeps anyone from forging its tracking.
+    if (token !== '' && token.length < minTokenLength) throw new Refused('WEAK_TOKEN')
     return { email, password: input.password, webhookToken: token === '' ? null : token }
+  }
+
+  /** The tracking token already sealed for this store, read in system scope since the store's own scope never selects it. */
+  const keptToken = async (): Promise<string | null> => {
+    if (!loginCheck?.secrets) return null
+    const row = (await withSystemScope(sql, (tx) => selectSealedCourierAccounts(tx, storeId))).find((r) => r.provider === 'shiprocket')
+    const opened = row ? await loginCheck.secrets.open(row.credentials_sealed) : null
+    try {
+      const kept = opened ? (JSON.parse(opened) as { webhookToken?: unknown }).webhookToken : null
+      return typeof kept === 'string' && kept !== '' ? kept : null
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -316,6 +333,8 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
         if (error instanceof Refused) return { ok: false, reason: error.reason }
         throw error
       }
+      // A login connected again without a token keeps the one saved, so Fix never stops tracking.
+      if (login.webhookToken === null) login = { ...login, webhookToken: await keptToken() }
       // Asked outside any transaction, so a slow courier never holds a connection; a refused login saves nothing.
       const checked = await loginCheck?.check(first.value.provider, login).catch((error: unknown) => {
         logEvent({ event: 'courier_login_check', api: 'store', storeId, code: failureCode(error) })

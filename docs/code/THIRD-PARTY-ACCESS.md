@@ -850,8 +850,9 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 
 ### 8.3 Partner credentials: in the database, never environment variables
 
-Each partner's own accounts (§4), encrypted with `CREDENTIALS_KEK` in Postgres (#275). They have
-no variable name: the partner enters them in the partner console, or staff in a setup session.
+Each partner's own accounts (§4), encrypted with `CREDENTIALS_KEK` in Postgres (#275), and each store's own Shiprocket login in `courier_account` (#1489,
+§3.2), sealed the same way. They have no variable name: the partner enters its own in the partner console, or staff in a setup session; a merchant enters
+its Shiprocket login in Settings › Shipping.
 
 | Credential | Role | How the partner makes it | Read by *(when built)* |
 |---|---|---|---|
