@@ -52,9 +52,16 @@ export const lockLinesToShip = (tx: ScopedSql, storeId: string, orderId: string)
     for update of l
   `
 
-/** A location of this owner (null, the merchant's), not removed. */
+/** A location of this owner (null, the merchant's), not removed; for a supplier also the store's default while it has none of its own, or one holding its stock (#1353). */
 export const ownsWarehouse = async (tx: ScopedSql, storeId: string, sellerId: string | null, warehouseId: string): Promise<boolean> =>
-  (await tx`select 1 from warehouse where id = ${warehouseId} and store_id = ${storeId} and seller_id is not distinct from ${sellerId} and deleted_at is null`).length > 0
+  (
+    await tx`
+      select 1 from warehouse w where w.id = ${warehouseId} and w.store_id = ${storeId} and w.deleted_at is null
+        and (w.seller_id is not distinct from ${sellerId}
+          or (${sellerId}::uuid is not null and w.seller_id is null and (exists (select 1 from stock_level l where l.warehouse_id = w.id and l.seller_id = ${sellerId})
+            or (w.is_default and not exists (select 1 from warehouse o where o.store_id = w.store_id and o.seller_id = ${sellerId} and o.deleted_at is null)))))
+    `
+  ).length > 0
 
 /** The store's own default location, where a to-store supplier sends its lines (ACCESS §7.3). */
 export const storeDefaultWarehouse = async (tx: ScopedSql, storeId: string): Promise<string | null> =>

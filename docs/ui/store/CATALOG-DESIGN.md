@@ -223,6 +223,11 @@ against them before relying on it, and fix this document where they differ.
    Inventory). Most sellers have one warehouse, so the default is one number. More warehouses
    appear as an expansion. The merchant and each vendor have their own default warehouse; a
    product saved without choosing a warehouse goes to its owner's default. Say which one.
+   **A vendor with no warehouse of its own counts in the store's default one** (decided
+   2026-11-09 on #1353), shown by its name only: never its address, nor the merchant's or another
+   vendor's numbers there. It never has to add a warehouse before selling. Once it adds its own,
+   that is its default for new counts; what it counted in the store's stays and can still be
+   changed.
 10. **Stock tracking and "keep selling when out of stock"** are per version, inheriting a store
     default. Most sellers never touch them. Keep them under "More options". The engine must
     store both per version, with the store default.
