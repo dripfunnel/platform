@@ -1,8 +1,8 @@
 import type { CourierProvider, TrackingStatus } from '#core/couriers'
 import { pgArray, type ScopedSql } from './index'
 
-// A booked parcel's tracking (migration 0131), in system scope: a courier's hook arrives for the partner whose account
-// it names, so every lookup is held to that partner's stores.
+// A booked parcel's tracking (migration 0131), in system scope: a courier's hook arrives for the store whose login it
+// names (#1489), so every lookup is held to that store.
 
 export interface TrackedShipmentRow {
   id: string
@@ -17,10 +17,10 @@ export interface TrackedShipmentRow {
   quiet: boolean
 }
 
-/** The partner's booked parcel a hook names, by the courier's id or its tracking number, locked. */
+/** The store's booked parcel a hook names, by the courier's id or its tracking number, locked. */
 export const lockTrackedShipment = async (
   tx: ScopedSql,
-  partnerId: string,
+  scope: { partnerId: string; storeId: string },
   providers: readonly CourierProvider[],
   ref: { providerRef: string | null; trackingNumber: string | null },
 ): Promise<TrackedShipmentRow | null> =>
@@ -30,7 +30,7 @@ export const lockTrackedShipment = async (
         coalesce((select c.tracking_emails from store_courier c where c.store_id = f.store_id and c.provider = f.courier_provider), true) as tracking_emails,
         (o.state = 'cancelled' or exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test')) as quiet
       from fulfilment f join "order" o on o.id = f.order_id join store s on s.id = f.store_id
-      where s.partner_id = ${partnerId} and f.kind = 'booked' and f.courier_provider = any(${pgArray(providers)}::text[])
+      where s.partner_id = ${scope.partnerId} and f.store_id = ${scope.storeId} and f.kind = 'booked' and f.courier_provider = any(${pgArray(providers)}::text[])
         and (f.provider_ref = ${ref.providerRef ?? ''} or (${ref.trackingNumber ?? ''} <> '' and f.tracking_number = ${ref.trackingNumber ?? ''}))
       order by f.booked_at desc
       limit 1

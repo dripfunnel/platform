@@ -36,7 +36,7 @@ const { SettingsPage } = await import('./SettingsPage')
 const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['settings', 'shipping.configure'] }
 const supplier: Acting = { ...owner, role: 'staff', seller: { id: 'v1', name: 'Northwind' }, tier: 'vendor-catalogue', permissions: ['catalog.read'] } as Acting
 
-const courier = (c: Partial<Courier> & Pick<Courier, 'provider' | 'status'>): Courier => ({ offered: true, pickupMode: 'scheduled', labelSize: '4x6', trackingEmails: true, lastTestedAt: null, lastTestResult: null, ...c })
+const courier = (c: Partial<Courier> & Pick<Courier, 'provider' | 'status'>): Courier => ({ offered: true, accountEmail: null, pickupMode: 'scheduled', labelSize: '4x6', trackingEmails: true, lastTestedAt: null, lastTestResult: null, ...c })
 
 const us: ShippingSettings = {
   revision: 4,
@@ -196,7 +196,7 @@ describe('delivery partners', () => {
     expect(ship.saveShipping).toHaveBeenCalledWith(6, expect.objectContaining({ courierRate: false, pickup: true, pickupHours: 'Sat 10–2' }))
   })
 
-  it('connects a courier on the partner’s account and says its part', async () => {
+  it('connects a courier that needs no login and says its part', async () => {
     ship.loadShipping.mockResolvedValue({ ...us, couriers: [courier({ provider: 'usps', status: 'off' })] })
     ship.connectCourier.mockResolvedValue('pricing')
     await show()
@@ -204,6 +204,91 @@ describe('delivery partners', () => {
     await settle()
     expect(ship.connectCourier).toHaveBeenCalledWith('usps')
     expect(screen.getByText('USPS connected — it prices orders at checkout')).toBeTruthy()
+  })
+
+  describe('Shiprocket, on the store’s own API user (#1489)', () => {
+    const offShiprocket = () => ship.loadShipping.mockResolvedValue({ ...us, couriers: [courier({ provider: 'shiprocket', status: 'off' })] })
+    const typeLogin = () => {
+      fireEvent.change(dialog().getByLabelText(w.login.email), { target: { value: ' api@kesari.example ' } })
+      fireEvent.change(dialog().getByLabelText(w.login.password), { target: { value: 'S3cret pass' } })
+    }
+
+    it('opens a form for the API user’s email and password, with the way to create one, and sends the login once', async () => {
+      offShiprocket()
+      ship.connectCourier.mockResolvedValue('pricing')
+      await show()
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
+      const form = dialog()
+      expect(form.getByRole('heading', { name: 'Connect Shiprocket' })).toBeTruthy()
+      expect(form.getByRole('link', { name: w.login.link }).getAttribute('href')).toBe(w.login.url)
+      expect((form.getByLabelText(w.login.password) as HTMLInputElement).type).toBe('password')
+      expect((form.getByRole('button', { name: w.login.confirm }) as HTMLButtonElement).disabled).toBe(true)
+      expect(form.getByText(w.login.missing)).toBeTruthy()
+      typeLogin()
+      fireEvent.click(form.getByRole('button', { name: w.login.confirm }))
+      await settle()
+      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: null })
+      expect(screen.getByText('Shiprocket connected — it prices orders at checkout')).toBeTruthy()
+      expect(document.querySelector('dialog[open]')).toBeNull()
+    })
+
+    it('says it is connecting while Shiprocket is asked, then shows the answer', async () => {
+      offShiprocket()
+      let answer: (status: 'pricing') => void = () => undefined
+      ship.connectCourier.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)))
+      await show()
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
+      typeLogin()
+      fireEvent.click(dialog().getByRole('button', { name: w.login.confirm }))
+      await settle()
+      expect((dialog().getByRole('button', { name: w.login.connecting }) as HTMLButtonElement).disabled).toBe(true)
+      answer('pricing')
+      await settle()
+      expect(screen.getByText('Shiprocket connected — it prices orders at checkout')).toBeTruthy()
+    })
+
+    it('sends the tracking token when one is typed', async () => {
+      offShiprocket()
+      ship.connectCourier.mockResolvedValue('standby')
+      await show()
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
+      typeLogin()
+      fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: ' hook-1 ' } })
+      fireEvent.click(dialog().getByRole('button', { name: w.login.confirm }))
+      await settle()
+      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: 'hook-1' })
+    })
+
+    it.each([
+      ['LOGIN_REFUSED', w.refused.LOGIN_REFUSED],
+      ['COURIER_UNAVAILABLE', w.refused.COURIER_UNAVAILABLE],
+    ])('keeps the form open with what was typed when the answer is %s, and shows nothing connected', async (code, said) => {
+      offShiprocket()
+      ship.connectCourier.mockRejectedValueOnce(new ApiError(code, 'no'))
+      await show()
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
+      typeLogin()
+      fireEvent.click(dialog().getByRole('button', { name: w.login.confirm }))
+      await settle()
+      expect(dialog().getByRole('alert').textContent).toBe(said)
+      expect((dialog().getByLabelText(w.login.email) as HTMLInputElement).value).toBe('api@kesari.example')
+      expect((dialog().getByLabelText(w.login.password) as HTMLInputElement).value).toBe('S3cret pass')
+      expect(screen.queryByText(/Shiprocket connected/)).toBeNull()
+    })
+
+    it('shows who it is connected as, never the password, and Fix for a login Shiprocket refused', async () => {
+      ship.loadShipping.mockResolvedValue({ ...us, couriers: [courier({ provider: 'shiprocket', status: 'failed', accountEmail: 'api@kesari.example', lastTestResult: 'rejected' })] })
+      await show()
+      expect(screen.getByText('Connected as api@kesari.example')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Fix Shiprocket' }))
+      expect((dialog().getByLabelText(w.login.password) as HTMLInputElement).value).toBe('')
+    })
+
+    it('offers neither Connect nor Fix to a store that may only read', async () => {
+      ship.loadShipping.mockResolvedValue({ ...us, couriers: [courier({ provider: 'shiprocket', status: 'off' })] })
+      await show({ readOnly: true })
+      expect(screen.queryByRole('button', { name: /Connect Shiprocket|Fix Shiprocket/ })).toBeNull()
+    })
   })
 
   it('says why a courier change was refused, on the partners card only', async () => {

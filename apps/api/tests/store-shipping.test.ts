@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
+import { secretBox, type SecretBox } from '#auth/secretBox'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { CourierRejected, CourierUnavailable, type CourierDirectory, type CourierProvider, type Parcel } from '#core/couriers'
 import type { CallerContext, SellerScope, TenantContext } from '#core/tenancy'
@@ -23,6 +24,7 @@ const people: Record<Who, string> = { india: '', us: '', supplier: '', manager: 
 const cookies: Record<Who, string> = { india: '', us: '', supplier: '', manager: '', other: '' }
 const stores = { india: '', us: '' }
 let seller = ''
+let secrets: SecretBox
 
 // What each courier answers, per test: a rate, a route it doesn't serve, a refused login or no answer.
 type Answer = { rupees?: bigint; cents?: bigint } | 'unserved' | 'rejected' | 'down'
@@ -30,9 +32,17 @@ const answers: Partial<Record<CourierProvider, Answer>> = {}
 const asked: { provider: CourierProvider; parcel: Parcel }[] = []
 // The most couriers waiting on an answer at once, to show they're asked together, not one after another.
 const inFlight = { now: 0, most: 0 }
+// What the courier says of a login being connected (#1489), and the logins it was asked about.
+const loginAnswer: { now: 'ok' | 'rejected' | 'unavailable' } = { now: 'ok' }
+const checked: { provider: CourierProvider; email: string; password: string }[] = []
 const fakeCouriers = (accounts: ('shiprocket' | 'easypost')[]): CourierDirectory => ({
-  forPartner: async () => ({
+  check: async (provider, login) => {
+    checked.push({ provider, email: login.email, password: login.password })
+    return loginAnswer.now
+  },
+  forStore: async () => ({
     accounts: new Set(accounts),
+    connectable: new Set(accounts),
     gateway: {
       quote: async (provider, parcel) => {
         asked.push({ provider, parcel })
@@ -72,6 +82,7 @@ const store = async (name: string, country: string, currency: string) => {
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
+  secrets = await secretBox(btoa('k'.repeat(32)))
   stores.india = await store('Jaipur', 'IN', 'INR')
   stores.us = await store('Columbus', 'US', 'USD')
   await db.sql`update store set address = '{"street": "12 MI Road", "city": "Jaipur", "postal": "302001", "region": "Rajasthan"}' where id = ${stores.india}`
@@ -100,7 +111,7 @@ const gql = async (source: string, who: Who, variables: Record<string, unknown> 
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(who === 'supplier' ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, couriers, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, couriers, secrets, now: () => now }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -114,7 +125,12 @@ const settings = async (who: Who) =>
   (await gql('{ shippingSettings { revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestResult } } }', who)).data?.['shippingSettings'] as Settings
 const save = async (who: Who, input: Record<string, unknown>, revision?: number) =>
   gql('mutation S($r: Int!, $i: ShippingInput!) { saveShipping(revision: $r, input: $i) }', who, { r: revision ?? (await settings(who)).revision, i: { courierRate: false, flatRate: false, pickup: false, freeMode: 'never', areaMode: 'everywhere', ...input } })
-const courier = (who: Who, mutation: 'connectCourier' | 'useCourierForPricing' | 'disconnectCourier', provider: string) => gql(`mutation { ${mutation}(provider: "${provider}") }`, who)
+const login = { email: 'api-user@jaipur.example', password: 'S3cret!pass', webhookToken: 'hook-token-1' }
+const courier = (who: Who, mutation: 'connectCourier' | 'useCourierForPricing' | 'disconnectCourier', provider: string, as?: { email: string; password: string; webhookToken?: string }) =>
+  as
+    ? gql('mutation C($p: String!, $e: String, $w: String, $t: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t) }', who, { p: provider, e: as.email, w: as.password, t: as.webhookToken ?? null })
+    : gql(`mutation { ${mutation}(provider: "${provider}") }`, who)
+const accountRows = () => db.sql<{ email: string; credentials_sealed: string }[]>`select email, credentials_sealed from courier_account where store_id = ${stores.india}`
 
 const callerOf = (storeId: string, partnerId = t.partnerA, sellerScope: SellerScope = { kind: 'all' }): TenantContext => ({
   caller: { kind: 'person', userId: people.india, sessionId: 's' },
@@ -130,7 +146,7 @@ const versionOf = async (storeId: string, grams: number | null) => {
   return version?.id ?? ''
 }
 const quote = async (storeId: string, request: Partial<QuoteRequest> & Pick<QuoteRequest, 'lines'>, partnerId = t.partnerA) => {
-  const partner = couriers ? await couriers.forPartner(partnerId) : null
+  const partner = couriers ? await couriers.forStore(storeId) : null
   const service = createShippingService({ sql: db.sql, context: callerOf(storeId, partnerId), actor: { id: people.india, partnerId }, activity: activityLog, facts: { requestId: 'q', ip: null, userAgent: null }, now: () => now, couriers: partner })
   return service.quote({ shipTo: { country: 'IN', region: 'Maharashtra', postal: '400001' }, subtotal: { amount: 50000n, currency: 'INR' }, marketId: null, ...request })
 }
@@ -170,8 +186,43 @@ describe('an Indian store', () => {
     expect((await settings('india')).flatAmount).toBe('4900')
   })
 
-  it('connects Shiprocket on the partner’s account to price orders, and quotes the cart’s weight from the store’s postcode', async () => {
-    expect((await courier('india', 'connectCourier', 'shiprocket')).data?.['connectCourier']).toBe('pricing')
+  it('refuses a login Shiprocket does not accept, or cannot answer for, and a form left incomplete, saving nothing', async () => {
+    checked.length = 0
+    loginAnswer.now = 'rejected'
+    const refused = await courier('india', 'connectCourier', 'shiprocket', login)
+    expect(refused.code).toBe('LOGIN_REFUSED')
+    expect(refused.errors?.[0]?.message).toBe('Shiprocket didn’t accept that login. Check the API user’s email and password.')
+    loginAnswer.now = 'unavailable'
+    expect((await courier('india', 'connectCourier', 'shiprocket', login)).code).toBe('COURIER_UNAVAILABLE')
+    loginAnswer.now = 'ok'
+    for (const bad of [{ ...login, email: 'not-an-email' }, { ...login, password: '' }]) expect((await courier('india', 'connectCourier', 'shiprocket', bad)).code).toBe('INVALID_INPUT')
+    expect((await courier('india', 'connectCourier', 'shiprocket')).code).toBe('INVALID_INPUT')
+    // Only the two real asks reached Shiprocket, and none kept anything.
+    expect(checked.map((c) => c.email)).toEqual([login.email, login.email])
+    expect(await accountRows()).toEqual([])
+    expect((await settings('india')).couriers[0]).toMatchObject({ status: 'off' })
+  })
+
+  it('connects Shiprocket with the store’s own API user to price orders, sealing the password and never returning it', async () => {
+    checked.length = 0
+    expect((await courier('india', 'connectCourier', 'shiprocket', login)).data?.['connectCourier']).toBe('pricing')
+    expect(checked).toEqual([{ provider: 'shiprocket', email: login.email, password: login.password }])
+    const shown = await gql('{ shippingSettings { couriers { provider status offered accountEmail } } }', 'india')
+    expect((shown.data?.['shippingSettings'] as { couriers: unknown[] }).couriers).toEqual([{ provider: 'shiprocket', status: 'pricing', offered: true, accountEmail: login.email }])
+    expect(JSON.stringify(shown.data)).not.toContain(login.password)
+    const [row] = await accountRows()
+    expect(row?.email).toBe(login.email)
+    expect(row?.credentials_sealed).toMatch(/^v1\./)
+    expect(row?.credentials_sealed).not.toContain(login.password)
+    expect(JSON.parse((await secrets.open(row?.credentials_sealed ?? '')) ?? 'null')).toEqual({ password: login.password, webhookToken: login.webhookToken })
+    // Connecting again with another login replaces it, and keeps the courier where it was.
+    expect((await courier('india', 'connectCourier', 'shiprocket', { ...login, email: 'api-user-2@jaipur.example' })).data?.['connectCourier']).toBe('pricing')
+    expect((await accountRows()).map((r) => r.email)).toEqual(['api-user-2@jaipur.example'])
+    expect((await courier('india', 'connectCourier', 'shiprocket', login)).data?.['connectCourier']).toBe('pricing')
+  })
+
+  it('prices the cart’s weight from the store’s postcode, and keeps the connected courier through a plain save', async () => {
+    expect((await courier('india', 'connectCourier', 'usps')).code).toBe('INVALID_INPUT')
     expect((await courier('india', 'connectCourier', 'usps')).code).toBe('INVALID_INPUT')
     expect((await save('india', { courierRate: true, flatAmount: '4900', pickup: true, pickupHours: 'Mon–Sat' })).code).toBeUndefined()
     answers.shiprocket = { rupees: 8500n }
@@ -225,9 +276,18 @@ describe('an Indian store', () => {
     expect((await courier('manager', 'disconnectCourier', 'shiprocket')).code).toBe('FORBIDDEN')
   })
 
+  it('disconnects after asking: the login goes, the courier is off, the rate with it, and the activity never holds the password', async () => {
+    expect((await courier('india', 'disconnectCourier', 'shiprocket')).errors).toBeUndefined()
+    expect(await accountRows()).toEqual([])
+    expect((await settings('india')).couriers[0]).toMatchObject({ status: 'off' })
+    const logged = JSON.stringify(await db.sql`select * from activity_log where store_id = ${stores.india}`)
+    expect(logged).not.toContain(login.password)
+    expect(logged).not.toContain(login.webhookToken)
+  })
+
   it('records every write in the store’s activity log', async () => {
     const actions = (await db.sql<{ action: string }[]>`select action from activity_log where store_id = ${stores.india} and action like any (array['shipping.%', 'courier.%']) order by occurred_at, action`).map((r) => r.action)
-    expect(new Set(actions)).toEqual(new Set(['shipping.saved', 'courier.connected', 'shipping.area_replaced']))
+    expect(new Set(actions)).toEqual(new Set(['shipping.saved', 'courier.connected', 'courier.disconnected', 'shipping.area_replaced']))
   })
 })
 

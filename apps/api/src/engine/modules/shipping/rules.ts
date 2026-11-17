@@ -13,6 +13,8 @@ export type ShippingRefusal =
   | 'NO_AREA_LIST'
   | 'TOO_MANY'
   | 'COURIER_NOT_OFFERED'
+  | 'LOGIN_REFUSED'
+  | 'COURIER_UNAVAILABLE'
   | 'NOT_CONNECTED'
   | 'NOT_FOUND'
   | 'OWN_DELIVERY_NOT_READY'
