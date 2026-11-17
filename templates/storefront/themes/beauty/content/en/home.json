@@ -1,0 +1,83 @@
+{
+  "hero": {
+    "eyebrow": "Skin, hair & body",
+    "title": "Care that feels",
+    "accent": "like a little glow",
+    "lead": "Gentle everyday products for your whole routine, from the first rinse of the morning to the last step at night.",
+    "shop": "Shop new in",
+    "favourites": "Customer favourites",
+    "alt": "A woman with cream on her cheek, smiling softly against a pink wall",
+    "detailAlt": "A dropper bottle resting on a wooden dish among pink rose petals"
+  },
+  "chips": {
+    "label": "Shop by category",
+    "all": "Shop all"
+  },
+  "newest": {
+    "eyebrow": "Just in",
+    "title": "New in",
+    "all": "See everything new"
+  },
+  "routine": {
+    "eyebrow": "Your routine",
+    "title": "Three easy steps, every day",
+    "lead": "A simple order to follow, morning and night. Swap in what your skin asks for.",
+    "stepOne": {
+      "title": "Cleanse",
+      "body": "Start fresh with a gentle wash that leaves skin clean and calm."
+    },
+    "stepTwo": {
+      "title": "Treat",
+      "body": "Layer what your skin needs today: a serum, an essence or a mask."
+    },
+    "stepThree": {
+      "title": "Protect",
+      "body": "Seal it in with a moisturiser, and finish with sun care by day."
+    },
+    "action": "Build your routine",
+    "alt": "A woman smoothing cream onto her cheek"
+  },
+  "categories": {
+    "eyebrow": "Explore",
+    "title": "Find your favourites",
+    "all": "Shop all"
+  },
+  "story": {
+    "eyebrow": "What goes in",
+    "title": "Ingredients you can read",
+    "body": "Tell shoppers what goes into your products: the ingredients you choose, who each product suits, and how to use it.",
+    "more": "Read our story",
+    "alt": "Amber dropper bottles and a wooden jar on a linen cloth"
+  },
+  "picks": {
+    "eyebrow": "Our shoppers’ picks",
+    "title": "Customer favourites",
+    "all": "See all favourites"
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Pay safely at checkout"
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow it from your account"
+    },
+    "save": {
+      "title": "Save favourites",
+      "body": "Keep a wishlist for later"
+    },
+    "help": {
+      "title": "Here to help",
+      "body": "Questions? Get in touch"
+    }
+  },
+  "signup": {
+    "eyebrow": "Join us",
+    "title": "Your routine, remembered",
+    "body": "Create an account to save favourites, check out faster and follow every order.",
+    "action": "Create an account",
+    "alt": "A smiling woman with her hands on her cheeks"
+  }
+}

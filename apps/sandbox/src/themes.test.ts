@@ -19,6 +19,8 @@ import { buildRuntime } from './runtime/build'
 vi.setConfig({ testTimeout: 600_000, hookTimeout: 120_000 })
 
 const themesDir = fileURLToPath(new URL('../../../templates/storefront/themes/', import.meta.url))
+// The category templates are built from baseline (#1537), so they run its baseline-only checks too.
+const fromBaseline = ['baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry']
 const keys = readdirSync(themesDir).filter((k) => statSync(join(themesDir, k)).isDirectory()).sort()
 const chrome = [process.env['CHROME_PATH'], '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p): p is string => p !== undefined && existsSync(p))
 
@@ -126,7 +128,7 @@ afterAll(async () => {
 })
 
 it('has the starting themes the gallery offers, each in its own folder', () => {
-  expect(keys).toEqual(['baseline', 'classic', 'market'])
+  expect(keys).toEqual(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])
   for (const key of keys) expect(templateSchema.parse(JSON.parse(readFileSync(join(themesDir, key, 'template.json'), 'utf8'))).key).toBe(key)
 })
 
@@ -196,7 +198,7 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
-  it.runIf(key === 'baseline')('opens its menu children on hover and focus, and closes them on Escape and when focus leaves', async ({ skip }) => {
+  it.runIf(fromBaseline.includes(key))('opens its menu children on hover and focus, and closes them on Escape and when focus leaves', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-menu`)
     const built = await bundle(dir, out)
@@ -525,7 +527,7 @@ const openAccount = async (b: Browser, out: string, state: AccountState, width =
 }
 
 // Card #1404: Account › Your details lets a shopper add or change their mobile number, proved by a text code.
-describe.each(['baseline', 'classic'])('the %s theme’s account, mobile number', (key) => {
+describe.each(['classic', ...fromBaseline])('the %s theme’s account, mobile number', (key) => {
   let out = ''
   const fresh = (over: Partial<AccountState> = {}): AccountState => ({ phone: null, verified: false, takesMobile: true, refuseCode: false, offline: false, sentTo: [], ...over })
   const mobileRow = (page: Page) => page.locator('dl > div').filter({ has: page.locator('dt', { hasText: 'Mobile number' }) })

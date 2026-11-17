@@ -1,0 +1,101 @@
+{
+  "hero": {
+    "label": "Featured looks",
+    "previous": "Previous look",
+    "next": "Next look",
+    "slides": {
+      "one": {
+        "eyebrow": "New season",
+        "title": "Light layers for",
+        "accent": "long, warm days",
+        "action": "Shop new in",
+        "alt": "A woman in a pale summer dress in a field of tall grass"
+      },
+      "two": {
+        "eyebrow": "Festive edit",
+        "title": "Colour and craft",
+        "accent": "for every occasion",
+        "action": "Shop the edit",
+        "alt": "A woman in an orange silk saree sitting on a wooden swing"
+      },
+      "three": {
+        "eyebrow": "Everyday denim",
+        "title": "Easy pieces for",
+        "accent": "the city",
+        "action": "Shop everyday wear",
+        "alt": "A man in a denim jacket standing by the water"
+      }
+    },
+    "showOne": "Show look 1",
+    "showTwo": "Show look 2",
+    "showThree": "Show look 3",
+    "kind": "carousel"
+  },
+  "categories": {
+    "title": "Shop by category",
+    "all": "All"
+  },
+  "newest": {
+    "eyebrow": "Just in",
+    "title": "New",
+    "accent": "arrivals",
+    "all": "View all products"
+  },
+  "story": {
+    "eyebrow": "Our story",
+    "title": "Clothes made to be",
+    "accent": "worn again and again",
+    "body": "Tell shoppers what goes into your clothes: the fabrics you choose, how each piece fits, and the people who make them.",
+    "collections": "{count, plural, one {Collection} other {Collections}}",
+    "more": "Read our story",
+    "alt": "Clothes on a rail in a bright studio"
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Pay safely at checkout"
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow it from your account"
+    },
+    "save": {
+      "title": "Save favourites",
+      "body": "Keep a wishlist for later"
+    },
+    "help": {
+      "title": "Questions welcome",
+      "body": "Write to us on Contact"
+    }
+  },
+  "picks": {
+    "eyebrow": "Top picks",
+    "title": "Customer",
+    "accent": "favourites",
+    "all": "View all products"
+  },
+  "featured": {
+    "eyebrow": "Spotlight",
+    "title": "Featured",
+    "accent": "collection",
+    "shop": "Shop {name}"
+  },
+  "banner": {
+    "eyebrow": "The everyday edit",
+    "title": "Pieces that move",
+    "accent": "with you",
+    "action": "Shop all",
+    "alt": "A woman in a flowing dress in warm evening light"
+  },
+  "explore": {
+    "eyebrow": "Browse",
+    "title": "Explore",
+    "accent": "collections"
+  },
+  "signup": {
+    "title": "Be the first to know",
+    "body": "Create an account to hear about new pieces, follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}

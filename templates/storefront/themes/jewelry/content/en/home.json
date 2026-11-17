@@ -1,0 +1,54 @@
+{
+  "hero": {
+    "eyebrow": "Fine jewellery",
+    "title": "Quiet pieces,",
+    "accent": "worn every day",
+    "lead": "Rings, earrings and necklaces made to be worn often and passed on.",
+    "action": "Discover the collection",
+    "altLeft": "A woman wearing a gold choker with pearls and a matching earring",
+    "altRight": "A raised hand wearing stacked gold rings and a chain bracelet"
+  },
+  "assure": {
+    "label": "Shopping with us",
+    "secure": "Secure checkout",
+    "track": "Follow every order from your account",
+    "save": "Save pieces to your wishlist"
+  },
+  "collections": {
+    "eyebrow": "The collections",
+    "title": "Shop by collection",
+    "all": "View all jewellery"
+  },
+  "newest": {
+    "eyebrow": "Just arrived",
+    "title": "New in",
+    "all": "View all new pieces"
+  },
+  "story": {
+    "eyebrow": "The craft",
+    "title": "Finished by hand,",
+    "accent": "one piece at a time",
+    "body": "Tell shoppers about your metals and stones, how each piece is finished and polished, and how to care for it so it lasts.",
+    "collections": "{count, plural, one {Collection} other {Collections}}",
+    "more": "Read our story",
+    "alt": "A hand lifting a long gold chain with mother-of-pearl charms"
+  },
+  "gift": {
+    "eyebrow": "The gift edit",
+    "title": "Something to",
+    "accent": "remember",
+    "body": "Rings, studs and fine chains to give, or to keep for yourself.",
+    "action": "Find a gift",
+    "alt": "Two gold rings set with small stones resting on a white block in warm light"
+  },
+  "picks": {
+    "eyebrow": "Favourites",
+    "title": "Customer favourites",
+    "all": "View all favourites"
+  },
+  "signup": {
+    "title": "Be the first to see new pieces",
+    "body": "Create an account to save favourites, follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}

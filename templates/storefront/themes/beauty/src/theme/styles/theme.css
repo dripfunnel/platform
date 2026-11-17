@@ -1,0 +1,43 @@
+@theme {
+  --color-bg: #fff9f7;
+  --color-surface: #fff;
+  --color-soft: #fdefea;
+  --color-tint: #fae0d8;
+  --color-ink: #3d2232;
+  --color-ink-soft: #5b3c4d;
+  --color-muted: #7a5a6a;
+  --color-line: #f3dcd4;
+  --color-accent: #a3315a;
+  --color-accent-ink: #fff;
+  --color-peach: #fde6d8;
+  --color-plum: #3d2232;
+  --color-plum-ink: #fff4f0;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 22px;
+  --radius-button: 999px;
+  --font-heading: 'Nunito', 'Quicksand', ui-rounded, 'SF Pro Rounded', 'Varela Round', 'Arial Rounded MT Bold', 'Segoe UI', system-ui, sans-serif;
+  --heading-weight: 800;
+  --brand-weight: 800;
+  --heading-case: none;
+  --heading-spacing: -0.02em;
+  --font-body: 'Nunito Sans', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --color-header-bg: #fff;
+  --color-header-ink: #3d2232;
+  --color-header-hover: #fdefea;
+  --color-footer-bg: #fae0d8;
+  --color-footer-ink: #3d2232;
+  --color-footer-muted: #6b4a5b;
+  --color-footer-line: #efc9bd;
+  --picture: linear-gradient(150deg, #fbe1d9, #f3c3c4);
+  --picture-alt: linear-gradient(150deg, #fdf0ea, #f8dccf);
+}
+
+@keyframes floaty {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-8px);
+  }
+}

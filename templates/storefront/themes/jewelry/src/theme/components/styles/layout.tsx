@@ -1,0 +1,43 @@
+import { clsx } from 'clsx'
+
+// The layout styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const subnavBase = clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-header-hover min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:min-w-50 min-[900px]:rounded-none min-[900px]:bg-header-bg min-[900px]:[box-shadow:0_8px_24px_color-mix(in_srgb,var(--color-header-ink)_12%,transparent)]')
+
+export const layout = {
+  about: clsx('flex min-w-0 flex-col gap-y-1.5 gap-x-1.5 col-[1_/_-1] min-[900px]:col-[auto]'),
+  bar: clsx('grid box-border w-[min(100%,1240px)] grid-cols-[auto_minmax(0,1fr)_auto] items-center min-[900px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 mx-auto px-4 min-h-18 min-[900px]:px-8 min-[900px]:min-h-0 min-[900px]:pt-6'),
+  base: clsx('pt-5 mt-10 mr-auto mb-0 ml-auto border-t border-t-footer-line flex box-border w-[min(100%,1176px)] flex-wrap items-center justify-between gap-y-3 gap-x-3 text-footer-muted'),
+  brand: clsx('col-start-2 row-start-1 justify-self-center min-w-0 max-w-full overflow-hidden text-header-ink font-heading text-[18px] font-[var(--brand-weight)] tracking-[0.1em] uppercase no-underline text-ellipsis whitespace-nowrap text-center focus-visible:[outline:2px_solid_var(--color-header-ink)] focus-visible:outline-offset-[2px] min-[900px]:text-[30px] min-[900px]:tracking-[0.24em] min-[900px]:max-w-[40vw]'),
+  columns: clsx('grid box-border w-[min(100%,1176px)] gap-y-8 gap-x-6 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] mx-auto min-[900px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'),
+  consent: clsx('block'),
+  contact: clsx('m-0 wrap-anywhere'),
+  cookies: clsx('block [--df-sealed-color:var(--color-footer-ink)] [&::part(button)]:py-0 [&::part(button)]:px-3.5 [&::part(button)]:border [&::part(button)]:border-footer-line [&::part(button)]:min-h-11 [&::part(button)]:rounded-button [&::part(button)]:bg-transparent [&::part(button)]:text-footer-ink'),
+  crest: clsx('flex flex-col items-center gap-y-3 mb-12'),
+  ornament: clsx('block w-30 h-3 [fill:none] [stroke:var(--color-gold)] [stroke-width:1]'),
+  count: clsx('py-0 px-1 absolute top-1 right-0.5 inline-flex min-w-4 h-4 box-border items-center justify-center rounded-full bg-gold-ink text-bg text-[10px] font-semibold leading-[1]'),
+  footer: clsx('pt-14 pr-4 pb-6 pl-4 mt-20 border-t border-t-gold bg-footer-bg text-footer-ink text-[14px] min-[900px]:px-8'),
+  footerBrand: clsx('m-0 font-heading text-[28px] font-[var(--brand-weight)] tracking-[0.22em] uppercase text-center wrap-anywhere'),
+  footerLink: clsx('flex min-h-9 items-center text-footer-ink no-underline decoration-gold underline-offset-[5px] hover:underline focus-visible:[outline:2px_solid_var(--color-footer-ink)] focus-visible:outline-offset-[2px]'),
+  header: clsx('border-b border-b-line sticky top-0 z-20 bg-header-bg text-header-ink'),
+  heading: clsx('mt-0 mr-0 mb-2 ml-0 text-gold-ink text-[11px] font-semibold tracking-[0.24em] uppercase'),
+  hidden: clsx('absolute overflow-hidden w-px h-px [clip-path:inset(50%)] whitespace-nowrap'),
+  icon: clsx('w-5 h-5 [fill:none] [stroke:currentcolor] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.3] min-[900px]:group-[:nth-child(n)]/layout-subToggle:w-4 min-[900px]:group-[:nth-child(n)]/layout-subToggle:h-4'),
+  links: clsx('flex min-w-0 flex-col'),
+  logo: clsx('block w-auto max-w-full h-10 object-contain object-center min-[900px]:h-14'),
+  main: clsx('w-full flex-1'),
+  nav: clsx('flex flex-col py-2 min-[900px]:flex-row min-[900px]:justify-center min-[900px]:gap-x-2 min-[900px]:py-1.5 min-[900px]:mt-5 min-[900px]:border-t min-[900px]:border-t-line'),
+  navItem: clsx('relative min-[900px]:flex min-[900px]:items-center'),
+  navLink: clsx('py-0 px-3 flex min-h-11 items-center text-header-ink text-[13px] font-medium tracking-[0.2em] uppercase no-underline decoration-gold decoration-1 underline-offset-[8px] hover:underline focus-visible:[outline:2px_solid_var(--color-header-ink)] focus-visible:outline-offset-[2px] min-[900px]:text-[12px] min-[900px]:px-4'),
+  note: clsx('m-0 max-w-[36ch] text-footer-muted'),
+  powered: clsx('block [--df-sealed-muted:var(--color-footer-muted)]'),
+  preview: clsx('block'),
+  shell: clsx('-m-2 [--df-sealed-font:var(--font-body)] [--df-sealed-color:var(--color-ink)] [--df-sealed-muted:var(--color-muted)] [--df-sealed-surface:var(--color-surface)] [--df-sealed-radius:var(--radius-card)] flex min-h-[100vh] flex-col bg-bg text-ink font-body text-[15px] leading-[1.55]'),
+  social: clsx('flex flex-wrap gap-y-0 gap-x-4 capitalize'),
+  subLink: clsx('py-0 px-3 flex min-h-10 items-center text-header-ink text-[13px] tracking-[0.08em] no-underline hover:bg-header-hover'),
+  subToggle: clsx('group/layout-subToggle hidden min-[900px]:p-0 min-[900px]:border-0 min-[900px]:border-current min-[900px]:flex min-[900px]:w-7 min-[900px]:h-11 min-[900px]:items-center min-[900px]:justify-center min-[900px]:bg-transparent min-[900px]:text-header-ink min-[900px]:cursor-pointer'),
+  subnav: clsx(subnavBase, 'min-[900px]:hidden'),
+  subnavBase,
+  subnavOpen: clsx('min-[900px]:flex'),
+  tool: clsx('inline-flex w-9 h-11 items-center justify-center rounded-full text-header-ink hover:text-gold-ink min-[900px]:w-11 relative focus-visible:[outline:2px_solid_var(--color-header-ink)] focus-visible:outline-offset-[2px]'),
+  tools: clsx('col-start-3 row-start-1 justify-self-end flex items-center gap-x-0.5'),
+}
