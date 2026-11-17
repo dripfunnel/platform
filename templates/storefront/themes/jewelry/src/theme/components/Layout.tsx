@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useCart, useMenu, useStorefront, useWishlist } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import { NavItem } from './interactive/NavItem'
+import { Ornament } from './Ornament'
 import { layout as styles } from './styles/layout'
 
 export const Layout = ({ children }: { children: ReactNode }) => {
@@ -78,9 +79,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       <footer className={styles.footer}>
         <div className={styles.crest}>
           <p className={styles.footerBrand}>{store.name}</p>
-          <svg className={styles.ornament} viewBox="0 0 120 12" aria-hidden="true" focusable="false">
-            <path d="M0 6h50 M70 6h50 M60 1l5 5-5 5-5-5z" />
-          </svg>
+          <Ornament className={styles.ornament} />
         </div>
         <div className={styles.columns}>
           <div className={styles.about}>

@@ -12,7 +12,7 @@ const Arrow = ({ back = false, className }: { back?: boolean; className: string 
 
 /** The home page's three looks; it turns every 6 s unless the shopper prefers less motion or is using it. */
 export const HeroCarousel = () => {
-  const { t, store } = useStorefront()
+  const { t } = useStorefront()
   const still = useReducedMotion()
   const [shown, setShown] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -33,42 +33,41 @@ export const HeroCarousel = () => {
   const copy = [
     <div key="one" className={styles.copy}>
       <div className={styles.copyInner}>
-      <p className={home.eyebrowLight}>{t('home.hero.slides.one.eyebrow')}</p>
-      <p className={home.heroTitle}>
-        {t('home.hero.slides.one.title')} <em className={styles.em}>{t('home.hero.slides.one.accent')}</em>
-      </p>
-      <Link href="/collections/all/?sort=newest" className={home.button}>
-        {t('home.hero.slides.one.action')} <Arrow className={home.arrow} />
-      </Link>
+        <p className={home.eyebrowLight}>{t('home.hero.slides.one.eyebrow')}</p>
+        <p className={home.heroTitle}>
+          {t('home.hero.slides.one.title')} <em className={styles.em}>{t('home.hero.slides.one.accent')}</em>
+        </p>
+        <Link href="/collections/all/?sort=newest" className={home.buttonOnPhoto}>
+          {t('home.hero.slides.one.action')} <Arrow className={home.arrow} />
+        </Link>
       </div>
     </div>,
     <div key="two" className={styles.copy}>
       <div className={styles.copyInner}>
-      <p className={home.eyebrowLight}>{t('home.hero.slides.two.eyebrow')}</p>
-      <p className={home.heroTitle}>
-        {t('home.hero.slides.two.title')} <em className={styles.em}>{t('home.hero.slides.two.accent')}</em>
-      </p>
-      <Link href="/collections/all/" className={home.button}>
-        {t('home.hero.slides.two.action')} <Arrow className={home.arrow} />
-      </Link>
+        <p className={home.eyebrowLight}>{t('home.hero.slides.two.eyebrow')}</p>
+        <p className={home.heroTitle}>
+          {t('home.hero.slides.two.title')} <em className={styles.em}>{t('home.hero.slides.two.accent')}</em>
+        </p>
+        <Link href="/collections/all/" className={home.buttonOnPhoto}>
+          {t('home.hero.slides.two.action')} <Arrow className={home.arrow} />
+        </Link>
       </div>
     </div>,
     <div key="three" className={styles.copy}>
       <div className={styles.copyInner}>
-      <p className={home.eyebrowLight}>{t('home.hero.slides.three.eyebrow')}</p>
-      <p className={home.heroTitle}>
-        {t('home.hero.slides.three.title')} <em className={styles.em}>{t('home.hero.slides.three.accent')}</em>
-      </p>
-      <Link href="/collections/all/" className={home.button}>
-        {t('home.hero.slides.three.action')} <Arrow className={home.arrow} />
-      </Link>
+        <p className={home.eyebrowLight}>{t('home.hero.slides.three.eyebrow')}</p>
+        <p className={home.heroTitle}>
+          {t('home.hero.slides.three.title')} <em className={styles.em}>{t('home.hero.slides.three.accent')}</em>
+        </p>
+        <Link href="/collections/all/" className={home.buttonOnPhoto}>
+          {t('home.hero.slides.three.action')} <Arrow className={home.arrow} />
+        </Link>
       </div>
     </div>,
   ]
 
   return (
     <section className={styles.root} aria-roledescription={t('home.hero.kind')} aria-label={t('home.hero.label')} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
-      <h1 className={styles.pageTitle}>{store.name}</h1>
       <div className={shown === 0 ? styles.slideOn : styles.slide} aria-hidden={shown !== 0}>
         <ThemeImage src="hero-field.webp" alt={t('home.hero.slides.one.alt')} ratio={0.67} sizes="100vw" className={styles.image} />
       </div>
@@ -87,7 +86,7 @@ export const HeroCarousel = () => {
         </div>
         <div className={styles.arrows}>
           {still ? null : (
-            <button type="button" className={styles.previous} aria-label={stopped ? t('home.hero.play') : t('home.hero.pause')} onClick={() => setStopped((v) => !v)}>
+            <button type="button" className={styles.pause} aria-label={stopped ? t('home.hero.play') : t('home.hero.pause')} onClick={() => setStopped((v) => !v)}>
               <svg className={styles.arrowIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d={stopped ? 'M8 5l11 7-11 7z' : 'M9 5v14 M15 5v14'} />
               </svg>

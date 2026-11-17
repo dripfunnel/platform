@@ -1,8 +1,8 @@
 {
   "hero": {
     "eyebrow": "Jewellery",
-    "title": "Quiet pieces,",
-    "accent": "worn every day",
+    "title": "Find your",
+    "accent": "next piece",
     "lead": "Every piece in the shop, in one place.",
     "action": "Discover the collection",
     "altLeft": "A woman wearing a gold choker with pearls and a matching earring",
@@ -17,7 +17,7 @@
   "collections": {
     "eyebrow": "The collections",
     "title": "Shop by collection",
-    "all": "View all jewellery"
+    "all": "Shop all"
   },
   "newest": {
     "eyebrow": "Just arrived",
@@ -29,22 +29,21 @@
     "title": "The story behind",
     "accent": "every piece",
     "body": "Tell shoppers about your metals and stones, how each piece is finished and polished, and how to care for it so it lasts.",
-    "collections": "{count, plural, one {Collection} other {Collections}}",
     "more": "Read our story",
     "alt": "A hand lifting a long gold chain with mother-of-pearl charms"
   },
   "gift": {
-    "eyebrow": "The gift edit",
-    "title": "Something to",
-    "accent": "remember",
-    "body": "Something to give, or to keep for yourself.",
-    "action": "Find a gift",
+    "eyebrow": "By price",
+    "title": "Start with",
+    "accent": "our lowest prices",
+    "body": "Browse every piece, lowest price first.",
+    "action": "Shop by price",
     "alt": "Two gold rings set with small stones resting on a white block in warm light"
   },
   "picks": {
     "eyebrow": "Keep browsing",
     "title": "More pieces to love",
-    "all": "View all jewellery"
+    "all": "Shop all"
   },
   "signup": {
     "title": "Keep your favourites close",
