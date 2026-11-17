@@ -6,13 +6,13 @@
     "slides": {
       "one": {
         "eyebrow": "New in",
-        "title": "Fresh pieces for",
-        "accent": "the season ahead",
+        "title": "Fresh pieces,",
+        "accent": "just in",
         "action": "Shop new in",
         "alt": "A woman in a pale summer dress in a field of tall grass"
       },
       "two": {
-        "eyebrow": "The edit",
+        "eyebrow": "Shop all",
         "title": "Colour for",
         "accent": "every occasion",
         "action": "Shop all",
@@ -41,15 +41,14 @@
     "eyebrow": "Just in",
     "title": "New",
     "accent": "arrivals",
-    "all": "View all products",
+    "all": "View all new arrivals",
     "label": "New arrivals"
   },
   "story": {
     "eyebrow": "Our story",
     "title": "The story behind",
-    "accent": "our clothes",
+    "accent": "our shop",
     "body": "Tell shoppers what goes into your clothes: the fabrics you choose, how each piece fits, and the people who make them.",
-    "collections": "{count, plural, one {Collection} other {Collections}}",
     "more": "Read our story",
     "alt": "Clothes on a rail in a bright studio"
   },
@@ -80,8 +79,8 @@
     "label": "More to explore"
   },
   "featured": {
-    "eyebrow": "Spotlight",
-    "title": "Featured",
+    "eyebrow": "Collection",
+    "title": "Shop the",
     "accent": "collection",
     "shop": "Shop {name}"
   },

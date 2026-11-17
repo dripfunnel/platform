@@ -24,7 +24,7 @@ export const home = {
   heroPanel: clsx('grid overflow-visible rounded-[32px] bg-[linear-gradient(135deg,var(--color-peach),var(--color-tint))] min-[900px]:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] min-[900px]:rounded-[40px]'),
   heroCopy: clsx('flex flex-col justify-center gap-y-5 py-10 px-6 min-[900px]:py-20 min-[900px]:pl-16 min-[900px]:pr-12'),
   heroTitle: clsx('m-0 font-heading text-[40px] font-[var(--heading-weight)] tracking-[-0.03em] leading-[1.04] text-ink [text-wrap:balance] min-[900px]:text-[64px]'),
-  heroLead: clsx('m-0 max-w-[44ch] text-ink-soft text-[17px] leading-[1.6]'),
+  heroLead: clsx('m-0 max-w-[44ch] text-ink-soft text-[17px] leading-[1.6] wrap-anywhere'),
   heroActions: clsx('flex flex-wrap gap-3 pt-2'),
   heroFrame: clsx('relative min-h-0 p-3 pt-0 min-[900px]:p-4 min-[900px]:pl-0'),
   heroPicture: clsx('relative block overflow-hidden h-full aspect-square rounded-[26px] [background:var(--picture)] min-[900px]:aspect-auto min-[900px]:min-h-140 min-[900px]:rounded-[30px]'),
@@ -33,6 +33,7 @@ export const home = {
   heroDetailImage: clsx('block w-full h-auto object-cover'),
 
   chips: clsx(sectionBase, 'pt-8 min-[900px]:pt-10'),
+  chipSkeleton: clsx('inline-flex min-h-11 w-24 shrink-0 rounded-full bg-soft'),
   chipsRow: clsx('p-0 m-0 flex items-center gap-2.5 overflow-x-auto list-none [scrollbar-width:none] pb-1 min-[900px]:flex-wrap min-[900px]:justify-center'),
   chipsLabel: clsx('m-0 shrink-0 pr-2 font-heading text-[15px] font-extrabold text-ink'),
   chip: clsx('py-0 px-5 inline-flex min-h-11 shrink-0 items-center rounded-full border border-line bg-surface text-ink font-heading text-[15px] font-bold whitespace-nowrap no-underline hover:border-accent hover:text-accent [transition:border-color_200ms_ease,color_200ms_ease] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
@@ -51,7 +52,7 @@ export const home = {
   stepNumber: clsx('inline-flex w-10 h-10 items-center justify-center rounded-full bg-peach text-plum font-heading text-[16px] font-extrabold'),
   stepTitle: clsx('m-0 pt-2 font-heading text-[20px] font-extrabold'),
   stepBody: clsx('m-0 text-[14px] leading-[1.55] text-[rgb(255_244_240/0.82)]'),
-  routineAction: clsx(pillBase, 'self-start border-peach bg-peach text-plum hover:bg-surface hover:border-surface'),
+  routineAction: clsx(pillBase, 'self-start border-peach bg-peach text-plum hover:bg-surface hover:border-surface focus-visible:[outline:2px_solid_var(--color-plum-ink)]'),
 
   tiles: clsx('p-0 m-0 grid gap-3.5 grid-cols-[repeat(2,minmax(0,1fr))] list-none min-[900px]:grid-cols-[repeat(4,minmax(0,1fr))] min-[900px]:gap-5'),
   tile: clsx('group/home-tile flex flex-col gap-y-3 rounded-[26px] bg-surface border border-line p-2.5 pb-4 text-ink no-underline hover:border-accent [transition:border-color_200ms_ease] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),

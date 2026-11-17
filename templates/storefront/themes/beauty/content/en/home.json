@@ -1,9 +1,9 @@
 {
   "hero": {
     "eyebrow": "Welcome",
-    "title": "Care that feels",
-    "accent": "like a little glow",
-    "lead": "Everyday care for your whole routine, from morning to night.",
+    "title": "Find what",
+    "accent": "suits you",
+    "lead": "Everything in the shop, in one place.",
     "shop": "Shop new in",
     "favourites": "Browse everything",
     "alt": "A woman with cream on her cheek, smiling softly against a pink wall",
@@ -70,7 +70,7 @@
     },
     "help": {
       "title": "Questions?",
-      "body": "Write to us and we’ll reply"
+      "body": "Write to us on Contact"
     }
   },
   "signup": {
