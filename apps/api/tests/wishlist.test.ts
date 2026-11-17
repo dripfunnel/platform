@@ -96,6 +96,7 @@ beforeAll(async () => {
     (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, address) values (${t.partnerA}, ${name}, ${code}, 'IN', 'INR', 'active', ${db.sql.json({ street: '1 MI Road', city: 'Jaipur' })}) returning id`)[0]?.id ?? ''
   store = await make('Jaipur', 'jaipur')
   surat = await make('Surat', 'surat')
+  await db.sql`update store_customer_auth set phone_enabled = true where store_id in ${db.sql([store, surat])}`
   const product = async (storeId: string, name: string, price: number, stock = 100) => {
     const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, ${name}, ${name.toLowerCase().replaceAll(' ', '-')}, 'visible') returning id`
     const [v] = await db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${storeId}, ${p?.id ?? ''}, ${name}, 0, true) returning id`

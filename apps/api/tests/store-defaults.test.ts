@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs'
+import { graphql } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { shopSchema, type ShopContext } from '#apis/shop/schema'
+import { resolveShopper } from '#auth/shopCaller'
+import type { TenantContext } from '#core/tenancy'
+import { createCustomerAccounts } from '#engine/modules/customerAccounts/index'
+import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -9,6 +15,7 @@ let db: TestDatabase
 let t: Tenants
 
 const migration = readFileSync(new URL('../migrations/0394_store_default_cod_flat_rate.sql', import.meta.url), 'utf8')
+const migration0408 = readFileSync(new URL('../migrations/0408_store_default_email_sign_in.sql', import.meta.url), 'utf8')
 const backfill = migration.slice(migration.indexOf('-- Stores that already exist'))
 
 const store = async (code: string, country: string, currency: string, status = 'active') =>
@@ -38,6 +45,40 @@ describe('a new store', () => {
     const id = await store('defaults-us', 'US', 'USD')
     expect(await cod(id)).toBeNull()
     expect(await shipping(id)).toEqual({ flat_enabled: true, flat_amount: '0', currency: 'USD', saved: true })
+  })
+})
+
+describe('a new store’s customer accounts (#1492, migration 0408)', () => {
+  const auth = async (storeId: string) => (await db.sql<{ email_enabled: boolean; phone_enabled: boolean }[]>`select email_enabled, phone_enabled from store_customer_auth where store_id = ${storeId}`)[0]
+  const options = async (storeId: string) => {
+    const [s] = await db.sql<{ code: string }[]>`select code from store where id = ${storeId}`
+    const host = `${s?.code ?? ''}.shop.example`
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`), host, 'shop.example')
+    if (found.kind !== 'found') throw new Error('no store')
+    const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async () => true, sessionToken: null, allowNewCart: async () => true, now: () => new Date() }
+    const run = await graphql({ schema: shopSchema, source: '{ signInOptions { email phone } }', contextValue })
+    return run.data?.['signInOptions']
+  }
+
+  it('starts with Email and password in India and in the US', async () => {
+    const [india, us] = [await store('auth-in', 'IN', 'INR'), await store('auth-us', 'US', 'USD')]
+    expect(await auth(india)).toEqual({ email_enabled: true, phone_enabled: false })
+    expect(await auth(us)).toEqual({ email_enabled: true, phone_enabled: false })
+  })
+
+  it('leaves a store that already chose Both as it is', async () => {
+    const id = await store('auth-chosen', 'IN', 'INR')
+    await db.sql`update store_customer_auth set phone_enabled = true where store_id = ${id}`
+    await db.sql.unsafe(migration0408)
+    expect(await auth(id)).toEqual({ email_enabled: true, phone_enabled: true })
+  })
+
+  it('answers email only on the Shop API and in Settings › Customer accounts for a new store', async () => {
+    const id = await store('auth-api', 'IN', 'INR')
+    expect(await options(id)).toEqual({ email: true, phone: false })
+    const context: TenantContext = { caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId: id, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const accounts = createCustomerAccounts({ sql: db.sql, context, actor: { id: 'u', partnerId: t.partnerA }, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date() })
+    expect((await accounts.settings()).mode).toBe('email')
   })
 })
 
