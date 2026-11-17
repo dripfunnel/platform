@@ -3,7 +3,7 @@
     "eyebrow": "Skin, hair & body",
     "title": "Care that feels",
     "accent": "like a little glow",
-    "lead": "Gentle everyday products for your whole routine, from the first rinse of the morning to the last step at night.",
+    "lead": "Everyday care for your whole routine, from morning to night.",
     "shop": "Shop new in",
     "favourites": "Browse everything",
     "alt": "A woman with cream on her cheek, smiling softly against a pink wall",
@@ -24,7 +24,7 @@
     "lead": "A simple order to follow, morning and night. Swap in what your skin asks for.",
     "stepOne": {
       "title": "Cleanse",
-      "body": "Start fresh with a gentle wash that leaves skin clean and calm."
+      "body": "Start with a cleanser that suits your skin."
     },
     "stepTwo": {
       "title": "Treat",
@@ -43,8 +43,8 @@
     "all": "Shop all"
   },
   "story": {
-    "eyebrow": "What goes in",
-    "title": "Ingredients you can read",
+    "eyebrow": "Our story",
+    "title": "The story behind our products",
     "body": "Tell shoppers what goes into your products: the ingredients you choose, who each product suits, and how to use it.",
     "more": "Read our story",
     "alt": "Amber dropper bottles and a wooden jar on a linen cloth"
@@ -75,7 +75,7 @@
   },
   "signup": {
     "eyebrow": "Join us",
-    "title": "Your routine, remembered",
+    "title": "Your favourites, saved",
     "body": "Create an account to save favourites, check out faster and follow every order.",
     "action": "Create an account",
     "alt": "A smiling woman with her hands on her cheeks"
