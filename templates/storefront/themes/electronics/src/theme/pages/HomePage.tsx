@@ -40,7 +40,7 @@ export const HomePage = () => {
   const newest = useProducts({ sort: 'newest', first: 8 })
   const picks = useProducts({ sort: 'best-selling', first: 4 })
   const top = useProducts({ sort: 'price-high', first: 1 })
-  const flagship = top.products[0] ?? null
+  const spotlit = top.products[0] ?? null
 
   return (
     <Layout>
@@ -82,13 +82,13 @@ export const HomePage = () => {
           </div>
           <div className={styles.heroStage}>
             <ThemeImage src="hero-keys.webp" alt={t('home.hero.alt')} ratio={0.8} sizes="(min-width: 900px) 520px, 100vw" className={styles.heroImage} />
-            {flagship?.price ? (
-              <Link href={flagship.href} className={styles.tag}>
+            {spotlit?.price ? (
+              <Link href={spotlit.href} className={styles.tag}>
                 <span className={styles.tagCopy}>
                   <span className={styles.tagLabel}>{t('home.hero.spotlight')}</span>
-                  <span className={styles.tagName}>{flagship.name}</span>
+                  <span className={styles.tagName}>{spotlit.name}</span>
                 </span>
-                <Price money={flagship.price} compareAt={null} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.tagPrice} />
+                <Price money={spotlit.price} compareAt={null} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.tagPrice} />
               </Link>
             ) : null}
           </div>
@@ -138,21 +138,21 @@ export const HomePage = () => {
       </section>
       ) : null}
 
-      {flagship ? (
+      {spotlit ? (
         <section className={styles.spotlightWrap} aria-labelledby="home-spotlight">
           <div className={styles.spotlight}>
             <div className={styles.spotlightStage}>
-              <div className={styles.spotlightFrame}>{flagship.photo ? <Image image={flagship.photo} alt={flagship.photo.alt ?? flagship.name} ratio={1} sizes="(min-width: 900px) 440px, 90vw" className={styles.spotlightImage} /> : null}</div>
+              <div className={styles.spotlightFrame}>{spotlit.photo ? <Image image={spotlit.photo} alt={spotlit.photo.alt ?? spotlit.name} ratio={1} sizes="(min-width: 900px) 440px, 90vw" className={styles.spotlightImage} /> : null}</div>
             </div>
             <div className={styles.spotlightCopy}>
               <p className={styles.spotlightEyebrow}>{t('home.spotlight.eyebrow')}</p>
               <h2 id="home-spotlight" className={styles.spotlightName}>
-                {flagship.name}
+                {spotlit.name}
               </h2>
               <p className={styles.spotlightBody}>{t('home.spotlight.body')}</p>
-              {flagship.price ? <Price money={flagship.price} compareAt={flagship.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.spotlightPrice} /> : null}
+              {spotlit.price ? <Price money={spotlit.price} compareAt={spotlit.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.spotlightPrice} /> : null}
               <div className={styles.actions}>
-                <Link href={flagship.href} className={styles.volt}>
+                <Link href={spotlit.href} className={styles.volt}>
                   {t('home.spotlight.view')} <Arrow />
                 </Link>
                 <Link href="/collections/all/?sort=price-high" className={styles.ghostDark}>
