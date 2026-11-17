@@ -3,39 +3,9 @@ import type { ActivityCategory, ActivityResult, ActivityRow, ActorKind, NewActiv
 import { pageLimit, pgArray, type ScopedSql } from './index'
 import { likePattern } from './stores'
 
-// A person's entry with no label takes "Name <email>" from their user row (LOGGING §4); jobs and old entries stay nameless.
-const labelOf = (tx: ScopedSql, kind: string, id: string | null) => tx`(
-  select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end
-  from "user" u where u.id = case when ${kind} = 'person' and ${id}::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then ${id}::text::uuid end
-)`
-
-export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
-  const rows = await tx<{ id: string }[]>`
-    insert into activity_log (
-      occurred_at, category, action, result, actor_kind, actor_id, actor_label,
-      on_behalf_of_kind, on_behalf_of_id, on_behalf_of_label, access_kind, access_ref,
-      partner_id, store_id, seller_id, customer_id, target_type, target_id, target_label,
-      changes, reason, api, host, request_id, ip, user_agent, visibility
-    ) values (
-      coalesce(${row.occurred_at}, now()), ${row.category}, ${row.action}, ${row.result}, ${row.actor_kind},
-      ${row.actor_id},
-      coalesce(${row.actor_label}, ${labelOf(tx, row.actor_kind, row.actor_id)}),
-      ${row.on_behalf_of_kind}, ${row.on_behalf_of_id}, ${row.on_behalf_of_label}, ${row.access_kind}, ${row.access_ref},
-      ${row.partner_id}, ${row.store_id}, ${row.seller_id}, ${row.customer_id},
-      ${row.target_type}, ${row.target_id}, ${row.target_label},
-      ${JSON.stringify(row.changes)}::text::jsonb, ${row.reason}, ${row.api}, ${row.host}, ${row.request_id},
-      ${row.ip}, ${row.user_agent}, ${row.visibility}
-    ) returning id
-  `
-  const inserted = rows[0]
-  if (!inserted) throw new Error('activity_log insert returned no row')
-  return inserted.id
-}
-
-/** Many rows in one statement, as `insertActivity` writes one. */
-export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivityRow[]): Promise<void> => {
-  if (rows.length === 0) return
-  await tx`
+// One statement for one row or many, so the person's name (below) is defined once.
+const insertRows = (tx: ScopedSql, rows: readonly NewActivityRow[]) =>
+  tx<{ id: string }[]>`
     insert into activity_log (
       occurred_at, category, action, result, actor_kind, actor_id, actor_label,
       on_behalf_of_kind, on_behalf_of_id, on_behalf_of_label, access_kind, access_ref,
@@ -43,7 +13,11 @@ export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivity
       changes, reason, api, host, request_id, ip, user_agent, visibility
     )
     select coalesce(x.occurred_at, now()), x.category, x.action, x.result, x.actor_kind, x.actor_id,
-      coalesce(x.actor_label, (select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end from "user" u where u.id = case when x.actor_kind = 'person' and x.actor_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x.actor_id::uuid end)),
+      -- A person's entry with no label takes "Name <email>" from their user row (LOGGING §4); jobs and old entries stay nameless.
+      coalesce(x.actor_label, (
+        select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end
+        from "user" u where u.id = case when x.actor_kind = 'person' and x.actor_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x.actor_id::uuid end
+      )),
       x.on_behalf_of_kind, x.on_behalf_of_id, x.on_behalf_of_label, x.access_kind, x.access_ref,
       x.partner_id, x.store_id, x.seller_id, x.customer_id, x.target_type, x.target_id, x.target_label,
       x.changes, x.reason, x.api, x.host, x.request_id, x.ip, x.user_agent, x.visibility
@@ -53,7 +27,19 @@ export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivity
       partner_id uuid, store_id uuid, seller_id uuid, customer_id uuid, target_type text, target_id text, target_label text,
       changes jsonb, reason text, api text, host text, request_id text, ip text, user_agent text, visibility text
     )
+    returning id
   `
+
+export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
+  const inserted = (await insertRows(tx, [row]))[0]
+  if (!inserted) throw new Error('activity_log insert returned no row')
+  return inserted.id
+}
+
+/** Many rows in one statement, as `insertActivity` writes one. */
+export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivityRow[]): Promise<void> => {
+  if (rows.length === 0) return
+  await insertRows(tx, rows)
 }
 
 export interface ActivityQuery {
