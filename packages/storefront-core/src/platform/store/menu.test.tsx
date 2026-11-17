@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Provided, shopAnswering } from '../../../test/shop'
+import { PrefilledProvider } from '../render/data'
 import { useMenu } from './menu'
 
 afterEach(() => {
@@ -30,5 +31,31 @@ describe('useMenu', () => {
     }))
     render(<Provided><Menu /></Provided>)
     expect((await screen.findByText(/Linen/)).textContent).toBe('Linen>/collections/linen/[/about] Blog>https://blog.example[]')
+  })
+
+  // #1481: a live page is built with the menu as it was at publish; asking again swapped its header after it had loaded.
+  const built = [{ id: '1', label: 'Linen', kind: 'collection', collectionSlug: 'linen', url: null, children: [] }]
+  const newer = { data: { menu: [{ id: '9', label: 'Newborn Essentials', kind: 'collection', collectionSlug: 'newborn', url: null, children: [] }] } }
+  const asBuilt = (children: React.ReactNode) => (
+    <Provided mode="live">
+      <PrefilledProvider value={{ answers: new Map([['menu', items(built)]]) }}>{children}</PrefilledProvider>
+    </Provided>
+  )
+  const items = (rows: typeof built) => rows.map((r) => ({ id: r.id, label: r.label, href: `/collections/${r.collectionSlug}/`, children: [] }))
+
+  it('keeps the menu a live page was built with, and never asks the Shop API for another, so its header cannot change after load (#1481)', async () => {
+    const asked = shopAnswering(() => newer)
+    render(asBuilt(<Menu />))
+    expect(screen.getByText(/Linen/).textContent).toBe('Linen>/collections/linen/[]')
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(screen.getByText(/Linen/).textContent).toBe('Linen>/collections/linen/[]')
+    expect(asked.filter((a) => a.query.includes('query Menu'))).toEqual([])
+  })
+
+  it('still loads the current menu where nothing was built with one: the preview and the studio (#1481)', async () => {
+    const asked = shopAnswering(() => newer)
+    render(<Provided><Menu /></Provided>)
+    expect((await screen.findByText(/Newborn Essentials/)).textContent).toBe('Newborn Essentials>/collections/newborn/[]')
+    expect(asked.filter((a) => a.query.includes('query Menu'))).toHaveLength(1)
   })
 })

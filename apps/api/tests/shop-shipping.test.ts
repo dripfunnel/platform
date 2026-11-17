@@ -16,8 +16,10 @@ let kurta = ''
 let theirs = ''
 
 const couriers: CourierDirectory = {
-  forPartner: async () => ({
+  check: async () => 'ok',
+  forStore: async () => ({
     accounts: new Set(['shiprocket'] as const),
+    connectable: new Set(['shiprocket'] as const),
     gateway: { quote: async () => ({ amount: { amount: 8500n, currency: 'INR' }, service: 'Surface', minDays: 3, maxDays: 5 }), book: async () => null, pickup: async () => ({ ref: null, date: null }), readHook: async () => null },
   }),
 }
@@ -47,7 +49,7 @@ afterAll(async () => {
 
 const shopper = (storeId: string, partnerId: string): TenantContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
 const quote = async (context: TenantContext, versionId: string, postal: string) => {
-  const service = createShippingService({ sql: db.sql, context, actor: { id: 'shopper', partnerId: context.partnerId }, activity: activityLog, facts: { requestId: 'q', ip: null, userAgent: null }, now: () => new Date(), couriers: await couriers.forPartner(context.partnerId) })
+  const service = createShippingService({ sql: db.sql, context, actor: { id: 'shopper', partnerId: context.partnerId }, activity: activityLog, facts: { requestId: 'q', ip: null, userAgent: null }, now: () => new Date(), couriers: await couriers.forStore(context.storeId) })
   const result = await service.quote({ lines: [{ versionId, quantity: 1 }], shipTo: { country: 'IN', region: null, postal }, subtotal: { amount: 50000n, currency: 'INR' }, marketId: null })
   return result.ok ? { deliverable: result.value.deliverable, options: result.value.options.map((o) => [o.id, o.amount.amount]) } : result.reason
 }
