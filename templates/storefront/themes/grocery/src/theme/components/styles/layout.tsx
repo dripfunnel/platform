@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 
 // The layout styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
-const subnavBase = clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-line min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:min-w-52 min-[900px]:rounded-card min-[900px]:bg-surface min-[900px]:[box-shadow:0_12px_28px_rgb(22_35_26/0.12)]')
+const subnavBase = clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-line min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:min-w-52 min-[900px]:rounded-card min-[900px]:bg-surface min-[900px]:[box-shadow:0_12px_28px_var(--color-shade-12)]')
 
 export const layout = {
   about: clsx('flex min-w-0 flex-col gap-y-1.5 gap-x-1.5 col-[1_/_-1] min-[900px]:col-[auto]'),

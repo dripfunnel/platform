@@ -32,7 +32,7 @@ export const home = {
   ghostDark: clsx(buttonOnDark, 'border-stage-line bg-transparent text-stage-ink hover:bg-stage-raised'),
   heroStage: clsx('relative overflow-hidden aspect-square min-[900px]:aspect-[4/5] rounded-[20px] border border-stage-line bg-stage max-w-[520px] w-full justify-self-center min-[900px]:justify-self-end'),
   heroImage: clsx('block w-full h-full object-cover object-[50%_88%]'),
-  tag: clsx('py-3 px-4 absolute top-4 left-4 right-4 flex items-center justify-between gap-x-3 rounded-[12px] border border-stage-line bg-[rgb(11_13_18/0.72)] [backdrop-filter:blur(10px)] text-stage-ink no-underline focus-visible:[outline:2px_solid_var(--color-volt)] focus-visible:outline-offset-[2px]'),
+  tag: clsx('py-3 px-4 absolute top-4 left-4 right-4 flex items-center justify-between gap-x-3 rounded-[12px] border border-stage-line bg-[var(--color-shade-72)] [backdrop-filter:blur(10px)] text-stage-ink no-underline focus-visible:[outline:2px_solid_var(--color-volt)] focus-visible:outline-offset-[2px]'),
   tagCopy: clsx('flex min-w-0 flex-col gap-y-0.5'),
   tagLabel: clsx(monoBase, 'text-[10px] text-volt'),
   tagName: clsx('m-0 text-[14px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap'),
@@ -70,7 +70,7 @@ export const home = {
   promoSoundPicture: clsx('overflow-hidden min-h-56 bg-surface'),
   promoLightPicture: clsx('absolute inset-0 overflow-hidden bg-stage'),
   promoImage: clsx('block w-full h-full object-cover'),
-  promoShade: clsx('absolute inset-0 bg-[linear-gradient(0deg,rgb(11_13_18/0.92),rgb(11_13_18/0.2)_65%)]'),
+  promoShade: clsx('absolute inset-0 bg-[linear-gradient(0deg,var(--color-shade-92),var(--color-shade-20)_65%)]'),
   button: clsx(buttonBase, 'border-ink bg-ink text-bg hover:bg-ink-soft'),
 
   promisesBand: clsx('mt-14 bg-stage text-stage-ink min-[900px]:mt-20'),

@@ -5,7 +5,7 @@ const primaryBase = clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 
 
 export const shop = {
   badge: clsx('py-0.5 px-2 absolute top-2 left-2 rounded-[6px] bg-highlight text-highlight-ink text-[11px] font-bold'),
-  card: clsx('relative flex h-full box-border flex-col gap-y-2 p-2.5 border border-line rounded-card bg-surface [transition:box-shadow_200ms_ease] hover:[box-shadow:0_8px_22px_rgb(22_35_26/0.10)] focus-within:[box-shadow:0_8px_22px_rgb(22_35_26/0.10)]'),
+  card: clsx('relative flex h-full box-border flex-col gap-y-2 p-2.5 border border-line rounded-card bg-surface [transition:box-shadow_200ms_ease] hover:[box-shadow:0_8px_22px_var(--color-shade-10)] focus-within:[box-shadow:0_8px_22px_var(--color-shade-10)]'),
   cardImage: clsx('block w-full h-full object-cover'),
   cardLink: clsx('flex flex-col gap-y-2 text-ink no-underline after:absolute after:inset-0 after:rounded-card after:content-[""] focus-visible:outline-none focus-visible:after:[outline:2px_solid_var(--color-focus)] focus-visible:after:outline-offset-[2px]'),
   cardName: clsx('m-0 min-h-[2.7em] font-body text-[14px] font-semibold leading-[1.35] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden wrap-anywhere'),
