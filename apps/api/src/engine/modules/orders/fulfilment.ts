@@ -267,6 +267,8 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         if (!place?.courier || !couriers || !files || !couriers.accounts.has(accountKindOf(provider)) || !couriersFor(place.store_country).includes(provider)) return { ok: false, reason: 'NOT_CONNECTED' }
         // A to-shopper supplier on its own courier account books outside DripFunnel, which holds only the partner's.
         if (sellerId && place.label_account !== 'store') return { ok: false, reason: 'OWN_LABELS' }
+        // The label and its pickup carry the location's address, which a supplier never reads of the store's (#1353).
+        if (sellerId && place.warehouse_seller_id === null) return { ok: false, reason: 'NO_ADDRESS' }
         const from = fromAddressOf(place, input.warehouseId)
         const orderRow = await selectBookingOrder(tx, order.id)
         const to = orderRow ? toAddressOf(orderRow) : null

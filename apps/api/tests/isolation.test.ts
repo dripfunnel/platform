@@ -581,6 +581,33 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
   })
 
+  it('reads the store’s default location, or one holding its stock, to a supplier, and no other warehouse row (#1353)', async () => {
+    const as = (storeId: string, sellerId: string) => storeCaller(storeId === t.storeB1 ? t.partnerB : t.partnerA, storeId, { kind: 'seller', sellerId })
+    const names = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ name: string }[]>`select name from warehouse order by name`).map((r) => r.name))
+    const mine = (await db.sql<{ id: string }[]>`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'iso-home', 'iso-home') returning id`)[0]?.id ?? ''
+    const [version] = await db.sql<{ id: string }[]>`insert into product_version (product_id, store_id, position) values (${mine}, ${t.storeA1}, 0) returning id`
+    const [main] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA1} and seller_id is null and is_default`
+    const [held] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Iso back room') returning id`
+    const [spare] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Iso spare room') returning id`
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id) values (${version?.id ?? ''}, ${held?.id ?? ''}, ${t.storeA1})`
+    const count = (context: CallerContext, location: string | undefined) => withScope(db.sql, context, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location ?? ''}, 1, null, 'received')`)
+
+    // The default one, and the one holding this supplier's stock; never the store's other locations.
+    expect(await names(as(t.storeA1, t.sellerA1Second))).toEqual(['Iso back room', 'Main location'])
+    expect(await names(as(t.storeA1, t.sellerA1First))).not.toContain('Iso back room')
+    expect(await names(as(t.storeA1, t.sellerA1First))).not.toContain('Iso spare room')
+    // Another store's supplier reads its own store's default and nothing of this store's.
+    expect(await names(as(t.storeB1, t.sellerB1))).toEqual(['Main location'])
+    expect(await names(storeCaller(t.partnerA, t.storeA1))).toEqual(expect.arrayContaining(['Iso back room', 'Iso spare room', 'Main location']))
+    // It counts only where the rule allows: not in a location with none of its stock, nor with another supplier's version.
+    await expect(count(as(t.storeA1, t.sellerA1Second), spare?.id)).rejects.toThrow(/no such version or location/)
+    await expect(count(as(t.storeA1, t.sellerA1First), main?.id)).rejects.toThrow(/no such version or location/)
+    await expect(count(as(t.storeA1, t.sellerA1First), held?.id)).rejects.toThrow(/no such version or location/)
+    await expect(count(as(t.storeB1, t.sellerB1), main?.id)).rejects.toThrow(/no such version or location/)
+    await expect(count(storeCaller(t.partnerA, t.storeA1), main?.id)).rejects.toThrow(/no such version or location/)
+    expect((await count(as(t.storeA1, t.sellerA1Second), main?.id))[0]).toMatchObject({ stock_change: expect.anything() })
+  })
+
   it('holds content pages, posts and their redirects to the merchant side of their own store (#338)', async () => {
     const entry = async (storeId: string, slug: string, status = 'published') =>
       (await db.sql<{ id: string }[]>`insert into storefront_content (store_id, kind, slug, title, status) values (${storeId}, 'page', ${slug}, ${slug}, ${status}) returning id`)[0]?.id ?? ''
