@@ -32,12 +32,3 @@
   --picture: linear-gradient(150deg, #fbe1d9, #f3c3c4);
   --picture-alt: linear-gradient(150deg, #fdf0ea, #f8dccf);
 }
-
-@keyframes floaty {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-8px);
-  }
-}

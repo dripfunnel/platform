@@ -65,13 +65,11 @@ export const HomePage = () => {
       {collections.length ? (
         <div className={styles.marquee} aria-hidden="true">
           <div className={styles.marqueeTrack}>
-            {[0, 1].map((copy) =>
-              collections.map((c) => (
-                <span key={copy ? `again-${c.id}` : c.id} className={styles.marqueeItem}>
-                  {c.name}
-                </span>
-              )),
-            )}
+            {collections.map((c) => (
+              <span key={c.id} className={styles.marqueeItem}>
+                {c.name}
+              </span>
+            ))}
           </div>
         </div>
       ) : null}
