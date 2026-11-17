@@ -3,24 +3,31 @@ import { useEffect, useId, useState } from 'react'
 import {
   loadSms,
   removeSms,
-  routeProviders,
   saveSms,
   setSmsEnabled,
   setSmsRoute,
+  testSms,
+  type SmsAccount,
+  type SmsPick,
+  type SmsRefusal,
+  type SmsResult,
+  type SmsStatus,
+} from '../../api/sms'
+import {
+  accountForRoute,
+  routeProviders,
+  senderOf,
+  servesRoute,
+  smsAccountInput,
   smsMessages,
   smsProviders,
   smsRoutes,
-  smsShapes,
-  testSms,
-  type SmsAccount,
-  type SmsInput,
+  smsSecretFields,
+  type SmsField,
   type SmsMessage,
   type SmsProvider,
-  type SmsRefusal,
-  type SmsResult,
   type SmsRoute,
-  type SmsStatus,
-} from '../../api/sms'
+} from '@dripfunnel/shared/messaging'
 import { fill, locale, messages } from '../../messages'
 
 const words = messages.settings.integrations.sms
@@ -29,45 +36,32 @@ const look: Record<SmsAccount['status'], [StatusTone, StatusIconName]> = { ok: [
 
 type Loaded = { state: 'loading' } | { state: 'error' } | { state: 'ready'; status: SmsStatus }
 type Open = { kind: 'save' | 'remove'; provider: SmsProvider } | { kind: 'route'; route: SmsRoute } | { kind: 'on' | 'off' } | null
-type Field = 'authKey' | 'accountSid' | 'authToken' | 'messagingServiceSid' | 'accessKeyId' | 'secretAccessKey' | 'region' | 'senderId' | 'entityId'
 
 const name = (provider: SmsProvider) => words.providers[provider]
-const refusalText = (reason: SmsRefusal, provider: SmsProvider | null) => fill(words.refusals[reason], { provider: provider ? name(provider) : words.title })
+const refusalText = (reason: SmsRefusal, provider: SmsPick | null) => fill(words.refusals[reason], { provider: provider && provider !== 'dripfunnel' ? name(provider) : words.title })
 
-/** Whether a saved account can send every message on the route: India needs its DLT templates (#1017). */
-const serves = (account: SmsAccount, route: SmsRoute) => (route === 'rest' ? account.provider !== 'msg91' : account.provider !== 'twilio' && account.templatesComplete === true)
+type Sender = SmsProvider | 'dripfunnel' | null
 
-/** Which of the partner's accounts sends the route, or null for DripFunnel's: the API's own rule (THIRD-PARTY-ACCESS §4). */
-const senderFor = (accounts: readonly SmsAccount[], pick: SmsProvider | null, route: SmsRoute): SmsProvider | null => {
-  const chosen = pick ?? routeProviders[route].find((p) => accounts.some((a) => a.provider === p))
-  const account = accounts.find((a) => a.provider === chosen)
-  return account && serves(account, route) ? account.provider : null
+/** Whose account sends the route, by the API's own rule (THIRD-PARTY-ACCESS §4); `ours` is DripFunnel's serving it for the partner. */
+const senderFor = (accounts: readonly SmsAccount[], pick: SmsPick | null, route: SmsRoute, ours: boolean): Sender => {
+  const own = accountForRoute(accounts, route, pick)?.provider ?? null
+  const sender = senderOf(pick, own !== null, ours)
+  return sender === 'own' ? own : sender
 }
-const who = (provider: SmsProvider | null) => (provider ? fill(words.sentBy.yours, { provider: name(provider) }) : words.sentBy.ours)
-const pickOf = (status: SmsStatus, route: SmsRoute) => status.routes.find((r) => r.route === route)?.provider ?? null
+const who = (sender: Sender) => (sender === 'dripfunnel' ? words.sentBy.ours : sender ? fill(words.sentBy.yours, { provider: name(sender) }) : words.sentBy.none)
+const routeOf = (status: SmsStatus, route: SmsRoute) => status.routes.find((r) => r.route === route)
+const pickOf = (status: SmsStatus, route: SmsRoute) => routeOf(status, route)?.provider ?? null
+const oursOn = (status: SmsStatus, route: SmsRoute) => routeOf(status, route)?.dripfunnel === true
+// "Texts to {numbers} will go through {who}", or that none will where no account sends them.
+const through = (template: string, numbers: string, sender: Sender) => (sender ? fill(template, { numbers, who: who(sender) }) : fill(words.noneTo, { numbers }))
+const routeLine = (sender: Sender) => (sender ? fill(words.sentByLine, { who: who(sender) }) : words.unsent)
 
 const SaveDialog = ({ provider, onDone, onCancel }: { provider: SmsProvider; onDone: () => void; onCancel: () => void }) => {
   const prefix = useId()
-  const [values, setValues] = useState<Partial<Record<Field, string>>>({})
+  const [values, setValues] = useState<Partial<Record<SmsField, string>>>({})
   const [templates, setTemplates] = useState<Partial<Record<SmsMessage, string>>>({})
   const [error, setError] = useState<string | null>(null)
-  const typed = (f: Field) => values[f]?.trim() ?? ''
-  const ok = (f: Field) => smsShapes[f].test(typed(f))
-  const ids = smsMessages.map((message) => ({ message, templateId: templates[message]?.trim() ?? '' }))
-  const allTemplates = ids.every((t) => smsShapes.templateId.test(t.templateId))
-  const indiaBlank = typed('senderId') === '' && typed('entityId') === '' && ids.every((t) => t.templateId === '')
-  const input: SmsInput | null =
-    provider === 'msg91'
-      ? ok('authKey') && allTemplates
-        ? { provider, authKey: typed('authKey'), templates: ids }
-        : null
-      : provider === 'twilio'
-        ? ok('accountSid') && ok('authToken') && ok('messagingServiceSid')
-          ? { provider, accountSid: typed('accountSid'), authToken: typed('authToken'), messagingServiceSid: typed('messagingServiceSid') }
-          : null
-        : ok('accessKeyId') && ok('secretAccessKey') && ok('region') && (indiaBlank || (ok('senderId') && ok('entityId') && allTemplates))
-          ? { provider, accessKeyId: typed('accessKeyId'), secretAccessKey: typed('secretAccessKey'), region: typed('region'), ...(indiaBlank ? {} : { senderId: typed('senderId'), entityId: typed('entityId'), templates: ids }) }
-          : null
+  const input = smsAccountInput(provider, values, templates)
   const save = () => {
     if (!input) return
     setError(null)
@@ -76,12 +70,12 @@ const SaveDialog = ({ provider, onDone, onCancel }: { provider: SmsProvider; onD
       () => setError(words.toasts.failed),
     )
   }
-  const field = (f: Field) => (
+  const field = (f: SmsField) => (
     <div className="df-field" key={f}>
       <label htmlFor={`${prefix}-${f}`}>{words.fields[f]}</label>
       <input
         id={`${prefix}-${f}`}
-        type={f === 'authKey' || f === 'authToken' || f === 'secretAccessKey' ? 'password' : 'text'}
+        type={smsSecretFields.includes(f) ? 'password' : 'text'}
         autoComplete="off"
         spellCheck={false}
         maxLength={80}
@@ -118,25 +112,28 @@ const SaveDialog = ({ provider, onDone, onCancel }: { provider: SmsProvider; onD
   )
 }
 
-const RouteDialog = ({ status, route, onDone, onCancel }: { status: SmsStatus; route: SmsRoute; onDone: (pick: SmsProvider | null) => void; onCancel: () => void }) => {
+const RouteDialog = ({ status, route, onDone, onCancel }: { status: SmsStatus; route: SmsRoute; onDone: (pick: SmsPick | null) => void; onCancel: () => void }) => {
   const [error, setError] = useState<string | null>(null)
   const numbers = words.routeNumbers[route]
   const [first, second] = routeProviders[route]
-  const pickFrom = (value: string) => smsProviders.find((p) => p === value) ?? null
+  const ours = oursOn(status, route)
+  const pickFrom = (value: string): SmsPick | null => (ours && value === 'dripfunnel' ? 'dripfunnel' : (smsProviders.find((p) => p === value) ?? null))
   const hintOf = (provider: SmsProvider) => {
     const account = status.accounts.find((a) => a.provider === provider)
-    return !account ? words.routeDialog.hints.missing : serves(account, route) ? words.routeDialog.hints.complete : words.routeDialog.hints.incomplete
+    return !account ? words.routeDialog.hints.missing : servesRoute(account, route) ? words.routeDialog.hints.complete : words.routeDialog.hints.incomplete
   }
   const options = [
-    { value: '', label: fill(words.routeDialog.automatic, { first: name(first), second: name(second) }), hint: fill(words.routeDialog.today, { who: who(senderFor(status.accounts, null, route)) }) },
+    { value: '', label: fill(words.routeDialog.automatic, { first: name(first), second: name(second) }), hint: fill(words.routeDialog.today, { who: who(senderFor(status.accounts, null, route, ours)) }) },
     ...routeProviders[route].map((p) => ({ value: p, label: name(p), hint: hintOf(p) })),
+    ...(ours ? [{ value: 'dripfunnel', label: words.routeDialog.ours, hint: fill(words.routeDialog.oursHint, { numbers }) }] : []),
   ]
+  const current = pickOf(status, route)
   return (
     <ConfirmDialog
       open
       title={fill(words.routeDialog.title, { numbers })}
       target=""
-      consequence={(_, picked) => fill(words.routeDialog.consequence, { numbers, who: who(senderFor(status.accounts, pickFrom(picked.provider ?? ''), route)) })}
+      consequence={(_, picked) => through(words.routeDialog.consequence, numbers, senderFor(status.accounts, pickFrom(picked.provider ?? ''), route, ours))}
       confirmLabel={words.routeDialog.confirm}
       cancelLabel={messages.settings.integrations.cancel}
       choices={[
@@ -144,11 +141,12 @@ const RouteDialog = ({ status, route, onDone, onCancel }: { status: SmsStatus; r
           key: 'provider',
           label: words.routeDialog.label,
           options,
-          initial: pickOf(status, route) ?? '',
+          // A pick of DripFunnel's that Admin has since turned off isn't offered, so the dialog starts on "whichever".
+          initial: current && options.some((o) => o.value === current) ? current : '',
           error: (picked) => {
-            const provider = pickFrom(picked)
+            const provider = smsProviders.find((p) => p === picked)
             const account = status.accounts.find((a) => a.provider === provider)
-            return provider && !(account && serves(account, route)) ? refusalText('ACCOUNT_INCOMPLETE', provider) : null
+            return provider && !(account && servesRoute(account, route)) ? refusalText('ACCOUNT_INCOMPLETE', provider) : null
           },
         },
       ]}
@@ -246,7 +244,8 @@ export const SmsPanel = ({ mayChange, blocked, onToast }: SmsPanelProps) => {
     const left = accounts.filter((a) => a.provider !== provider)
     const changes = smsRoutes.flatMap((route) => {
       const pick = pickOf(status, route)
-      return senderFor(accounts, pick, route) === provider ? [fill(words.removeDialog.route, { numbers: words.routeNumbers[route], who: who(senderFor(left, pick, route)) })] : []
+      const ours = oursOn(status, route)
+      return senderFor(accounts, pick, route, ours) === provider ? [through(words.removeDialog.route, words.routeNumbers[route], senderFor(left, pick, route, ours))] : []
     })
     return [words.removeDialog.deleted, ...(changes.length ? changes : [words.removeDialog.none])].join(' ')
   }
@@ -258,8 +257,8 @@ export const SmsPanel = ({ mayChange, blocked, onToast }: SmsPanelProps) => {
           <li key={route}>
             <div className="df-settings-onfile">
               <strong>{words.routes[route]}</strong>
-              <span className="df-muted">{enabled ? fill(words.sentByLine, { who: who(senderFor(accounts, pickOf(status, route), route)) }) : words.offRoute}</span>
-              {mayChange && routeProviders[route].some((p) => accountOf(p)) && (
+              <span className="df-muted">{enabled ? routeLine(senderFor(accounts, pickOf(status, route), route, oursOn(status, route))) : words.offRoute}</span>
+              {mayChange && (routeProviders[route].some((p) => accountOf(p)) || oursOn(status, route)) && (
                 <button type="button" className="df-button" aria-label={fill(words.change, { route: words.routes[route] })} disabled={testing !== null} onClick={() => openDialog({ kind: 'route', route })}>
                   {words.short.change}
                 </button>
@@ -268,7 +267,7 @@ export const SmsPanel = ({ mayChange, blocked, onToast }: SmsPanelProps) => {
           </li>
         ))}
       </ul>
-      <p className="df-muted">{words.fallback}</p>
+      <p className="df-muted">{status.dripfunnel ? words.available : words.fallback}</p>
       <div className="df-settings-signin">
         {smsProviders.map((provider) => {
           const account = accountOf(provider)
@@ -335,7 +334,7 @@ export const SmsPanel = ({ mayChange, blocked, onToast }: SmsPanelProps) => {
       )}
       {open?.kind === 'save' && <SaveDialog provider={open.provider} onDone={() => finish(fill(words.toasts.saved, { provider: name(open.provider) }))} onCancel={close} />}
       {open?.kind === 'route' && (
-        <RouteDialog status={status} route={open.route} onDone={(pick) => finish(fill(words.toasts.route, { numbers: words.routeNumbers[open.route], who: who(senderFor(accounts, pick, open.route)) }))} onCancel={close} />
+        <RouteDialog status={status} route={open.route} onDone={(pick) => finish(through(words.toasts.route, words.routeNumbers[open.route], senderFor(accounts, pick, open.route, oursOn(status, open.route))))} onCancel={close} />
       )}
       {open?.kind === 'remove' && (
         <ConfirmDialog

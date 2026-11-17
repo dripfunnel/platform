@@ -4,17 +4,16 @@ import {
   loadWhatsApp,
   removeWhatsApp,
   saveWhatsApp,
+  setWhatsAppChoice,
   setWhatsAppEnabled,
   testWhatsApp,
-  whatsAppMessages,
-  whatsAppShapes,
   type WhatsAppAccount,
-  type WhatsAppMessage,
+  type WhatsAppChoice,
   type WhatsAppRefusal,
-  type WhatsAppRejection,
   type WhatsAppResult,
   type WhatsAppStatus,
 } from '../../api/whatsapp'
+import { servesCodes, whatsAppAccountInput, whatsAppMessages, type WhatsAppMessage, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
 import { fill, locale, messages } from '../../messages'
 
 const words = messages.settings.integrations.whatsapp
@@ -38,10 +37,7 @@ const problemText = (rejection: WhatsAppRejection, names: Names): string =>
 const refusalText = (r: { reason: WhatsAppRefusal; rejection: WhatsAppRejection | null }, names: Names): string =>
   r.reason === 'KEY_REJECTED' && r.rejection ? problemText(r.rejection, names) : words.refusals[r.reason]
 
-/** On needs a saved account naming `code.portal` whose last check said Working (ACCESS §4). */
-const servesCodes = (account: WhatsAppAccount) => account.status === 'ok' && account.templates.some((t) => t.message === 'code.portal' && t.name)
-
-const SaveDialog = ({ current, enabled, onDone, onCancel }: { current: WhatsAppAccount | null; enabled: boolean; onDone: () => void; onCancel: () => void }) => {
+const SaveDialog = ({ current, needsCode, onDone, onCancel }: { current: WhatsAppAccount | null; needsCode: boolean; onDone: () => void; onCancel: () => void }) => {
   const ids = { business: useId(), phone: useId(), token: useId(), language: useId(), template: useId() }
   const [businessAccountId, setBusinessAccountId] = useState(current?.businessAccountId ?? '')
   const [phoneNumberId, setPhoneNumberId] = useState(current?.phoneNumberId ?? '')
@@ -52,21 +48,15 @@ const SaveDialog = ({ current, enabled, onDone, onCancel }: { current: WhatsAppA
     return { 'code.portal': named['code.portal'] ?? '', 'cart.reminder': named['cart.reminder'] ?? '', 'cart.reminder_code': named['cart.reminder_code'] ?? '' }
   })
   const [error, setError] = useState<string | null>(null)
-  const typed = { businessAccountId: businessAccountId.trim(), phoneNumberId: phoneNumberId.trim(), accessToken: token.trim(), language: language.trim() }
-  const names = whatsAppMessages.map((message) => ({ message, name: templates[message].trim() }))
-  const shaped =
-    whatsAppShapes.id.test(typed.businessAccountId) &&
-    whatsAppShapes.id.test(typed.phoneNumberId) &&
-    whatsAppShapes.token.test(typed.accessToken) &&
-    whatsAppShapes.language.test(typed.language) &&
-    names.every((t) => t.name === '' || whatsAppShapes.template.test(t.name))
-  const blocked = !shaped ? words.dialog.incomplete : enabled && templates['code.portal'].trim() === '' ? words.dialog.codeTemplateNeeded : null
+  const input = whatsAppAccountInput({ businessAccountId, phoneNumberId, accessToken: token, language }, templates)
+  const blocked = !input ? words.dialog.incomplete : needsCode && templates['code.portal'].trim() === '' ? words.dialog.codeTemplateNeeded : null
   const save = () => {
+    if (!input) return
     setError(null)
-    saveWhatsApp({ ...typed, templates: names }).then(
+    saveWhatsApp(input).then(
       (r) => {
         if (r.ok) return onDone()
-        setError(r.reason === 'NO_CODE_TEMPLATE' ? words.dialog.codeTemplateNeeded : refusalText(r, { language: typed.language, templates: Object.fromEntries(names.map((t) => [t.message, t.name])) }))
+        setError(r.reason === 'NO_CODE_TEMPLATE' ? words.dialog.codeTemplateNeeded : refusalText(r, { language: input.language, templates: Object.fromEntries(input.templates.map((t) => [t.message, t.name])) }))
       },
       () => setError(words.toasts.failed),
     )
@@ -116,7 +106,7 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
   const noteId = useId()
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
-  const [open, setOpen] = useState<'save' | 'on' | 'off' | 'remove' | null>(null)
+  const [open, setOpen] = useState<'save' | 'on' | 'off' | 'remove' | 'choice' | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [rejection, setRejection] = useState<WhatsAppRejection | null>(null)
@@ -150,12 +140,17 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
     )
   if (loaded.state === 'loading') return <LoadingState label={words.loading} rows={2} />
   if (loaded.state === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => (setLoaded({ state: 'loading' }), reload()) }} />
-  const { enabled, account } = loaded.status
+  const { enabled, account, dripfunnel, choice, sender } = loaded.status
   const names = account ? namesOf(account) : { language: '', templates: {} }
-  const canTurnOn = account !== null && servesCodes(account)
+  const ours = sender === 'dripfunnel'
+  // DripFunnel's account already carries codes; the partner's own needs code.portal named and Working (ACCESS §4).
+  const canTurnOn = ours || (account !== null && servesCodes(account))
   // Why On isn't offered yet, also what the disabled Turn on points to.
-  const why = account?.status === 'rejected' ? words.rejectedNote : account && !enabled && !canTurnOn ? words.needsCodeTemplate : null
-  const openDialog = (kind: 'save' | 'on' | 'off' | 'remove') => (setDialogError(null), setOpen(kind))
+  const why = ours ? null : account?.status === 'rejected' ? words.rejectedNote : account && !enabled && !canTurnOn ? words.needsCodeTemplate : null
+  const openDialog = (kind: 'save' | 'on' | 'off' | 'remove' | 'choice') => (setDialogError(null), setOpen(kind))
+  const senderText = ours ? words.sender.ours : sender === 'own' ? words.sender.own : words.sender.none
+  // Choosing their own while On needs it to carry codes, as Turn on does; the API refuses it too.
+  const choiceError = (picked: string) => (picked === 'own' && enabled && account && !servesCodes(account) ? words.refusals.NO_CODE_TEMPLATE : null)
   const test = () => {
     setTesting(true)
     testWhatsApp()
@@ -163,7 +158,7 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
         (r) => {
           if (!r.ok) return onToast(refusalText(r, names))
           setRejection(r.status === 'rejected' ? r.rejection : null)
-          onToast(r.status === 'rejected' ? (enabled ? words.toasts.rejectedOff : words.toasts.rejected) : words.toasts.ok)
+          onToast(r.status === 'rejected' ? (enabled && !ours ? words.toasts.rejectedOff : words.toasts.rejected) : words.toasts.ok)
         },
         () => onToast(words.toasts.failed),
       )
@@ -224,8 +219,20 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
           </li>
         </ul>
       ) : (
-        <p className="df-muted">{words.none}</p>
+        <p className="df-muted">{dripfunnel ? words.noneOurs : words.none}</p>
       )}
+      {dripfunnel && (
+        <div className="df-settings-onfile">
+          <strong>{words.sender.label}</strong>
+          <span>{senderText}</span>
+          {mayChange && (
+            <button type="button" className="df-button" disabled={testing} onClick={() => openDialog('choice')}>
+              {words.choiceDialog.change}
+            </button>
+          )}
+        </div>
+      )}
+      {dripfunnel && <p className="df-muted">{words.available}</p>}
       {rejection && account?.status === 'rejected' && <p role="alert">{problemText(rejection, names)}</p>}
       {why && (
         <p id={noteId} className="df-muted">
@@ -242,7 +249,7 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
               {testing ? words.testing : words.test}
             </button>
           )}
-          {account &&
+          {(account || dripfunnel || enabled) &&
             (enabled ? (
               <button type="button" className="df-button" disabled={testing} onClick={() => openDialog('off')}>
                 {words.turnOff}
@@ -262,7 +269,7 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
       {open === 'save' && (
         <SaveDialog
           current={account}
-          enabled={enabled}
+          needsCode={enabled && !(dripfunnel && choice === 'dripfunnel')}
           onDone={() => {
             setOpen(null)
             setRejection(null)
@@ -277,7 +284,7 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
           open
           title={words.onDialog.title}
           target={words.onDialog.target}
-          consequence={words.onDialog.consequence}
+          consequence={ours ? words.onDialog.consequenceOurs : words.onDialog.consequence}
           confirmLabel={words.onDialog.confirm}
           cancelLabel={messages.settings.integrations.cancel}
           error={dialogError}
@@ -305,11 +312,39 @@ export const WhatsAppPanel = ({ mayChange, blocked, onToast }: WhatsAppPanelProp
           danger
           title={words.removeDialog.title}
           target={words.removeDialog.target}
-          consequence={words.removeDialog.consequence}
+          consequence={dripfunnel ? words.removeDialog.consequenceOurs : words.removeDialog.consequence}
           confirmLabel={words.removeDialog.confirm}
           cancelLabel={messages.settings.integrations.cancel}
           error={dialogError}
           onConfirm={confirm(removeWhatsApp, words.toasts.removed)}
+          onCancel={() => setOpen(null)}
+        />
+      )}
+      {open === 'choice' && (
+        <ConfirmDialog
+          open
+          title={words.choiceDialog.title}
+          target=""
+          consequence={(_, picked) => (picked.account === 'dripfunnel' ? words.choiceDialog.consequenceOurs : account ? words.choiceDialog.consequenceOwn : words.choiceDialog.consequenceNoOwn)}
+          confirmLabel={words.choiceDialog.confirm}
+          cancelLabel={messages.settings.integrations.cancel}
+          choices={[
+            {
+              key: 'account',
+              label: words.choiceDialog.label,
+              options: [
+                { value: 'own', label: words.choiceDialog.own, hint: account ? words.choiceDialog.ownHint : words.choiceDialog.ownMissing },
+                { value: 'dripfunnel', label: words.choiceDialog.ours, hint: words.choiceDialog.oursHint },
+              ],
+              initial: choice ?? (ours ? 'dripfunnel' : 'own'),
+              error: choiceError,
+            },
+          ]}
+          error={dialogError}
+          onConfirm={(_, __, picked) => {
+            const next: WhatsAppChoice = picked.account === 'dripfunnel' ? 'dripfunnel' : 'own'
+            confirm(() => setWhatsAppChoice(next), next === 'dripfunnel' ? words.toasts.chosenOurs : words.toasts.chosenOwn)()
+          }}
           onCancel={() => setOpen(null)}
         />
       )}

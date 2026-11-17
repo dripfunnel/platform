@@ -21,6 +21,7 @@ import { Route as AppImpersonateRouteImport } from './routes/_app/impersonate'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
 import { Route as AppRolloutsRouteImport } from './routes/_app/rollouts'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
@@ -90,6 +91,11 @@ const AppProvisioningRoute = AppProvisioningRouteImport.update({
 const AppRolloutsRoute = AppRolloutsRouteImport.update({
   id: '/rollouts',
   path: '/rollouts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStaffRoute = AppStaffRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
   '/rollouts': typeof AppRolloutsRoute
+  '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
   '/rollouts': typeof AppRolloutsRoute
+  '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
   '/_app/rollouts': typeof AppRolloutsRoute
+  '/_app/settings': typeof AppSettingsRoute
   '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/partners'
     | '/provisioning'
     | '/rollouts'
+    | '/settings'
     | '/staff'
     | '/states'
     | '/stores'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/partners'
     | '/provisioning'
     | '/rollouts'
+    | '/settings'
     | '/staff'
     | '/states'
     | '/stores'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/_app/partners'
     | '/_app/provisioning'
     | '/_app/rollouts'
+    | '/_app/settings'
     | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
@@ -398,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRolloutsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/staff': {
       id: '/_app/staff'
       path: '/staff'
@@ -495,6 +514,7 @@ interface AppRouteChildren {
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
   AppRolloutsRoute: typeof AppRolloutsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
@@ -519,6 +539,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
   AppRolloutsRoute: AppRolloutsRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,

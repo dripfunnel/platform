@@ -2,6 +2,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { accountForRoute, senderOf, smsRoutes, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
 import { fill, messages } from '../../messages'
 import { SmsPanel } from './SmsPanel'
 
@@ -9,15 +10,22 @@ const words = messages.settings.integrations.sms
 const messageIds = Object.keys(words.messages) as (keyof typeof words.messages)[]
 const authKey = ['k', 'A'.repeat(20), 'm2Zp'].join('')
 const snsSecret = ['s', 'b'.repeat(35), 'WXYZ'].join('')
-const account = (provider: string, o: object = {}) => ({ provider, hint: '…m2Zp', status: 'ok', lastTestedAt: '2026-11-16T09:00:00Z', templatesComplete: provider === 'twilio' ? null : true, ...o })
-const status = (o: { enabled?: boolean; india?: string | null; rest?: string | null; accounts?: object[] } = {}) => ({
-  enabled: o.enabled ?? true,
-  routes: [
-    { route: 'india', provider: o.india ?? null },
-    { route: 'rest', provider: o.rest ?? null },
-  ],
-  accounts: o.accounts ?? [],
-})
+type Account = { provider: SmsProvider; templatesComplete: boolean | null; hint: string; status: string; lastTestedAt: string | null }
+const account = (provider: SmsProvider, o: Partial<Account> = {}): Account => ({ provider, hint: '…m2Zp', status: 'ok', lastTestedAt: '2026-11-16T09:00:00Z', templatesComplete: provider === 'twilio' ? null : true, ...o })
+// The API's answer, each route's sender by its own rule; `ours` is where DripFunnel's serves the partner (#1543).
+const status = (o: { enabled?: boolean; india?: string | null; rest?: string | null; accounts?: Account[]; ours?: readonly SmsRoute[] } = {}) => {
+  const accounts = o.accounts ?? []
+  const ours = o.ours ?? []
+  return {
+    enabled: o.enabled ?? true,
+    dripfunnel: ours.length > 0,
+    routes: smsRoutes.map((route) => {
+      const provider = (route === 'india' ? o.india : o.rest) ?? null
+      return { route, provider, dripfunnel: ours.includes(route), sender: senderOf(provider, accountForRoute(accounts, route, provider) !== undefined, ours.includes(route)) }
+    }),
+    accounts,
+  }
+}
 const ok = { ok: true, reason: null, status: 'ok' }
 const refused = (reason: string) => ({ ok: false, reason, status: null })
 const sentBy = (provider: string | null) => fill(words.sentByLine, { who: provider ? fill(words.sentBy.yours, { provider }) : words.sentBy.ours })
@@ -66,11 +74,11 @@ const typeTemplates = async () => {
 }
 
 describe('SMS on Integrations', () => {
-  it('starts with no accounts: DripFunnel’s sends both routes, and each provider offers its set up', async () => {
+  it('starts with no accounts and DripFunnel’s not enabled: no route sends, and each provider offers its set up', async () => {
     render(<SmsPanel mayChange blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText(words.fallback)).toBeTruthy()
     expect(screen.getByText(words.on)).toBeTruthy()
-    expect(screen.getAllByText(sentBy(null))).toHaveLength(2)
+    expect(screen.getAllByText(words.unsent)).toHaveLength(2)
     for (const provider of ['MSG91', 'Twilio', 'AWS SNS']) expect(screen.getByRole('button', { name: fill(words.setUp, { provider }) })).toBeTruthy()
     expect(screen.getAllByText(words.notSetUp)).toHaveLength(3)
     expect(screen.queryByRole('button', { name: fill(words.change, { route: words.routes.india }) })).toBeNull()
@@ -96,7 +104,7 @@ describe('SMS on Integrations', () => {
     expect(screen.getByText(words.statuses.ok)).toBeTruthy()
     expect(screen.getByText(words.india.complete)).toBeTruthy()
     expect(screen.getByText(sentBy('MSG91'))).toBeTruthy()
-    expect(screen.getByText(sentBy(null))).toBeTruthy()
+    expect(screen.getByText(words.unsent)).toBeTruthy()
   })
 
   it('says in words why the provider refused, and keeps the dialog open', async () => {
@@ -172,7 +180,7 @@ describe('SMS on Integrations', () => {
     expect(card('AWS SNS').getByText(words.india.incomplete)).toBeTruthy()
     expect(card('AWS SNS').getByText(fill(words.rejectedNote, { provider: 'AWS SNS' }))).toBeTruthy()
     expect(screen.getByText(sentBy('Twilio'))).toBeTruthy()
-    expect(screen.getByText(sentBy(null))).toBeTruthy()
+    expect(screen.getByText(words.unsent)).toBeTruthy()
   })
 
   it('tests an account: Working, Rejected, or the refusal in words', async () => {
@@ -213,11 +221,58 @@ describe('SMS on Integrations', () => {
     expect(await screen.findAllByText(sentBy('AWS SNS'))).toHaveLength(2)
   })
 
-  it('says DripFunnel’s account takes a route back when its only account goes', async () => {
+  it('says no texts go when a route’s only account goes, or that DripFunnel’s takes it where Admin enabled it (#1543)', async () => {
     current = status({ accounts: [account('twilio')] })
     render(<SmsPanel mayChange blocked={null} onToast={vi.fn()} />)
     await userEvent.click(await screen.findByRole('button', { name: fill(words.remove, { provider: 'Twilio' }) }))
+    expect(screen.getByText([words.removeDialog.deleted, fill(words.noneTo, { numbers: words.routeNumbers.rest })].join(' '))).toBeTruthy()
+    cleanup()
+    current = status({ accounts: [account('twilio')], ours: ['india', 'rest'] })
+    render(<SmsPanel mayChange blocked={null} onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: fill(words.remove, { provider: 'Twilio' }) }))
     expect(screen.getByText([words.removeDialog.deleted, fill(words.removeDialog.route, { numbers: words.routeNumbers.rest, who: words.sentBy.ours })].join(' '))).toBeTruthy()
+  })
+
+  it('offers DripFunnel’s per route where Admin enabled it, and says what turning it off would do (#1544)', async () => {
+    current = status({ accounts: [account('msg91')], ours: ['india', 'rest'] })
+    const toast = vi.fn()
+    render(<SmsPanel mayChange blocked={null} onToast={toast} />)
+    expect(await screen.findByText(words.available)).toBeTruthy()
+    expect(screen.queryByText(words.fallback)).toBeNull()
+    expect(screen.getByText(sentBy('MSG91'))).toBeTruthy()
+    expect(screen.getByText(fill(words.sentByLine, { who: words.sentBy.ours }))).toBeTruthy()
+    expect(screen.getByRole('button', { name: fill(words.change, { route: words.routes.rest }) })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: fill(words.change, { route: words.routes.india }) }))
+    expect(screen.getByText(fill(words.routeDialog.oursHint, { numbers: words.routeNumbers.india }))).toBeTruthy()
+    await userEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.routeDialog.ours}`) }))
+    expect(screen.getByText(fill(words.routeDialog.consequence, { numbers: words.routeNumbers.india, who: words.sentBy.ours }))).toBeTruthy()
+    current = status({ india: 'dripfunnel', accounts: [account('msg91')], ours: ['india', 'rest'] })
+    await userEvent.click(screen.getByRole('button', { name: words.routeDialog.confirm }))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(fill(words.toasts.route, { numbers: words.routeNumbers.india, who: words.sentBy.ours })))
+    expect(variablesOf('setSmsRoute')).toEqual({ route: 'india', provider: 'dripfunnel' })
+    expect(await screen.findAllByText(fill(words.sentByLine, { who: words.sentBy.ours }))).toHaveLength(2)
+  })
+
+  it('offers DripFunnel’s only on a route it serves, and says when it went away meanwhile', async () => {
+    current = status({ accounts: [account('msg91'), account('twilio')], ours: ['rest'] })
+    render(<SmsPanel mayChange blocked={null} onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: fill(words.change, { route: words.routes.india }) }))
+    expect(screen.queryByRole('radio', { name: new RegExp(`^${words.routeDialog.ours}`) })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: messages.settings.integrations.cancel }))
+    await userEvent.click(screen.getByRole('button', { name: fill(words.change, { route: words.routes.rest }) }))
+    await userEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.routeDialog.ours}`) }))
+    answers.setSmsRoute = refused('DRIPFUNNEL_UNAVAILABLE')
+    await userEvent.click(screen.getByRole('button', { name: words.routeDialog.confirm }))
+    expect(await screen.findByText(words.refusals.DRIPFUNNEL_UNAVAILABLE)).toBeTruthy()
+  })
+
+  it('sends through its own account once Admin turns DripFunnel’s off, and starts the dialog on “whichever”', async () => {
+    current = status({ india: 'dripfunnel', accounts: [account('msg91')] })
+    render(<SmsPanel mayChange blocked={null} onToast={vi.fn()} />)
+    expect(await screen.findByText(sentBy('MSG91'))).toBeTruthy()
+    expect(screen.getByText(words.fallback)).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: fill(words.change, { route: words.routes.india }) }))
+    expect((screen.getByRole('radio', { name: new RegExp(fill(words.routeDialog.automatic, { first: 'MSG91', second: 'AWS SNS' })) }) as HTMLInputElement).checked).toBe(true)
   })
 
   it('picks who sends a route, and won’t pick an account that can’t send it', async () => {

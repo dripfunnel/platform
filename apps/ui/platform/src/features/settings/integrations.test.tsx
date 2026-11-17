@@ -28,9 +28,9 @@ beforeEach(() => {
     const body = String(init.body)
     sent.push(body)
     const data = body.includes('whatsAppAccount')
-      ? { whatsAppAccount: { enabled: false, account: null } }
+      ? { whatsAppAccount: { enabled: false, account: null, dripfunnel: false, choice: null, sender: null } }
       : body.includes('smsAccounts')
-      ? { smsAccounts: { enabled: true, routes: [{ route: 'india', provider: null }, { route: 'rest', provider: null }], accounts: [] } }
+      ? { smsAccounts: { enabled: true, dripfunnel: false, routes: [{ route: 'india', provider: null, dripfunnel: false, sender: null }, { route: 'rest', provider: null, dripfunnel: false, sender: null }], accounts: [] } }
       : body.includes('partnerGoogleSignIn')
       ? { partnerGoogleSignIn: { enabled: false, clientId: null, secretHint: null, setBy: null, setAt: null, redirectUri: null } }
       : body.includes('addPartnerAiKey')

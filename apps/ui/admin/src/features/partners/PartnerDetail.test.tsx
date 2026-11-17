@@ -35,6 +35,7 @@ const render = async (props: Partial<PartnerDetailProps> = {}) => {
         onImpersonate={noop}
         onReload={noop}
         activity={null}
+        messaging={null}
         {...props}
       />
     ),

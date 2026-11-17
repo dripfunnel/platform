@@ -1,4 +1,5 @@
 import { ActionControl, StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
+import type { ReactNode } from 'react'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import type { HistoryEntry, Partner, PartnerAiKey, SetupRow } from '../../api/partners'
 import { fill, formatCountry, formatDate, formatCount, locale, messages } from '../../messages'
@@ -92,7 +93,7 @@ const AiKeysPanel = ({ keys }: { keys: readonly PartnerAiKey[] }) => (
   </section>
 )
 
-export const OverviewTab = ({ partner, onSetContract }: { partner: Partner; onSetContract: () => void }) => {
+export const OverviewTab = ({ partner, onSetContract, messaging }: { partner: Partner; onSetContract: () => void; messaging?: ReactNode }) => {
   const { setup } = partner
   return (
     <div className="df-panels">
@@ -124,6 +125,7 @@ export const OverviewTab = ({ partner, onSetContract }: { partner: Partner; onSe
       </section>
       <ContractPanel partner={partner} onSetContract={onSetContract} />
       <AiKeysPanel keys={partner.aiKeys} />
+      {messaging}
       <section className="df-panel" aria-labelledby="partner-checklist">
         <div className="df-panel-head">
           <h2 id="partner-checklist">{words.checklist}</h2>
