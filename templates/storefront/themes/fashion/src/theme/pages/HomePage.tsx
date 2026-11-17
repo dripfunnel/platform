@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, Link, ThemeImage, useCollections, useProducts, useStorefront, type ProductCard as Card } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
-import { ProductCard } from '../components/ProductCard'
+import { GridPlaceholder, ProductCard } from '../components/ProductCard'
 import { HeroCarousel } from '../components/interactive/HeroCarousel'
 import { home as styles } from '../components/styles/home'
 
@@ -51,7 +51,8 @@ const Icon = ({ children }: { children: ReactNode }) => (
 
 export const HomePage = () => {
   const { t } = useStorefront()
-  const { collections } = useCollections({ first: 8 })
+  const { collections, status } = useCollections({ first: 8 })
+  const loading = status === 'loading'
   const newest = useProducts({ sort: 'newest', first: 8 })
   const picks = useProducts({ sort: 'best-selling', first: 8 })
   const spotlight = useProducts({ sort: 'price-high', first: 4 })
@@ -75,9 +76,16 @@ export const HomePage = () => {
         </div>
       ) : null}
 
-      {collections.length ? (
+      {loading || collections.length ? (
         <nav aria-label={t('home.categories.title')}>
-          <ul className={styles.bubbles}>
+          <ul className={styles.bubbles} aria-busy={loading ? 'true' : undefined}>
+            {loading
+              ? [0, 1, 2, 3, 4].map((i) => (
+                  <li key={i}>
+                    <span className={styles.bubblePicture} />
+                  </li>
+                ))
+              : null}
             {collections.map((c) => (
               <li key={c.id}>
                 <Link href={c.href} className={styles.bubble}>
@@ -100,7 +108,7 @@ export const HomePage = () => {
         </nav>
       ) : null}
 
-      {newest.products.length ? (
+      {newest.status === 'loading' || newest.products.length ? (
         <section>
           <div className={styles.head}>
             <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} accent={t('home.newest.accent')} />
@@ -108,7 +116,7 @@ export const HomePage = () => {
               {t('home.newest.all')} <Arrow />
             </Link>
           </div>
-          <Rail products={newest.products} label={t('home.newest.title')} />
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <Rail products={newest.products} label={t('home.newest.label')} />}
         </section>
       ) : null}
 
@@ -140,7 +148,7 @@ export const HomePage = () => {
       </ul>
       </div>
 
-      {picks.products.length ? (
+      {picks.status === 'loading' || picks.products.length ? (
         <section>
           <div className={styles.head}>
             <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} accent={t('home.picks.accent')} />
@@ -148,7 +156,7 @@ export const HomePage = () => {
               {t('home.picks.all')} <Arrow />
             </Link>
           </div>
-          <Rail products={picks.products} label={t('home.picks.accent')} />
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <Rail products={picks.products} label={t('home.picks.label')} />}
         </section>
       ) : null}
 

@@ -16,13 +16,19 @@ export const HeroCarousel = () => {
   const still = useReducedMotion()
   const [shown, setShown] = useState(0)
   const [paused, setPaused] = useState(false)
+  // A shopper's pause, or their own pick of a slide, stops the turning for good (WCAG 2.2.2).
+  const [stopped, setStopped] = useState(false)
   const count = 3
+  const show = (n: number) => {
+    setStopped(true)
+    setShown(n)
+  }
 
   useEffect(() => {
-    if (still || paused) return
+    if (still || paused || stopped) return
     const timer = setInterval(() => setShown((n) => (n + 1) % count), 6000)
     return () => clearInterval(timer)
-  }, [still, paused])
+  }, [still, paused, stopped])
 
   const copy = [
     <div key="one" className={styles.copy}>
@@ -74,15 +80,22 @@ export const HeroCarousel = () => {
       {copy[shown]}
       <div className={styles.controls}>
         <div className={styles.dots}>
-          <button type="button" className={shown === 0 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showOne')} aria-current={shown === 0} onClick={() => setShown(0)} />
-          <button type="button" className={shown === 1 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showTwo')} aria-current={shown === 1} onClick={() => setShown(1)} />
-          <button type="button" className={shown === 2 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showThree')} aria-current={shown === 2} onClick={() => setShown(2)} />
+          <button type="button" className={shown === 0 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showOne')} aria-current={shown === 0} onClick={() => show(0)} />
+          <button type="button" className={shown === 1 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showTwo')} aria-current={shown === 1} onClick={() => show(1)} />
+          <button type="button" className={shown === 2 ? styles.dotOn : styles.dot} aria-label={t('home.hero.showThree')} aria-current={shown === 2} onClick={() => show(2)} />
         </div>
         <div className={styles.arrows}>
-          <button type="button" className={styles.previous} aria-label={t('home.hero.previous')} onClick={() => setShown((n) => (n + count - 1) % count)}>
+          {still ? null : (
+            <button type="button" className={styles.previous} aria-label={stopped ? t('home.hero.play') : t('home.hero.pause')} onClick={() => setStopped((v) => !v)}>
+              <svg className={styles.arrowIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d={stopped ? 'M8 5l11 7-11 7z' : 'M9 5v14 M15 5v14'} />
+              </svg>
+            </button>
+          )}
+          <button type="button" className={styles.previous} aria-label={t('home.hero.previous')} onClick={() => show((shown + count - 1) % count)}>
             <Arrow back className={styles.arrowIcon} />
           </button>
-          <button type="button" className={styles.next} aria-label={t('home.hero.next')} onClick={() => setShown((n) => (n + 1) % count)}>
+          <button type="button" className={styles.next} aria-label={t('home.hero.next')} onClick={() => show((shown + 1) % count)}>
             <Arrow className={styles.arrowIcon} />
           </button>
         </div>
