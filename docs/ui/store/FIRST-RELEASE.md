@@ -1301,8 +1301,8 @@ under its row lock (an offer used up or ended meanwhile refuses `OFFER_CHANGED`,
 it), the shopper's own uses under a lock of their own, a single-use code's one use, and records the discount on the
 lines, as a line per offer (`order.discounts`) and in `promotion_usage`; a preview's test order takes no use. A
 cancellation before fulfilment gives every use back; a refund doesn't (#337).
-**Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, every new store starting with email and password (#1492
-), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
+**Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, every new store starting with
+email and password, #1492), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
 the address has an account; 3 per address in 10 minutes, 10 a minute per requester, 50 texts a store in 10 minutes), `verifySignInCode(channel, to, code, name,
 password)` (proves the email or number: signs in, making the account when there's none; with an email, a password sets or
 resets it; one refusal for a wrong, used or expired code, 5 tries), `signIn(email, password)` (one refusal for any mismatch,
