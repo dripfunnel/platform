@@ -41,13 +41,26 @@ export interface WarehouseRow {
 
 const units = (tx: ScopedSql) => tx`(select coalesce(sum(l.on_hand), 0)::int from stock_level l where l.warehouse_id = w.id)`
 const sellerName = (tx: ScopedSql) => tx`(select s.name from seller s where s.id = w.seller_id)`
+/**
+ * A supplier's default is its own; while it has no location of its own, the store's default is (#1353, DATA-MODEL §7.4).
+ * `sellerId` null is the merchant side, whose flag is the row's.
+ */
+const isHome = (tx: ScopedSql, sellerId: string | null) =>
+  sellerId === null ? tx`w.is_default` : tx`(w.is_default and (w.seller_id is not null or not exists (select 1 from warehouse o where o.store_id = w.store_id and o.seller_id = ${sellerId} and o.deleted_at is null)))`
+
+/** What a supplier reads: its own, the store's default while it has none, and any of the store's holding its stock. */
+const readable = (tx: ScopedSql, sellerId: string | null) =>
+  sellerId === null
+    ? tx`true`
+    : tx`(w.seller_id is not null or exists (select 1 from stock_level l where l.warehouse_id = w.id and l.seller_id = ${sellerId}) or ${isHome(tx, sellerId)})`
+
 const delivery = (tx: ScopedSql) => tx`w.own_delivery, w.delivery_radius_m, w.rider_radius_m, w.delivery_fee_amount::text as delivery_fee_amount, w.delivery_fee_currency`
 
-export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<WarehouseRow[]> => {
+export const selectWarehouses = (tx: ScopedSql, storeId: string, sellerId: string | null, window: PageWindow): Promise<WarehouseRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<WarehouseRow[]>`
-    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)}
-    from warehouse w where w.store_id = ${storeId} and w.deleted_at is null
+    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, ${isHome(tx, sellerId)} as is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)}
+    from warehouse w where w.store_id = ${storeId} and w.deleted_at is null and ${readable(tx, sellerId)}
       and ${window.after ? tx`(w.created_at, w.id) > (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(w.created_at, w.id) < (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
     order by w.created_at ${backwards ? tx`desc` : tx`asc`}, w.id ${backwards ? tx`desc` : tx`asc`}
@@ -55,8 +68,8 @@ export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWin
   `
 }
 
-export const selectWarehouse = async (tx: ScopedSql, storeId: string, id: string): Promise<WarehouseRow | null> =>
-  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)} from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
+export const selectWarehouse = async (tx: ScopedSql, storeId: string, sellerId: string | null, id: string): Promise<WarehouseRow | null> =>
+  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, ${isHome(tx, sellerId)} as is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)} from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null and ${readable(tx, sellerId)}`)[0] ?? null
 
 /** The currency a location's own-delivery fee is typed in (DATA-MODEL §7.12). */
 export const selectPricingCurrency = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
@@ -153,13 +166,13 @@ export interface StockVersionRow {
  * A product's stock a page of versions at a time, in the editor's order, each with its levels in the
  * locations the caller reads, default first; a version's levels sit in its owner's locations, at most 20.
  */
-export const selectProductStock = (tx: ScopedSql, storeId: string, productId: string, window: PageWindow): Promise<StockVersionRow[]> => {
+export const selectProductStock = (tx: ScopedSql, storeId: string, sellerId: string | null, productId: string, window: PageWindow): Promise<StockVersionRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<StockVersionRow[]>`
     select v.id as version_id, v.position,
       coalesce((
-        select jsonb_agg(jsonb_build_object('warehouse_id', l.warehouse_id, 'warehouse_name', w.name, 'is_default', w.is_default,
-          'on_hand', l.on_hand, 'reserved', l.reserved, 'low_stock_threshold', l.low_stock_threshold) order by w.is_default desc, w.created_at, w.id)
+        select jsonb_agg(jsonb_build_object('warehouse_id', l.warehouse_id, 'warehouse_name', w.name, 'is_default', ${isHome(tx, sellerId)},
+          'on_hand', l.on_hand, 'reserved', l.reserved, 'low_stock_threshold', l.low_stock_threshold) order by ${isHome(tx, sellerId)} desc, w.created_at, w.id)
         from stock_level l join warehouse w on w.id = l.warehouse_id
         where l.version_id = v.id and w.deleted_at is null
       ), '[]'::jsonb) as levels

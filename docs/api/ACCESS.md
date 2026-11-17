@@ -1013,7 +1013,12 @@ first platform's constructed view.
   supplier's mode (`supplier.shipping_mode_changed`) applies to orders placed afterwards, and
   open orders ship, show the customer and take returns as they did when placed, which the
   Supplier tab says before the change. **`to-shopper`**: the vendor ships lines of its own sub-orders from its own
-  warehouses, booking a courier or entering tracking. **`to-store`**: the vendor marks its lines
+  warehouses, booking a courier or entering tracking. **A supplier with no warehouse of its own
+  uses the store's default one, whatever its mode** (decided 2026-11-09 on #1353): it counts and
+  ships its own lines from it, by its name only, and returns of its lines come back to it. A
+  supplier that later adds its own warehouse makes that its default for new counts, returns and
+  shipping; stock already in the store's location stays, keeps selling, and can still be changed
+  and shipped from there. **`to-store`**: the vendor marks its lines
   as **sent to the store's default warehouse**, and the store ships the order; the sub-order's
   fulfilment is the store's. In both, every line and warehouse must carry the caller's
   `seller_id`. Still the highest-risk vendor write; it gets explicit tests even though the
@@ -1028,8 +1033,8 @@ first platform's constructed view.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
-  (`to-store` lines and the merchant's own) or to the supplier's warehouse (`to-shopper`
-  lines). States `requested → received → refunded`, with `cancelled` while still requested.
+  (`to-store` lines and the merchant's own) or to the supplier's default warehouse (`to-shopper`
+  lines), which is the store's while the supplier has none of its own. States `requested → received → refunded`, with `cancelled` while still requested.
   Marking received is the store's. **Refunds are per line and grouped by owner**: the store
   refunds its own lines; **each supplier refunds its own lines**, up to their value, and the
   store is told. **The store may refund a supplier's lines itself**: that is an **override**,

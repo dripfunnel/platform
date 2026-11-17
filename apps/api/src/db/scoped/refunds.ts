@@ -167,15 +167,16 @@ export const restockReturned = async (tx: ScopedSql, s: { storeId: string; retur
   `
 }
 
-/** Each owner's default location (null, the merchant's), where its returned items come back to; an owner without one is left out. */
+/** Each owner's default location (null, the merchant's), where its returned items come back to; a supplier with none has the store's (#1353). */
 export const defaultWarehousesOf = async (tx: ScopedSql, storeId: string, sellerIds: readonly (string | null)[]): Promise<Map<string | null, string>> => {
   const owners = [...new Set(sellerIds)]
   const rows = await tx<{ id: string; seller_id: string | null }[]>`
     select id, seller_id from warehouse
     where store_id = ${storeId} and is_default and deleted_at is null
-      and (seller_id = any(${pgArray(owners.filter((o): o is string => o !== null))}::uuid[]) or (${owners.includes(null)} and seller_id is null))
+      and (seller_id = any(${pgArray(owners.filter((o): o is string => o !== null))}::uuid[]) or seller_id is null)
   `
-  return new Map(rows.map((r) => [r.seller_id, r.id]))
+  const own = new Map(rows.map((r) => [r.seller_id, r.id]))
+  return new Map(owners.flatMap((o): [string | null, string][] => { const id = own.get(o) ?? own.get(null); return id ? [[o, id]] : [] }))
 }
 
 export const insertReturn = async (

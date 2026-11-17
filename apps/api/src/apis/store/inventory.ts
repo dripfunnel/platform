@@ -27,6 +27,10 @@ const answered = <T>(result: InventoryResult<T>): T => {
 
 const merchantSide = (ctx: StoreContext) => tenantCaller(ctx).context.sellerScope.kind !== 'seller'
 
+/** A supplier reads the store's location by its name only (#1353, DATA-MODEL §7.4); a location of its own it reads whole. */
+const named = (ctx: StoreContext, w: WarehouseRow) => !merchantSide(ctx) && w.seller_id === null
+const noAddress: WarehouseRow['address'] = { line1: null, line2: null, city: null, region: null, postalCode: null, country: null }
+
 export const registerInventory = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
   const service = (ctx: StoreContext) => {
@@ -49,10 +53,10 @@ export const registerInventory = (builder: StoreBuilder) => {
     fields: (t) => ({
       id: t.exposeID('id'),
       name: t.exposeString('name'),
-      address: t.field({ type: Address, resolve: (w) => w.address }),
+      address: t.field({ type: Address, resolve: (w, _, ctx) => (named(ctx, w) ? noAddress : w.address) }),
       // Its map pin (#815), both or neither; read by everyone who reads the location.
-      latitude: t.exposeFloat('latitude', { nullable: true }),
-      longitude: t.exposeFloat('longitude', { nullable: true }),
+      latitude: t.float({ nullable: true, resolve: (w, _, ctx) => (named(ctx, w) ? null : w.latitude) }),
+      longitude: t.float({ nullable: true, resolve: (w, _, ctx) => (named(ctx, w) ? null : w.longitude) }),
       // New products start at the owner's default (SetOps).
       isDefault: t.exposeBoolean('is_default'),
       // A supplier's location, which the merchant side reads but doesn't change; null is the merchant's.

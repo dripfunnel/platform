@@ -167,7 +167,8 @@ describe('Stock locations', () => {
   it('lets a supplier keep its own, which the merchant side reads and never changes', async () => {
     const theirs = await saveWarehouse('supplier', { name: 'Anand godown' })
     expect((await places('supplier')).map((w) => [w.id, w.isDefault])).toEqual([[theirs.id, true]])
-    expect(await places('otherSupplier')).toEqual([])
+    // One with no location of its own is offered the store's, by name only (#1353).
+    expect(await places('otherSupplier')).toMatchObject([{ name: 'Main location', isDefault: true, supplierId: null, units: 0 }])
     const supplierName = (await db.sql<{ name: string }[]>`select name from seller where id = ${t.sellerA1First}`)[0]?.name
     // Named by the server for every merchant seat that reads stock, a Manager included, as products name their supplier.
     for (const who of ['owner', 'manager'] as const) expect((await places(who)).find((w) => w.id === theirs.id), who).toMatchObject({ supplierId: t.sellerA1First, supplierName })
