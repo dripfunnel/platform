@@ -1,8 +1,0 @@
-{
-  "key": "grocery",
-  "name": "Basket",
-  "tag": "Food & grocery",
-  "description": "Bright, friendly and quick to browse. Categories first, big search, compact grids and clear prices.",
-  "demoStore": null,
-  "coreMinVersion": "0.14.0"
-}

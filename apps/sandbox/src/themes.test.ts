@@ -20,7 +20,7 @@ vi.setConfig({ testTimeout: 600_000, hookTimeout: 120_000 })
 
 const themesDir = fileURLToPath(new URL('../../../templates/storefront/themes/', import.meta.url))
 // The category templates are built from baseline (#1537), so they run its baseline-only checks too.
-const fromBaseline = ['baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry']
+const fromBaseline = ['baseline', 'beauty', 'fashion', 'jewelry']
 const keys = readdirSync(themesDir).filter((k) => statSync(join(themesDir, k)).isDirectory()).sort()
 const chrome = [process.env['CHROME_PATH'], '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p): p is string => p !== undefined && existsSync(p))
 
@@ -128,7 +128,7 @@ afterAll(async () => {
 })
 
 it('has the starting themes the gallery offers, each in its own folder', () => {
-  expect(keys).toEqual(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])
+  expect(keys).toEqual(['baseline', 'beauty', 'classic', 'fashion', 'jewelry', 'market'])
   for (const key of keys) expect(templateSchema.parse(JSON.parse(readFileSync(join(themesDir, key, 'template.json'), 'utf8'))).key).toBe(key)
 })
 
