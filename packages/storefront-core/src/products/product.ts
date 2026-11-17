@@ -15,7 +15,7 @@ import type { LegalNotice } from '../sealed/components'
 import { textOfRichText } from '../platform/text/richText'
 import { decodeQuestions, questionFields, questionsSchema, rememberQuestions, type Question } from './questions'
 import { storyFields, storySchema, type StoryModule } from './story'
-import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, type ProductCard } from './summary'
+import { badgesSchema, cardsSchema, moneyFields, productPath, rangeEnd, summaryFields, type ProductCard } from './summary'
 
 // A product page (ARCHITECTURE §2.1 `products`; DESIGN §6): which versions exist and can be bought, the chosen version's
 // price, stock and photos come from the Shop API; the theme decides only how they look.
@@ -98,6 +98,8 @@ export type Product = {
   price: Money | null
   compareAt: Money | null
   from: boolean
+  /** The dearest version's price, null unless it differs from `price`. */
+  maxPrice: Money | null
   stock: Stock
   specs: { name: string; value: string; versionId: string | null }[]
   faqs: { question: string; answer: string }[]
@@ -179,7 +181,8 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     ),
     price: p.price ?? null,
     compareAt: p.compareAt ?? null,
-    from: !!p.price && !!p.maxPrice && p.price.currency === p.maxPrice.currency && p.price.amount !== p.maxPrice.amount,
+    from: rangeEnd(p.price, p.maxPrice) !== null,
+    maxPrice: rangeEnd(p.price, p.maxPrice),
     stock: stockSchema.parse({ inStock: p.inStock ?? false, available: null }),
     specs: (p.specs ?? []).flatMap((s) => (s.name && s.value ? [{ name: s.name, value: s.value, versionId: s.versionId ?? null }] : [])),
     faqs: (p.faqs ?? []).flatMap((f) => (f.question && f.answer ? [{ question: f.question, answer: f.answer }] : [])),
@@ -220,6 +223,8 @@ export type ProductPage = {
   price: Money | null
   compareAt: Money | null
   from: boolean
+  /** The range's end while no version is chosen; null once one is, or when the versions cost the same. */
+  maxPrice: Money | null
   stock: Stock | null
   /** The chosen version's photos first. */
   photos: Photo[]
@@ -282,6 +287,7 @@ export const useProduct = (): ProductPage => {
     price: version ? version.price : (product?.price ?? null),
     compareAt: version ? version.compareAt : (product?.compareAt ?? null),
     from: !version && (product?.from ?? false),
+    maxPrice: version ? null : (product?.maxPrice ?? null),
     stock: version ? version.stock : (product?.stock ?? null),
     photos: [...own, ...(product?.photos.filter((p) => !own.includes(p)) ?? [])].map((p, i) => ({ ...(i === 0 ? asMain(p) : photoOf(p.url, p.alt)), versionId: p.versionId })),
   }
