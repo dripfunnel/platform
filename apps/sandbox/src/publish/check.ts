@@ -128,7 +128,29 @@ const settled = async (page: Page, net: Network) => {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await page.waitForTimeout(settle)
   await page.evaluate(() => window.scrollTo(0, 0))
-  for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) net.errors.push(`It tried to reach ${origin}, which its content security policy refused.`)
+  for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) {
+    const said = `It tried to reach ${origin}, which its content security policy refused.`
+    if (!net.errors.includes(said)) net.errors.push(said)
+  }
+}
+
+const navigating = /Execution context was destroyed|Frame was detached/i
+
+/**
+ * A page that navigates while it is read has no state to read yet: wait for the new one to load and read it again, once.
+ * A page that moves on again is that page's failure (#1539), never an exception that ends the whole check.
+ */
+const whenStill = async <T>(page: Page, net: Network, read: () => Promise<T>): Promise<T | null> => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await read()
+    } catch (e) {
+      if (!(e instanceof Error) || !navigating.test(e.message)) throw e
+      await page.waitForLoadState('networkidle', { timeout: navigationMs }).catch(() => undefined)
+    }
+  }
+  net.errors.push('It kept navigating while loading.')
+  return null
 }
 
 /** How long a page may take to settle; one that never does (a script polling forever) fails, never the whole step. */
@@ -184,11 +206,14 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
   try {
     await wire(page, served, s, { assets }, net)
     await open(page, `${served.origin}${p.path}`, net)
-    await settled(page, net)
-    const seen = await mainSeen(page)
-    const wide = await overflows(page)
-    const broken = axe ? ((await page.evaluate(`${axe};axe.run(document,{runOnly:{type:'tag',values:${JSON.stringify(axeTags)}},resultTypes:['violations']}).then(r=>r.violations.map(v=>v.id))`)) as string[]) : []
-    const shot = await page.screenshot()
+    const read = (await whenStill(page, net, async () => {
+      await settled(page, net)
+      const seen = await mainSeen(page)
+      const wide = await overflows(page)
+      const broken = axe ? ((await page.evaluate(`${axe};axe.run(document,{runOnly:{type:'tag',values:${JSON.stringify(axeTags)}},resultTypes:['violations']}).then(r=>r.violations.map(v=>v.id))`)) as string[]) : []
+      return { seen, wide, broken, shot: await page.screenshot() }
+    })) ?? { seen: false, wide: false, broken: [], shot: Buffer.alloc(0) }
+    const { seen, wide, broken, shot } = read
     const sealed = sealedWords(net.reports, p)
     if (p.route === 'home' || p.route === 'checkout') sealed.push(...(await firstVisit(c, served, s, assets, p)))
     return { visit: { path: p.path, route: p.route, width, errors: net.errors, sealed, axe: broken, mainSeen: seen, overflow: wide, diff: null }, shot }
@@ -338,9 +363,12 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       const found = asset ? await fileFor([live], asset) : null
       return found ? answerAsset(route, found) : route.abort('blockedbyclient')
     })
-    await open(page, `${served.origin}${path}`, network())
-    await settled(page, network())
-    return await page.screenshot()
+    const net = network()
+    await open(page, `${served.origin}${path}`, net)
+    return await whenStill(page, net, async () => {
+      await settled(page, net)
+      return page.screenshot()
+    })
   } finally {
     await context.close()
   }
@@ -375,7 +403,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         for (const result of done) {
           if (!result) continue
           const before = input.live && liveServed ? await liveShot(browser, liveServed, input.live, s, result.visit.path, width) : null
-          visits.push({ ...result.visit, diff: before ? await difference(blank, result.shot, before) : null })
+          visits.push({ ...result.visit, diff: before && result.shot.length > 0 ? await difference(blank, result.shot, before) : null })
         }
       } finally {
         await c.returning.close()
