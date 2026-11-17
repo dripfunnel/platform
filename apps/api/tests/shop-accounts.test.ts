@@ -36,6 +36,7 @@ beforeAll(async () => {
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
   stores.india = await store('Jaipur', 'jaipur')
   stores.other = await store('Surat', 'surat')
+  await db.sql`update store_customer_auth set phone_enabled = true where store_id = ${stores.india}`
   const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${stores.india}, 'Kurta', 'kurta', 'visible') returning id`
   kurta = (await db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position) values (${stores.india}, ${p?.id ?? ''}, 'K1', 0) returning id`)[0]?.id ?? ''
   await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${kurta}, ${stores.india}, 'INR', 99900)`
@@ -91,7 +92,7 @@ const limiterKeys: string[] = []
 let allow = true
 
 describe('signing in by a texted code', () => {
-  it('offers both ways in an Indian store, and answers a code request the same for a new number', async () => {
+  it('offers both ways in a store that turned the number on, and answers a code request the same for a new number', async () => {
     expect((await gql('{ signInOptions { email phone } }')).data?.['signInOptions']).toEqual({ email: true, phone: true })
     expect((await gql('mutation { requestSignInCode(channel: PHONE, to: "+91 98450 22113") }')).data?.['requestSignInCode']).toBe(true)
   })
