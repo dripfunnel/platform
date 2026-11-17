@@ -64,6 +64,9 @@ import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/c
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
+import type { CourierDirectory } from '#core/couriers'
+import { storeCourierAccounts } from '#integrations/couriers/accounts'
+import { courierDirectory } from '#integrations/couriers/index'
 import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp, localWhatsAppCheck } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
@@ -560,6 +563,9 @@ const paymentsFor = (config: Config): PaymentWiring => {
   return wiring
 }
 
+/** Locally the stand-in for every store; elsewhere each store's own login, opened where a call to the courier goes out (#1489). */
+const couriersOf = (sql: postgres.Sql, config: Config, secrets: SecretBox | null): CourierDirectory => (config.COURIERS_LOCAL === '1' ? localCouriers() : courierDirectory(storeCourierAccounts(sql, secrets)))
+
 /** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
 const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
 
@@ -702,7 +708,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: couriersOf(sql, config, secrets), files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
@@ -796,8 +802,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
     const limiter = env.SHOP_RATE_LIMITER
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
-    const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers }, async (key) => (await limiter.limit({ key })).success))
+    return withConnection(config.HYPERDRIVE, ctx, async (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers: couriersOf(sql, config, await (secretsFor(config) ?? null)) }, async (key) => (await limiter.limit({ key })).success))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
@@ -840,7 +845,8 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadToCart: async (key) => (env.UPLOAD_RATE_LIMITER ? (await env.UPLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadFromAddress: async (key) => (env.UPLOAD_ADDRESS_RATE_LIMITER ? (await env.UPLOAD_ADDRESS_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
+    const shopSecrets = await (secretsFor(config) ?? null)
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: couriersOf(sql, config, shopSecrets), payments: paymentsFor(config), secrets: shopSecrets, estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadToCart: async (key) => (env.UPLOAD_RATE_LIMITER ? (await env.UPLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadFromAddress: async (key) => (env.UPLOAD_ADDRESS_RATE_LIMITER ? (await env.UPLOAD_ADDRESS_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (isUploadPath(url.pathname)) return handleUpload(request, context, env.ASSETS ?? null)

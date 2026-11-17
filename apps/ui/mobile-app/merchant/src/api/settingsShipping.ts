@@ -70,7 +70,7 @@ export const saveShipping = async (client: ApiClient, revision: number, input: S
 export const replaceDeliveryArea = async (client: ApiClient, fileName: string, codes: readonly string[]): Promise<number> =>
   (await typedQuery(client)('mutation ReplaceDeliveryArea($f: String!, $c: [String!]!) { replaceDeliveryArea(fileName: $f, codes: $c) }', z.object({ replaceDeliveryArea: z.number().int() }), { f: fileName, c: codes })).replaceDeliveryArea
 
-/** Answers its status: pricing when no other courier prices orders, otherwise standby. Connecting asks for no key: the couriers are the partner's accounts. */
+/** Answers its status: pricing when no other courier prices orders, otherwise standby. Asks for no key, so not for Shiprocket, which takes the store's own API user and is connected in the web portal (#1489). */
 export const connectCourier = async (client: ApiClient, provider: string): Promise<Courier['status']> =>
   (await typedQuery(client)('mutation ConnectCourier($p: String!) { connectCourier(provider: $p) }', z.object({ connectCourier: z.enum(courierStatuses) }), { p: provider })).connectCourier
 

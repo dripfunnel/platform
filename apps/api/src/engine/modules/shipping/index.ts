@@ -1,10 +1,13 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isCountry } from '#core/countries'
-import { accountKindOf, CourierRejected, couriersFor, type CourierProvider, type Parcel, type PartnerCouriers } from '#core/couriers'
+import { failureCode, logEvent } from '#core/log'
+import type { SecretBox } from '#auth/secretBox'
+import { accountKindOf, CourierRejected, couriersFor, type CourierDirectory, type CourierProvider, type Parcel, type StoreCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import { isCurrency, type Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
+import { deleteCourierAccount, saveCourierAccount, selectCourierAccounts, selectSealedCourierAccounts, type CourierAccountRow } from '#db/scoped/courierAccounts'
 import { selectRates } from '#db/scoped/rates'
 import { moneyIn } from '#engine/modules/markets/index'
 import { selectStoreEntitlement } from '#db/scoped/entitlements'
@@ -36,7 +39,7 @@ export type { DeliveryOption, ShippingInput, ShippingRefusal } from './rules'
 export type OwnDeliveryMissing = 'plan' | 'rider' | 'warehouse'
 
 // Settings › Shipping (SetOps) and what delivery costs a cart (SAPI 23, #305; DATA-MODEL §7.2): couriers on the
-// partner's own accounts (THIRD-PARTY-ACCESS §4). Carts (SAPI 9) price delivery with `quote`.
+// store's own accounts (THIRD-PARTY-ACCESS §4, #1489). Carts (SAPI 9) price delivery with `quote`.
 
 export const shippingAudit = {
   saved: 'shipping.saved',
@@ -66,8 +69,18 @@ export interface ShippingDeps {
   activity: ActivityLog
   facts: RequestFacts
   now: () => Date
-  /** The partner's couriers; null where none can be reached (no accounts yet, #275). */
-  couriers: PartnerCouriers | null
+  /** The store's couriers; null where none can be reached. */
+  couriers: StoreCouriers | null
+  /** What connecting a login needs: the courier's check of it, and the key that seals it. Left out where a store can't connect (a cart's quote). */
+  login?: { check: CourierDirectory['check']; secrets: SecretBox | null } | null
+}
+
+/** A merchant's Shiprocket API user, as typed in the form (#1489). */
+export interface CourierLogin {
+  email: string
+  password: string
+  /** The token the merchant set on its Shiprocket webhook, so tracking reaches this store; optional. */
+  webhookToken?: string | null | undefined
 }
 
 export type CourierStatus = 'pricing' | 'standby' | 'failed' | 'off'
@@ -75,8 +88,10 @@ export type CourierStatus = 'pricing' | 'standby' | 'failed' | 'off'
 export interface CourierView {
   provider: CourierProvider
   status: CourierStatus
-  /** Whether the partner has the account it goes through; one it hasn't can't be connected. */
+  /** Whether the store can connect the account it goes through; one it can't is the platform's to set up. */
   offered: boolean
+  /** The email of the store's own login, for the connected card; never the password. */
+  accountEmail: string | null
   pickupMode: CourierRow['pickup_mode']
   labelSize: CourierRow['label_size']
   trackingEmails: boolean
@@ -125,11 +140,14 @@ export interface DeliveryQuote {
 }
 
 const maxLines = 100
+/** The shortest tracking token kept: the store's hook address is guessable, so the token is what protects it. */
+const minTokenLength = 16
 const testParcelGrams = 500
 
-const statusOf = (row: CourierRow | undefined): CourierStatus => (!row || row.role === 'off' ? 'off' : row.last_test_result === 'rejected' ? 'failed' : row.role)
+// A courier kept on but with no account to go through (a login lost, or one the key no longer opens) needs fixing, not quoting.
+const statusOf = (row: CourierRow | undefined, held = true): CourierStatus => (!row || row.role === 'off' ? 'off' : row.last_test_result === 'rejected' || !held ? 'failed' : row.role)
 
-export const createShippingService = ({ sql, context, actor, activity, facts, now, couriers }: ShippingDeps) => {
+export const createShippingService = ({ sql, context, actor, activity, facts, now, couriers, login: loginCheck = null }: ShippingDeps) => {
   const { storeId } = context
   const inScope = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, context, work)
 
@@ -170,7 +188,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     return { ...row, pricing_currency: row.pricing_currency }
   }
 
-  const viewOf = (row: ShippingStoreRow & { pricing_currency: string }, rows: CourierRow[]): ShippingSettings => {
+  const viewOf = (row: ShippingStoreRow & { pricing_currency: string }, rows: CourierRow[], accounts: CourierAccountRow[]): ShippingSettings => {
     const s = row.shipping
     return {
       revision: s?.revision ?? 0,
@@ -196,8 +214,9 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
         const found = rows.find((r) => r.provider === provider)
         return {
           provider,
-          status: statusOf(found),
-          offered: couriers?.accounts.has(accountKindOf(provider)) ?? false,
+          status: statusOf(found, couriers?.accounts.has(accountKindOf(provider)) ?? false),
+          offered: (couriers?.connectable.has(accountKindOf(provider)) && (provider !== 'shiprocket' || loginCheck?.secrets != null)) ?? false,
+          accountEmail: accounts.find((a) => a.provider === provider)?.email ?? null,
           pickupMode: found?.pickup_mode ?? 'scheduled',
           labelSize: found?.label_size ?? labelSizesFor(row.country)[0] ?? 'a6',
           trackingEmails: found?.tracking_emails ?? true,
@@ -208,7 +227,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     }
   }
 
-  const settings = () => inScope(async (tx) => viewOf(await loadStore(tx), await selectCouriers(tx, storeId)))
+  const settings = () => inScope(async (tx) => viewOf(await loadStore(tx), await selectCouriers(tx, storeId), await selectCourierAccounts(tx, storeId)))
 
   const save = (revision: number, input: ShippingInput) =>
     run(async (tx) => {
@@ -272,17 +291,76 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     position: Math.max(0, couriersFor(country).indexOf(provider)),
   })
 
-  /** "Connect": on the partner's account, pricing orders when no other courier does, otherwise on standby. */
-  const connect = (provider: string) =>
-    run(async (tx) => {
+  /** What a connect's login may hold; the password is never trimmed, since it is typed as it is. */
+  const cleanLogin = (input: CourierLogin | null): { email: string; password: string; webhookToken: string | null } => {
+    const email = input?.email.trim() ?? ''
+    const token = input?.webhookToken?.trim() ?? ''
+    if (!input || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || input.password === '' || input.password.length > 200 || token.length > 200) throw new Refused('INVALID_INPUT')
+    // The hook's address holds the store's id, which is no secret, so the token alone keeps anyone from forging its tracking.
+    if (token !== '' && token.length < minTokenLength) throw new Refused('WEAK_TOKEN')
+    return { email, password: input.password, webhookToken: token === '' ? null : token }
+  }
+
+  /** The tracking token already sealed for this store, read in system scope since the store's own scope never selects it. */
+  const keptToken = async (): Promise<string | null> => {
+    if (!loginCheck?.secrets) return null
+    const row = (await withSystemScope(sql, (tx) => selectSealedCourierAccounts(tx, storeId))).find((r) => r.provider === 'shiprocket')
+    const opened = row ? await loginCheck.secrets.open(row.credentials_sealed) : null
+    try {
+      const kept = opened ? (JSON.parse(opened) as { webhookToken?: unknown }).webhookToken : null
+      return typeof kept === 'string' && kept !== '' ? kept : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * "Connect": Shiprocket takes the merchant's own API user, checked with Shiprocket before anything is kept; the
+   * courier then prices orders when no other courier does, otherwise it is on standby. Connecting again replaces the login.
+   */
+  const connect = async (provider: string, input: CourierLogin | null = null): Promise<ShippingResult<CourierRow['role']>> => {
+    const first = await run((tx) => courierOf(tx, provider))
+    if (!first.ok) return first
+    const kind = accountKindOf(first.value.provider)
+    if (!couriers?.connectable.has(kind)) return { ok: false, reason: 'COURIER_NOT_OFFERED' }
+    const own = first.value.provider === 'shiprocket'
+    if (own && !loginCheck?.secrets) return { ok: false, reason: 'COURIER_NOT_OFFERED' }
+    let login: ReturnType<typeof cleanLogin> | null = null
+    if (own) {
+      try {
+        login = cleanLogin(input)
+      } catch (error) {
+        if (error instanceof Refused) return { ok: false, reason: error.reason }
+        throw error
+      }
+      // A login connected again without a token keeps the one saved, so Fix never stops tracking.
+      if (login.webhookToken === null) login = { ...login, webhookToken: await keptToken() }
+      // Asked outside any transaction, so a slow courier never holds a connection; a refused login saves nothing.
+      const checked = await loginCheck?.check(first.value.provider, login).catch((error: unknown) => {
+        logEvent({ event: 'courier_login_check', api: 'store', storeId, code: failureCode(error) })
+        return 'unavailable' as const
+      })
+      if (checked === 'rejected') return { ok: false, reason: 'LOGIN_REFUSED' }
+      if (checked !== 'ok') return { ok: false, reason: 'COURIER_UNAVAILABLE' }
+    }
+    return run(async (tx) => {
       const c = await courierOf(tx, provider)
-      if (!couriers?.accounts.has(accountKindOf(c.provider))) throw new Refused('COURIER_NOT_OFFERED')
-      if (c.row && c.row.role !== 'off') return statusOf(c.row)
+      if (login && loginCheck?.secrets) {
+        const sealed = await loginCheck.secrets.seal(JSON.stringify({ password: login.password, webhookToken: login.webhookToken }))
+        await saveCourierAccount(tx, { storeId, provider: c.provider, email: login.email, sealed, by: actor.id, at: now() })
+      }
+      if (c.row && c.row.role !== 'off') {
+        if (login) await recordCourierTest(tx, storeId, c.provider, 'ok', now())
+        await activity.record(tx, entry(shippingAudit.courierConnected, { type: 'courier', id: c.provider, label: c.provider }, c.row.role))
+        return c.row.role
+      }
       const role = c.rows.some((r) => r.role === 'pricing') ? ('standby' as const) : ('pricing' as const)
       await saveCourier(tx, storeId, c.provider, { ...defaultsOf(c.provider, c.country, c.row), role }, now())
+      if (login) await recordCourierTest(tx, storeId, c.provider, 'ok', now())
       await activity.record(tx, entry(shippingAudit.courierConnected, { type: 'courier', id: c.provider, label: c.provider }, role))
       return role
     })
+  }
 
   /** "Use for pricing": this courier quotes checkout; the one that did goes on standby. */
   const usePricing = (provider: string) =>
@@ -307,6 +385,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       const c = await courierOf(tx, provider)
       if (!c.row || c.row.role === 'off') throw new Refused('NOT_CONNECTED')
       await saveCourier(tx, storeId, c.provider, { ...defaultsOf(c.provider, c.country, c.row), role: 'off' }, now())
+      await deleteCourierAccount(tx, storeId, c.provider)
       const next = c.row.role === 'pricing' ? c.rows.find((r) => r.provider !== c.provider && r.role === 'standby') : undefined
       if (next) await saveCourier(tx, storeId, next.provider, { ...defaultsOf(next.provider, c.country, next), role: 'pricing' }, now())
       const last = !c.rows.some((r) => r.provider !== c.provider && r.role !== 'off')

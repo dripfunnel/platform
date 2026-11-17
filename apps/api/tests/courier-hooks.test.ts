@@ -13,7 +13,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #311 (SAPI 12), part 2: a test label booked through the local stand-in and tracked by its courier's hook, verified
-// with the partner's secret and applied once, forward in time, to that partner's parcels only (FIRST-RELEASE §19).
+// with the store's secret and applied once, forward in time, to that store's parcels only (FIRST-RELEASE §19; #1489).
 
 let db: TestDatabase
 let t: Tenants
@@ -41,8 +41,8 @@ const post = async (path: string, body: string, headers: Record<string, string>,
   const response = await handleCourierHook(new Request(`https://hooks.example${path}`, { method: 'POST', body, headers }), hook, { sql: db.sql, activity: activityLog, couriers }, allow)
   return response.status
 }
-const shiprocket = (partnerId: string, awb: string, status: string, at: string, token = localCourierHookSecret) =>
-  post(`/couriers/shiprocket/${partnerId}`, JSON.stringify({ awb, current_status: status, current_timestamp: at, order_id: 'x' }), { 'x-api-key': token })
+const shiprocket = (storeId: string, awb: string, status: string, at: string, token = localCourierHookSecret) =>
+  post(`/couriers/shiprocket/${storeId}`, JSON.stringify({ awb, current_status: status, current_timestamp: at, order_id: 'x' }), { 'x-api-key': token })
 const signed = async (body: string, secret = localCourierHookSecret) => {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body)))
@@ -110,14 +110,14 @@ describe('a test label booked and tracked', () => {
     const [parcel = ''] = shipments
     const awb = await awbOf(parcel)
     expect(awb).toMatch(/^LOCAL/)
-    expect(await shiprocket(t.partnerA, awb, 'PICKUP SCHEDULED', '2026-10-11 09:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'PICKUP SCHEDULED', '2026-10-11 09:00:00')).toBe(200)
     expect((await shipment(parcel))?.tracking_status).toBeNull()
-    expect(await shiprocket(t.partnerA, awb, 'IN TRANSIT', '2026-10-11 18:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'IN TRANSIT', '2026-10-11 18:00:00')).toBe(200)
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'in_transit', tracking_status_at: new Date('2026-10-11T12:30:00Z'), delivered_at: null })
-    expect(await shiprocket(t.partnerA, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
     // The same hook again, and an older one arriving late, change nothing.
-    expect(await shiprocket(t.partnerA, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
-    expect(await shiprocket(t.partnerA, awb, 'IN TRANSIT', '2026-10-11 20:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'IN TRANSIT', '2026-10-11 20:00:00')).toBe(200)
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'delivered', delivered_at: new Date('2026-10-12T05:30:00Z') })
     expect(await delivered(id)).toEqual([{ payload: { event: 'delivered', orderId: id, fulfilmentId: parcel } }])
     const entries = await db.sql`select action, actor_kind, seller_id from activity_log where target_id = ${id} and action = 'order.delivered'`
@@ -130,26 +130,28 @@ describe('a test label booked and tracked', () => {
     const { shipments } = await order('T-5', [{ version: house, seller: null, at: main }])
     const [parcel = ''] = shipments
     const awb = await awbOf(parcel)
-    expect(await shiprocket(t.partnerA, awb, 'DELIVERED', '2026-01-05 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'DELIVERED', '2026-01-05 11:00:00')).toBe(200)
     for (const time of [undefined, 'soon']) {
-      expect(await post(`/couriers/shiprocket/${t.partnerA}`, JSON.stringify({ awb, current_status: 'IN TRANSIT', current_timestamp: time }), { 'x-api-key': localCourierHookSecret })).toBe(200)
+      expect(await post(`/couriers/shiprocket/${t.storeA1}`, JSON.stringify({ awb, current_status: 'IN TRANSIT', current_timestamp: time }), { 'x-api-key': localCourierHookSecret })).toBe(200)
     }
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'delivered', delivered_at: new Date('2026-01-05T05:30:00Z') })
   })
 
-  it('refuses a hook without the partner’s token, and applies another partner’s hook to none of this partner’s parcels', async () => {
+  it('refuses a hook without the store’s token, and applies another store’s hook to none of this store’s parcels, a store of the same partner included', async () => {
     const { shipments } = await order('T-2', [{ version: house, seller: null, at: main }])
     const [parcel = ''] = shipments
     const awb = await awbOf(parcel)
-    expect(await shiprocket(t.partnerA, awb, 'DELIVERED', '2026-10-12 11:00:00', 'wrong')).toBe(400)
-    expect(await post(`/couriers/shiprocket/${t.partnerA}`, JSON.stringify({ awb, current_status: 'DELIVERED' }), {})).toBe(400)
-    expect(await shiprocket(t.partnerB, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, awb, 'DELIVERED', '2026-10-12 11:00:00', 'wrong')).toBe(400)
+    expect(await post(`/couriers/shiprocket/${t.storeA1}`, JSON.stringify({ awb, current_status: 'DELIVERED' }), {})).toBe(400)
+    expect(await shiprocket(t.storeB1, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA2, awb, 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
     expect(await shipment(parcel)).toMatchObject({ tracking_status: null, delivered_at: null })
+    expect(await post(`/couriers/shiprocket/${crypto.randomUUID()}`, JSON.stringify({ awb, current_status: 'DELIVERED' }), { 'x-api-key': localCourierHookSecret })).toBe(400)
   })
 
   it('tells a supplier’s parcel’s delivery in the store’s log and the supplier’s own', async () => {
     const { id, shipments } = await order('T-3', [{ version: scarf, seller: t.sellerA1First, at: dropPlace }])
-    expect(await shiprocket(t.partnerA, await awbOf(shipments[0] ?? ''), 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, await awbOf(shipments[0] ?? ''), 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
     const entries = await db.sql`select seller_id from activity_log where target_id = ${id} and action = 'order.delivered' order by seller_id nulls first`
     expect(entries).toEqual([{ seller_id: null }, { seller_id: t.sellerA1First }])
   })
@@ -160,15 +162,15 @@ describe('a test label booked and tracked', () => {
     // A US parcel through EasyPost, as a USPS label would be.
     await db.sql`update fulfilment set courier_provider = 'usps', provider_ref = 'shp_t4' where id = ${parcel}`
     const body = JSON.stringify({ description: 'tracker.updated', result: { tracking_code: 'EZ1', shipment_id: 'shp_t4', status: 'out_for_delivery', updated_at: '2026-10-12T08:00:00Z' } })
-    expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body, 'not-the-secret') })).toBe(400)
-    expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body) }, async () => false)).toBe(429)
-    expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body) })).toBe(200)
+    expect(await post(`/couriers/easypost/${t.storeA1}`, body, { 'x-hmac-signature': await signed(body, 'not-the-secret') })).toBe(400)
+    expect(await post(`/couriers/easypost/${t.storeA1}`, body, { 'x-hmac-signature': await signed(body) }, async () => false)).toBe(429)
+    expect(await post(`/couriers/easypost/${t.storeA1}`, body, { 'x-hmac-signature': await signed(body) })).toBe(200)
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'out_for_delivery', delivered_at: null })
-    const hook = courierHookOf(`/couriers/easypost/${t.partnerA}`)
+    const hook = courierHookOf(`/couriers/easypost/${t.storeA1}`)
     if (!hook) throw new Error('no hook')
     expect((await handleCourierHook(new Request('https://hooks.example/x'), hook, { sql: db.sql, activity: activityLog, couriers }, async () => true)).status).toBe(405)
     expect(courierHookOf('/couriers/dhl/x')).toBeNull()
-    expect(courierHookOf(`/couriers/shiprocket/${t.partnerA}/extra`)).toBeNull()
+    expect(courierHookOf(`/couriers/shiprocket/${t.storeA1}/extra`)).toBeNull()
   })
 })
 
@@ -176,7 +178,7 @@ describe('a delivery nobody is told of (#563)', () => {
   const deliver = async (number: string, before: (orderId: string) => Promise<unknown>) => {
     const { id, shipments } = await order(number, [{ version: house, seller: null, at: main }])
     await before(id)
-    expect(await shiprocket(t.partnerA, await awbOf(shipments[0] ?? ''), 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    expect(await shiprocket(t.storeA1, await awbOf(shipments[0] ?? ''), 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
     return { id, parcel: shipments[0] ?? '' }
   }
   const stillRecorded = async (id: string, parcel: string) => {
@@ -200,7 +202,7 @@ describe('a delivery nobody is told of (#563)', () => {
 })
 
 describe('the hook’s rate limits (#563)', () => {
-  it('counts unproven posts against their sender alone, so a flood of bad signatures leaves the partner’s real hooks through', async () => {
+  it('counts unproven posts against their sender alone, so a flood of bad signatures leaves the store’s real hooks through', async () => {
     const { shipments } = await order('T-20', [{ version: house, seller: null, at: main }])
     const awb = await awbOf(shipments[0] ?? '')
     const used = new Map<string, number>()
@@ -210,15 +212,15 @@ describe('the hook’s rate limits (#563)', () => {
       return (used.get(key) ?? 0) <= 3
     }
     const body = (status: string) => JSON.stringify({ awb, current_status: status, current_timestamp: '2026-10-12 11:00:00' })
-    const junk = await Promise.all([1, 2, 3, 4, 5].map(() => post(`/couriers/shiprocket/${t.partnerA}`, body('DELIVERED'), { 'x-api-key': 'guess', 'cf-connecting-ip': '203.0.113.9' }, allow)))
+    const junk = await Promise.all([1, 2, 3, 4, 5].map(() => post(`/couriers/shiprocket/${t.storeA1}`, body('DELIVERED'), { 'x-api-key': 'guess', 'cf-connecting-ip': '203.0.113.9' }, allow)))
     expect(junk).toEqual([400, 400, 400, 429, 429])
-    expect(used.get(`courier-hook:${t.partnerA}`)).toBeUndefined()
-    expect(await post(`/couriers/shiprocket/${t.partnerA}`, body('IN TRANSIT'), { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '198.51.100.7' }, allow)).toBe(200)
-    expect(used.get(`courier-hook:${t.partnerA}`)).toBe(1)
+    expect(used.get(`courier-hook:${t.storeA1}`)).toBeUndefined()
+    expect(await post(`/couriers/shiprocket/${t.storeA1}`, body('IN TRANSIT'), { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '198.51.100.7' }, allow)).toBe(200)
+    expect(used.get(`courier-hook:${t.storeA1}`)).toBe(1)
     expect((await shipment(shipments[0] ?? ''))?.tracking_status).toBe('in_transit')
   })
 
-  it('never lets one partner’s burst of proven hooks from a courier’s shared address refuse another partner’s', async () => {
+  it('never lets one store’s burst of proven hooks from a courier’s shared address refuse another store’s', async () => {
     const used = new Map<string, number>()
     const allow = async (key: string) => {
       used.set(key, (used.get(key) ?? 0) + 1)
@@ -226,8 +228,8 @@ describe('the hook’s rate limits (#563)', () => {
     }
     const courierIp = { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '192.0.2.50' }
     const body = JSON.stringify({ awb: 'NONE', current_status: 'IN TRANSIT', current_timestamp: '2026-10-12 11:00:00' })
-    const busy = await Promise.all([1, 2, 3, 4].map(() => post(`/couriers/shiprocket/${t.partnerA}`, body, courierIp, allow)))
+    const busy = await Promise.all([1, 2, 3, 4].map(() => post(`/couriers/shiprocket/${t.storeA1}`, body, courierIp, allow)))
     expect(busy).toEqual([200, 200, 200, 429])
-    expect(await post(`/couriers/shiprocket/${t.partnerB}`, body, courierIp, allow)).toBe(200)
+    expect(await post(`/couriers/shiprocket/${t.storeB1}`, body, courierIp, allow)).toBe(200)
   })
 })
