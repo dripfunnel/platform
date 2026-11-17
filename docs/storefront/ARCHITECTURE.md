@@ -406,6 +406,10 @@ Classic, "Start from scratch" and, until #1218, Market live in this repo as comp
 *As built on #486* *(decided there)*:
 - The keys are `classic` (added after #486, from a published store's theme with its store-specific words, collection slugs and asset ids taken out) and `baseline` ("Start from scratch", the D1 look), and the gallery lists them in that order, then `market` until #1218 deletes it. `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
   `storefront_template` rows (DATA-MODEL §7.8) mirror it.
+- *Category templates (#1537):* a store category may name a starting template (`store_category.template_key`, DATA-MODEL §7.2).
+  The gallery lists it first (`StorefrontTemplate.forCategory`) and a first site starts from it without the gallery
+  (store FIRST-RELEASE, Storefront). Six, each built from baseline: `fashion` (Fashion & Apparel), `jewelry`, `beauty`
+  (Beauty & Personal Care), `grocery` (Food & Grocery), `home` (Home & Living) and `electronics` (Electronics & Gadgets).
 - `linen`, `concrete`, `bloom`, `circuit` and `atelier` were deleted on #1212 with their rows (migration 0381). A store that started from one keeps its key and its own theme; one that never built has no template files on a core released after that.
 - Words are in English only, the one language the seed stores offer: the validator refuses words in a language the
   store doesn't offer (`files/locale-not-offered`) as firmly as missing ones, so a store in other languages gets

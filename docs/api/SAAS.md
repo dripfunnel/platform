@@ -797,7 +797,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 ```
 "Your brand" saved (shop name and logo at least)
-  → chooseTemplate: the template becomes the theme; the first time, the store repo is created
+  → chooseTemplate: the template becomes the theme (the store category's own, without the gallery, when it
+    has one: #1537); the first time, the store repo is created
     (§5 steps 4–8); later, "keep my words" or "use template text", and the template's own images replace the old
     template's, never one the store pushed itself (storefront ARCHITECTURE §3.4 "Images")
   → Storefront › Assets: `libraryAssets` lists the merchant's files; the composer picks one as `image`

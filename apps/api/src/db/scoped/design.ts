@@ -23,6 +23,11 @@ export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null)
     order by t.key = 'classic' desc, t.key = 'baseline' desc, t.key
     limit ${maxPageSize}`
 
+/** The starting template of the store's category (DATA-MODEL §7.2), or null. */
+export const selectCategoryTemplate = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ template_key: string | null }[]>`
+    select c.template_key from store s join store_category c on c.id = s.category_id where s.id = ${storeId}`)[0]?.template_key ?? null
+
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
   (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
 

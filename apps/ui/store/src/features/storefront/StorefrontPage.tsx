@@ -13,7 +13,7 @@ import { AssetsTab } from './AssetsTab'
 import { BrandStep } from './BrandStep'
 import { ContentTab } from './ContentTab'
 import { DesignTab, type PoweredLine } from './DesignTab'
-import { hasSite, liveHost, needsTemplate, templateName } from './overviewView'
+import { chooseRefusal, hasSite, liveHost, needsTemplate, templateName } from './overviewView'
 import { SiteSettingsTab } from './SiteSettingsTab'
 import { StudioView } from './StudioView'
 import { storefrontAccessOf, storefrontTabs, type StorefrontTab, type StorefrontView } from './storefrontAccess'
@@ -54,6 +54,7 @@ export const StorefrontPage = () => {
   const canUpgrade = forced !== null || acting.permissions.includes('billing')
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
   const [powered, setPowered] = useState<PoweredLine | null>(null)
   // The publish followed outside the address too, so changing tab or view, or leaving the studio, keeps it (#1229).
   const [running, setRunning] = useState<string | null>(null)
@@ -167,6 +168,21 @@ export const StorefrontPage = () => {
     )
 
   const { brand, seo, domains, overview, templates, meters } = view.reads
+  const chosen = (template: StorefrontTemplate, status: StorefrontOverview['status']) => {
+    setToast(fill(template.key === scratchTemplate ? messages.storefront.gallery.scratchStarted : messages.storefront.gallery.switched, { name: template.name }))
+    const ask = ++latest.current
+    void Promise.all([api.loadOverview(), api.loadTemplates()]).then(
+      ([next, list]) => ask === latest.current && update({ overview: next, templates: list }),
+      () => ask === latest.current && update({ overview: { ...overview, status } }),
+    )
+    goView('studio')
+  }
+  if (starting)
+    return (
+      <div className="df-sf">
+        <LoadingState label={messages.storefront.gallery.choosing} />
+      </div>
+    )
   if (access.canEdit && !brand?.brandReady)
     return (
       <div className="df-sf">
@@ -176,8 +192,24 @@ export const StorefrontPage = () => {
           api={api}
           onDone={(saved, savedSeo) => {
             update({ brand: saved, seo: savedSeo })
-            setToast(words.brand.savedStep)
-            goTab('design')
+            const ownTemplate = templates.find((t) => t.forCategory)
+            if (!ownTemplate || !needsTemplate(overview.status)) {
+              setToast(words.brand.savedStep)
+              return goTab('design')
+            }
+            // The store's category has a starting template, so the first visit skips the gallery (#1537); a refusal shows it.
+            setStarting(true)
+            api.chooseTemplate(ownTemplate.key, true).then(
+              (status) => {
+                setStarting(false)
+                chosen(ownTemplate, status)
+              },
+              (e: unknown) => {
+                setStarting(false)
+                setToast(chooseRefusal(e))
+                goTab('design')
+              },
+            )
           }}
         />
         <Toast message={toast} onDone={() => setToast(null)} />
@@ -192,15 +224,7 @@ export const StorefrontPage = () => {
           status={overview.status}
           api={api}
           onBack={hasSite(overview.status) ? () => goView(undefined) : null}
-          onChosen={(chosen, status) => {
-            setToast(fill(chosen.key === scratchTemplate ? messages.storefront.gallery.scratchStarted : messages.storefront.gallery.switched, { name: chosen.name }))
-            const ask = ++latest.current
-            void Promise.all([api.loadOverview(), api.loadTemplates()]).then(
-              ([next, list]) => ask === latest.current && update({ overview: next, templates: list }),
-              () => ask === latest.current && update({ overview: { ...overview, status } }),
-            )
-            goView('studio')
-          }}
+          onChosen={chosen}
         />
         <Toast message={toast} onDone={() => setToast(null)} />
       </>

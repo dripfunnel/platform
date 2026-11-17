@@ -1001,7 +1001,10 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
                     -- checklist or Settings › Catalogue through set_store_category() only (as setup_skipped), an
                     -- archived category never newly; indexed for the Partner and Admin store lists' filter.
 
-store_category      (id, key UNIQUE, names jsonb, sections text[], position, archived_at NULL, created_at, updated_at)
+store_category      (id, key UNIQUE, names jsonb, sections text[], position, template_key NULL → storefront_template,
+                     archived_at NULL, created_at, updated_at)
+                    -- template_key (#1537, migration 0409): the category's starting template, listed first in the
+                    -- gallery and chosen for a first site without it (storefront ARCHITECTURE §2.3); set by migration.
                     -- Platform data, no tenant's: DripFunnel's list of what a shop sells (admin FIRST-RELEASE §2),
                     -- seeded with 30 (General first), at most 100 so its lists are one page, never paged (the cap
                     -- is checked when one is added). Every scope reads it; app_platform alone writes it, Super

@@ -57,7 +57,7 @@ const live12 = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'lin
 const sameAsLive: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: live12, draft: null, lastPublish: null, publishing: null }
 const withDraft: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: live12, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null, publishing: null }
 const notStarted: StorefrontOverview = { status: 'not_started', template: null, live: null, draft: null, lastPublish: null, publishing: null }
-const template = (key: string, name: string, current = false): StorefrontTemplate => ({ key, name, tag: 'Tag', description: `${name} look`, demoUrl: `https://${key}.demo.example.com`, current })
+const template = (key: string, name: string, current = false): StorefrontTemplate => ({ key, name, tag: 'Tag', description: `${name} look`, demoUrl: `https://${key}.demo.example.com`, current, forCategory: false })
 const templates = [template('baseline', 'Start from scratch'), template('linen', 'Linen', true), template('bloom', 'Bloom'), { ...template('market', 'Market'), demoUrl: 'http://market.demo.example.com' }]
 
 const quiet: StorefrontMeters['catalogue'] = { waiting: false, since: null, changedKinds: [], changedProducts: 0, pressesAllowed: 10, pressesLeft: 7, nextAutomaticPublishAt: null }
@@ -193,6 +193,30 @@ describe('the brand step', () => {
     await settle()
     expect(api.saveSeo).toHaveBeenCalledWith({ title: 'Kesari Threads — handloom', description: 'Handloom from Jaipur', shareImageAssetId: null })
     expect(api.saveBrand).toHaveBeenCalledWith(expect.objectContaining({ shopName: 'Kesari Threads', logoAssetId: 'a-new-logo', voice: warm, social: expect.objectContaining({ instagram: '@kesari' }), contactEmail: 'hello@kesari.in' }))
+    expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
+  })
+
+  it('skips the gallery for the store category’s template, and shows it when that pick is refused (#1537)', async () => {
+    const fashion = { ...template('fashion', 'Thread'), forCategory: true }
+    api.loadBrand.mockResolvedValue({ ...firstVisit, logoAssetId: 'a-logo' })
+    api.loadOverview.mockResolvedValueOnce(notStarted).mockResolvedValue({ status: 'creating', template: 'fashion', live: null, draft: null, lastPublish: null, publishing: null })
+    api.loadTemplates.mockResolvedValue([fashion, ...templates])
+    api.chooseTemplate.mockResolvedValueOnce('creating')
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: b.continue }))
+    await settle()
+    expect(api.chooseTemplate).toHaveBeenCalledWith('fashion', true)
+    expect(screen.queryByRole('heading', { level: 1, name: g.first })).toBeNull()
+    expect(screen.getByRole('heading', { name: o.creatingTitle })).toBeTruthy()
+
+    cleanup()
+    api.loadOverview.mockReset().mockResolvedValue(notStarted)
+    api.chooseTemplate.mockReset()
+    api.chooseTemplate.mockRejectedValueOnce(new ApiError('IN_PROGRESS', 'busy'))
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: b.continue }))
+    await settle()
+    expect(screen.getByText(g.refused.IN_PROGRESS)).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
   })
 
