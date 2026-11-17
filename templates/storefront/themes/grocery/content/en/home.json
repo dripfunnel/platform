@@ -17,8 +17,8 @@
       "alt": "Tomatoes, onions, cucumbers and aubergines on a market table"
     },
     "value": {
-      "eyebrow": "Pantry basics",
-      "title": "Stock up on everyday staples",
+      "eyebrow": "By price",
+      "title": "Start with the lowest prices",
       "action": "Browse by price",
       "alt": "Bowls of fennel seeds, allspice and turmeric with cinnamon and star anise"
     }
@@ -28,13 +28,13 @@
     "all": "See all"
   },
   "budget": {
-    "eyebrow": "Everyday value",
-    "title": "Easy on the wallet",
+    "eyebrow": "By price",
+    "title": "Lowest prices first",
     "all": "See all by price"
   },
   "story": {
     "eyebrow": "About us",
-    "title": "Your neighbourhood store, online",
+    "title": "About our store",
     "body": "Tell shoppers who you are, what you stock and what makes your shop worth coming back to.",
     "collections": "{count, plural, one {# category} other {# categories}} to shop",
     "more": "How we work",

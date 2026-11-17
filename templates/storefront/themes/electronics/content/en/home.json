@@ -1,9 +1,9 @@
 {
   "hero": {
     "eyebrow": "New launches",
-    "title": "Tech that keeps",
-    "accent": "up with you.",
-    "lead": "The gadgets, gear and accessories that power your day, with full details on every product.",
+    "title": "Find the tech",
+    "accent": "that fits your day.",
+    "lead": "Gadgets, gear and accessories, all in one place.",
     "shop": "Shop new launches",
     "all": "Browse everything",
     "facts": "At a glance",
@@ -32,14 +32,14 @@
   },
   "promos": {
     "sound": {
-      "eyebrow": "Listen",
-      "title": "Sound, stripped back.",
+      "eyebrow": "Browse",
+      "title": "See the whole range.",
       "action": "Shop new in",
       "alt": "White wireless headphones on a white background"
     },
     "light": {
-      "eyebrow": "Connect",
-      "title": "Make every room respond.",
+      "eyebrow": "Explore",
+      "title": "Find something new.",
       "action": "Explore the range",
       "alt": "A smart bulb glowing pink and blue"
     }
@@ -71,7 +71,7 @@
   "signup": {
     "eyebrow": "Your account",
     "title": "Track orders, keep a wishlist and check out faster.",
-    "body": "Create an account in a minute and pick up where you left off.",
+    "body": "Create an account and pick up where you left off.",
     "action": "Create an account"
   }
 }
