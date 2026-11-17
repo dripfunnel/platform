@@ -29,7 +29,7 @@ export const home = {
   heroFrame: clsx('relative min-h-0 p-3 pt-0 min-[900px]:p-4 min-[900px]:pl-0'),
   heroPicture: clsx('relative block overflow-hidden h-full aspect-square rounded-[26px] [background:var(--picture)] min-[900px]:aspect-auto min-[900px]:min-h-140 min-[900px]:rounded-[30px]'),
   heroImage: clsx('block w-full h-full object-cover object-[50%_48%] min-[900px]:absolute min-[900px]:inset-0 min-[900px]:object-[50%_30%]'),
-  heroDetail: clsx('hidden min-[900px]:block absolute -left-14 bottom-12 w-56 overflow-hidden rounded-[24px] border-[6px] border-surface bg-surface [box-shadow:0_18px_40px_rgb(61_34_50/0.18)] motion-safe:animate-[floaty_3.5s_ease-in-out_infinite_alternate]'),
+  heroDetail: clsx('hidden min-[900px]:block absolute -left-14 bottom-12 w-56 overflow-hidden rounded-[24px] border-[6px] border-surface bg-surface [box-shadow:0_18px_40px_rgb(61_34_50/0.18)]'),
   heroDetailImage: clsx('block w-full h-auto object-cover'),
 
   chips: clsx(sectionBase, 'pt-8 min-[900px]:pt-10'),

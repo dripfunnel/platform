@@ -31,12 +31,3 @@
   --picture: linear-gradient(170deg, #e9e2d8, #c7bba9);
   --picture-alt: linear-gradient(170deg, #f1ece6, #ddd3c6);
 }
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
