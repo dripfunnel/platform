@@ -170,6 +170,36 @@ describe('the push API', () => {
     expect(github.calls.filter((c) => c.startsWith('POST'))).not.toContainEqual(expect.stringMatching(/git\/commits$/))
   })
 
+  it('sends a template’s images as base64 only where main’s bytes differ, and removes one only while main still holds those bytes (#1537)', async () => {
+    const hero = Buffer.from('RIFF hero bytes').toString('base64')
+    const banner = Buffer.from('RIFF banner bytes').toString('base64')
+    const sha = '0'.repeat(40)
+    const first = await pushToRepo(deps, { ...publish('publish:img1', 2), media: [{ path: 'src/theme/media/hero.webp', content: hero, encoding: 'base64', blob: sha }] })
+    expect(first.ok).toBe(true)
+    expect(github.files(repoOf.A1)?.get('src/theme/media/hero.webp')).toBe(github.binary(Buffer.from('RIFF hero bytes')))
+    const tree = await deps.repos.treeOf(repoOf.A1, (await deps.repos.head(repoOf.A1)) ?? '')
+    const held = (await deps.repos.blobs(repoOf.A1, tree)).find((b) => b.path === 'src/theme/media/hero.webp')?.sha ?? ''
+    // A blob id main holds is sent again by neither the image nor its removal while the draft keeps it.
+    const blobPosts = () => github.calls.filter((c) => c.endsWith('/git/blobs')).length
+    const posted = blobPosts()
+    await pushToRepo(deps, { ...publish('publish:img2', 3), media: [{ path: 'src/theme/media/hero.webp', content: hero, encoding: 'base64', blob: held }] })
+    expect(blobPosts()).toBe(posted)
+    // A removal names bytes main no longer holds: the image stays.
+    await pushToRepo(deps, { ...publish('publish:img3', 4), media: [{ path: 'src/theme/media/banner.webp', content: banner, encoding: 'base64', blob: sha }], mediaRemoved: [{ path: 'src/theme/media/hero.webp', blob: 'f'.repeat(40) }] })
+    expect(github.files(repoOf.A1)?.has('src/theme/media/hero.webp')).toBe(true)
+    await pushToRepo(deps, { ...publish('publish:img4', 5), media: [{ path: 'src/theme/media/banner.webp', content: banner, encoding: 'base64', blob: sha }], mediaRemoved: [{ path: 'src/theme/media/hero.webp', blob: held }] })
+    expect(github.files(repoOf.A1)?.has('src/theme/media/hero.webp')).toBe(false)
+    expect(github.files(repoOf.A1)?.get('src/theme/media/banner.webp')).toBe(github.binary(Buffer.from('RIFF banner bytes')))
+  })
+
+  it('refuses base64 on anything but a theme image, and images on the upgrade bot’s push', async () => {
+    const code = { path: 'src/theme/pages/HomePage.tsx', content: 'eA==', encoding: 'base64', blob: '0'.repeat(40) }
+    expect(await pushToRepo(deps, { ...publish('publish:bad1'), media: [code] })).toEqual({ ok: false, code: 'INVALID' })
+    expect(await pushToRepo(deps, { ...publish('publish:bad2'), files: [{ path: 'src/theme/pages/HomePage.tsx', content: 'eA==', encoding: 'base64' }] })).toEqual({ ok: false, code: 'INVALID' })
+    const image = { path: 'src/theme/media/hero.webp', content: 'eA==', encoding: 'base64', blob: '0'.repeat(40) }
+    expect(await pushToRepo(deps, { storeId: t.storeA1, key: 'upgrade:img', reason: { kind: 'upgrade', coreVersion: '0.14.0' }, files: [], media: [image] })).toEqual({ ok: false, code: 'PATH_NOT_ALLOWED' })
+  })
+
   it('lets the upgrade bot change the pin and keep the theme', async () => {
     const result = await pushToRepo(deps, { storeId: t.storeA1, key: 'upgrade:1.1.0', reason: { kind: 'upgrade', coreVersion: '1.1.0' }, files: [{ path: 'package.json', content: '{"dependencies":{"@dripfunnel/storefront-core":"1.1.0"}}' }] })
     expect(result.ok).toBe(true)

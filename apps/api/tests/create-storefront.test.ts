@@ -9,7 +9,7 @@ import { storefrontCreateDeliverer, storefrontUndoDeliverer, type StorefrontWork
 import { createFailedMessage, runCreateStorefront, startStorefront, storefrontCreateKind, type CreateDeps, type CreateStorefrontParams, type StepRunner } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
-import { fakeSites, putText, type FakeSites } from './support/sites'
+import { fakeSites, putBytes, putText, type FakeSites } from './support/sites'
 
 // INF 1 (#316): SAAS §5 steps 4–8 against the real database, GitHub answered in memory by the stand-in the App's real
 // client talks to, and an in-memory sites bucket. Every step is idempotent, and a failure anywhere leaves nothing.
@@ -207,6 +207,25 @@ describe('the create-storefront Workflow', () => {
     expect(store?.core_version).toBe(core)
     const [entry] = await db.sql<{ action: string; actor_kind: string; target_label: string }[]>`select action, actor_kind, target_label from activity_log where store_id = ${t.storeA1} and action like 'storefront.%'`
     expect(entry).toEqual({ action: 'storefront.created', actor_kind: 'job', target_label: repo })
+  })
+
+  it('carries the template’s own images byte for byte into the repo and its preview (ARCHITECTURE §3.4 "Images")', async () => {
+    // Bytes no text decoding survives: a WebP's RIFF head, a NUL and invalid UTF-8.
+    const image = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28])
+    const theme = [
+      { path: 'routes.json', content: '{"routes":{"home":"HomePage"}}' },
+      { path: 'src/theme/pages/HomePage.tsx', content: 'export const HomePage = () => null\n' },
+      { path: 'src/theme/media/hero.webp', content: Buffer.from(image).toString('base64'), encoding: 'base64' },
+    ]
+    await putText(sites, `templates/${core}/themes/glint/source.json`, JSON.stringify({ files: theme }))
+    const sha256 = await putBytes(sites, `templates/${core}/themes/glint/preview/files/assets/media-hero.webp`, image, 'image/webp')
+    await putText(sites, `templates/${core}/themes/glint/preview/manifest.json`, JSON.stringify({ files: [{ path: 'assets/media-hero.webp', sha256 }] }))
+
+    const params = await started(t.storeA1, 'glint')
+    expect(await runCreateStorefront(deps, params, once)).toBe('created')
+    const repo = (await storefront(t.storeA1))?.repo ?? ''
+    expect(github.files(repo)?.get('src/theme/media/hero.webp')).toBe(github.binary(image))
+    expect(sites.objects.get(`stores/${t.storeA1}/preview/${params.jobId}/assets/media-hero.webp`)?.bytes).toEqual(image)
   })
 
   it('writes no .env.development where SHOP_DOMAIN isn’t set, so a clone’s next dev proxies nothing', async () => {

@@ -53,7 +53,7 @@ import { maxRepairs } from '#saas/studio/index'
 import { attachCatalogue, pruneCatalogue, recordCatalogueBase, recordCatalogueProducts, type CatalogueRecorder } from './catalogue'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
-import type { PushResult, RepoFile } from './push'
+import type { PushResult, RemovedImage, RepoFile, RepoImage } from './push'
 import { manifestSchema } from './manifest'
 import { failedCheck, runPostDeployChecks, type CheckResult } from './postDeploy'
 import { deletePrefix, type SitesBucket } from './templates'
@@ -166,7 +166,7 @@ export interface PublishDeps extends FreezeDeps {
   assetHost: string
   wait: (ms: number) => Promise<void>
   /** The push API (`push.ts`) through the GitHub App; absent where GitHub isn't configured, and then nothing is pushed. */
-  push?: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) => Promise<PushResult>
+  push?: (input: { storeId: string; buildId: string; version: number; files: RepoFile[]; media: RepoImage[]; mediaRemoved: RemovedImage[] }) => Promise<PushResult>
   /** A live push's `src/theme/media/` and the assets bucket its copies go to (#1415); absent, nothing is copied. */
   repoMedia?: { read: StoreRepos['themeMedia']; files: AssetStore }
 }
@@ -329,7 +329,13 @@ const confirmStep = async (deps: PublishDeps, p: PublishParams, buildId: string)
   return confirmed ? 'live' : 'stopped'
 }
 
-const themeSchema = z.object({ files: z.array(z.object({ path: z.string(), content: z.string() })).max(1000) })
+// A theme kept before #1537 holds no images: its push sends none and removes none.
+const blobId = z.string().regex(/^[0-9a-f]{40}$/)
+const themeSchema = z.object({
+  files: z.array(z.object({ path: z.string(), content: z.string() })).max(1000),
+  media: z.array(z.object({ path: z.string(), content: z.string(), encoding: z.literal('base64'), blob: blobId })).max(100).default([]),
+  removed: z.array(z.object({ path: z.string(), blob: blobId })).max(1000).default([]),
+})
 
 /**
  * A design publish that stayed live reaches the public repo's main as one squashed commit with a platform-written message
@@ -352,7 +358,7 @@ const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): P
     logEvent({ event: 'storefront_push_skipped', api: 'system', storeId: p.storeId, code: 'no_theme' })
     return 'no_theme'
   }
-  const pushed = await deps.push({ storeId: p.storeId, buildId, version: run.version, files: theme.data.files })
+  const pushed = await deps.push({ storeId: p.storeId, buildId, version: run.version, files: theme.data.files, media: theme.data.media, mediaRemoved: theme.data.removed })
   // `publish:{build}` is idempotent, so a main that moved meanwhile is retried by the step.
   if (!pushed.ok && pushed.code === 'MAIN_MOVED') throw new Error('push: main moved')
   if (!pushed.ok) logEvent({ event: 'storefront_push_refused', api: 'system', storeId: p.storeId, code: pushed.code })

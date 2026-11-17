@@ -14,6 +14,8 @@ export class SandboxRefused extends Error {
 }
 
 export type FileChange = { path: string; content: string | null }
+/** A template's theme for the draft (SAAS §9.2): its code and words, its images as base64, the replaced template's by checksum. */
+export type TemplateSwitch = { files: FileChange[]; media: { path: string; content: string }[]; previous: { path: string; sha256: string }[] }
 export type GuardContext = {
   locales: string[]
   usedPaths: string[]
@@ -32,6 +34,11 @@ const changeSchema = z.discriminatedUnion('ok', [
 const precheckedSchema = z.object({ lane: laneSchema, problems: z.array(problemSchema).max(500) })
 const loadedSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema.nullable(), problems: z.array(problemSchema).max(500) })
 const themeSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.object({ path: z.string(), content: z.string() })).max(2000) })
+const blob = z.string().regex(/^[0-9a-f]{40}$/)
+const mediaSchema = z.object({
+  media: z.array(z.object({ path: z.string().max(512), blob, content: z.string() })).max(1000),
+  removed: z.array(z.object({ path: z.string().max(512), blob })).max(1000),
+})
 const upgradedSchema = z.object({
   commit: z.string().regex(/^[0-9a-f]{40}$/),
   files: z.array(z.object({ path: z.string().max(512), content: z.string().nullable() })).max(1000),
@@ -44,6 +51,7 @@ export type ClientBundle = z.infer<typeof bundleSchema>
 export type ChangeResult = z.infer<typeof changeSchema>
 export type Loaded = z.infer<typeof loadedSchema>
 export type PreviewFiles = z.infer<typeof previewSchema>
+export type DraftMedia = z.infer<typeof mediaSchema>
 type Prechecked = z.infer<typeof precheckedSchema>
 export type Upgraded = z.infer<typeof upgradedSchema>
 /** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files, and `to`'s skeleton. */
@@ -79,12 +87,16 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
   return {
     /** `at` checks the bundle out at that commit: a live build's source bundle may hold commits past its own. */
     loadBundle: async (bytes: ArrayBuffer, at: string | null = null): Promise<Loaded> => json(await call('PUT', at ? `draft?at=${at}` : 'draft', bytes, 'application/x-git-bundle'), loadedSchema),
-    loadFiles: async (files: readonly { path: string; content: string }[], message: string): Promise<Loaded> => json(await call('PUT', 'draft', JSON.stringify({ files, message })), loadedSchema),
+    loadFiles: async (files: readonly { path: string; content: string; encoding?: 'base64' | undefined }[], message: string): Promise<Loaded> => json(await call('PUT', 'draft', JSON.stringify({ files, message })), loadedSchema),
     /** The theme at the head, or at `at`, an earlier commit of the draft. */
     theme: async (at: string | null = null) => json(await call('GET', at ? `theme?at=${at}` : 'theme'), themeSchema),
     change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message, context })), changeSchema),
     /** The change so far, checked while the model still writes it (#1240): the validator and the warm typecheck, nothing kept. */
     precheck: async (files: readonly FileChange[], context: GuardContext): Promise<Prechecked> => json(await call('POST', 'precheck', JSON.stringify({ files, context })), precheckedSchema),
+    /** The one change that writes the theme's images (ARCHITECTURE §3.4 "Images"), only ever from the template's own files. */
+    applyTemplate: async (input: TemplateSwitch, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'template', JSON.stringify({ ...input, message, context })), changeSchema),
+    /** The draft's images at `at`, and those its history removed, for the push (AI-STUDIO §6 step 4). */
+    media: async (at: string): Promise<DraftMedia> => json(await call('GET', `media?at=${at}`), mediaSchema),
     undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
     upgrade: async (request: UpgradeRequest): Promise<Upgraded> => json(await call('POST', 'upgrade', JSON.stringify(request)), upgradedSchema),
     /** AI-STUDIO §6 step 2: the draft onto the upgrade's commit, whose bundle goes first. */

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { draftBundle, previewFolder } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
+import { sandboxClient } from '#integrations/sandbox/index'
 import { studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -50,6 +51,10 @@ let db: TestDatabase
 let t: Tenants
 let w: StoreWorld
 let sites: FakeSites
+const le32 = (n: number) => [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]
+// The smallest WebP core's validator accepts (storefront-core test/images.ts).
+const vp8l = [...Buffer.from('VP8L'), ...le32(5), 0x2f, ...le32(3 | (2 << 14)), 0]
+const hero = Buffer.from([...Buffer.from('RIFF'), ...le32(4 + vp8l.length), ...Buffer.from('WEBP'), ...vp8l])
 const drafts = memoryDrafts()
 const processes: SandboxProcess[] = []
 const runners = new Map<string, StudioRunner>()
@@ -94,6 +99,8 @@ beforeAll(async () => {
     .map((f) => (f.path === 'content/en/pages.json' ? { ...f, content: f.content.replace('Made slowly, worn for years', 'Classic for every day') } : f))
     .map((f) => (f.path === 'src/theme/styles/page.module.css' ? { ...f, content: `${f.content}\n.classic {\n  letter-spacing: 0.02em;\n}\n` } : f))
   await putText(sites, `templates/${core}/themes/classic/source.json`, JSON.stringify({ files: classic }))
+  // A template with its own image (#1537), under a key the gallery already offers.
+  await putText(sites, `templates/${core}/themes/market/source.json`, JSON.stringify({ files: [...classic, { path: 'src/theme/media/hero.webp', content: hero.toString('base64'), encoding: 'base64' }] }))
   for (const storeId of [t.storeA1, t.storeA2, t.storeB1]) {
     await db.sql`update store set core_version = ${core}, main_language = 'en-IN' where id = ${storeId}`
     await db.sql`insert into store_language (store_id, language) values (${storeId}, 'en-IN'), (${storeId}, 'hi-IN') on conflict do nothing`
@@ -239,5 +246,18 @@ describe('choosing a template', () => {
     const read = await w.gql('bOwner', '{ storefront { status template draft { template previewReady } } storefrontTemplates { key current } }')
     expect(read.data?.['storefront']).toEqual({ status: 'not_published', template: 'baseline', draft: { template: 'baseline', previewReady: true } })
     expect((read.data?.['storefrontTemplates'] as { key: string; current: boolean }[]).filter((r) => r.current).map((r) => r.key)).toEqual(['baseline'])
+  })
+
+  it('brings a template’s own images with Change template, and takes them away again with the next one (#1537)', async () => {
+    const mediaAtHead = async () => {
+      const [draft] = await db.sql<{ head_commit: string }[]>`select head_commit from design_draft where store_id = ${t.storeB1}`
+      return sandboxClient(host.send, t.storeB1).media(draft?.head_commit ?? '')
+    }
+    expect((await choose('bOwner', 'market', false)).code).toBeUndefined()
+    expect((await mediaAtHead()).media).toEqual([expect.objectContaining({ path: 'src/theme/media/hero.webp', content: hero.toString('base64') })])
+    expect((await choose('bOwner', 'classic', false)).code).toBeUndefined()
+    const after = await mediaAtHead()
+    expect(after.media).toEqual([])
+    expect(after.removed).toEqual([expect.objectContaining({ path: 'src/theme/media/hero.webp' })])
   })
 })

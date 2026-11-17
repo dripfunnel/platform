@@ -30,3 +30,16 @@ export const gitIn =
     })
     return stdout
   }
+
+/** git in one folder whose output is bytes, for a theme image at a commit. */
+export const gitBytesIn =
+  (cwd: string, home: string) =>
+  async (args: readonly string[]): Promise<Buffer> => {
+    const { stdout } = await run('git', ['-c', 'core.symlinks=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+      cwd,
+      env: { ...childEnv(home), ...identity },
+      maxBuffer: 64 * 1024 * 1024,
+      encoding: 'buffer',
+    })
+    return stdout
+  }
