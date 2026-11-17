@@ -406,6 +406,7 @@ type Mutation {
   setSmsEnabled(enabled: Boolean!): PartnerSmsResult
   setSmsRoute(provider: String, route: String!): PartnerSmsResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
+  setWhatsAppChoice(account: String!): PartnerWhatsAppResult
   setWhatsAppEnabled(enabled: Boolean!): PartnerWhatsAppResult
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
@@ -662,6 +663,7 @@ type PartnerPlanFee {
 
 type PartnerSms {
   accounts: [PartnerSmsAccount!]
+  dripfunnel: Boolean
   enabled: Boolean
   routes: [PartnerSmsRoute!]
 }
@@ -681,8 +683,10 @@ type PartnerSmsResult {
 }
 
 type PartnerSmsRoute {
+  dripfunnel: Boolean
   provider: String
   route: String
+  sender: String
 }
 
 input PartnerSmsTemplateInput {
@@ -738,7 +742,10 @@ type PartnerStoreRow {
 
 type PartnerWhatsApp {
   account: PartnerWhatsAppAccount
+  choice: String
+  dripfunnel: Boolean
   enabled: Boolean
+  sender: String
 }
 
 type PartnerWhatsAppAccount {

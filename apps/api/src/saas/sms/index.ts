@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import type { SecretBox } from '#auth/secretBox'
-import type { Config } from '#core/config'
 import {
   awsAccessKeyIdSchema,
   awsRegionSchema,
@@ -9,11 +8,14 @@ import {
   isE164,
   routeProviders,
   smsMessages,
+  smsProviders,
   smsRouteFor,
+  smsRoutes,
   smsTemplatesSchema,
   twilioAccountSidSchema,
   twilioMessagingServiceSidSchema,
   type OutgoingSms,
+  type SmsAccountCheck,
   type SmsMessage,
   type SmsProvider,
   type SmsRoute,
@@ -21,6 +23,10 @@ import {
 import type { ScopedSql } from '#db/scoped/index'
 import { expireUnsent } from '#db/scoped/outbox'
 import { selectSealedSmsAccounts, selectSmsPrefs } from '#db/scoped/partnerCredentials'
+import { selectDfMessaging, selectOurAccounts, selectOurMessaging } from '#db/scoped/platformMessaging'
+import { checkMsg91Account } from '#integrations/msg91/index'
+import { checkSnsAccount } from '#integrations/sns/index'
+import { checkTwilioAccount } from '#integrations/twilio/index'
 import { queueSideEffect } from '#saas/outbox/index'
 
 // What the platform texts (THIRD-PARTY-ACCESS §2.8, decided on #337): one-time codes, and
@@ -119,49 +125,11 @@ export const servesRoute = (account: PartnerSmsAccount, route: SmsRoute): boolea
   return route === 'rest' || (account.india !== null && complete(account.india.templates))
 }
 
-/** DripFunnel's own account for each route (Worker values, or locally the stand-in's); a route without one is absent. */
+/** DripFunnel's own account for each route; a route without one is absent. */
 export type OurSmsRoutes = Partial<Record<SmsRoute, PartnerSmsAccount>>
 
-type SmsValues = Pick<
-  Config,
-  | 'MSG91_AUTH_KEY'
-  | 'MSG91_TEMPLATES'
-  | 'TWILIO_ACCOUNT_SID'
-  | 'TWILIO_AUTH_TOKEN'
-  | 'TWILIO_MESSAGING_SERVICE_SID'
-  | 'SNS_ACCESS_KEY_ID'
-  | 'SNS_SECRET_ACCESS_KEY'
-  | 'SNS_REGION'
-  | 'SNS_SENDER_ID'
-  | 'SNS_DLT_ENTITY_ID'
-  | 'SNS_DLT_TEMPLATES'
-  | 'SMS_ROUTE_INDIA'
-  | 'SMS_ROUTE_REST'
->
-
-/** DripFunnel's account for each route from the Worker's values: `SMS_ROUTE_INDIA` (MSG91 unless set) and `SMS_ROUTE_REST` (Twilio unless set). */
-export const ourSmsRoutesOf = (c: SmsValues): OurSmsRoutes => {
-  const accounts: Partial<Record<SmsProvider, PartnerSmsAccount>> = {
-    ...(c.MSG91_AUTH_KEY && c.MSG91_TEMPLATES ? { msg91: { provider: 'msg91', authKey: c.MSG91_AUTH_KEY, templates: c.MSG91_TEMPLATES } } : {}),
-    ...(c.TWILIO_ACCOUNT_SID && c.TWILIO_AUTH_TOKEN && c.TWILIO_MESSAGING_SERVICE_SID
-      ? { twilio: { provider: 'twilio', accountSid: c.TWILIO_ACCOUNT_SID, authToken: c.TWILIO_AUTH_TOKEN, messagingServiceSid: c.TWILIO_MESSAGING_SERVICE_SID } }
-      : {}),
-    ...(c.SNS_ACCESS_KEY_ID && c.SNS_SECRET_ACCESS_KEY && c.SNS_REGION
-      ? {
-          sns: {
-            provider: 'sns',
-            accessKeyId: c.SNS_ACCESS_KEY_ID,
-            secretAccessKey: c.SNS_SECRET_ACCESS_KEY,
-            region: c.SNS_REGION,
-            india: c.SNS_SENDER_ID && c.SNS_DLT_ENTITY_ID && c.SNS_DLT_TEMPLATES ? { senderId: c.SNS_SENDER_ID, entityId: c.SNS_DLT_ENTITY_ID, templates: c.SNS_DLT_TEMPLATES } : null,
-          },
-        }
-      : {}),
-  }
-  const india = accounts[c.SMS_ROUTE_INDIA ?? 'msg91']
-  const rest = accounts[c.SMS_ROUTE_REST ?? 'twilio']
-  return { ...(india && servesRoute(india, 'india') ? { india } : {}), ...(rest && servesRoute(rest, 'rest') ? { rest } : {}) }
-}
+/** DripFunnel's accounts a partner may use: none while Admin hasn't enabled DripFunnel's SMS for it (#1543). System scope. */
+export type OurSms = (tx: ScopedSql, partnerId: string) => Promise<OurSmsRoutes>
 
 /** A saved account, opened; null where its secret or settings can't be read, so it never half sends (#1017). */
 export const openSmsAccount = async (secrets: SecretBox | null, row: { provider: SmsProvider; key_enc: string; settings: unknown }): Promise<PartnerSmsAccount | null> => {
@@ -179,21 +147,76 @@ export const openSmsAccount = async (secrets: SecretBox | null, row: { provider:
   return settings.success ? { provider: 'sns', secretAccessKey: secret, ...settings.data } : null
 }
 
+/** Whether a saved account's parts serve the route, read without its secret. */
+export const savedServes = (row: { provider: SmsProvider; settings: unknown }, route: SmsRoute): boolean => {
+  if (row.provider === 'twilio') return route === 'rest'
+  if (row.provider === 'msg91') return route === 'india' && smsSettingsSchemas.msg91.safeParse(row.settings).success
+  const sns = smsSettingsSchemas.sns.safeParse(row.settings)
+  return sns.success && (route === 'rest' || sns.data.india !== null)
+}
+
+/** The saved account that serves a route: the chosen provider's, else the first of the route's providers that does. */
+export const accountForRoute = <Row extends { provider: SmsProvider; settings: unknown }>(rows: readonly Row[], route: SmsRoute, choice: string | null): Row | undefined =>
+  [choice, ...routeProviders[route]].map((p) => rows.find((r) => r.provider === p)).find((r): r is Row => r !== undefined && savedServes(r, route))
+
 /**
- * Per route, the partner's provider for it (its choice, else the first of the route's providers it has an account for)
- * if that account is complete, else DripFunnel's (#1017); none at all while its SMS is off. Called in system scope.
+ * Whose account sends (#1543): DripFunnel's only where Admin enabled it for the partner (`ours`), and then when the partner
+ * chose it or has no account of its own; else the partner's own; else none. The same rule for an SMS route and WhatsApp.
  */
-export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSmsRoutes): PartnerSmsAccounts => ({
+export const senderOf = (choice: string | null, hasOwn: boolean, ours: boolean): 'own' | 'dripfunnel' | null =>
+  ours && (choice === 'dripfunnel' || !hasOwn) ? 'dripfunnel' : hasOwn ? 'own' : null
+
+const isSmsRow = <Row extends { provider: string }>(row: Row): row is Row & { provider: SmsProvider } => (smsProviders as readonly string[]).includes(row.provider)
+
+/** DripFunnel's accounts as a Super admin saved them (#1543), opened, per route by its route choice. System scope. */
+export const savedOurSmsRoutes =
+  (secrets: SecretBox | null) =>
+  async (tx: ScopedSql): Promise<OurSmsRoutes> => {
+    const rows = (await selectOurAccounts(tx, 'sms')).filter(isSmsRow)
+    const { routes } = await selectOurMessaging(tx)
+    const ours: OurSmsRoutes = {}
+    for (const route of smsRoutes) {
+      const row = accountForRoute(rows, route, routes[route])
+      const account = row ? await openSmsAccount(secrets, row) : null
+      if (account && servesRoute(account, route)) ours[route] = account
+    }
+    return ours
+  }
+
+/** DripFunnel's routes for the partners Admin enabled them for (#1543): `routes` reads them, from the database or the stand-in. */
+export const ourSmsFor =
+  (routes: (tx: ScopedSql) => Promise<OurSmsRoutes>): OurSms =>
+  async (tx, partnerId) =>
+    (await selectDfMessaging(tx, partnerId)).sms ? routes(tx) : {}
+
+/**
+ * Per route, the account `senderOf` picks: the partner's own (its choice, else the first of the route's providers that
+ * serves it) or DripFunnel's; none while its SMS is off. An own account that can't be opened answers null: nothing falls
+ * back between accounts (#1542, #1543). Called in system scope.
+ */
+export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSms): PartnerSmsAccounts => ({
   forPartner: async (tx, partnerId, route) => {
     const prefs = await selectSmsPrefs(tx, partnerId)
     if (!prefs.enabled) return 'off'
-    const rows = await selectSealedSmsAccounts(tx, partnerId)
-    const chosen = prefs.routes[route] ?? routeProviders[route].find((p) => rows.some((r) => r.provider === p))
-    const row = rows.find((r) => r.provider === chosen)
-    const account = row ? await openSmsAccount(secrets, row) : null
-    return account && servesRoute(account, route) ? account : (ours[route] ?? null)
+    const choice = prefs.routes[route]
+    const own = accountForRoute(await selectSealedSmsAccounts(tx, partnerId), route, choice)
+    const theirs = choice === 'dripfunnel' || !own ? (await ours(tx, partnerId))[route] : undefined
+    const sender = senderOf(choice, own !== undefined, theirs !== undefined)
+    if (sender === 'dripfunnel') return theirs ?? null
+    const account = sender === 'own' && own ? await openSmsAccount(secrets, own) : null
+    return account && servesRoute(account, route) ? account : null
   },
 })
+
+/** The `sms` deliverer's accounts, DripFunnel's read from the database: wherever sealed accounts can be opened (#1542, #1543). */
+export const smsDeliveryFor = (secrets: SecretBox | null): PartnerSmsAccounts | null => (secrets ? smsAccountsFor(secrets, ourSmsFor(savedOurSmsRoutes(secrets))) : null)
+
+/** One read-only call to the account's provider: nothing is sent (#1017). */
+export const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> => {
+  if (account.provider === 'msg91') return checkMsg91Account({ authKey: account.authKey })
+  if (account.provider === 'twilio') return checkTwilioAccount(account)
+  return checkSnsAccount({ accessKeyId: account.accessKeyId, secretAccessKey: account.secretAccessKey, region: account.region })
+}
 
 /**
  * Queues one text in the transaction that decided it. The idempotency key is the caller's, e.g.

@@ -74,10 +74,10 @@ import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
-import { expireUnsentWhatsAppCodes, whatsappAccountsFor, whatsappKind, whatsappTemplates, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { expireUnsentWhatsAppCodes, ourWhatsAppFor, savedOurWhatsApp, whatsappAccountsFor, whatsappKind, whatsappSendsCodes, whatsappTemplates, type OurWhatsApp, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { codeChannelsFor, type CodeChannelCheck } from '#saas/portalCodes/index'
 import type { WhatsAppSender } from '#core/whatsapp'
-import { metaWhatsAppSender } from '#integrations/meta/index'
+import { checkMetaWhatsAppAccount, metaWhatsAppSender } from '#integrations/meta/index'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { msg91Sender } from '#integrations/msg91/index'
 import { twilioSender } from '#integrations/twilio/index'
@@ -190,7 +190,8 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, ourSmsRoutesOf, smsAccountsFor, smsKind, smsMessages, type OurSmsRoutes } from '#saas/sms/index'
+import { checkSmsAccount, expireUnsentSms, ourSmsFor, savedOurSmsRoutes, smsAccountsFor, smsDeliveryFor, smsKind, smsMessages, type OurSms, type OurSmsRoutes, type PartnerSmsAccounts } from '#saas/sms/index'
+import { createPlatformMessagingService } from '#saas/platformMessaging/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -279,35 +280,37 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
-// DripFunnel's own SMS account per route (#1017): locally (SMS_LOCAL) the stand-in's, whose texts it prints, else the
-// Worker's values. A partner's complete account for a route replaces ours (saas/sms smsAccountsFor).
-const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | null => {
-  if (config.SMS_LOCAL === '1') {
-    const ours: OurSmsRoutes = {
-      india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
-      rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
-    }
-    return { ours, senders: { msg91: localSms, twilio: localSms, sns: localSms } }
-  }
-  const ours = ourSmsRoutesOf(config)
-  if (!ours.india && !ours.rest) return null
-  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
+// DripFunnel's own SMS account per route, for the partners Admin enabled it for (#1543): locally (SMS_LOCAL) the stand-in's,
+// whose texts it prints, else the ones a Super admin saved in the admin console (saas/sms smsDeliveryFor).
+const localOurSms: OurSmsRoutes = {
+  india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+  rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+}
+const ourSmsOf = (config: Config, secrets: SecretBox | null): OurSms => ourSmsFor(config.SMS_LOCAL === '1' ? async () => localOurSms : savedOurSmsRoutes(secrets))
+const smsFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerSmsAccounts; senders: SmsSenders } | null => {
+  const local = config.SMS_LOCAL === '1'
+  const accounts = local ? smsAccountsFor(secrets, ourSmsOf(config, secrets)) : smsDeliveryFor(secrets)
+  if (!accounts) return null
+  const senders: SmsSenders = local ? { msg91: localSms, twilio: localSms, sns: localSms } : { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) }
+  return { accounts, senders }
+}
+
+// WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints, and so
+// has DripFunnel's for partners Admin enabled it for (#1543); else the partner's own account on Meta or DripFunnel's,
+// wherever the Worker can open credentials (CREDENTIALS_KEK).
+const localWhatsAppAccount: PartnerWhatsAppAccount = { accessToken: 'local', businessAccountId: '00000', phoneNumberId: '00000', language: 'en', templates: Object.fromEntries(whatsappTemplates.map((m) => [m, m.replace('.', '_')])) }
+const localWhatsAppAccounts: PartnerWhatsAppAccounts = { forPartner: async () => localWhatsAppAccount }
+const ourWhatsAppOf = (config: Config, secrets: SecretBox | null): OurWhatsApp =>
+  ourWhatsAppFor(config.SMS_LOCAL === '1' ? async () => ({ settings: localWhatsAppAccount, open: async () => localWhatsAppAccount }) : savedOurWhatsApp(secrets))
+const whatsappFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerWhatsAppAccounts; sender: (account: PartnerWhatsAppAccount) => WhatsAppSender } | null => {
+  if (config.SMS_LOCAL === '1') return { accounts: localWhatsAppAccounts, sender: localWhatsApp }
+  return secrets ? { accounts: whatsappAccountsFor(secrets, ourWhatsAppOf(config, secrets)), sender: (account) => metaWhatsAppSender(account) } : null
 }
 
 /** Which channels reach a portal code's number (ACCESS.md §4): SMS only through an account the `sms` deliverer can use. */
 const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => {
-  const sms = smsFor(config)
-  return codeChannelsFor(sms ? smsAccountsFor(secrets, sms.ours) : null)
-}
-
-// WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints; else each
-// partner's own account on Meta, wherever the Worker can open credentials (CREDENTIALS_KEK).
-const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
-  forPartner: async () => ({ accessToken: 'local', businessAccountId: '00000', phoneNumberId: '00000', language: 'en', templates: Object.fromEntries(whatsappTemplates.map((m) => [m, m.replace('.', '_')])) }),
-}
-const whatsappFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerWhatsAppAccounts; sender: (account: PartnerWhatsAppAccount) => WhatsAppSender } | null => {
-  if (config.SMS_LOCAL === '1') return { accounts: localWhatsAppAccounts, sender: localWhatsApp }
-  return secrets ? { accounts: whatsappAccountsFor(secrets), sender: (account) => metaWhatsAppSender(account) } : null
+  const ourWhatsApp = ourWhatsAppOf(config, secrets)
+  return codeChannelsFor(smsFor(config, secrets)?.accounts ?? null, (tx, partnerId) => whatsappSendsCodes(tx, secrets, ourWhatsApp, partnerId))
 }
 
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
@@ -336,7 +339,7 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until DripFunnel's own account (or SMS_LOCAL) is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
+// (outbox-relay.ts); `sms` likewise until CREDENTIALS_KEK or SMS_LOCAL is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
@@ -344,7 +347,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
-  const sms = smsFor(config)
+  const sms = smsFor(config, secrets)
   const whatsapp = whatsappFor(config, secrets)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
@@ -356,7 +359,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, whatsapp?.accounts ?? null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
     ...(whatsapp && ses ? { [whatsappKind]: whatsappDeliverer(sql, whatsapp.accounts, whatsapp.sender, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
-    ...(sms ? { [smsKind]: smsDeliverer(sql, smsAccountsFor(secrets, sms.ours), sms.senders) } : {}),
+    ...(sms ? { [smsKind]: smsDeliverer(sql, sms.accounts, sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -486,7 +489,7 @@ const handleAdmin = async (
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
     if (deliveryAppRoute) return handleDeliveryApp(request, deliveryAppRoute, null)
     if (samplePhotoRoute) return handleSamplePhoto(request, samplePhotoRoute, null, null)
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null, storeCategories: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null, storeCategories: null, messaging: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -521,6 +524,18 @@ const handleAdmin = async (
         ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
         : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
+      messaging: caller
+        ? createPlatformMessagingService({
+            sql,
+            staff: caller.staff,
+            facts: factsOf(request),
+            activity: activityLog,
+            secrets: await (secretsFor(config) ?? null),
+            checkSms: config.SMS_LOCAL === '1' ? localSmsCheck : checkSmsAccount,
+            checkWhatsApp: config.SMS_LOCAL === '1' ? localWhatsAppCheck : checkMetaWhatsAppAccount,
+            now: () => new Date(),
+          })
+        : null,
     })
   })
 }
@@ -648,7 +663,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), ourSms: ourSmsOf(config, secrets), ourWhatsApp: ourWhatsAppOf(config, secrets), now: () => new Date() }))
   })
 }
 
