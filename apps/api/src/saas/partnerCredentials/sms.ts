@@ -15,7 +15,6 @@ import {
   twilioMessagingServiceSidSchema,
   type SmsAccountCheck,
   type SmsProvider,
-  type SmsRoute,
 } from '#core/sms'
 import type { PartnerSmsAccountRow } from '#db/schema/saas'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'

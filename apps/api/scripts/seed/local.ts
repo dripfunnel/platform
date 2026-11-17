@@ -21,6 +21,8 @@ export const finishLocally = async (connectionString: string, password: string |
       const hosts = await tx`update partner_domain set host = regexp_replace(host, '\\.example$', '.localhost') where host like '%.example' returning id`
       await tx`update partner_domain_record set name = regexp_replace(name, '\\.example$', '.localhost') where name like '%.example'`
       await tx`update partner_setup_item set detail = regexp_replace(detail, '\\.example\\M', '.localhost', 'g') where item in ('portalHost', 'emailSender') and detail is not null`
+      // Every local partner texts through DripFunnel's account, the SMS_LOCAL stand-in, as Admin would enable it (#1543).
+      await tx`update partner set df_sms_enabled = true`
       if (password === undefined) return { hosts: hosts.length, passwords: 0 }
       const hash = await hashPassword(password)
       const people = await tx`update "user" set password_hash = ${hash} where status = 'active' returning id`

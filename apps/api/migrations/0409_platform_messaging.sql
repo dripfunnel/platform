@@ -23,6 +23,13 @@ create unique index platform_credential_account_key on platform_credential (kind
 grant select, insert, update, delete on platform_credential to app_system;
 alter table platform_credential enable row level security;
 alter table platform_credential force row level security;
+-- Every role pinned to its scope, as on each tenant table; only app_system holds a grant.
+create policy request_scope on platform_credential as restrictive for all to app_request
+  using (app_setting_text('app.scope') in ('store', 'shop')) with check (app_setting_text('app.scope') in ('store', 'shop'));
+create policy partner_scope on platform_credential as restrictive for all to app_partner
+  using (app_setting_text('app.scope') = 'partner') with check (app_setting_text('app.scope') = 'partner');
+create policy platform_scope on platform_credential as restrictive for all to app_platform
+  using (app_setting_text('app.scope') = 'platform') with check (app_setting_text('app.scope') = 'platform');
 create policy system_scope on platform_credential as restrictive for all to app_system
   using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 create policy platform_credential_system on platform_credential for all to app_system using (true) with check (true);
@@ -40,6 +47,12 @@ insert into platform_messaging default values;
 grant select, update on platform_messaging to app_system;
 alter table platform_messaging enable row level security;
 alter table platform_messaging force row level security;
+create policy request_scope on platform_messaging as restrictive for all to app_request
+  using (app_setting_text('app.scope') in ('store', 'shop')) with check (app_setting_text('app.scope') in ('store', 'shop'));
+create policy partner_scope on platform_messaging as restrictive for all to app_partner
+  using (app_setting_text('app.scope') = 'partner') with check (app_setting_text('app.scope') = 'partner');
+create policy platform_scope on platform_messaging as restrictive for all to app_platform
+  using (app_setting_text('app.scope') = 'platform') with check (app_setting_text('app.scope') = 'platform');
 create policy system_scope on platform_messaging as restrictive for all to app_system
   using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 create policy platform_messaging_system on platform_messaging for all to app_system using (true) with check (true);

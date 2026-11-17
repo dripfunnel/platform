@@ -21,14 +21,20 @@ const AccountType = builder.objectRef<Sms['accounts'][number]>('PartnerSmsAccoun
 const RouteType = builder.objectRef<Sms['routes'][number]>('PartnerSmsRoute').implement({
   fields: (t) => ({
     route: t.exposeString('route'),
-    // The partner's choice; null leaves the route to the first of its providers the partner holds an account for.
+    // The partner's choice, a provider or `dripfunnel`; null leaves the route to the first of its providers it holds an account for.
     provider: t.string({ nullable: true, resolve: (r) => r.provider }),
+    // Whether DripFunnel's account serves this route for the partner (#1543): Admin enabled it and it has one.
+    dripfunnel: t.exposeBoolean('dripfunnel'),
+    // Whose account sends the route's texts now, `own` or `dripfunnel`; null where none does.
+    sender: t.string({ nullable: true, resolve: (r) => r.sender }),
   }),
 })
 
 const SmsType = builder.objectRef<Sms>('PartnerSms').implement({
   fields: (t) => ({
     enabled: t.exposeBoolean('enabled'),
+    // Whether Admin enabled DripFunnel's SMS for the partner (#1543); never its accounts or secrets.
+    dripfunnel: t.exposeBoolean('dripfunnel'),
     routes: t.field({ type: [RouteType], resolve: (s) => s.routes }),
     accounts: t.field({ type: [AccountType], resolve: (s) => s.accounts }),
   }),

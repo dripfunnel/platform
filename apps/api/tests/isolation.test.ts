@@ -745,6 +745,18 @@ describe('the backstop itself', () => {
     expect(unpinned.map((row) => row.relname)).toEqual([])
   })
 
+  it('keeps DripFunnel’s own SMS and WhatsApp accounts and routes from every caller but the system (#1543)', async () => {
+    for (const context of [partnerCaller(t.partnerA), staff, storeCaller(t.partnerA, t.storeA1), shopper(t.partnerA, t.storeA1, null)]) {
+      for (const table of ['platform_credential', 'platform_messaging']) {
+        await expect(withScope(db.sql, context, (tx) => tx`select * from ${tx(table)}`)).rejects.toThrow(/permission denied/i)
+      }
+    }
+    // A partner reads its own two switches on its row, never another partner's, and writes neither.
+    const seen = await withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx<{ id: string }[]>`select id from partner where df_sms_enabled = false`)
+    expect(seen.map((r) => r.id)).toEqual([t.partnerA])
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_whatsapp_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
+  })
+
   it('reserves app_definer: no login, and the one role that bypasses RLS', async () => {
     const roles = await db.sql<{ rolname: string; rolcanlogin: boolean; rolbypassrls: boolean }[]>`
       select rolname, rolcanlogin, rolbypassrls from pg_roles where rolname like 'app\_%' order by rolname
