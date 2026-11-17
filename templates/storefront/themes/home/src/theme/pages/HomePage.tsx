@@ -147,7 +147,7 @@ export const HomePage = () => {
         <section className={styles.section}>
           <div className={styles.head}>
             <Heading eyebrow={t('home.favourites.eyebrow')} title={t('home.favourites.title')} />
-            <Link href="/collections/all/?sort=best-selling" className={styles.more}>
+            <Link href="/collections/all/" className={styles.more}>
               {t('home.favourites.all')} <Arrow />
             </Link>
           </div>

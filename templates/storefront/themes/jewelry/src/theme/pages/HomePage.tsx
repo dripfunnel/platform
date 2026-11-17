@@ -128,7 +128,7 @@ export const HomePage = () => {
         <section className={styles.section}>
           <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} />
           <ProductGrid products={picks.products} wide />
-          <Link href="/collections/all/?sort=best-selling" className={styles.ghost}>
+          <Link href="/collections/all/" className={styles.ghost}>
             {t('home.picks.all')}
           </Link>
         </section>

@@ -1,9 +1,9 @@
 {
   "hero": {
-    "eyebrow": "Fine jewellery",
+    "eyebrow": "Jewellery",
     "title": "Quiet pieces,",
     "accent": "worn every day",
-    "lead": "Rings, earrings and necklaces made to be worn often and passed on.",
+    "lead": "Every piece in the shop, in one place.",
     "action": "Discover the collection",
     "altLeft": "A woman wearing a gold choker with pearls and a matching earring",
     "altRight": "A raised hand wearing stacked gold rings and a chain bracelet"
@@ -25,9 +25,9 @@
     "all": "View all new pieces"
   },
   "story": {
-    "eyebrow": "The craft",
-    "title": "Finished by hand,",
-    "accent": "one piece at a time",
+    "eyebrow": "Our story",
+    "title": "The story behind",
+    "accent": "every piece",
     "body": "Tell shoppers about your metals and stones, how each piece is finished and polished, and how to care for it so it lasts.",
     "collections": "{count, plural, one {Collection} other {Collections}}",
     "more": "Read our story",
@@ -37,17 +37,17 @@
     "eyebrow": "The gift edit",
     "title": "Something to",
     "accent": "remember",
-    "body": "Rings, studs and fine chains to give, or to keep for yourself.",
+    "body": "Something to give, or to keep for yourself.",
     "action": "Find a gift",
     "alt": "Two gold rings set with small stones resting on a white block in warm light"
   },
   "picks": {
-    "eyebrow": "Favourites",
-    "title": "Customer favourites",
-    "all": "View all favourites"
+    "eyebrow": "Keep browsing",
+    "title": "More pieces to love",
+    "all": "View all jewellery"
   },
   "signup": {
-    "title": "Be the first to see new pieces",
+    "title": "Keep your favourites close",
     "body": "Create an account to save favourites, follow your orders and check out faster.",
     "action": "Create an account"
   }

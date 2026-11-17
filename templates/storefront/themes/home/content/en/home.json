@@ -3,7 +3,7 @@
     "eyebrow": "For every room",
     "title": "Rooms that feel like",
     "accent": "a slow morning",
-    "lead": "Furnishings, textiles and small things that make a space feel lived in.",
+    "lead": "Find pieces for every corner of your home.",
     "shop": "Shop the home",
     "newest": "See what's new",
     "alt": "Warm afternoon light across a desk with a white lamp, a vase of dried grasses and a glass bottle"
@@ -21,8 +21,8 @@
   },
   "story": {
     "eyebrow": "Our story",
-    "title": "Made to be lived with,",
-    "accent": "not just looked at",
+    "title": "The story behind",
+    "accent": "our pieces",
     "body": "Tell shoppers what goes into your pieces: the materials you choose, who makes them, and how to look after them so they last.",
     "collections": "{count, plural, one {Collection} other {Collections}}",
     "more": "Read our story",
@@ -31,23 +31,23 @@
     "lampAlt": "A white table lamp and a vase on a bedside table"
   },
   "quote": {
-    "eyebrow": "Slow living",
-    "text": "A home comes together slowly, one well-loved thing at a time."
+    "eyebrow": "At home",
+    "text": "A home comes together one piece at a time."
   },
   "favourites": {
-    "eyebrow": "Chosen for you",
-    "title": "Our favourites",
+    "eyebrow": "Keep browsing",
+    "title": "More for the home",
     "all": "Shop all"
   },
   "promises": {
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely, every time you order."
+      "body": "Checkout over an encrypted connection."
     },
     "track": {
       "title": "Track your order",
-      "body": "Follow each delivery from your account."
+      "body": "Follow each order from your account."
     },
     "save": {
       "title": "Save what you love",
@@ -57,7 +57,7 @@
   "banner": {
     "eyebrow": "Room by room",
     "title": "Find a place for everything",
-    "body": "Pieces that sit together easily, so a room grows with you.",
+    "body": "Browse by collection and put a room together, piece by piece.",
     "action": "Explore collections",
     "alt": "A bright living room with an olive velvet sofa, a wooden cabinet and a writing desk by the window"
   },

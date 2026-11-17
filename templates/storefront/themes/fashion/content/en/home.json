@@ -5,23 +5,23 @@
     "next": "Next look",
     "slides": {
       "one": {
-        "eyebrow": "New season",
-        "title": "Light layers for",
-        "accent": "long, warm days",
+        "eyebrow": "New in",
+        "title": "Fresh pieces for",
+        "accent": "the season ahead",
         "action": "Shop new in",
         "alt": "A woman in a pale summer dress in a field of tall grass"
       },
       "two": {
-        "eyebrow": "Festive edit",
-        "title": "Colour and craft",
-        "accent": "for every occasion",
+        "eyebrow": "The edit",
+        "title": "Colour for",
+        "accent": "every occasion",
         "action": "Shop the edit",
         "alt": "A woman in an orange silk saree sitting on a wooden swing"
       },
       "three": {
-        "eyebrow": "Everyday denim",
+        "eyebrow": "Everyday wear",
         "title": "Easy pieces for",
-        "accent": "the city",
+        "accent": "every day",
         "action": "Shop everyday wear",
         "alt": "A man in a denim jacket standing by the water"
       }
@@ -43,8 +43,8 @@
   },
   "story": {
     "eyebrow": "Our story",
-    "title": "Clothes made to be",
-    "accent": "worn again and again",
+    "title": "The story behind",
+    "accent": "our clothes",
     "body": "Tell shoppers what goes into your clothes: the fabrics you choose, how each piece fits, and the people who make them.",
     "collections": "{count, plural, one {Collection} other {Collections}}",
     "more": "Read our story",
@@ -54,7 +54,7 @@
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely at checkout"
+      "body": "Checkout over an encrypted connection"
     },
     "track": {
       "title": "Track your order",
@@ -70,9 +70,9 @@
     }
   },
   "picks": {
-    "eyebrow": "Top picks",
-    "title": "Customer",
-    "accent": "favourites",
+    "eyebrow": "Keep browsing",
+    "title": "More to",
+    "accent": "explore",
     "all": "View all products"
   },
   "featured": {
@@ -82,9 +82,9 @@
     "shop": "Shop {name}"
   },
   "banner": {
-    "eyebrow": "The everyday edit",
-    "title": "Pieces that move",
-    "accent": "with you",
+    "eyebrow": "Browse",
+    "title": "Find your",
+    "accent": "next favourite",
     "action": "Shop all",
     "alt": "A woman in a flowing dress in warm evening light"
   },
@@ -94,8 +94,8 @@
     "accent": "collections"
   },
   "signup": {
-    "title": "Be the first to know",
-    "body": "Create an account to hear about new pieces, follow your orders and check out faster.",
+    "title": "Make shopping easier",
+    "body": "Create an account to save favourites, follow your orders and check out faster.",
     "action": "Create an account"
   }
 }

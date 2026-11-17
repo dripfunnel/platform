@@ -33,7 +33,7 @@ const Rail = ({ products, label }: { products: readonly Card[]; label: string })
 )
 
 
-const Promise = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
+const PromiseItem = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
   <li className={styles.promise}>
     {icon}
     <div>
@@ -133,10 +133,10 @@ export const HomePage = () => {
 
       <div className={styles.promisesBand}>
       <ul className={styles.promises} aria-label={t('home.promises.label')}>
-        <Promise icon={<Icon><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z M9 12l2 2 4-4" /></Icon>} title={t('home.promises.secure.title')} body={t('home.promises.secure.body')} />
-        <Promise icon={<Icon><path d="M3 7h11v9H3z M14 10h4l3 3v3h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></Icon>} title={t('home.promises.track.title')} body={t('home.promises.track.body')} />
-        <Promise icon={<Icon><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" /></Icon>} title={t('home.promises.save.title')} body={t('home.promises.save.body')} />
-        <Promise icon={<Icon><path d="M4 5h16v11H8l-4 4z" /></Icon>} title={t('home.promises.help.title')} body={t('home.promises.help.body')} />
+        <PromiseItem icon={<Icon><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z M9 12l2 2 4-4" /></Icon>} title={t('home.promises.secure.title')} body={t('home.promises.secure.body')} />
+        <PromiseItem icon={<Icon><path d="M3 7h11v9H3z M14 10h4l3 3v3h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></Icon>} title={t('home.promises.track.title')} body={t('home.promises.track.body')} />
+        <PromiseItem icon={<Icon><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" /></Icon>} title={t('home.promises.save.title')} body={t('home.promises.save.body')} />
+        <PromiseItem icon={<Icon><path d="M4 5h16v11H8l-4 4z" /></Icon>} title={t('home.promises.help.title')} body={t('home.promises.help.body')} />
       </ul>
       </div>
 
