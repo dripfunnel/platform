@@ -53,8 +53,7 @@ export const ProductPage = () => {
             <h1 className={styles.title}>{product.name}</h1>
             {page.price ? (
               <p className={styles.price}>
-                {page.from ? <span className={styles.from}>{t('shop.card.from')}</span> : null}
-                <Price money={page.price} compareAt={page.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.priceTag} />
+                <Price money={page.price} compareAt={page.compareAt} to={page.maxPrice} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.priceTag} />
               </p>
             ) : null}
             <Options page={page} />
