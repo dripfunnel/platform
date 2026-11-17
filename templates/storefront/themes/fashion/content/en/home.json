@@ -15,21 +15,23 @@
         "eyebrow": "The edit",
         "title": "Colour for",
         "accent": "every occasion",
-        "action": "Shop the edit",
+        "action": "Shop all",
         "alt": "A woman in an orange silk saree sitting on a wooden swing"
       },
       "three": {
         "eyebrow": "Everyday wear",
         "title": "Easy pieces for",
         "accent": "every day",
-        "action": "Shop everyday wear",
+        "action": "See everything",
         "alt": "A man in a denim jacket standing by the water"
       }
     },
     "showOne": "Show look 1",
     "showTwo": "Show look 2",
     "showThree": "Show look 3",
-    "kind": "carousel"
+    "kind": "carousel",
+    "pause": "Pause the slideshow",
+    "play": "Play the slideshow"
   },
   "categories": {
     "title": "Shop by category",
@@ -39,7 +41,8 @@
     "eyebrow": "Just in",
     "title": "New",
     "accent": "arrivals",
-    "all": "View all products"
+    "all": "View all products",
+    "label": "New arrivals"
   },
   "story": {
     "eyebrow": "Our story",
@@ -73,7 +76,8 @@
     "eyebrow": "Keep browsing",
     "title": "More to",
     "accent": "explore",
-    "all": "View all products"
+    "all": "View all products",
+    "label": "More to explore"
   },
   "featured": {
     "eyebrow": "Spotlight",
