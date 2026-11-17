@@ -43,7 +43,7 @@ const Step = ({ number, title, body }: { number: number; title: string; body: st
 )
 
 export const HomePage = () => {
-  const { t } = useStorefront()
+  const { t, store } = useStorefront()
   const { collections, status } = useCollections({ first: 8 })
   const newest = useProducts({ sort: 'newest', first: 8 })
   const picks = useProducts({ sort: 'best-selling', first: 4 })
@@ -58,7 +58,7 @@ export const HomePage = () => {
             <h1 className={styles.heroTitle}>
               {t('home.hero.title')} <span className={styles.accent}>{t('home.hero.accent')}</span>
             </h1>
-            <p className={styles.heroLead}>{t('home.hero.lead')}</p>
+            <p className={styles.heroLead}>{store.description ?? t('home.hero.lead')}</p>
             <div className={styles.heroActions}>
               <Link href="/collections/all/?sort=newest" className={styles.button}>
                 {t('home.hero.shop')} <Arrow />
@@ -79,12 +79,19 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {collections.length ? (
+      {status === 'loading' || collections.length ? (
         <nav className={styles.chips} aria-label={t('home.chips.label')}>
-          <ul className={styles.chipsRow}>
+          <ul className={styles.chipsRow} aria-busy={status === 'loading' ? 'true' : undefined}>
             <li className={styles.chipsLabel} aria-hidden="true">
               {t('home.chips.label')}
             </li>
+            {status === 'loading'
+              ? [0, 1, 2, 3].map((i) => (
+                  <li key={i}>
+                    <span className={styles.chipSkeleton} />
+                  </li>
+                ))
+              : null}
             {collections.map((c) => (
               <li key={c.id}>
                 <Link href={c.href} className={styles.chip}>
@@ -112,7 +119,7 @@ export const HomePage = () => {
               </Link>
             }
           />
-          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} wide />}
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} wide /> : <ProductGrid products={newest.products} wide />}
         </section>
       ) : null}
 
@@ -199,7 +206,7 @@ export const HomePage = () => {
               </Link>
             }
           />
-          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={picks.products} wide />}
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} wide /> : <ProductGrid products={picks.products} wide />}
         </section>
       ) : null}
 

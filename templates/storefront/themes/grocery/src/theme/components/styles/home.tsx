@@ -61,7 +61,6 @@ export const home = {
   storyImage: clsx('block absolute inset-0 w-full h-full object-cover'),
   storyCopy: clsx('p-6 flex flex-col items-start justify-center gap-y-3 min-[900px]:py-12 min-[900px]:px-14'),
   storyBody: clsx('m-0 max-w-[52ch] text-ink-soft text-[15px] min-[900px]:text-[16px]'),
-  storyCount: clsx('m-0 py-1 px-2.5 rounded-[6px] bg-highlight text-highlight-ink text-[13px] font-bold'),
   storyLink: clsx(pillBase, 'mt-1 border border-accent text-accent no-underline hover:bg-accent hover:text-accent-ink', focus),
 
   promises: clsx(sectionBase, 'pt-12 min-[900px]:pt-16'),

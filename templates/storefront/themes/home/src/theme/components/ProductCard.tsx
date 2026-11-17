@@ -34,10 +34,10 @@ export const ProductGrid = ({ products, wide = false }: { products: readonly Car
 )
 
 /** The grid's shape while its products load, so nothing moves when they arrive. */
-export const GridPlaceholder = ({ label, count }: { label: string; count: number }) => (
-  <ul className={styles.grid} aria-busy="true" aria-label={label}>
+export const GridPlaceholder = ({ label, count, list = styles.grid, cell = styles.cell }: { label: string; count: number; list?: string; cell?: string }) => (
+  <ul className={list} aria-busy="true" aria-label={label}>
     {[...Array(count).keys()].map((i) => (
-      <li key={i} className={styles.cell}>
+      <li key={i} className={cell}>
         <div className={styles.skeletonPicture} />
         <div className={styles.skeletonLine} />
       </li>

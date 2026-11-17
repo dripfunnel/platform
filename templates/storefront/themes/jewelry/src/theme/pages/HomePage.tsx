@@ -1,19 +1,16 @@
 import { Image, Link, ThemeImage, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { GridPlaceholder, ProductGrid } from '../components/ProductCard'
+import { Ornament } from '../components/Ornament'
 import { home as styles } from '../components/styles/home'
 
-const Ornament = () => (
-  <svg className={styles.ornament} viewBox="0 0 120 12" aria-hidden="true" focusable="false">
-    <path d="M0 6h50 M70 6h50 M60 1l5 5-5 5-5-5z" />
-  </svg>
-)
+const Rule = () => <Ornament className={styles.ornament} />
 
 const Heading = ({ eyebrow, title }: { eyebrow: string; title: string }) => (
   <div className={styles.head}>
     <p className={styles.eyebrow}>{eyebrow}</p>
     <h2 className={styles.heading}>{title}</h2>
-    <Ornament />
+    <Rule />
   </div>
 )
 
@@ -34,7 +31,7 @@ export const HomePage = () => {
           <h1 className={styles.heroTitle}>
             {t('home.hero.title')} <em className={styles.em}>{t('home.hero.accent')}</em>
           </h1>
-          <Ornament />
+          <Rule />
           <p className={styles.lead}>{store.description ?? t('home.hero.lead')}</p>
           <Link href="/collections/all/" className={styles.button}>
             {t('home.hero.action')}
@@ -54,7 +51,7 @@ export const HomePage = () => {
       {status === 'loading' || collections.length ? (
         <section className={styles.section}>
           <Heading eyebrow={t('home.collections.eyebrow')} title={t('home.collections.title')} />
-          <ul className={styles.arches} aria-busy={status === 'loading'}>
+          <ul className={styles.arches} aria-busy={status === 'loading' ? 'true' : undefined}>
             {status === 'loading'
               ? [0, 1, 2, 3].map((i) => (
                   <li key={i} className={styles.archItem}>
@@ -79,7 +76,7 @@ export const HomePage = () => {
       {newest.status === 'loading' || newest.products.length ? (
         <section className={styles.section}>
           <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} />
-          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} wide />}
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} wide /> : <ProductGrid products={newest.products} wide />}
           <Link href="/collections/all/?sort=newest" className={styles.ghost}>
             {t('home.newest.all')}
           </Link>
@@ -96,12 +93,6 @@ export const HomePage = () => {
             {t('home.story.title')} <em className={styles.em}>{t('home.story.accent')}</em>
           </h2>
           <p className={styles.body}>{t('home.story.body')}</p>
-          {collections.length ? (
-            <p className={styles.stat}>
-              <span className={styles.statNumber}>{collections.length}</span>
-              <span className={styles.statLabel}>{t('home.story.collections', { count: collections.length })}</span>
-            </p>
-          ) : null}
           <Link href="/about/" className={styles.textLink}>
             {t('home.story.more')}
           </Link>
@@ -124,10 +115,10 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {picks.products.length ? (
+      {picks.status === 'loading' || picks.products.length ? (
         <section className={styles.section}>
           <Heading eyebrow={t('home.picks.eyebrow')} title={t('home.picks.title')} />
-          <ProductGrid products={picks.products} wide />
+          {picks.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} wide /> : <ProductGrid products={picks.products} wide />}
           <Link href="/collections/all/" className={styles.ghost}>
             {t('home.picks.all')}
           </Link>
@@ -135,7 +126,7 @@ export const HomePage = () => {
       ) : null}
 
       <section className={styles.signup}>
-        <Ornament />
+        <Rule />
         <h2 className={styles.heading}>{t('home.signup.title')}</h2>
         <p className={styles.body}>{t('home.signup.body')}</p>
         <Link href="/register/" className={styles.button}>

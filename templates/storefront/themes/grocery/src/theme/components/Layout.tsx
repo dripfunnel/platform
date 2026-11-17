@@ -24,7 +24,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                 <circle cx="11" cy="11" r="6.5" />
                 <path d="M16 16l4.5 4.5" />
               </svg>
-              <span className={styles.searchText}>{t('common.tools.searchPrompt')}</span>
+              <span className={styles.searchText}>{t('common.tools.search')}</span>
             </Link>
             <div className={styles.tools}>
               <Link href="/account/" className={styles.tool}>

@@ -3,13 +3,9 @@
     "eyebrow": "New launches",
     "title": "Find the tech",
     "accent": "that fits your day.",
-    "lead": "Gadgets, gear and accessories, all in one place.",
+    "lead": "Everything in the shop, all in one place.",
     "shop": "Shop new launches",
     "all": "Browse everything",
-    "facts": "At a glance",
-    "categories": "{count, plural, one {# category} other {# categories}}",
-    "secure": "Secure checkout",
-    "track": "From your account",
     "spotlight": "In the spotlight",
     "alt": "The corner of a dark mechanical keyboard with a red escape key"
   },
@@ -25,22 +21,21 @@
   },
   "spotlight": {
     "eyebrow": "Spotlight",
-    "title": "A closer look",
-    "body": "One product from the range, up close. Open it for photos, options and every detail.",
+    "body": "One product from the range, up close. Open it for photos and every detail.",
     "view": "View product",
-    "more": "Compare the range"
+    "more": "See all by price"
   },
   "promos": {
     "sound": {
       "eyebrow": "Browse",
       "title": "See the whole range.",
-      "action": "Shop new in",
+      "action": "Shop all",
       "alt": "White wireless headphones on a white background"
     },
     "light": {
-      "eyebrow": "Explore",
+      "eyebrow": "Just in",
       "title": "Find something new.",
-      "action": "Explore the range",
+      "action": "Shop new in",
       "alt": "A smart bulb glowing pink and blue"
     }
   },
@@ -60,7 +55,7 @@
     },
     "help": {
       "title": "Questions?",
-      "body": "Write to us and we’ll reply"
+      "body": "Write to us on Contact"
     }
   },
   "picks": {
