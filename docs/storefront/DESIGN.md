@@ -145,6 +145,8 @@ Design floors the gates check, whatever the look:
 
 **The product page's stock line** (#1278, decided 2026-11-05). Under the price, the starting themes say "In stock" or "Sold out" only for a version whose stock the store tracks (core's `stock.available` is a number); a version with Track stock off has no stock line, and Add to cart and Buy now work as always. Until every option is chosen the line says "Choose a {option} to see stock", as before. A theme follows the same rule: an untracked version is always on sale, so saying "In stock" for it tells the shopper nothing the store keeps true.
 
+**A product whose versions differ in price** (#1330, decided 2026-11-06). Product cards in every list and the product page before a version is picked show the range, lowest – highest, formatted for the store's locale, with the tax label once after it ("₹4,999.00 – ₹5,399.00 incl. tax"), as the merchant portal's "Shopper sees" does; the range has no crossed-out compare-at price. Once a version is picked the page shows that version's own price, and when every version costs the same one price shows. Core gives the highest price as `maxPrice` (null when the prices are equal) and the sealed `<Price>` draws it through `to`; `from` stays for themes that still write "From". Only Classic draws the range so far: the baseline and market designs, and stores already created, keep "From". This departs from `DF Storefront Prototype`, which shows "From {lowest}".
+
 ## 7. White label and brand rules
 
 - Stores under a white-label brand follow that brand's rules: whether "Powered by" shows,

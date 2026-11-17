@@ -6,9 +6,11 @@ import type { OutgoingWhatsApp } from '#core/whatsapp'
 import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import type { ScopedSql } from '#db/scoped/index'
 import { expireUnsent } from '#db/scoped/outbox'
-import { selectSealedWhatsAppAccount } from '#db/scoped/partnerCredentials'
+import { selectWhatsAppState } from '#db/scoped/partnerCredentials'
+import { selectDfMessaging, selectOurAccounts, selectOurMessaging } from '#db/scoped/platformMessaging'
 import { mayWhatsApp } from '#engine/modules/cartReminders/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { senderOf } from '#saas/sms/index'
 
 // What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, §4): abandoned-cart reminders for stores in India, and portal
 // codes (#1506, ACCESS.md §4), through the partner's own account on Meta's Cloud API (#1504). Each message is a template the partner has Meta approve, worded
@@ -46,10 +48,22 @@ export interface PartnerWhatsAppAccount extends WhatsAppSettings {
   accessToken: string
 }
 
-/** The partner's account while its WhatsApp is on; null when it is off, missing, or can't be opened. Called in system scope. */
+/** The account that sends while the partner's WhatsApp is on; null when it is off, has none, or can't be opened. System scope. */
 export interface PartnerWhatsAppAccounts {
   forPartner: (tx: ScopedSql, partnerId: string) => Promise<PartnerWhatsAppAccount | null>
 }
+
+/** DripFunnel's account as a partner may use it, opened only to send; its settings say which templates it has. */
+export interface OurWhatsAppAccount {
+  settings: WhatsAppSettings
+  open: () => Promise<PartnerWhatsAppAccount | null>
+}
+
+/**
+ * DripFunnel's WhatsApp for a partner (#1543): null while Admin hasn't enabled it for the partner, or while DripFunnel's own
+ * isn't usable (switched off, rejected, or without an approved `code.portal`). System scope.
+ */
+export type OurWhatsApp = (tx: ScopedSql, partnerId: string) => Promise<OurWhatsAppAccount | null>
 
 /** A saved account, opened; null where its token or settings can't be read, so it never half sends. */
 export const openWhatsAppAccount = async (secrets: SecretBox | null, row: { key_enc: string; settings: unknown }): Promise<PartnerWhatsAppAccount | null> => {
@@ -58,11 +72,45 @@ export const openWhatsAppAccount = async (secrets: SecretBox | null, row: { key_
   return settings.success && accessToken ? { ...settings.data, accessToken } : null
 }
 
-export const whatsappAccountsFor = (secrets: SecretBox | null): PartnerWhatsAppAccounts => ({
-  forPartner: async (tx, partnerId) => {
-    const sealed = await selectSealedWhatsAppAccount(tx, partnerId)
-    return sealed?.enabled ? openWhatsAppAccount(secrets, sealed) : null
-  },
+/** DripFunnel's account as a Super admin saved it, usable only while on, Working and with an approved `code.portal`. */
+export const savedOurWhatsApp =
+  (secrets: SecretBox | null) =>
+  async (tx: ScopedSql): Promise<OurWhatsAppAccount | null> => {
+    if (!(await selectOurMessaging(tx)).whatsappEnabled) return null
+    const row = (await selectOurAccounts(tx, 'whatsapp'))[0]
+    const settings = whatsappSettingsSchema.safeParse(row?.settings)
+    if (!row || row.status !== 'ok' || !settings.success || !settings.data.templates['code.portal']) return null
+    return { settings: settings.data, open: () => openWhatsAppAccount(secrets, row) }
+  }
+
+/** DripFunnel's WhatsApp for the partners Admin enabled it for (#1543): `account` reads it, from the database or the stand-in. */
+export const ourWhatsAppFor =
+  (account: (tx: ScopedSql) => Promise<OurWhatsAppAccount | null>): OurWhatsApp =>
+  async (tx, partnerId) =>
+    (await selectDfMessaging(tx, partnerId)).whatsapp ? account(tx) : null
+
+export type SendingWhatsApp = { whose: 'own'; settings: WhatsAppSettings | null; open: () => Promise<PartnerWhatsAppAccount | null> } | ({ whose: 'dripfunnel' } & OurWhatsAppAccount)
+
+/** Whose account sends while the partner's WhatsApp is on, by `senderOf` (#1543); null while it is off or neither may. */
+export const whatsappSenderFor = async (tx: ScopedSql, secrets: SecretBox | null, ours: OurWhatsApp, partnerId: string): Promise<SendingWhatsApp | null> => {
+  const state = await selectWhatsAppState(tx, partnerId)
+  if (!state.enabled) return null
+  const theirs = state.choice === 'dripfunnel' || !state.own ? await ours(tx, partnerId) : null
+  const sender = senderOf(state.choice, state.own !== null, theirs !== null)
+  if (sender === 'dripfunnel' && theirs) return { whose: 'dripfunnel', ...theirs }
+  const own = state.own
+  return sender === 'own' && own ? { whose: 'own', settings: whatsappSettingsSchema.safeParse(own.settings).data ?? null, open: () => openWhatsAppAccount(secrets, own) } : null
+}
+
+/** Whether a portal code can go by WhatsApp: the account that sends names `code.portal` (ACCESS.md §4). */
+export const whatsappSendsCodes = async (tx: ScopedSql, secrets: SecretBox | null, ours: OurWhatsApp, partnerId: string): Promise<boolean> => {
+  const sender = await whatsappSenderFor(tx, secrets, ours, partnerId)
+  return Boolean(sender?.settings?.templates['code.portal'])
+}
+
+/** The partner's own account or DripFunnel's, opened; an own account that can't be opened never hands over to ours. */
+export const whatsappAccountsFor = (secrets: SecretBox | null, ours: OurWhatsApp): PartnerWhatsAppAccounts => ({
+  forPartner: async (tx, partnerId) => (await (await whatsappSenderFor(tx, secrets, ours, partnerId))?.open()) ?? null,
 })
 
 export type PreparedWhatsApp = { send: true; message: OutgoingWhatsApp } | { send: false; reason: 'link_closed' | 'tenant_mismatch' | 'no_recipient' | 'no_template' | 'no_shop_host' | 'opted_out' }

@@ -17,12 +17,12 @@ export interface TrackingDeps {
   activity: ActivityLog
 }
 
-/** Applies a partner's courier events to its own stores' parcels; answers how many moved a parcel on. */
-export const applyTracking = async ({ sql, activity }: TrackingDeps, partnerId: string, account: CourierAccountKind, events: readonly TrackingEvent[]): Promise<number> => {
+/** Applies a store's courier events to that store's own parcels only; answers how many moved a parcel on. */
+export const applyTracking = async ({ sql, activity }: TrackingDeps, { partnerId, storeId }: { partnerId: string; storeId: string }, account: CourierAccountKind, events: readonly TrackingEvent[]): Promise<number> => {
   let applied = 0
   for (const event of events) {
     const moved = await withSystemScope(sql, async (tx) => {
-      const shipment = await lockTrackedShipment(tx, partnerId, providersOf[account], event)
+      const shipment = await lockTrackedShipment(tx, { partnerId, storeId }, providersOf[account], event)
       if (!shipment || (shipment.tracking_status_at && event.at <= shipment.tracking_status_at)) return false
       await setTrackingStatus(tx, shipment.id, event.status, event.at)
       if (event.status !== 'delivered' || shipment.delivered_at) return true

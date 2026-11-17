@@ -14,14 +14,17 @@ export interface CodeChannelCheck {
   switchedOff: (tx: ScopedSql, partnerId: string) => Promise<boolean>
 }
 
+/** Whether the account that sends the partner's WhatsApp names `code.portal` (saas/whatsapp `whatsappSendsCodes`). */
+export type WhatsAppCodeCheck = (tx: ScopedSql, partnerId: string) => Promise<boolean>
+
 /**
- * WhatsApp is open while the partner's switch is on (On already needs an approved `code.portal`, #1504). SMS is open while
- * the partner's SMS is on and an account, its own or DripFunnel's, serves the number's route; `sms` is null where the
- * Worker has no SMS deliverer, so nothing could send one.
+ * WhatsApp is open while the partner's switch is on and the account that sends, its own or DripFunnel's (#1543), names an
+ * approved `code.portal`. SMS is open while the partner's SMS is on and an account, its own or DripFunnel's, serves the
+ * number's route; `sms` is null where the Worker has no SMS deliverer, so nothing could send one.
  */
-export const codeChannelsFor = (sms: PartnerSmsAccounts | null): CodeChannelCheck => ({
+export const codeChannelsFor = (sms: PartnerSmsAccounts | null, whatsappCodes: WhatsAppCodeCheck): CodeChannelCheck => ({
   forPartner: async (tx, partnerId, phone) => {
-    const whatsapp = await selectWhatsAppEnabled(tx, partnerId)
+    const whatsapp = await whatsappCodes(tx, partnerId)
     let open = false
     for (const route of phone ? [smsRouteFor(phone)] : smsRoutes) {
       const account = sms ? await sms.forPartner(tx, partnerId, route) : null

@@ -11,6 +11,7 @@ import {
   testCouriers,
   useCourierForPricing,
   type Courier,
+  type CourierLogin,
   type CourierTest,
   type ShippingInput,
   type ShippingSettings,
@@ -18,6 +19,7 @@ import {
 import { fill, formatCount, formatTime, locale, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import { OwnDeliveryCard, type OwnDelivery, type OwnDeliveryCardProps } from './OwnDeliveryCard'
+import { ShiprocketLoginDialog } from './ShiprocketLoginDialog'
 import { inputOfSaved } from './ownDelivery'
 import { maxPostalCodes, readPostalCodes } from './postalCodes'
 
@@ -112,6 +114,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
   const [tests, setTests] = useState<CourierTest[] | null>(null)
   const [failure, setFailure] = useState<{ card: Card; text: string } | null>(null)
   const [ask, setAsk] = useState<Ask | null>(null)
+  const [loginFor, setLoginFor] = useState<Courier | null>(null)
   const latest = useRef(0)
   const base = useRef(shipping)
   const ro = !canEdit || busy || testing
@@ -248,6 +251,16 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
       return fill(status === 'pricing' ? words.connectedPricing : words.connectedStandby, { name: nameOf(c.provider) })
     })
 
+  /** Shiprocket takes the store's own login; a refusal is thrown back to the form, which stays open (#1489). */
+  const connectWithLogin = async (c: Courier, login: CourierLogin) => {
+    const status = await connectCourier(c.provider, login)
+    setLoginFor(null)
+    void run('couriers', async () => {
+      setTests(null)
+      return fill(status === 'pricing' ? words.connectedPricing : words.connectedStandby, { name: nameOf(c.provider) })
+    })
+  }
+
   const usePricing = (c: Courier) =>
     void run('couriers', async () => {
       await useCourierForPricing(c.provider)
@@ -297,8 +310,9 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
   const courierActions = (c: Courier) => {
     if (!canEdit) return null
     const name = nameOf(c.provider)
-    if (c.status === 'off') return c.offered ? button(words.connect, fill(words.connectName, { name }), () => connect(c)) : null
+    if (c.status === 'off') return c.offered ? button(words.connect, fill(words.connectName, { name }), () => (c.provider === 'shiprocket' ? setLoginFor(c) : connect(c))) : null
     return [
+      ...(c.status === 'failed' && c.provider === 'shiprocket' ? [button(words.fix, fill(words.fixName, { name }), () => setLoginFor(c))] : []),
       ...(c.status === 'standby' ? [button(words.usePricing, fill(words.usePricingName, { name }), () => usePricing(c))] : []),
       button(words.manage, fill(words.manageName, { name }), () => askManage(c)),
       button(words.disconnect, fill(words.disconnectName, { name }), () => askDisconnect(c)),
@@ -390,6 +404,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
                 <span className="df-ops-text">
                   <strong>{nameOf(c.provider)}</strong>
                   {courierDesc(c) && <span>{courierDesc(c)}</span>}
+                  {c.status !== 'off' && c.accountEmail && <span>{fill(words.connectedAs, { email: c.accountEmail })}</span>}
                   {c.status !== 'off' && c.lastTestedAt && <span>{fill(words.lastTested, { time: formatTime(c.lastTestedAt) })}</span>}
                 </span>
                 <span className={`df-ops-status df-ops-status--${c.status === 'pricing' ? 'ok' : c.status === 'failed' ? 'warn' : 'off'}`}>{words.status[c.status]}</span>
@@ -436,6 +451,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
           </div>
         )}
       </section>
+      {loginFor && <ShiprocketLoginDialog name={nameOf(loginFor.provider)} onConnect={(login) => connectWithLogin(loginFor, login)} onCancel={() => setLoginFor(null)} />}
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}|${ask.confirmLabel}`} {...ask} open cancelLabel={messages.settings.payments.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
     </div>
   )

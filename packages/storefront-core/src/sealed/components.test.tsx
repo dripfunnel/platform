@@ -39,6 +39,18 @@ describe('Price', () => {
     const otherCurrency = renderToStaticMarkup(<Price money={money('1000', 'USD')} compareAt={money('5000', 'JPY')} includesTax={false} locale="en-US" t={t} />)
     expect(otherCurrency).not.toContain('Was')
   })
+
+  it('draws a range with the tax label once and no compare-at, and one price when `to` is not higher or in another currency (#1330)', () => {
+    const range = renderToStaticMarkup(<Price money={money('499900', 'INR')} compareAt={money('600000', 'INR')} to={money('539900', 'INR')} includesTax locale="en-IN" t={t} />)
+    expect(range).toContain('<span part="amount">₹4,999.00 – ₹5,399.00</span>')
+    expect(range).not.toContain('part="was"')
+    expect(range.match(/incl\. tax/g)).toHaveLength(1)
+    for (const to of [money('499900', 'INR'), money('400000', 'INR'), money('539900', 'USD'), null]) {
+      const one = renderToStaticMarkup(<Price money={money('499900', 'INR')} compareAt={money('600000', 'INR')} to={to} includesTax locale="en-IN" t={t} />)
+      expect(one).toContain('<span part="amount">₹4,999.00</span>')
+      expect(one).toContain('part="was"')
+    }
+  })
 })
 
 describe('sealed components', () => {

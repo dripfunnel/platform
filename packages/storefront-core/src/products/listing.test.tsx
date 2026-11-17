@@ -26,7 +26,7 @@ const Collection = () => {
       <ul>
         {c.items.map((p) => (
           <li key={p.id}>
-            {p.name} {p.from ? 'from' : ''} {p.stock.inStock ? 'in' : 'out'} {p.badges.map((b) => b.label).join()}
+            {p.name} {p.from ? 'from' : ''} {p.stock.inStock ? 'in' : 'out'} {p.badges.map((b) => b.label).join()} {p.maxPrice ? `to ${p.maxPrice.amount}` : ''}
           </li>
         ))}
       </ul>
@@ -58,8 +58,9 @@ describe('useCollection', () => {
     await screen.findByText(/Shirt 1/)
     const listing = asked.find((a) => a.query.startsWith('query Listing'))
     expect(listing?.variables).toEqual({ collection: 'linen', search: null, filters: ['cotton'], sort: 'PRICE_HIGH', first: pageSize, after: 'c9', before: null, minPrice: null, maxPrice: null })
-    expect(screen.getByText(/Shirt 1/).textContent).toContain('from in New')
+    expect(screen.getByText(/Shirt 1/).textContent).toContain('from in New to 1500')
     expect(screen.getByText(/Shirt 2/).textContent).toContain('out')
+    expect(screen.getByText(/Shirt 2/).textContent).not.toContain('to ')
     expect(screen.getByTestId('chips').textContent).toBe('Cotton')
     expect(screen.getByTestId('canonical').textContent).toBe('/collections/linen/?after=c9')
     expect(document.title).toBe('Linen')

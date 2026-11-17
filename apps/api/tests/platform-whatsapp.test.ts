@@ -67,6 +67,7 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
       checked.push(account)
       return verdict ?? checkMetaWhatsAppAccount({ ...account, fetchImpl: metaFetch })
     },
+    ourWhatsApp: async () => null,
     now: () => now,
   })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, whatsapp } })
@@ -286,7 +287,7 @@ describe('isolation between partners', () => {
   })
 
   it('reads each partner’s own account for its messages, none while it is off or missing, and sends through it with its token', async () => {
-    const accounts = whatsappAccountsFor(box)
+    const accounts = whatsappAccountsFor(box, async () => null)
     const forPartner = (partnerId: string) => withSystemScope(db.sql, (tx) => accounts.forPartner(tx, partnerId))
     expect(await forPartner(ids.ns)).toMatchObject({ accessToken: token, phoneNumberId: input.phoneNumberId, templates: { 'cart.reminder': 'cart_reminder' } })
     expect(await forPartner(ids.fresh)).toBeNull()

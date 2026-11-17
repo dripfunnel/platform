@@ -662,7 +662,7 @@ describe('WhatsApp in India (#337)', () => {
 
   it('goes through the partner’s own Meta account while its WhatsApp is on, by email while it is off or missing, never through another partner’s', async () => {
     const box = await secretBox(Buffer.alloc(32, 7).toString('base64'))
-    const accounts = whatsappAccountsFor(box)
+    const accounts = whatsappAccountsFor(box, async () => null)
     const used: string[] = []
     const sender = (account: PartnerWhatsAppAccount): WhatsAppSender => ({ send: async (m) => (used.push(`${account.phoneNumberId}:${m.template}`), { providerId: 'wamid.1' }) })
     const save = async (partnerId: string, phoneNumberId: string) => {
