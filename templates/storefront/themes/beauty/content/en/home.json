@@ -5,7 +5,7 @@
     "accent": "like a little glow",
     "lead": "Gentle everyday products for your whole routine, from the first rinse of the morning to the last step at night.",
     "shop": "Shop new in",
-    "favourites": "Customer favourites",
+    "favourites": "Browse everything",
     "alt": "A woman with cream on her cheek, smiling softly against a pink wall",
     "detailAlt": "A dropper bottle resting on a wooden dish among pink rose petals"
   },
@@ -50,15 +50,15 @@
     "alt": "Amber dropper bottles and a wooden jar on a linen cloth"
   },
   "picks": {
-    "eyebrow": "Our shoppers’ picks",
-    "title": "Customer favourites",
-    "all": "See all favourites"
+    "eyebrow": "Keep exploring",
+    "title": "More to discover",
+    "all": "See everything"
   },
   "promises": {
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely at checkout"
+      "body": "Checkout over an encrypted connection"
     },
     "track": {
       "title": "Track your order",
@@ -69,8 +69,8 @@
       "body": "Keep a wishlist for later"
     },
     "help": {
-      "title": "Here to help",
-      "body": "Questions? Get in touch"
+      "title": "Questions?",
+      "body": "Write to us and we’ll reply"
     }
   },
   "signup": {
