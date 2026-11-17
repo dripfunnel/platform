@@ -434,6 +434,8 @@ type Mutation {
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
   registerApp(developer: String!, name: String!, scopes: [String!]!, siteUrl: String!, webhookUrl: String!): RegisteredAppSecret
+  removePlatformSmsAccount(provider: String!, reason: String!): PlatformMessagingResult
+  removePlatformWhatsAppAccount(reason: String!): PlatformMessagingResult
   removeStaff(id: ID!): StaffResult
   removeStoreCategorySample(categoryId: ID!, reason: String!): StoreCategory
   resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
@@ -446,15 +448,22 @@ type Mutation {
   returnToSession(id: ID!): StaffSessionStart
   revokeStaffInvite(id: ID!): StaffResult
   rollBackCoreRollout(id: ID!, reason: String!): CoreRollout
+  savePlatformSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, reason: String!, region: String, secretAccessKey: String, senderId: String, templates: [PlatformSmsTemplateInput!]): PlatformMessagingResult
+  savePlatformWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, reason: String!, templates: [PlatformWhatsAppTemplateInput!]!): PlatformMessagingResult
   saveStoreCategorySampleItems(categoryId: ID!, input: StoreCategorySampleInput!, reason: String!): StoreCategorySampleSave
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   setAppStatus(id: ID!, suspended: Boolean!): Boolean
   setPartnerContract(id: ID!, input: PartnerContractInput!, reason: String!): PartnerMutationOutcome
+  setPartnerDfMessaging(channel: String!, enabled: Boolean!, partnerId: ID!, reason: String!): PartnerDfMessaging
+  setPlatformSmsRoute(provider: String, reason: String!, route: String!): PlatformMessagingResult
+  setPlatformWhatsAppEnabled(enabled: Boolean!, reason: String!): PlatformMessagingResult
   startCoreRollout(reason: String!, security: Boolean!, version: String!): CoreRollout
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
+  testPlatformSmsAccount(provider: String!): PlatformMessagingResult
+  testPlatformWhatsAppAccount: PlatformMessagingResult
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   undoJob(id: ID!, reason: String!): JobActionResult
   updateStoreCategory(id: ID!, input: StoreCategoryInput!, reason: String!): StoreCategory
@@ -559,6 +568,11 @@ input PartnerContractInput {
   currencies: [String!]!
   feeCurrency: String!
   poweredBy: String!
+}
+
+type PartnerDfMessaging {
+  sms: Boolean
+  whatsapp: Boolean
 }
 
 type PartnerDomain {
@@ -678,6 +692,63 @@ type PartnerUser {
   status: String
 }
 
+type PlatformMessagingResult {
+  ok: Boolean
+  problem: String
+  reason: String
+  status: String
+  template: String
+}
+
+type PlatformSms {
+  accounts: [PlatformSmsAccount!]
+  routes: [PlatformSmsRoute!]
+}
+
+type PlatformSmsAccount {
+  hint: String
+  lastTestedAt: String
+  provider: String
+  status: String
+  templatesComplete: Boolean
+}
+
+type PlatformSmsRoute {
+  provider: String
+  route: String
+  serving: String
+}
+
+input PlatformSmsTemplateInput {
+  message: String!
+  templateId: String!
+}
+
+type PlatformWhatsApp {
+  account: PlatformWhatsAppAccount
+  enabled: Boolean
+}
+
+type PlatformWhatsAppAccount {
+  businessAccountId: String
+  hint: String
+  language: String
+  lastTestedAt: String
+  phoneNumberId: String
+  status: String
+  templates: [PlatformWhatsAppTemplate!]
+}
+
+type PlatformWhatsAppTemplate {
+  message: String
+  name: String
+}
+
+input PlatformWhatsAppTemplateInput {
+  message: String!
+  name: String!
+}
+
 input ProvisioningFilter {
   partner: ID
   q: String
@@ -744,8 +815,11 @@ type Query {
   myStaffSessions: [StaffSession!]
   navBadges: NavBadges
   partner(id: ID!): Partner
+  partnerDfMessaging(partnerId: ID!): PartnerDfMessaging
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
   personTimeline(after: String, before: String, filter: ActivityFilter, first: Int, person: String!): ActivityTimeline
+  platformSms: PlatformSms
+  platformWhatsApp: PlatformWhatsApp
   provisioningJob(id: ID!): JobProgress
   provisioningJobs(after: String, before: String, filter: ProvisioningFilter, first: Int): ProvisioningJobPage
   registeredApps(after: String, before: String, first: Int): RegisteredAppPage

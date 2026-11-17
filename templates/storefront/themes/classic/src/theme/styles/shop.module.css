@@ -437,10 +437,6 @@
   font-size: 15px;
 }
 
-.from {
-  font-weight: 600;
-}
-
 .price {
   display: inline-block;
   --df-price-size: 16px;

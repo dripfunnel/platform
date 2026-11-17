@@ -509,7 +509,10 @@ describe('the main menu', () => {
     expect(desktop.getByText('Kesari')).toBeTruthy()
     expect(desktop.getByText('Shirts')).toBeTruthy()
     expect(desktop.queryByText('Staff picks')).toBeNull()
-    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Summer edit', 'Men', 'Shirts'])
+    // Home and Shop all before the items, About and Contact after, as the live header draws them (#1481).
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Home', 'Shop all', 'Summer edit', 'Men', 'Shirts', 'About', 'Contact'])
+    expect(desktop.getByText('Home')).toBeTruthy()
+    expect(desktop.getByText('Contact')).toBeTruthy()
   })
 
   it('saves each change at the revision read: add, move, nest, move out and remove', async () => {
@@ -566,12 +569,23 @@ describe('the main menu', () => {
     )
   })
 
+  it('shows the fixed links with every visible collection while the menu is empty, as the live header does (#1481)', async () => {
+    m.loadMenu.mockResolvedValue({ name: 'Main menu', revision: 1, items: [] })
+    await show(owner, '/collections?tab=menus')
+    expect(screen.getByText(words.menus.empty)).toBeTruthy()
+    const phone = within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)
+    expect(phone.slice(0, 2)).toEqual(['Home', 'Shop all'])
+    expect(phone.slice(-2)).toEqual(['About', 'Contact'])
+    expect(phone).toContain('Summer edit')
+    expect(phone).not.toContain('Staff picks')
+  })
+
   it('shows two items with the same name in both previews, each its own', async () => {
     const link = (id: string, url: string) => ({ id, parentId: null, kind: 'url', label: 'Sale', collectionId: null, url })
     m.loadMenu.mockResolvedValue({ name: 'Main menu', revision: 1, items: [link('l1', 'https://a.example/sale'), link('l2', 'https://b.example/sale')] })
     await show(owner, '/collections?tab=menus')
     expect(within(screen.getByRole('region', { name: words.menus.desktop })).getAllByText('Sale')).toHaveLength(2)
-    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem')).toHaveLength(6)
     expect(screen.getByText('Link · https://a.example/sale')).toBeTruthy()
   })
 

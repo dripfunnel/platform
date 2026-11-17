@@ -182,7 +182,7 @@ describe('courier calls', () => {
 
 describe('the local stand-in', () => {
   it('books a label with a made-up tracking number and a real PDF, in the courier’s own country only', async () => {
-    const { gateway } = await localCouriers().forPartner('p')
+    const { gateway } = await localCouriers().forStore('s')
     const booked = await gateway.book('shiprocket', india)
     expect(booked).toMatchObject({ providerRef: `local-${india.reference}`, trackingNumber: 'LOCAL0B6C3C1E2F43', trackingUrl: 'https://track.localhost/LOCAL0B6C3C1E2F43', pickup: { ref: `local-pickup-${india.reference}`, date: null } })
     expect(new TextDecoder().decode(booked?.label.bytes.slice(0, 5))).toBe('%PDF-')

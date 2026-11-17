@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { hashSessionId, newSessionId } from '#auth/session'
-import type { PartnerCouriers } from '#core/couriers'
+import type { StoreCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
@@ -103,7 +103,7 @@ export interface CartDeps {
   currency: string
   marketId: string | null
   features: Readonly<Record<FeatureKey, boolean>>
-  couriers: PartnerCouriers | null
+  couriers: StoreCouriers | null
   activity: ActivityLog
   facts: RequestFacts
   /** Stripe Tax on the store's connected account, for a US address (decided on #284, #337); null where none is connected. */

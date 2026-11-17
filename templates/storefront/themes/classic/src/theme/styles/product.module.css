@@ -113,10 +113,6 @@
   font-size: 20px;
 }
 
-.from {
-  font-weight: 700;
-}
-
 .priceTag {
   display: inline-block;
   --df-price-size: 20px;

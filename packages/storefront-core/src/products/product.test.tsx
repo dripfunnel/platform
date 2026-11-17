@@ -64,6 +64,7 @@ const Page = () => {
         {p.from ? 'From ' : ''}
         {p.price ? formatMoney(p.price, 'en-US') : ''} {p.compareAt ? formatMoney(p.compareAt, 'en-US') : ''}
       </p>
+      <p data-testid="max">{p.maxPrice ? formatMoney(p.maxPrice, 'en-US') : 'none'}</p>
       <p data-testid="stock">{p.stock ? `${p.stock.inStock}:${p.stock.available}` : ''}</p>
       <p data-testid="missing">{p.missing.map((m) => m.name).join()}</p>
       <p data-testid="photos">{p.photos.map((ph) => `${ph.alt}${ph.main ? '*' : ''}`).join()}</p>
@@ -98,6 +99,28 @@ describe('useProduct', () => {
     // The head follows in an effect, which a loaded runner can run after the name shows.
     await waitFor(() => expect(document.title).toBe('Organic Cotton Tee'))
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe('A tee for every day.')
+  })
+
+  it('gives the highest price until a version is chosen, and none when the prices are equal or in two currencies (#1330)', async () => {
+    history.replaceState(null, '', '/products/organic-cotton-tee/')
+    shopAnswering(() => answer(tee))
+    render(<Provided><Page /></Provided>)
+    await screen.findByText('Organic Cotton Tee')
+    expect(screen.getByTestId('max').textContent).toBe('$32.00')
+    act(() => screen.getByText('Sage').click())
+    act(() => screen.getByText('M').click())
+    expect(screen.getByTestId('price').textContent).toBe('$32.00 ')
+    expect(screen.getByTestId('max').textContent).toBe('none')
+    cleanup()
+    history.replaceState(null, '', '/products/organic-cotton-tee/')
+    for (const maxPrice of [usd(2800), { amount: '3200', currency: 'EUR' }, null]) {
+      shopAnswering(() => answer({ ...tee, maxPrice }))
+      render(<Provided><Page /></Provided>)
+      await screen.findByText('Organic Cotton Tee')
+      expect(screen.getByTestId('max').textContent).toBe('none')
+      expect(screen.getByTestId('price').textContent).toBe('$28.00 $34.00')
+      cleanup()
+    }
   })
 
   it('reads the size chart the Shop API returns, and has none for a product without one or with an empty one (#1326)', async () => {

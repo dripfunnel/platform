@@ -15,13 +15,13 @@ import {
   twilioMessagingServiceSidSchema,
   type SmsAccountCheck,
   type SmsProvider,
-  type SmsRoute,
 } from '#core/sms'
 import type { PartnerSmsAccountRow } from '#db/schema/saas'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { deleteSmsAccount, insertSmsAccount, selectSealedSmsAccount, selectSmsAccount, selectSmsAccounts, selectSmsPrefs, updateSmsAccount, updateSmsAccountTest, updateSmsEnabled, updateSmsRoute } from '#db/scoped/partnerCredentials'
+import { selectDfMessaging } from '#db/scoped/platformMessaging'
 import { partnerEntry } from '#saas/activity/index'
-import { openSmsAccount, smsSettingsSchemas, type PartnerSmsAccount } from '#saas/sms/index'
+import { accountForRoute, openSmsAccount, savedServes, senderOf, smsSettingsSchemas, type OurSms, type PartnerSmsAccount } from '#saas/sms/index'
 
 // Settings › Integrations, SMS (#1017; THIRD-PARTY-ACCESS §4, §8.3): the partner's own MSG91, Twilio and SNS accounts, the
 // provider for each route, which replaces DripFunnel's once complete, and its SMS switch. A secret is sealed on the way in
@@ -52,10 +52,10 @@ const saveInput = z.discriminatedUnion('provider', [
   }),
 ])
 
-export type SmsAccountRefusal = 'INVALID_INPUT' | 'TEMPLATES_INCOMPLETE' | 'ACCOUNT_INCOMPLETE' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND'
+export type SmsAccountRefusal = 'INVALID_INPUT' | 'TEMPLATES_INCOMPLETE' | 'ACCOUNT_INCOMPLETE' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND' | 'DRIPFUNNEL_UNAVAILABLE'
 
-const providerName: Record<SmsProvider, string> = { msg91: 'MSG91', twilio: 'Twilio', sns: 'AWS SNS' }
-const hintOf = (secret: string) => `…${secret.slice(-4)}`
+export const smsProviderName: Record<SmsProvider, string> = { msg91: 'MSG91', twilio: 'Twilio', sns: 'AWS SNS' }
+export const hintOf = (secret: string) => `…${secret.slice(-4)}`
 
 type Parsed = { ok: true; account: PartnerSmsAccount; secret: string; settings: Record<string, unknown> } | { ok: false; reason: SmsAccountRefusal }
 type TemplatesParsed = { ok: true; templates: Record<string, string> } | { ok: false; reason: SmsAccountRefusal }
@@ -67,7 +67,8 @@ const parseTemplates = (given: z.infer<typeof templatesInput>): TemplatesParsed 
   return smsMessages.every((m) => templates[m]) ? { ok: true, templates } : { ok: false, reason: 'TEMPLATES_INCOMPLETE' }
 }
 
-const parseSave = (raw: unknown): Parsed => {
+/** An account as typed, checked against its provider's shape; DripFunnel's own are typed the same way (#1543). */
+export const parseSmsAccount = (raw: unknown): Parsed => {
   const parsed = saveInput.safeParse(raw)
   if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
   const input = parsed.data
@@ -108,44 +109,50 @@ export interface PartnerSmsDeps {
   secrets: SecretBox | null
   /** One read-only call to the provider: nothing is sent. */
   checkSms: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
+  /** DripFunnel's routes this partner may use (#1543), as the deliverer reads them. */
+  ourSms: OurSms
   now: () => Date
 }
 
-/** Whether the account's saved parts serve the route, read without its secret. */
-const rowServes = (r: PartnerSmsAccountRow, route: SmsRoute): boolean => {
-  if (r.provider === 'twilio') return route === 'rest'
-  if (r.provider === 'msg91') return route === 'india' && smsSettingsSchemas.msg91.safeParse(r.settings).success
-  const sns = smsSettingsSchemas.sns.safeParse(r.settings)
-  return sns.success && (route === 'rest' || sns.data.india !== null)
-}
-
-const dto = (r: PartnerSmsAccountRow) => ({
+/** What an account shows back, a partner's or DripFunnel's: never its secret. */
+export const smsAccountDto = (r: Pick<PartnerSmsAccountRow, 'provider' | 'key_prefix' | 'status' | 'last_tested_at' | 'settings'>) => ({
   provider: r.provider,
   hint: r.key_prefix,
   status: r.status,
   lastTestedAt: r.last_tested_at,
   // India's seven templates; Twilio has none.
-  templatesComplete: r.provider === 'twilio' ? null : rowServes(r, 'india'),
+  templatesComplete: r.provider === 'twilio' ? null : savedServes(r, 'india'),
 })
 
-export const createPartnerSmsService = ({ sql, caller, facts, activity, secrets, checkSms, now }: PartnerSmsDeps) => {
+export const createPartnerSmsService = ({ sql, caller, facts, activity, secrets, checkSms, ourSms, now }: PartnerSmsDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
-  const targetOf = (provider: SmsProvider) => ({ type: 'sms_account', id: `${partnerId}:${provider}`, label: providerName[provider] })
+  const targetOf = (provider: SmsProvider) => ({ type: 'sms_account', id: `${partnerId}:${provider}`, label: smsProviderName[provider] })
   const lock = (tx: ScopedSql, provider: SmsProvider) => serialise(tx, `partner_sms:${partnerId}:${provider}`)
   const isProvider = (value: string): value is SmsProvider => (smsProviders as readonly string[]).includes(value)
 
-  const accounts = () =>
-    withScope(sql, context, async (tx) => {
+  // DripFunnel's routes are read in system scope, as the deliverer reads them; only whether each is there leaves it.
+  const oursServes = () => withSystemScope(sql, async (tx) => ourSms(tx, partnerId))
+
+  /** Per route, the partner's choice, whether DripFunnel's serves it for this partner, and whose account sends (#1543). */
+  const accounts = async () => {
+    const ours = await oursServes()
+    return withScope(sql, context, async (tx) => {
       const prefs = await selectSmsPrefs(tx, partnerId)
-      return { enabled: prefs.enabled, routes: smsRoutes.map((route) => ({ route, provider: prefs.routes[route] })), accounts: (await selectSmsAccounts(tx, partnerId)).map(dto) }
+      const rows = await selectSmsAccounts(tx, partnerId)
+      const routes = smsRoutes.map((route) => {
+        const choice = prefs.routes[route]
+        return { route, provider: choice, dripfunnel: ours[route] !== undefined, sender: senderOf(choice, accountForRoute(rows, route, choice) !== undefined, ours[route] !== undefined) }
+      })
+      return { enabled: prefs.enabled, dripfunnel: (await selectDfMessaging(tx, partnerId)).sms, routes, accounts: rows.map(smsAccountDto) }
     })
+  }
 
   type Result = { ok: true; status?: 'ok' | 'rejected' } | { ok: false; reason: SmsAccountRefusal }
 
   const save = async (raw: unknown): Promise<Result> => {
-    const parsed = parseSave(raw)
+    const parsed = parseSmsAccount(raw)
     if (!parsed.ok) return parsed
     if (!secrets) return { ok: false, reason: 'NOT_CONFIGURED' }
     const { account, secret, settings } = parsed
@@ -159,7 +166,7 @@ export const createPartnerSmsService = ({ sql, caller, facts, activity, secrets,
       await lock(tx, account.provider)
       const before = await selectSmsAccount(tx, partnerId, account.provider)
       if (before) await updateSmsAccount(tx, before.id, write)
-      else await insertSmsAccount(tx, { ...write, partnerId, provider: account.provider, name: providerName[account.provider], createdBy: actingName(caller) })
+      else await insertSmsAccount(tx, { ...write, partnerId, provider: account.provider, name: smsProviderName[account.provider], createdBy: actingName(caller) })
       await activity.record(tx, entry({ action: smsAudit.save, target: targetOf(account.provider), reason: before ? 'replaced' : null, changes: [{ field: 'provider', before: before ? account.provider : null, after: account.provider }] }))
       return { ok: true, status: 'ok' }
     })
@@ -195,16 +202,20 @@ export const createPartnerSmsService = ({ sql, caller, facts, activity, secrets,
     })
   }
 
-  /** Which saved account serves a route; null hands it back to the first of the route's providers the partner holds. */
-  const setRoute = (route: string, provider: string | null): Promise<Result> => {
+  /**
+   * Which saved account serves a route, or `dripfunnel` where Admin enabled DripFunnel's and it serves the route (#1543);
+   * null hands it back to the first of the route's providers the partner holds.
+   */
+  const setRoute = async (route: string, provider: string | null): Promise<Result> => {
     const which = smsRoutes.find((r) => r === route)
-    if (!which || (provider !== null && !(routeProviders[which] as readonly string[]).includes(provider))) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+    if (!which || (provider !== null && provider !== 'dripfunnel' && !(routeProviders[which] as readonly string[]).includes(provider))) return { ok: false, reason: 'INVALID_INPUT' }
+    if (provider === 'dripfunnel' && (await oursServes())[which] === undefined) return { ok: false, reason: 'DRIPFUNNEL_UNAVAILABLE' }
     return withScope(sql, context, async (tx): Promise<Result> => {
       await serialise(tx, `partner_sms:${partnerId}`)
-      const chosen = provider !== null && isProvider(provider) ? provider : null
-      if (chosen) {
+      const chosen = provider === 'dripfunnel' ? provider : provider !== null && isProvider(provider) ? provider : null
+      if (chosen && chosen !== 'dripfunnel') {
         const row = await selectSmsAccount(tx, partnerId, chosen)
-        if (!row || !rowServes(row, which)) return { ok: false, reason: 'ACCOUNT_INCOMPLETE' }
+        if (!row || !savedServes(row, which)) return { ok: false, reason: 'ACCOUNT_INCOMPLETE' }
       }
       const before = (await selectSmsPrefs(tx, partnerId)).routes[which]
       if (before === chosen) return { ok: true }

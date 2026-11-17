@@ -350,7 +350,7 @@ describe('the backstop itself', () => {
       'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
-      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job', 'catalog_export', 'catalog_import', 'external_connection',
+      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job', 'catalog_export', 'catalog_import', 'external_connection', 'courier_account',
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
@@ -743,6 +743,18 @@ describe('the backstop itself', () => {
                and p.polname in ('request_scope', 'partner_scope', 'platform_scope', 'system_scope')) <> 4
     `
     expect(unpinned.map((row) => row.relname)).toEqual([])
+  })
+
+  it('keeps DripFunnel’s own SMS and WhatsApp accounts and routes from every caller but the system (#1543)', async () => {
+    for (const context of [partnerCaller(t.partnerA), staff, storeCaller(t.partnerA, t.storeA1), shopper(t.partnerA, t.storeA1, null)]) {
+      for (const table of ['platform_credential', 'platform_messaging']) {
+        await expect(withScope(db.sql, context, (tx) => tx`select * from ${tx(table)}`)).rejects.toThrow(/permission denied/i)
+      }
+    }
+    // A partner reads its own two switches on its row, never another partner's, and writes neither.
+    const seen = await withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx<{ id: string }[]>`select id from partner where df_sms_enabled = false`)
+    expect(seen.map((r) => r.id)).toEqual([t.partnerA])
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_whatsapp_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
   })
 
   it('reserves app_definer: no login, and the one role that bypasses RLS', async () => {

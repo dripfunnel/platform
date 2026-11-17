@@ -14,11 +14,8 @@ import { createPartnerCredentialsService, createPartnerSmsService, createPartner
 import type { SmsAccountCheck } from '#core/sms'
 import type { WhatsAppAccountCheck } from '#core/whatsapp'
 import { checkMetaWhatsAppAccount } from '#integrations/meta/index'
-import { checkMsg91Account } from '#integrations/msg91/index'
-import { checkSnsAccount } from '#integrations/sns/index'
-import { checkTwilioAccount } from '#integrations/twilio/index'
-import type { PartnerSmsAccount } from '#saas/sms/index'
-import type { PartnerWhatsAppAccount } from '#saas/whatsapp/index'
+import { checkSmsAccount, type OurSms, type PartnerSmsAccount } from '#saas/sms/index'
+import type { OurWhatsApp, PartnerWhatsAppAccount } from '#saas/whatsapp/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
@@ -56,22 +53,18 @@ export interface PlatformContextDeps {
   checkSms?: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
   /** Checks a partner's WhatsApp account with Meta; locally (SMS_LOCAL) the stand-in's. */
   checkWhatsApp?: (account: PartnerWhatsAppAccount) => Promise<WhatsAppAccountCheck>
+  /** DripFunnel's SMS and WhatsApp as each partner may use them (#1543); absent, none. */
+  ourSms?: OurSms
+  ourWhatsApp?: OurWhatsApp
 }
 
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
-/** One read-only call to the account's provider: nothing is sent (#1017). */
-const checkSmsAccount = (account: PartnerSmsAccount): Promise<SmsAccountCheck> => {
-  if (account.provider === 'msg91') return checkMsg91Account({ authKey: account.authKey })
-  if (account.provider === 'twilio') return checkTwilioAccount(account)
-  return checkSnsAccount({ accessKeyId: account.accessKeyId, secretAccessKey: account.secretAccessKey, region: account.region })
-}
-
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, ourSms = async () => ({}), ourWhatsApp = async () => null, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -85,8 +78,8 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     domains: createPartnerDomainsService({ ...deps, localHosts }),
     credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
     googleSignIn: createGoogleSignInService({ ...deps, secrets }),
-    sms: createPartnerSmsService({ ...deps, secrets, checkSms }),
-    whatsapp: createPartnerWhatsAppService({ ...deps, secrets, checkWhatsApp }),
+    sms: createPartnerSmsService({ ...deps, secrets, checkSms, ourSms }),
+    whatsapp: createPartnerWhatsAppService({ ...deps, secrets, checkWhatsApp, ourWhatsApp }),
     profile: createPartnerProfileService({ ...deps, sessionId }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),

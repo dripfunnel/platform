@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-11-16 (#1504: the local WhatsApp account and its check, §6.1). Before: 2026-11-16 (#1017: which SMS account a local text goes through, §6.1). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-06 (#1328: a support agent goes back to `https://platform.localhost` under `pnpm dev:https`, §4). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §6.1). Before: 2026-11-01 (#1112: the store portal's `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: dev and production run Postgres 18 on PlanetScale, §2 step 3). Before: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-11-17 (#1543: DripFunnel's SMS and WhatsApp locally are the stand-in's, used where Admin's switch is on; the seed turns DripFunnel's SMS on for every local partner, §6.1). Before: 2026-11-17 (#1489: local couriers per store, the refused password, the hook per store, §6.1). Before: 2026-11-16 (#1504: the local WhatsApp account and its check, §6.1). Before: 2026-11-16 (#1017: which SMS account a local text goes through, §6.1). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-06 (#1328: a support agent goes back to `https://platform.localhost` under `pnpm dev:https`, §4). Before: 2026-11-06 (#1308: `AI_PHOTO_SOURCES` sets the AI's photo sources as named, §6.1). Before: 2026-11-01 (#1112: the store portal's `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: dev and production run Postgres 18 on PlanetScale, §2 step 3). Before: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -199,10 +199,13 @@ isn't set up.
 
 With `EMAIL_LOCAL`, `SMS_LOCAL`, `PUSH_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
 runs as on dev up to the provider: the outbox, the every-minute relay, the templates in the
-partner's look, the SMS route (+91 or the rest) and account (the partner's own once complete, else
-DripFunnel's, which locally is the stand-in's for both routes; none while the partner's SMS is off, #1017), the domain-check
-job. Only the last call is local (`apps/api/src/integrations/local/`), and a partner's SMS or WhatsApp account checks as
-*Working* without one. With `SMS_LOCAL` every partner also has a WhatsApp number with every template, so a cart reminder
+partner's look, the SMS route (+91 or the rest) and account (the partner's own, or DripFunnel's where Admin's switch is on
+and the partner chose it or has none of its own; none while the partner's SMS is off; #1017, #1543), the domain-check
+job. DripFunnel's own SMS and WhatsApp accounts are the stand-in's locally, and the seed (`pnpm --filter ./apps/api seed`)
+turns DripFunnel's SMS on for every local partner, so texts reach the stand-in as before; DripFunnel's WhatsApp is off
+until a partner's switch is turned on through the Admin API (`setPartnerDfMessaging`). Only the last call is local
+(`apps/api/src/integrations/local/`), and an SMS or WhatsApp account, a partner's or DripFunnel's, checks as *Working*
+without one. With `SMS_LOCAL` every partner also has a WhatsApp number with every template, so a cart reminder
 set to WhatsApp goes by it whatever the partner saved or switched on (#1504); the stand-in prints the template and its
 variables:
 
@@ -220,13 +223,14 @@ variables:
 - **DNS:** a `*.localhost` name answers with what its partner domain record expects, so a new
   partner's addresses go from waiting to live through the real check, and never reach Cloudflare
   for SaaS. Every other name goes to the real resolver and, with the `CF_*` values, to Cloudflare.
-- **Couriers** (`COURIERS_LOCAL`): every partner has a Shiprocket and an EasyPost account, which quote a fixed
+- **Couriers** (`COURIERS_LOCAL`): every store has a Shiprocket and an EasyPost account, which quote a fixed
   tariff within their own country (a base and a step per started 500 g), so Settings › Shipping and checkout's live
   rates work without either provider (#305). Booking a label answers a made-up tracking number (`LOCAL…`, linked at
   `track.localhost`) and a one-page PDF, and a pickup is always accepted (#311). Track one by posting a Shiprocket status
-to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: local-courier-hook` and a body such as
+to `https://hooks.localhost/couriers/shiprocket/<store id>` with `x-api-key: local-courier-hook` and a body such as
 `{"awb": "LOCAL…", "current_status": "DELIVERED", "current_timestamp": "2026-10-12 11:00:00"}`; EasyPost's events sign
-with the same secret.
+with the same secret. Connecting Shiprocket in Settings › Shipping accepts any email and password and keeps them
+sealed (needs `CREDENTIALS_KEK`); the password `wrong-password` is refused, to see the refusal message (#1489).
 - **Google sign-in** (`GOOGLE_SIGN_IN_LOCAL`): "Continue with Google" on the portal goes to a page on the portal host
   that asks for an address and a name, then back to the callback as Google would (#1046). The partner still needs a
   Google client saved on Integrations (any `….apps.googleusercontent.com` and secret do), since the button shows only

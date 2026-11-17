@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import { accountKindOf, bookingDeadlineMs, CourierBoughtUnfinished, courierProviders, couriersFor, type BookedLabel, type CourierProvider, type PartnerCouriers } from '#core/couriers'
+import { accountKindOf, bookingDeadlineMs, CourierBoughtUnfinished, courierProviders, couriersFor, type BookedLabel, type CourierProvider, type StoreCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
@@ -61,8 +61,8 @@ export interface FulfilmentDeps {
   activity: ActivityLog
   facts: RequestFacts
   now: () => Date
-  /** The partner's couriers, for booking labels and pickups; null where none can be reached (#275). */
-  couriers?: PartnerCouriers | null
+  /** The store's couriers, for booking labels and pickups; null where none can be reached. */
+  couriers?: StoreCouriers | null
   /** Where a label's file is kept (the Worker's `ASSETS` R2 binding). */
   files?: AssetStore | null
 }
