@@ -12,22 +12,13 @@ import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerSmsService } from '#saas/partnerCredentials/index'
 import { codeChannelsFor, queuePortalCode } from '#saas/portalCodes/index'
-import {
-  expireUnsentSms,
-  ourSmsRoutesOf,
-  queueSms,
-  smsAccountsFor,
-  smsDeliveryFor,
-  type OurSmsRoutes,
-  type PartnerSmsAccount,
-  type PartnerSmsAccounts,
-  type SmsPayload,
-} from '#saas/sms/index'
+import { expireUnsentSms, queueSms, smsAccountsFor, smsDeliveryFor, type OurSmsRoutes, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
-// Card #1017: DripFunnel's MSG91 and Twilio send by default, a partner's own complete account replaces ours per provider,
-// and the partner's SMS switch stops every text.
+// Card #1017: a partner's own complete account sends its route, DripFunnel's the routes it hasn't set up, and the partner's
+// SMS switch stops every text. Since #1543 DripFunnel's are saved in the admin console and used only where Admin enabled
+// them for the partner (tests/df-messaging.test.ts); here they are open to every partner unless a test says otherwise.
 
 let db: TestDatabase
 let box: SecretBox
@@ -63,6 +54,7 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
       checked.push(account)
       return verdict
     },
+    ourSms: async () => ({}),
     now: () => now,
   })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, sms } })
@@ -271,7 +263,7 @@ describe('an SNS account and the partner’s routes', () => {
 describe('which account sends', () => {
   const ourMsg91 = { provider: 'msg91', authKey: 'ours-msg91', templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) } as const
   const ours: OurSmsRoutes = { india: ourMsg91, rest: { provider: 'twilio', accountSid: 'AC-ours', authToken: 'ours-token', messagingServiceSid: 'MG-ours' } }
-  const resolve = (partnerId: string, route: SmsRoute, accounts = ours) => withSystemScope(db.sql, (tx) => smsAccountsFor(box, accounts).forPartner(tx, partnerId, route))
+  const resolve = (partnerId: string, route: SmsRoute, accounts = ours) => withSystemScope(db.sql, (tx) => smsAccountsFor(box, async () => accounts).forPartner(tx, partnerId, route))
 
   it('uses the partner’s complete account per route, and DripFunnel’s where it has none', async () => {
     expect(await resolve(ids.ns, 'india')).toMatchObject({ provider: 'msg91', authKey: msg91Key, templates: { 'code.second_factor': '65a00c0ffee' } })
@@ -287,19 +279,20 @@ describe('which account sends', () => {
     expect(await resolve(ids.ns, 'rest')).toMatchObject({ provider: 'twilio' })
   })
 
-  it('falls back to DripFunnel’s, not to another of its own, when the partner’s chosen provider can’t serve the route', async () => {
+  it('sends through another of its own accounts that serves the route, never DripFunnel’s, when the partner’s chosen provider is gone (#1543)', async () => {
     await db.sql`update partner set sms_route_india = 'sns' where id = ${ids.ns}`
-    expect(await resolve(ids.ns, 'india')).toBe(ours.india)
+    expect(await resolve(ids.ns, 'india')).toMatchObject({ provider: 'msg91', authKey: msg91Key })
     await db.sql`update partner set sms_route_india = null where id = ${ids.ns}`
   })
 
-  it('falls back to DripFunnel’s MSG91 when the partner’s is missing a template, and when its secret can’t be opened', async () => {
+  it('uses DripFunnel’s where the partner’s MSG91 is missing a template, and nothing where its secret can’t be opened (#1543)', async () => {
     const sealed = await box.seal(msg91Key)
     const partial = { templates: Object.fromEntries(smsMessages.slice(1).map((m) => [m, 'x1'])) }
     await db.sql`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, settings, created_by) values (${ids.fresh}, 'sms', 'msg91', 'MSG91', ${sealed}, '…OpQr', ${JSON.stringify(partial)}::text::jsonb, 'test')`
     expect(await resolve(ids.fresh, 'india')).toBe(ours.india)
+    // An account of its own for the route that fails is never handed over to DripFunnel's: no fallback between accounts.
     await db.sql`update partner_credential set key_enc = 'v1.broken.broken', settings = ${JSON.stringify({ templates: Object.fromEntries(smsMessages.map((m) => [m, 'x1'])) })}::text::jsonb where partner_id = ${ids.fresh} and kind = 'sms'`
-    expect(await resolve(ids.fresh, 'india')).toBe(ours.india)
+    expect(await resolve(ids.fresh, 'india')).toBeNull()
     await db.sql`delete from partner_credential where partner_id = ${ids.fresh} and kind = 'sms'`
   })
 
@@ -310,9 +303,21 @@ describe('which account sends', () => {
   })
 })
 
+// DripFunnel's accounts as a Super admin saves them (#1543): sealed rows in `platform_credential`, and its route choice.
+const saveOurs = async (routes: { india?: string | null; rest?: string | null } = {}) => {
+  await db.sql`delete from platform_credential where kind = 'sms'`
+  const rows = [
+    ['msg91', '400000OursOursOursOurs', { templates: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m.replace('.', '_')}`])) }],
+    ['twilio', '0'.repeat(32), { accountSid: `AC${'0'.repeat(32)}`, messagingServiceSid: `MG${'0'.repeat(32)}` }],
+    ['sns', 'o'.repeat(40), { accessKeyId: 'AKIADRIPFUNNEL000001', region: 'ap-south-1', india: { senderId: 'DRPFNL', entityId: '1109999999999999999', templates: Object.fromEntries(smsMessages.map((m, i) => [m, `999${i}`])) } }],
+  ] as const
+  for (const [provider, secret, settings] of rows) {
+    await db.sql`insert into platform_credential (kind, provider, key_enc, key_prefix, settings, status, created_by) values ('sms', ${provider}, ${await box.seal(secret)}, ${`…${secret.slice(-4)}`}, ${JSON.stringify(settings)}::text::jsonb, 'ok', 'test')`
+  }
+  await db.sql`update platform_messaging set sms_route_india = ${routes.india ?? null}, sms_route_rest = ${routes.rest ?? null}`
+}
+
 describe('the sms deliverer with real accounts', () => {
-  const ourValues = { MSG91_AUTH_KEY: '400000OursOursOursOurs', MSG91_TEMPLATES: Object.fromEntries(smsMessages.map((m) => [m, `ours-${m}`])) as Record<SmsMessage, string>, TWILIO_ACCOUNT_SID: `AC${'0'.repeat(32)}`, TWILIO_AUTH_TOKEN: '0'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'0'.repeat(32)}` }
-  const ourSns = { SNS_ACCESS_KEY_ID: 'AKIADRIPFUNNEL000001', SNS_SECRET_ACCESS_KEY: 'o'.repeat(40), SNS_REGION: 'ap-south-1', SNS_SENDER_ID: 'DRPFNL', SNS_DLT_ENTITY_ID: '1109999999999999999', SNS_DLT_TEMPLATES: Object.fromEntries(smsMessages.map((m, i) => [m, `999${i}`])) as Record<SmsMessage, string> }
   const used: string[] = []
   // SNS itself is mocked at the network: the real adapter signs and sends, and the request is read back.
   const snsFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -331,10 +336,22 @@ describe('the sms deliverer with real accounts', () => {
   const dbNow = async () => (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
   const code = async (to: string): Promise<SmsPayload> => ({ message: 'code.second_factor', to, brand: 'Northstar', vars: { code: '482913' }, expiresAt: new Date((await dbNow()).getTime() + 600_000).toISOString() })
   const queue = async (partnerId: string, to: string) => withSystemScope(db.sql, async (tx) => queueSms(tx, { partnerId, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload: await code(to) }))
-  const relay = async (ours: OurSmsRoutes) => {
+  const relay = async () => {
     const at = new Date((await dbNow()).getTime() + 1000)
-    return relayDue(db.sql, { sms: smsDeliverer(db.sql, smsAccountsFor(box, ours), senders, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+    const accounts = smsDeliveryFor(box)
+    if (!accounts) throw new Error('no sms deliverer')
+    return relayDue(db.sql, { sms: smsDeliverer(db.sql, accounts, senders, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
   }
+
+  beforeAll(async () => {
+    await db.sql`update partner set df_sms_enabled = true where id in ${db.sql([ids.ns, ids.kl, ids.fresh])}`
+  })
+
+  afterAll(async () => {
+    await db.sql`update partner set df_sms_enabled = false`
+    await db.sql`delete from platform_credential`
+    await db.sql`update platform_messaging set sms_route_india = null, sms_route_rest = null`
+  })
 
   it('sends each partner’s texts through its own account, and the rest through DripFunnel’s default routes', async () => {
     used.length = 0
@@ -342,15 +359,17 @@ describe('the sms deliverer with real accounts', () => {
     await queue(ids.ns, '+16145550180')
     await queue(ids.fresh, '+919845022181')
     await queue(ids.fresh, '+16145550181')
-    expect((await relay(ourSmsRoutesOf(ourValues))).delivered).toBe(4)
-    expect(used.sort()).toEqual([`msg91:${msg91Key}:65a00c0ffee`, `twilio:${accountSid}`, 'msg91:400000OursOursOursOurs:ours-code.second_factor', `twilio:AC${'0'.repeat(32)}`].sort())
+    await saveOurs()
+    expect((await relay()).delivered).toBe(4)
+    expect(used.sort()).toEqual([`msg91:${msg91Key}:65a00c0ffee`, `twilio:${accountSid}`, 'msg91:400000OursOursOursOurs:ours-code_second_factor', `twilio:AC${'0'.repeat(32)}`].sort())
   })
 
   it('sends a +91 code and a US one through DripFunnel’s SNS when both routes are set to sns, India with its DLT header, entity and template', async () => {
     used.length = 0
     await queue(ids.fresh, '+919845022183')
     await queue(ids.fresh, '+16145550183')
-    expect((await relay(ourSmsRoutesOf({ ...ourValues, ...ourSns, SMS_ROUTE_INDIA: 'sns', SMS_ROUTE_REST: 'sns' }))).delivered).toBe(2)
+    await saveOurs({ india: 'sns', rest: 'sns' })
+    expect((await relay()).delivered).toBe(2)
     expect(used.sort()).toEqual(['sns:AKIADRIPFUNNEL000001:+16:Transactional', 'sns:AKIADRIPFUNNEL000001:+91:Transactional|DRPFNL|1109999999999999999|9990'].sort())
   })
 
@@ -359,7 +378,8 @@ describe('the sms deliverer with real accounts', () => {
     await queue(ids.kl, '+919845022184')
     await queue(ids.kl, '+16145550184')
     await queue(ids.fresh, '+16145550185')
-    expect((await relay(ourSmsRoutesOf({ ...ourValues, ...ourSns, SMS_ROUTE_REST: 'sns' }))).delivered).toBe(3)
+    await saveOurs({ rest: 'sns' })
+    expect((await relay()).delivered).toBe(3)
     expect(used.sort()).toEqual(['sns:AKIADRIPFUNNEL000001:+16:Transactional', 'sns:AKIAKLAUFLADEN000001:+16:Transactional', 'sns:AKIAKLAUFLADEN000001:+91:Transactional|KAUFLD|1101234567890123456|1107160'].sort())
   })
 
@@ -368,7 +388,8 @@ describe('the sms deliverer with real accounts', () => {
     await db.sql`update partner set sms_enabled = false where id in ${db.sql([ids.ns, ids.fresh])}`
     const mine = await queue(ids.ns, '+16145550182')
     const ourText = await queue(ids.fresh, '+919845022182')
-    const counts = await relay(ourSmsRoutesOf(ourValues))
+    await saveOurs()
+    const counts = await relay()
     expect(used).toEqual([])
     expect(counts.dropped).toBe(2)
     const rows = await db.sql<{ last_error: string; delivered_at: Date | null; payload: unknown }[]>`select last_error, delivered_at, payload from outbox where id in ${db.sql([mine ?? '', ourText ?? ''])}`
@@ -399,6 +420,7 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
     sns: () => ({ send: async () => ({ providerId: 's' }) }),
   }
   const ourRest: OurSmsRoutes = { rest: { provider: 'twilio', accountSid: sidOurs, authToken: '0'.repeat(32), messagingServiceSid: `MG${'0'.repeat(32)}` } }
+  const withOurRest = () => smsAccountsFor(box, async () => ourRest)
   const dbNow = async () => (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
   const queue = (partnerId: string, payload: SmsPayload) => withSystemScope(db.sql, (tx) => queueSms(tx, { partnerId, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload }))
   const order = (brand: string, to: string): SmsPayload => ({ message: 'order.confirmed', to, brand, vars: { order: 'X-1' }, expiresAt: null })
@@ -409,7 +431,7 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
   }
   const lastError = async (id: string | null) => (await db.sql<{ last_error: string | null }[]>`select last_error from outbox where id = ${id ?? ''}`)[0]?.last_error
   const pending = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'sms' and delivered_at is null and failed_at is null`)[0]?.n
-  const smsOpen = async (accounts: PartnerSmsAccounts | null, partnerId: string, phone: string | null) => (await withSystemScope(db.sql, (tx) => codeChannelsFor(accounts).forPartner(tx, partnerId, phone))).sms
+  const smsOpen = async (accounts: PartnerSmsAccounts | null, partnerId: string, phone: string | null) => (await withSystemScope(db.sql, (tx) => codeChannelsFor(accounts, async () => false).forPartner(tx, partnerId, phone))).sms
 
   beforeAll(async () => {
     for (const key of ['a', 'b', 'none'] as const) own[key] = (await db.sql<{ id: string }[]>`insert into partner (name, state) values (${`SMS own ${key}`}, 'live') returning id`)[0]?.id ?? ''
@@ -420,7 +442,7 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
   })
 
   it('shows SMS open on the partner’s own route with no DripFunnel account, and closed where neither has one', async () => {
-    const accounts = smsDeliveryFor(box, {})
+    const accounts = smsDeliveryFor(box)
     expect(await smsOpen(accounts, own.a, '+16145550190')).toBe(true)
     expect(await smsOpen(accounts, own.a, null)).toBe(true)
     expect(await smsOpen(accounts, own.a, '+919845022190')).toBe(false)
@@ -434,7 +456,7 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
     await withSystemScope(db.sql, (tx) => queuePortalCode(tx, { partnerId: own.a, channel: 'sms', to: '+16145550191', purpose: 'sign_in', code: '482913', expiresAt, brand: async () => 'Own A', idempotencyKey: `code:${crypto.randomUUID()}` }))
     await queue(own.a, { message: 'order.shipped', to: '+16145550192', brand: 'Own A', vars: { order: 'OA-1', courier: 'USPS', link: 'https://shop.example/t/1' }, expiresAt: null })
     await queue(own.a, { message: 'rider.invited', to: '+16145550193', brand: 'Own A', vars: { link: 'https://shop.example/rider' }, expiresAt: null })
-    expect((await relay(smsDeliveryFor(box, {}))).delivered).toBe(3)
+    expect((await relay(smsDeliveryFor(box))).delivered).toBe(3)
     expect(used).toEqual([`twilio:${sidA}:Own A`, `twilio:${sidA}:Own A`, `twilio:${sidA}:Own A`])
   })
 
@@ -443,16 +465,15 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
     await queue(own.a, order('Own A', '+16145550194'))
     await queue(own.b, order('Own B', '+16145550195'))
     const orphan = await queue(own.none, order('None', '+16145550196'))
-    expect(await relay(smsDeliveryFor(box, {}))).toMatchObject({ delivered: 2, dropped: 1 })
+    expect(await relay(smsDeliveryFor(box))).toMatchObject({ delivered: 2, dropped: 1 })
     expect(used.sort()).toEqual([`twilio:${sidA}:Own A`, `twilio:${sidB}:Own B`])
     expect(await lastError(orphan)).toBe('no_rest_account')
     expect(await pending()).toBe(0)
   })
 
   it('has no deliverer and SMS closed with neither credentials nor a DripFunnel account, and the sweep gives up what waits', async () => {
-    expect(smsDeliveryFor(null, {})).toBeNull()
-    expect(smsDeliveryFor(null, ourRest)).not.toBeNull()
-    expect(await smsOpen(smsDeliveryFor(null, {}), own.a, '+16145550197')).toBe(false)
+    expect(smsDeliveryFor(null)).toBeNull()
+    expect(await smsOpen(smsDeliveryFor(null), own.a, '+16145550197')).toBe(false)
     const at = await dbNow()
     const waiting = await queue(own.none, { message: 'code.second_factor', to: '+16145550197', brand: 'None', vars: { code: '482913' }, expiresAt: new Date(at.getTime() + 60_000).toISOString() })
     await withSystemScope(db.sql, (tx) => expireUnsentSms(tx, new Date(at.getTime() + 61_000), defaultRelayOptions.leaseMs))
@@ -464,19 +485,19 @@ describe('a partner’s own account with no DripFunnel SMS (#1542)', () => {
     refuse = sidOurs
     const oursRefused = await queue(own.none, order('None', '+16145550198'))
     await queue(own.a, order('Own A', '+16145550198'))
-    expect(await relay(smsDeliveryFor(box, ourRest))).toMatchObject({ delivered: 1, dropped: 1 })
+    expect(await relay(withOurRest())).toMatchObject({ delivered: 1, dropped: 1 })
     expect(await lastError(oursRefused)).toBe('twilio_21610')
     refuse = null
     outage = sidOurs
     await queue(own.none, order('None', '+16145550199'))
     await queue(own.a, order('Own A', '+16145550199'))
-    expect(await relay(smsDeliveryFor(box, ourRest))).toMatchObject({ delivered: 1, retry: 1 })
+    expect(await relay(withOurRest())).toMatchObject({ delivered: 1, retry: 1 })
     outage = null
-    expect((await relay(smsDeliveryFor(box, ourRest))).delivered).toBe(1)
+    expect((await relay(withOurRest())).delivered).toBe(1)
     refuse = sidA
     const mineRefused = await queue(own.a, order('Own A', '+16145550189'))
     await queue(own.none, order('None', '+16145550189'))
-    expect(await relay(smsDeliveryFor(box, ourRest))).toMatchObject({ delivered: 1, dropped: 1 })
+    expect(await relay(withOurRest())).toMatchObject({ delivered: 1, dropped: 1 })
     expect(await lastError(mineRefused)).toBe('twilio_21610')
     refuse = null
     expect(used.sort()).toEqual([`twilio:${sidA}:Own A`, `twilio:${sidA}:Own A`, `twilio:${sidOurs}:None`, `twilio:${sidOurs}:None`].sort())

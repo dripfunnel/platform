@@ -649,7 +649,7 @@ describe('portal codes by WhatsApp first, SMS on request after 20 seconds (#1506
   })
 
   it('still asks for the code where the partner’s switches are on but nothing here can send it, and skips nothing', async () => {
-    const cannotSend = deps({ codeChannels: codeChannelsFor(null) })
+    const cannotSend = deps({ codeChannels: codeChannelsFor(null, async () => false) })
     const id = await phonePerson('cannot.send@a.example', '+16145550306')
     const res = await post('/api/auth/sign-in', { email: 'cannot.send@a.example', password }, '', cannotSend)
     expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: { whatsapp: false, sms: false } })
