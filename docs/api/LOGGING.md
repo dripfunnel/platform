@@ -121,7 +121,7 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 | `action` | Stable code, e.g. `store.suspended`, `product.updated`, `customer.signed_in` |
 | `result` | `success`, `denied`, `failed` |
 | `actor_kind`, `actor_id` | `staff`, `partner_user`, `person` (merchant or vendor), `customer`, `rider` (#839, DELIVERY.md §4), `api_key`, `app_grant`, `support_session`, `job`, `provider`, `anonymous` |
-| `actor_label` | Name and email at the time, so the entry reads well after renames (§8 on erasure) |
+| `actor_label` | Name and email at the time, so the entry reads well after renames (§8 on erasure). A `person` entry recorded without one takes it from the person's user row when it is written (#1488), once, in the activity writer, so no module has to pass it; `job` entries and entries recorded before then stay nameless, and the log shows "The system" for those only. Every action code a store can see has wording in the merchant portal, checked by a test |
 | `on_behalf_of` | The real agent: the partner user behind a support session, or the staff member impersonating a user (with the impersonation id). Null for a staff setup session (ACCESS.md §8.2), where the staff member is the `actor` |
 | `access_ref` | The support session, impersonation or setup session the action ran under, as an id; null for a person's own session |
 | `partner_id`, `store_id`, `seller_id` | The scope the action happened in; null where it doesn't apply |
