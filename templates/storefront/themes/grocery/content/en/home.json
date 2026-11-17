@@ -35,20 +35,20 @@
   "story": {
     "eyebrow": "About us",
     "title": "Your neighbourhood store, online",
-    "body": "Tell shoppers who you are: where your produce comes from, the areas you deliver to and when orders arrive.",
+    "body": "Tell shoppers who you are, what you stock and what makes your shop worth coming back to.",
     "collections": "{count, plural, one {# category} other {# categories}} to shop",
     "more": "How we work",
     "alt": "A shopper carrying a red basket of carrots, celery and radishes"
   },
   "picks": {
-    "title": "Customer favourites",
+    "title": "More to explore",
     "all": "Shop all"
   },
   "promises": {
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely at checkout"
+      "body": "Checkout over an encrypted connection"
     },
     "track": {
       "title": "Track your order",
@@ -59,13 +59,13 @@
       "body": "Keep favourites in your wishlist"
     },
     "help": {
-      "title": "Here to help",
-      "body": "Contact us with any question"
+      "title": "Questions?",
+      "body": "Write to us and we’ll reply"
     }
   },
   "signup": {
     "title": "Shop faster next time",
-    "body": "Create an account to save your address, see past orders and track deliveries.",
+    "body": "Create an account to save your address, see past orders and follow each one.",
     "action": "Create an account"
   }
 }

@@ -35,19 +35,19 @@
     "text": "A home comes together slowly, one well-loved thing at a time."
   },
   "favourites": {
-    "eyebrow": "Chosen for you",
-    "title": "Our favourites",
+    "eyebrow": "Keep browsing",
+    "title": "More for the home",
     "all": "Shop all"
   },
   "promises": {
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely, every time you order."
+      "body": "Checkout over an encrypted connection."
     },
     "track": {
       "title": "Track your order",
-      "body": "Follow each delivery from your account."
+      "body": "Follow each order from your account."
     },
     "save": {
       "title": "Save what you love",

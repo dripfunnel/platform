@@ -20,7 +20,7 @@ const Heading = ({ eyebrow, title }: { eyebrow: string; title: string }) => (
   </div>
 )
 
-const Promise = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
+const PromiseItem = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
   <li className={styles.promise}>
     <span className={styles.promiseIcon}>
       <svg className={styles.promiseSvg} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -198,7 +198,7 @@ export const HomePage = () => {
 
       <section className={styles.promisesBand} aria-label={t('home.promises.label')}>
         <ul className={styles.promises}>
-          <Promise
+          <PromiseItem
             title={t('home.promises.secure.title')}
             body={t('home.promises.secure.body')}
             icon={
@@ -208,7 +208,7 @@ export const HomePage = () => {
               </>
             }
           />
-          <Promise
+          <PromiseItem
             title={t('home.promises.track.title')}
             body={t('home.promises.track.body')}
             icon={
@@ -220,8 +220,8 @@ export const HomePage = () => {
               </>
             }
           />
-          <Promise title={t('home.promises.save.title')} body={t('home.promises.save.body')} icon={<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />} />
-          <Promise
+          <PromiseItem title={t('home.promises.save.title')} body={t('home.promises.save.body')} icon={<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />} />
+          <PromiseItem
             title={t('home.promises.help.title')}
             body={t('home.promises.help.body')}
             icon={

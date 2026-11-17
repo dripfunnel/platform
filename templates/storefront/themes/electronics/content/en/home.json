@@ -8,7 +8,7 @@
     "all": "Browse everything",
     "facts": "At a glance",
     "categories": "{count, plural, one {# category} other {# categories}}",
-    "secure": "Pay safely",
+    "secure": "Secure checkout",
     "track": "From your account",
     "spotlight": "In the spotlight",
     "alt": "The corner of a dark mechanical keyboard with a red escape key"
@@ -25,8 +25,8 @@
   },
   "spotlight": {
     "eyebrow": "Spotlight",
-    "title": "Our flagship pick",
-    "body": "A closer look at the top of our range. Open it for photos, options and every detail.",
+    "title": "A closer look",
+    "body": "One product from the range, up close. Open it for photos, options and every detail.",
     "view": "View product",
     "more": "Compare the range"
   },
@@ -48,7 +48,7 @@
     "label": "Shopping with us",
     "secure": {
       "title": "Secure checkout",
-      "body": "Pay safely, every time"
+      "body": "Checkout over an encrypted connection"
     },
     "track": {
       "title": "Track your order",
@@ -59,13 +59,13 @@
       "body": "Keep a wishlist of what you like"
     },
     "help": {
-      "title": "Real help",
-      "body": "Ask us before you buy"
+      "title": "Questions?",
+      "body": "Write to us and we’ll reply"
     }
   },
   "picks": {
-    "eyebrow": "Shoppers' picks",
-    "title": "Customer favourites",
+    "eyebrow": "Keep browsing",
+    "title": "More to explore",
     "all": "Shop all"
   },
   "signup": {
