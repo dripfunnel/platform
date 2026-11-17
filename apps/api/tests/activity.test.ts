@@ -366,3 +366,26 @@ describe('the Admin API query (LOGGING.md §7)', () => {
     expect(plan).not.toMatch(/activity_log_2026_11/)
   })
 })
+
+describe('the person behind an entry (LOGGING.md §4, #1488)', () => {
+  const labels = async (action: string) => (await db.sql<{ actor_label: string | null }[]>`select actor_label from activity_log where action = ${action} order by occurred_at, id`).map((r) => r.actor_label)
+
+  it('is named when the entry has no label, one by one or in bulk, while a job, a given label and an unknown person stay as recorded', async () => {
+    const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'steve@example.com', 'Steve Johnson', 'active') returning id`
+    const [bare] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'noname@example.com', '', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${t.storeA1}, 'owner', 'active'), (${bare?.id ?? ''}, ${t.storeA1}, 'manager', 'active')`
+    const context: CallerContext = { ...merchant(t.partnerA, t.storeA1), caller: { kind: 'person', userId: u?.id ?? '', sessionId: 's' } }
+    const person = (action: string, id: string, actorLabel: string | null) => entry({ action, actorId: id, actorLabel, partnerId: t.partnerA, storeId: t.storeA1 })
+    await record(context, person('named.single', u?.id ?? '', null))
+    await withScope(db.sql, context, (tx) => activityLog.recordAll(tx, [person('named.bulk', u?.id ?? '', null), person('named.bulk', bare?.id ?? '', null)]))
+    await record(context, person('named.given', u?.id ?? '', 'Old Name <old@example.com>'))
+    await record(context, entry({ action: 'named.job', actorKind: 'job', actorId: null, actorLabel: null, partnerId: t.partnerA, storeId: t.storeA1 }))
+    await record(context, person('named.unknown', '00000000-0000-4000-8000-000000000000', null))
+
+    expect(await labels('named.single')).toEqual(['Steve Johnson <steve@example.com>'])
+    expect(await labels('named.bulk')).toEqual(['Steve Johnson <steve@example.com>', 'noname@example.com'])
+    expect(await labels('named.given')).toEqual(['Old Name <old@example.com>'])
+    expect(await labels('named.job')).toEqual([null])
+    expect(await labels('named.unknown')).toEqual([null])
+  })
+})

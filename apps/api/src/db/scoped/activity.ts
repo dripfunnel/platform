@@ -3,6 +3,12 @@ import type { ActivityCategory, ActivityResult, ActivityRow, ActorKind, NewActiv
 import { pageLimit, pgArray, type ScopedSql } from './index'
 import { likePattern } from './stores'
 
+// A person's entry with no label takes "Name <email>" from their user row (LOGGING §4); jobs and old entries stay nameless.
+const labelOf = (tx: ScopedSql, kind: string, id: string | null) => tx`(
+  select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end
+  from "user" u where u.id = case when ${kind} = 'person' and ${id}::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then ${id}::text::uuid end
+)`
+
 export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
   const rows = await tx<{ id: string }[]>`
     insert into activity_log (
@@ -12,7 +18,8 @@ export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promis
       changes, reason, api, host, request_id, ip, user_agent, visibility
     ) values (
       coalesce(${row.occurred_at}, now()), ${row.category}, ${row.action}, ${row.result}, ${row.actor_kind},
-      ${row.actor_id}, ${row.actor_label},
+      ${row.actor_id},
+      coalesce(${row.actor_label}, ${labelOf(tx, row.actor_kind, row.actor_id)}),
       ${row.on_behalf_of_kind}, ${row.on_behalf_of_id}, ${row.on_behalf_of_label}, ${row.access_kind}, ${row.access_ref},
       ${row.partner_id}, ${row.store_id}, ${row.seller_id}, ${row.customer_id},
       ${row.target_type}, ${row.target_id}, ${row.target_label},
@@ -35,7 +42,8 @@ export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivity
       partner_id, store_id, seller_id, customer_id, target_type, target_id, target_label,
       changes, reason, api, host, request_id, ip, user_agent, visibility
     )
-    select coalesce(x.occurred_at, now()), x.category, x.action, x.result, x.actor_kind, x.actor_id, x.actor_label,
+    select coalesce(x.occurred_at, now()), x.category, x.action, x.result, x.actor_kind, x.actor_id,
+      coalesce(x.actor_label, (select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end from "user" u where u.id = case when x.actor_kind = 'person' and x.actor_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x.actor_id::uuid end)),
       x.on_behalf_of_kind, x.on_behalf_of_id, x.on_behalf_of_label, x.access_kind, x.access_ref,
       x.partner_id, x.store_id, x.seller_id, x.customer_id, x.target_type, x.target_id, x.target_label,
       x.changes, x.reason, x.api, x.host, x.request_id, x.ip, x.user_agent, x.visibility

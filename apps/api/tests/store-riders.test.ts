@@ -89,8 +89,8 @@ describe('inviting a rider', () => {
     const [text] = await db.sql<{ payload: { message: string; to: string; brand: string; vars: { link: string } }; store_id: string }[]>`select payload, store_id from outbox where kind = 'sms' and payload->>'to' = '+919800000011'`
     const [store] = await db.sql<{ slug: string }[]>`select slug from store where id = ${w.storeOf('owner')}`
     expect(text).toEqual({ payload: expect.objectContaining({ message: 'rider.invited', to: '+919800000011', brand: 'Store A1', vars: { link: deliveryAppLink(store?.slug ?? '', 'shop.example') } }), store_id: w.storeOf('owner') })
-    const entries = await db.sql<{ target_label: string; actor_id: string; reason: string | null }[]>`select target_label, actor_id, reason from activity_log where action = 'rider.invited' and target_id = ${made.rider?.id ?? ''}`
-    expect(entries).toEqual([{ target_label: 'Ravi K.', actor_id: w.people.owner, reason: null }])
+    const entries = await db.sql<{ target_label: string; actor_id: string; named: boolean; reason: string | null }[]>`select target_label, actor_id, actor_label is not null as named, reason from activity_log where action = 'rider.invited' and target_id = ${made.rider?.id ?? ''}`
+    expect(entries).toEqual([{ target_label: 'Ravi K.', actor_id: w.people.owner, named: true, reason: null }])
   })
 
   it('sends that text through the partner’s SMS account, as the local stand-in does', async () => {
