@@ -195,6 +195,10 @@ export const smsAccountsFor = (secrets: SecretBox | null, ours: OurSmsRoutes): P
   },
 })
 
+/** The `sms` deliverer's accounts: wherever a partner's can be opened or DripFunnel has a route, else null (#1542). */
+export const smsDeliveryFor = (secrets: SecretBox | null, ours: OurSmsRoutes): PartnerSmsAccounts | null =>
+  secrets || ours.india || ours.rest ? smsAccountsFor(secrets, ours) : null
+
 /**
  * Queues one text in the transaction that decided it. The idempotency key is the caller's, e.g.
  * the code's own id, so a retried request never texts twice.

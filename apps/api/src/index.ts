@@ -187,7 +187,7 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, ourSmsRoutesOf, smsAccountsFor, smsKind, smsMessages, type OurSmsRoutes } from '#saas/sms/index'
+import { expireUnsentSms, ourSmsRoutesOf, smsDeliveryFor, smsKind, smsMessages, type OurSmsRoutes, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -277,25 +277,21 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
 // DripFunnel's own SMS account per route (#1017): locally (SMS_LOCAL) the stand-in's, whose texts it prints, else the
-// Worker's values. A partner's complete account for a route replaces ours (saas/sms smsAccountsFor).
-const smsFor = (config: Config): { ours: OurSmsRoutes; senders: SmsSenders } | null => {
-  if (config.SMS_LOCAL === '1') {
-    const ours: OurSmsRoutes = {
-      india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
-      rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
-    }
-    return { ours, senders: { msg91: localSms, twilio: localSms, sns: localSms } }
-  }
-  const ours = ourSmsRoutesOf(config)
-  if (!ours.india && !ours.rest) return null
-  return { ours, senders: { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) } }
+// Worker's values, none required: a partner's complete account sends without them (saas/sms smsDeliveryFor, #1542).
+const localOurSms: OurSmsRoutes = {
+  india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+  rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+}
+const smsFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerSmsAccounts; senders: SmsSenders } | null => {
+  const local = config.SMS_LOCAL === '1'
+  const accounts = smsDeliveryFor(secrets, local ? localOurSms : ourSmsRoutesOf(config))
+  if (!accounts) return null
+  const senders: SmsSenders = local ? { msg91: localSms, twilio: localSms, sns: localSms } : { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) }
+  return { accounts, senders }
 }
 
 /** Which channels reach a portal code's number (ACCESS.md §4): SMS only through an account the `sms` deliverer can use. */
-const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => {
-  const sms = smsFor(config)
-  return codeChannelsFor(sms ? smsAccountsFor(secrets, sms.ours) : null)
-}
+const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => codeChannelsFor(smsFor(config, secrets)?.accounts ?? null)
 
 // WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints; else each
 // partner's own account on Meta, wherever the Worker can open credentials (CREDENTIALS_KEK).
@@ -333,7 +329,7 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until DripFunnel's own account (or SMS_LOCAL) is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
+// (outbox-relay.ts); `sms` likewise until CREDENTIALS_KEK, DripFunnel's own account or SMS_LOCAL is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
@@ -341,7 +337,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
-  const sms = smsFor(config)
+  const sms = smsFor(config, secrets)
   const whatsapp = whatsappFor(config, secrets)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
@@ -353,7 +349,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, whatsapp?.accounts ?? null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
     ...(whatsapp && ses ? { [whatsappKind]: whatsappDeliverer(sql, whatsapp.accounts, whatsapp.sender, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
-    ...(sms ? { [smsKind]: smsDeliverer(sql, smsAccountsFor(secrets, sms.ours), sms.senders) } : {}),
+    ...(sms ? { [smsKind]: smsDeliverer(sql, sms.accounts, sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
