@@ -2,6 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { senderOf } from '@dripfunnel/shared/messaging'
 import { fill, messages } from '../../messages'
 import { WhatsAppPanel } from './WhatsAppPanel'
 
@@ -13,11 +14,14 @@ const templates = (portal: string | null) => [
   { message: 'cart.reminder_code', name: null },
 ]
 const account = (o: object = {}) => ({ hint: '…Zx9q', businessAccountId: '102030405060', phoneNumberId: '998877665544', language: 'en', templates: templates('portal_code'), status: 'ok', lastTestedAt: '2026-11-16T09:00:00Z', ...o })
-const none = { enabled: false, account: null }
+type Status = { enabled: boolean; account: object | null; dripfunnel?: boolean; choice?: string | null }
+const none: Status = { enabled: false, account: null }
+// The API's answer, whose account sends by its own rule (#1543); a test sets `dripfunnel` and `choice` where it needs them.
+const answerOf = (s: Status) => ({ dripfunnel: false, choice: null, ...s, sender: senderOf(s.choice ?? null, s.account !== null, s.dripfunnel ?? false) })
 const ok = { ok: true, reason: null, status: 'ok', problem: null, template: null }
 
 const sent: string[] = []
-let status: object | 'fail' = none
+let status: Status | 'fail' = none
 let answers: Record<string, object | Promise<Response>> = {}
 let loads = 0
 beforeEach(() => {
@@ -28,13 +32,13 @@ beforeEach(() => {
   vi.stubGlobal('fetch', (_: string, init: RequestInit) => {
     const body = String(init.body)
     sent.push(body)
-    const mutation = ['saveWhatsAppAccount', 'testWhatsAppAccount', 'setWhatsAppEnabled', 'removeWhatsAppAccount'].find((m) => body.includes(m))
+    const mutation = ['saveWhatsAppAccount', 'testWhatsAppAccount', 'setWhatsAppEnabled', 'setWhatsAppChoice', 'removeWhatsAppAccount'].find((m) => body.includes(m))
     if (mutation) {
       const answer = answers[mutation] ?? ok
       return answer instanceof Promise ? answer : Promise.resolve(new Response(JSON.stringify({ data: { [mutation]: answer } })))
     }
     loads += 1
-    return status === 'fail' ? Promise.reject(new Error('down')) : Promise.resolve(new Response(JSON.stringify({ data: { whatsAppAccount: status } })))
+    return status === 'fail' ? Promise.reject(new Error('down')) : Promise.resolve(new Response(JSON.stringify({ data: { whatsAppAccount: answerOf(status) } })))
   })
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute('open', '')
@@ -194,8 +198,64 @@ describe('WhatsApp on Integrations', () => {
     expect(await screen.findByText(words.none)).toBeTruthy()
   })
 
+  it('without an account of its own, turns on through DripFunnel’s, and says what DripFunnel turning it off would do (#1544)', async () => {
+    status = { enabled: false, account: null, dripfunnel: true }
+    const toast = vi.fn()
+    render(<WhatsAppPanel mayChange blocked={null} onToast={toast} />)
+    expect(await screen.findByText(words.noneOurs)).toBeTruthy()
+    expect(screen.getByText(words.available)).toBeTruthy()
+    expect(screen.getByText(words.sender.ours)).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: words.turnOn }))
+    expect(screen.getByText(words.onDialog.consequenceOurs)).toBeTruthy()
+    status = { enabled: true, account: null, dripfunnel: true }
+    await userEvent.click(screen.getByRole('button', { name: words.onDialog.confirm }))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(words.toasts.on))
+    expect(await screen.findByRole('button', { name: words.turnOff })).toBeTruthy()
+  })
+
+  it('chooses whose account sends, Your account or DripFunnel’s', async () => {
+    status = { enabled: true, account: account(), dripfunnel: true }
+    const toast = vi.fn()
+    render(<WhatsAppPanel mayChange blocked={null} onToast={toast} />)
+    expect(await screen.findByText(words.sender.own)).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: words.choiceDialog.change }))
+    expect((screen.getByRole('radio', { name: new RegExp(`^${words.choiceDialog.own}`) }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByText(words.choiceDialog.oursHint)).toBeTruthy()
+    await userEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.choiceDialog.ours}`) }))
+    expect(screen.getByText(words.choiceDialog.consequenceOurs)).toBeTruthy()
+    status = { enabled: true, account: account(), dripfunnel: true, choice: 'dripfunnel' }
+    await userEvent.click(screen.getByRole('button', { name: words.choiceDialog.confirm }))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(words.toasts.chosenOurs))
+    expect(JSON.parse(sent.find((b) => b.includes('setWhatsAppChoice')) ?? '{}').variables).toEqual({ account: 'dripfunnel' })
+    expect(await screen.findByText(words.sender.ours)).toBeTruthy()
+  })
+
+  it('while On, won’t choose its own account without code.portal, and lets it save one without while DripFunnel’s sends', async () => {
+    status = { enabled: true, account: account({ templates: templates(null) }), dripfunnel: true, choice: 'dripfunnel' }
+    render(<WhatsAppPanel mayChange blocked={null} onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: words.choiceDialog.change }))
+    await userEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.choiceDialog.own}`) }))
+    expect(screen.getByText(words.refusals.NO_CODE_TEMPLATE)).toBeTruthy()
+    expect((screen.getByRole('button', { name: words.choiceDialog.confirm }) as HTMLButtonElement).disabled).toBe(true)
+    answers.setWhatsAppChoice = { ok: false, reason: 'DRIPFUNNEL_UNAVAILABLE', status: null, problem: null, template: null }
+    await userEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.choiceDialog.ours}`) }))
+    await userEvent.click(screen.getByRole('button', { name: words.choiceDialog.confirm }))
+    expect(await screen.findByText(words.refusals.DRIPFUNNEL_UNAVAILABLE)).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: messages.settings.integrations.cancel }))
+    await userEvent.click(screen.getByRole('button', { name: words.replace }))
+    await fillForm({ portal: '' })
+    expect(screen.queryByText(words.dialog.codeTemplateNeeded)).toBeNull()
+  })
+
+  it('says DripFunnel’s takes over when its own account is removed', async () => {
+    status = { enabled: true, account: account(), dripfunnel: true }
+    render(<WhatsAppPanel mayChange blocked={null} onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: words.remove }))
+    expect(screen.getByText(words.removeDialog.consequenceOurs)).toBeTruthy()
+  })
+
   it('shows a read-only console the account without a single change', async () => {
-    status = { enabled: true, account: account() }
+    status = { enabled: true, account: account(), dripfunnel: true }
     render(<WhatsAppPanel mayChange={false} blocked={null} onToast={vi.fn()} />)
     expect(await screen.findByText('…Zx9q')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()

@@ -1,19 +1,12 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
+import { smsProviders, smsRoutes, type SmsMessage, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
 import { z } from 'zod'
 import { query } from './client'
 
-// Settings › Integrations, SMS (#1018 on #1017's API): the partner's own MSG91, Twilio and AWS SNS accounts, the provider
-// for each route, and its switch. A secret goes up once and comes back as its last four characters.
+// Settings › Integrations, SMS (#1018 on #1017's API): the partner's own MSG91, Twilio and AWS SNS accounts, the account for
+// each route (DripFunnel's too, where Admin enabled it, #1544), and its switch. A secret comes back as its last four.
 
-/** What the platform texts, each one DLT template in India, in the API's order (THIRD-PARTY-ACCESS §4). */
-export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited'] as const
-export type SmsMessage = (typeof smsMessages)[number]
-export const smsProviders = ['msg91', 'twilio', 'sns'] as const
-export type SmsProvider = (typeof smsProviders)[number]
-export const smsRoutes = ['india', 'rest'] as const
-export type SmsRoute = (typeof smsRoutes)[number]
-/** Each route's providers, in the order a route without a pick takes them. */
-export const routeProviders: Record<SmsRoute, readonly [SmsProvider, SmsProvider]> = { india: ['msg91', 'sns'], rest: ['twilio', 'sns'] }
+export { routeProviders, smsMessages, smsProviders, smsRoutes, smsShapes, type SmsMessage, type SmsProvider, type SmsRoute } from '@dripfunnel/shared/messaging'
 
 const accountSchema = z.object({
   provider: z.enum(smsProviders),
@@ -25,29 +18,27 @@ const accountSchema = z.object({
 })
 const statusSchema = z.object({
   enabled: z.boolean(),
-  routes: z.array(z.object({ route: z.enum(smsRoutes), provider: z.enum(smsProviders).nullable() })),
+  // Admin enabled DripFunnel's SMS for the partner (#1543).
+  dripfunnel: z.boolean(),
+  routes: z.array(
+    z.object({
+      route: z.enum(smsRoutes),
+      // The partner's pick: a provider, `dripfunnel`, or null for whichever is set up.
+      provider: z.enum([...smsProviders, 'dripfunnel']).nullable(),
+      // DripFunnel's account serves this route for the partner now.
+      dripfunnel: z.boolean(),
+      sender: z.enum(['own', 'dripfunnel']).nullable(),
+    }),
+  ),
   accounts: z.array(accountSchema),
 })
 export type SmsAccount = z.infer<typeof accountSchema>
 export type SmsStatus = z.infer<typeof statusSchema>
+export type SmsPick = SmsProvider | 'dripfunnel'
 
-export const smsRefusals = ['INVALID_INPUT', 'TEMPLATES_INCOMPLETE', 'ACCOUNT_INCOMPLETE', 'KEY_REJECTED', 'PROVIDER_UNAVAILABLE', 'NOT_CONFIGURED', 'NOT_FOUND'] as const
+export const smsRefusals = ['INVALID_INPUT', 'TEMPLATES_INCOMPLETE', 'ACCOUNT_INCOMPLETE', 'KEY_REJECTED', 'PROVIDER_UNAVAILABLE', 'NOT_CONFIGURED', 'NOT_FOUND', 'DRIPFUNNEL_UNAVAILABLE'] as const
 export type SmsRefusal = (typeof smsRefusals)[number]
 export type SmsResult = { ok: true; status: 'ok' | 'rejected' | null } | { ok: false; reason: SmsRefusal }
-
-/** The providers' shapes (#1017's `core/sms.ts`), checked here so the dialog says what's wrong before sending. */
-export const smsShapes = {
-  authKey: /^[A-Za-z0-9]{16,64}$/,
-  templateId: /^[A-Za-z0-9_-]{1,64}$/,
-  accountSid: /^AC[0-9a-f]{32}$/,
-  authToken: /^[0-9a-f]{32}$/,
-  messagingServiceSid: /^MG[0-9a-f]{32}$/,
-  accessKeyId: /^(AKIA|ASIA)[A-Z0-9]{16}$/,
-  secretAccessKey: /^[A-Za-z0-9/+]{40}$/,
-  region: /^[a-z]{2}(-[a-z]+)+-\d$/,
-  senderId: /^[A-Za-z0-9]{3,11}$/,
-  entityId: /^\d{10,30}$/,
-}
 
 const resultSchema = z.object({ ok: z.boolean(), reason: z.string().nullable(), status: z.string().nullable() })
 const fields = 'ok reason status'
@@ -61,7 +52,7 @@ const resultOf = (r: z.infer<typeof resultSchema> | undefined, field: string): S
 }
 
 export const loadSms = async (): Promise<SmsStatus> =>
-  (await query(`{ smsAccounts { enabled routes { route provider } accounts { provider hint status lastTestedAt templatesComplete } } }`, z.object({ smsAccounts: statusSchema }))).smsAccounts
+  (await query(`{ smsAccounts { enabled dripfunnel routes { route provider dripfunnel sender } accounts { provider hint status lastTestedAt templatesComplete } } }`, z.object({ smsAccounts: statusSchema }))).smsAccounts
 
 type Templates = { message: SmsMessage; templateId: string }[]
 export type SmsInput =
@@ -88,8 +79,8 @@ export const testSms = async (provider: SmsProvider): Promise<SmsResult> =>
 export const removeSms = async (provider: SmsProvider): Promise<SmsResult> =>
   resultOf((await query(`mutation Remove($provider: String!) { removeSmsAccount(provider: $provider) { ${fields} } }`, z.object({ removeSmsAccount: resultSchema }), { provider })).removeSmsAccount, 'removeSmsAccount')
 
-/** Null hands the route back to the first of its providers the partner holds an account for. */
-export const setSmsRoute = async (route: SmsRoute, provider: SmsProvider | null): Promise<SmsResult> =>
+/** `dripfunnel` picks DripFunnel's account; null hands the route back to the first of its providers the partner holds. */
+export const setSmsRoute = async (route: SmsRoute, provider: SmsPick | null): Promise<SmsResult> =>
   resultOf((await query(`mutation Route($route: String!, $provider: String) { setSmsRoute(route: $route, provider: $provider) { ${fields} } }`, z.object({ setSmsRoute: resultSchema }), { route, provider })).setSmsRoute, 'setSmsRoute')
 
 export const setSmsEnabled = async (enabled: boolean): Promise<SmsResult> =>
