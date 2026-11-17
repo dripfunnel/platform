@@ -368,7 +368,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
     number's route (`india` or `rest`): the partner's own, whatever state DripFunnel's is in (#1542), or DripFunnel's
     where Admin enabled it for the partner and the partner chose it or has none of its own for the route (decided
     2026-11-17 by Gaurav, built on #1543; THIRD-PARTY-ACCESS §4). With Admin's switch off, a partner without its own
-    account has neither channel. Before a
+    account has neither channel, so its people on the phone method sign in without 2-factor (above). Both switches start
+    off for every partner, existing ones included (decided on #1543): from #1543's promote until staff enter DripFunnel's
+    accounts and switch a partner on, a partner that relied on DripFunnel's SMS is in that state, which is why prod.md
+    §6 has staff do it straight after the promote. Before a
     number is known (the `brand`, sign-up's number step) they are the partner's: SMS counts as open when some route is
     served (`saas/portalCodes`).
   - **One send** (`apis/store/codes.ts`, its rule in `auth/storeCodes.ts`): `send-code`, `enrol-second-factor` (`sms`),
