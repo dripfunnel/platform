@@ -2106,6 +2106,7 @@
       "descStandby": "Connected, not quoting.",
       "descFailed": "Its login was rejected at the last test. Orders fall back to the next partner.",
       "descNotOffered": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "descFailedPortal": "Its login was rejected or is missing, so orders fall back to the next partner. Fix it in the web portal, under Settings › Shipping.",
       "descPortalOnly": "Connect Shiprocket in the web portal, under Settings › Shipping: it needs your own Shiprocket API user.",
       "lastTested": "Last tested {time}",
       "pickupModes": {

@@ -437,7 +437,7 @@ first (PLATFORM-PROMPT §5.4).
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
 The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (one aggregator decided
-on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket**. **Shiprocket is the merchant's own API user** (decided 2026-11-13 on #1489, replacing
+on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket**. **Shiprocket is the merchant's own API user** (decided 2026-11-13 on #1489 and agreed with Gaurav 2026-11-17, replacing
 the partner's own account of #272): entered in Settings › Shipping, checked with Shiprocket, stored encrypted per store,
 never a DripFunnel key. **EasyPost stays the partner's own account** (decided 2026-10-04 on #272, §4) and is not
 connectable yet; a merchant's own carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
@@ -449,7 +449,8 @@ pickup bought from its rates), each call with a timeout and only reads retried; 
 courier's file store over https. Locally the stand-in books too. Part 2: tracking arrives on each account's hook,
 `hooks.<host>/couriers/shiprocket/{storeId}` (the merchant sets a token on its Shiprocket webhook, sent as `x-api-key`,
 and enters the same token when connecting; #1489) and `hooks.<host>/couriers/easypost/{storeId}` (an EasyPost webhook with
-a secret, which signs each event); there is no polling. Still missing: EasyPost's key and webhook secret (#275 stores
+a secret, which signs each event; **not live yet**: no EasyPost account can be connected, so outside local it answers 400, and only the local
+stand-in answers it); there is no polling. Still missing: EasyPost's key and webhook secret (#275 stores
 them with the partner's account), and the hook address shown to the merchant in Settings › Shipping.
 
 **Warehouse pins (#815)**: a pinned location's coordinates go to Shiprocket's add-pickup call as `lat` and `long`
@@ -681,7 +682,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App** (with Actions and Workflows permissions); **Cloudflare Containers** (limits checked 2026-10-09); the **R2 storefront upload credential**; **`my-store.one`** (and **`my-shop.dev`** for dev); cache purge; Cloudflare for SaaS; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** on the house partner's own Meta account for cart reminders (decided 2026-10-05 on #337; Meta's Cloud API since #1504); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the aggregator's test account on the house partner (§4) and, for Shiprocket, a test API user entered in a test store's Settings › Shipping (a store's own since #1489, §3.2); SES configuration set and SNS; **WhatsApp** on the house partner's own Meta account for cart reminders (decided 2026-10-05 on #337; Meta's Cloud API since #1504); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); the studio sandbox in Cloudflare Containers (decided 2026-10-08 on #470) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |

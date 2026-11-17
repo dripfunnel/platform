@@ -78,7 +78,7 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
             : ''
           : t('settings.shipping.descNotOffered')
         : courier.status === 'failed'
-          ? t('settings.shipping.descFailed')
+          ? t(connectsInPortal(courier) ? 'settings.shipping.descFailedPortal' : 'settings.shipping.descFailed')
           : courier.status === 'standby'
             ? t('settings.shipping.descStandby')
             : t('settings.shipping.descPricing', { pickup: t(`settings.shipping.pickupModes.${courier.pickupMode}`), label: labelSizeOf(courier.labelSize) }),

@@ -222,6 +222,11 @@ describe('Shipping', () => {
     expect(asked(calls, 'mutation ConnectCourier')).toHaveLength(0)
   })
 
+  it('says where to fix a Shiprocket login that was rejected or lost: the web portal', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="shipping" />, ship({}, withCouriers([courier({ status: 'failed' })])))
+    expect(hasText(renderer, 'Its login was rejected or is missing, so orders fall back to the next partner. Fix it in the web portal, under Settings › Shipping.')).toBe(true)
+  })
+
   it('shows a courier that was disconnected elsewhere as not connected, and says nothing changed', async () => {
     let gone = false
     const settings = () => ({ shippingSettings: withCouriers([courier(), courier({ provider: 'fedex', status: gone ? 'off' : 'standby' })]) })
