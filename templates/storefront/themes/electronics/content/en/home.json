@@ -1,10 +1,10 @@
 {
   "hero": {
-    "eyebrow": "New launches",
+    "eyebrow": "Latest additions",
     "title": "Find the tech",
     "accent": "that fits your day.",
     "lead": "Everything in the shop, all in one place.",
-    "shop": "Shop new launches",
+    "shop": "Shop the newest",
     "all": "Browse everything",
     "spotlight": "In the spotlight",
     "alt": "The corner of a dark mechanical keyboard with a red escape key"
@@ -16,7 +16,7 @@
   },
   "newest": {
     "eyebrow": "Just landed",
-    "title": "New launches",
+    "title": "Latest additions",
     "all": "View all"
   },
   "spotlight": {
