@@ -366,16 +366,17 @@ describe.skipIf(!chrome)('step check', () => {
       writeFileSync(home, readFileSync(home, 'utf8').replace('<head>', `<head><script>${script}</script>`))
       return checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics: steady(() => 20) })
     }
-    // A scroll that never answers, because the page is already on its way elsewhere.
-    const leave = (to: string) => `window.scrollTo = () => { location.replace('${to}'); return new Promise(() => {}) }`
+    // A scroll that never answers, because the page is already on its way elsewhere: once, as a redirect is, or every time.
+    const leave = (to: string, once: boolean) =>
+      `const real = window.scrollTo.bind(window); let gone = false; window.scrollTo = (...a) => { if (${once} && gone) return real(...a); gone = true; location.replace('${to}'); return new Promise(() => {}) }`
 
     it('is read again once it has loaded, not thrown at', async () => {
-      const { report } = await withScroll('navigates-once', leave('/cart/'))
+      const { report } = await withScroll('navigates-once', leave('/cart/', true))
       expect(JSON.stringify(report.checks.filter((c) => !c.passed))).not.toContain('failed while loading')
     })
 
     it('is that page’s failure when it never stops, and the other pages are still checked', async () => {
-      const { report } = await withScroll('navigates-always', leave('/'))
+      const { report } = await withScroll('navigates-always', leave('/', false))
       const failed = JSON.stringify(report.checks.filter((c) => !c.passed))
       expect(failed).toContain('The home page at 390 px failed while loading.')
       expect(failed).not.toContain('The cart page')
