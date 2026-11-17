@@ -10,6 +10,15 @@ import type { StoreCourierAccounts } from './index'
 
 const sealedLogin = z.object({ password: z.string().min(1), webhookToken: z.string().min(1).nullish() })
 
+// A value that opens to something else (a key rotation, a bad write) is no account, never a thrown error at checkout.
+const parsedLogin = (opened: string) => {
+  try {
+    return sealedLogin.safeParse(JSON.parse(opened))
+  } catch {
+    return null
+  }
+}
+
 /** The store's logins, opened; a store with none, or a value that won't open, has no account. */
 export const storeCourierAccounts =
   (sql: postgres.Sql, secrets: SecretBox | null) =>
@@ -18,6 +27,6 @@ export const storeCourierAccounts =
     if (!secrets) return none
     const row = (await withSystemScope(sql, (tx) => selectSealedCourierAccounts(tx, storeId))).find((r) => r.provider === 'shiprocket')
     const opened = row ? await secrets.open(row.credentials_sealed) : null
-    const login = opened ? sealedLogin.safeParse(JSON.parse(opened)) : null
+    const login = opened ? parsedLogin(opened) : null
     return login?.success && row ? { ...none, shiprocket: { email: row.email, password: login.data.password, webhookToken: login.data.webhookToken ?? null } } : none
   }

@@ -78,6 +78,14 @@ describe('a store’s own courier login', () => {
     expect([...(await courierDirectory(storeCourierAccounts(db.sql, null), shiprocket).forStore(t.storeA1)).accounts]).toEqual([])
   })
 
+  it('has no account, and throws nothing, when the sealed value opens to something that is not a login', async () => {
+    for (const text of ['not json', '{"password": ""}', '[]']) {
+      await db.sql`insert into courier_account (store_id, provider, email, credentials_sealed, connected_by) values (${t.storeA2}, 'shiprocket', 'bad@example.com', ${await secrets.seal(text)}, ${crypto.randomUUID()})`
+      expect([...(await directory().forStore(t.storeA2)).accounts]).toEqual([])
+      await db.sql`delete from courier_account where store_id = ${t.storeA2}`
+    }
+  })
+
   it('checks a login with Shiprocket, and is refused for any other courier', async () => {
     const d = directory()
     expect(await d.check('shiprocket', { email: logins.a1.email, password: logins.a1.password })).toBe('ok')

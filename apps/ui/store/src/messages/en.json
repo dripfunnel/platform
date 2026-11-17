@@ -4237,7 +4237,7 @@
         "title": "Connect {name}",
         "body": "Use a Shiprocket API user for this store. Shiprocket checks the login before it is kept, and the password is never shown again.",
         "link": "How to create an API user in Shiprocket",
-        "url": "https://app.shiprocket.in/api-user",
+        "url": "https://apidocs.shiprocket.in/",
         "email": "API user email",
         "password": "API user password",
         "token": "Tracking token (optional)",

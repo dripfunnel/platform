@@ -563,10 +563,10 @@ const paymentsFor = (config: Config): PaymentWiring => {
   return wiring
 }
 
-/** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
 /** Locally the stand-in for every store; elsewhere each store's own login, opened where a call to the courier goes out (#1489). */
 const couriersOf = (sql: postgres.Sql, config: Config, secrets: SecretBox | null): CourierDirectory => (config.COURIERS_LOCAL === '1' ? localCouriers() : courierDirectory(storeCourierAccounts(sql, secrets)))
 
+/** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
 const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
 
 // Imported once per isolate, like the identity provider, and only from configuration.
