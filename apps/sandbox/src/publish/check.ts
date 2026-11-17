@@ -135,13 +135,15 @@ const settled = async (page: Page, net: Network) => {
 }
 
 const navigating = /Execution context was destroyed|Frame was detached/i
+const reads = 3
 
 /**
- * A page that navigates while it is read has no state to read yet: wait for the new one to load and read it again, once.
- * A page that moves on again is that page's failure (#1539), never an exception that ends the whole check.
+ * A page that navigates while it is read has no state to read yet: wait for the new one to load and read it again, twice at most
+ * (a retry can start before the new page has committed). A page that keeps moving is that page's failure (#1539), never an exception
+ * that ends the whole check.
  */
 const whenStill = async <T>(page: Page, net: Network, read: () => Promise<T>): Promise<T | null> => {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < reads; attempt += 1) {
     try {
       return await read()
     } catch (e) {
