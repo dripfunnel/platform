@@ -33,7 +33,7 @@ describe('the local stand-ins', () => {
   })
 
   it('quote couriers at a fixed tariff within their own country, a step per started 500 g', async () => {
-    const couriers = await localCouriers().forPartner('p')
+    const couriers = await localCouriers().forStore('s')
     expect([...couriers.accounts]).toEqual(['shiprocket', 'easypost'])
     const india = { from: { country: 'IN', postal: '302001' }, to: { country: 'IN', region: null, postal: '400001' }, weightGrams: 1200, value: { amount: 100n, currency: 'INR' } }
     expect(await couriers.gateway.quote('shiprocket', india)).toEqual({ amount: { amount: 8000n, currency: 'INR' }, service: 'Local surface', minDays: 3, maxDays: 5 })

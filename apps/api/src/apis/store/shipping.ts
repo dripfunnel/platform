@@ -5,7 +5,7 @@ import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
 
 // Settings › Shipping (SetOps): what the shopper pays, when it's free, where the store delivers, and its couriers on
-// the partner's own accounts; the Owner's (`shipping.configure`). Carts price delivery through the same service (SAPI 9).
+// the store's own accounts (#1489); the Owner's (`shipping.configure`). Carts price delivery through the same service (SAPI 9).
 
 const words: Record<ShippingRefusal, string> = {
   INVALID_INPUT: 'Something here isn’t valid.',
@@ -16,6 +16,9 @@ const words: Record<ShippingRefusal, string> = {
   NO_AREA_LIST: 'Upload your postcode list, or choose “Everywhere”.',
   TOO_MANY: 'That list is longer than a store can have. Keep it to 50,000 codes.',
   COURIER_NOT_OFFERED: 'This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.',
+  LOGIN_REFUSED: 'Shiprocket didn’t accept that login. Check the API user’s email and password.',
+  WEAK_TOKEN: 'The tracking token needs at least 16 characters, so no one can guess it.',
+  COURIER_UNAVAILABLE: 'Shiprocket didn’t answer. Try again in a moment.',
   NOT_CONNECTED: 'Connect this courier first.',
   NOT_FOUND: 'That is no longer here.',
   OWN_DELIVERY_NOT_READY: 'Own delivery needs your plan to include it, an active rider, and a location with its map pin and delivery area.',
@@ -30,8 +33,10 @@ export const registerShipping = (builder: StoreBuilder) => {
   const service = async (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
-    const couriers = ctx.couriers ? await ctx.couriers.forPartner(caller.person.partnerId) : null
-    return createShippingService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now, couriers })
+    const directory = ctx.couriers ?? null
+    const couriers = directory ? await directory.forStore(caller.context.storeId) : null
+    const login = directory ? { check: (...args: Parameters<typeof directory.check>) => directory.check(...args), secrets: ctx.secrets ?? null } : null
+    return createShippingService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now, couriers, login })
   }
 
   const Courier = builder.objectRef<CourierView>('ShippingCourier').implement({
@@ -41,6 +46,8 @@ export const registerShipping = (builder: StoreBuilder) => {
       // pricing, standby, failed (its login was refused) or off.
       status: t.exposeString('status'),
       offered: t.exposeBoolean('offered'),
+      // The email of the store's own login (Shiprocket's API user); the password is never returned.
+      accountEmail: t.exposeString('accountEmail', { nullable: true }),
       // scheduled (every working day) or on_request.
       pickupMode: t.exposeString('pickupMode'),
       labelSize: t.exposeString('labelSize'),
@@ -134,13 +141,15 @@ export const registerShipping = (builder: StoreBuilder) => {
         return answered(await (await service(ctx)).replaceArea(args.fileName, args.codes))
       },
     }),
-    // Answers the courier's role: pricing when no other courier prices orders, otherwise standby.
+    // Answers the courier's role: pricing when no other courier prices orders, otherwise standby. Shiprocket takes the
+    // merchant's own API user (checked with Shiprocket, then sealed, never returned); `webhookToken` is the one set on its webhook.
     connectCourier: t.string({
-      args: { provider: t.arg.string({ required: true }) },
+      args: { provider: t.arg.string({ required: true }), email: t.arg.string(), password: t.arg.string(), webhookToken: t.arg.string() },
       extensions: { access: { ...access, audit: shippingAudit.courierConnected } },
       resolve: async (_, args, ctx) => {
-        bounded(args.provider)
-        return answered(await (await service(ctx)).connect(args.provider))
+        bounded(args.provider, args.email ?? '', args.password ?? '', args.webhookToken ?? '')
+        const login = args.email != null && args.password != null ? { email: args.email, password: args.password, webhookToken: args.webhookToken } : null
+        return answered(await (await service(ctx)).connect(args.provider, login))
       },
     }),
     useCourierForPricing: t.boolean({

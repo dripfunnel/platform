@@ -9,6 +9,7 @@ const courierSchema = z.object({
   provider: z.string(),
   status: z.enum(courierStatuses),
   offered: z.boolean(),
+  accountEmail: z.string().nullable(),
   pickupMode: z.enum(['scheduled', 'on_request']),
   labelSize: z.string(),
   trackingEmails: z.boolean(),
@@ -44,7 +45,7 @@ const settingsSchema = z.object({
 export type ShippingSettings = z.infer<typeof settingsSchema>
 
 const fields =
-  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
+  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered accountEmail pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
 
 export const loadShipping = async (): Promise<ShippingSettings> => (await query(`{ shippingSettings { ${fields} } }`, z.object({ shippingSettings: settingsSchema }))).shippingSettings
 
@@ -71,9 +72,22 @@ export const saveShipping = async (revision: number, input: ShippingInput): Prom
 export const replaceDeliveryArea = async (fileName: string, codes: readonly string[]): Promise<number> =>
   (await query('mutation A($f: String!, $c: [String!]!) { replaceDeliveryArea(fileName: $f, codes: $c) }', z.object({ replaceDeliveryArea: z.number().int() }), { f: fileName, c: codes })).replaceDeliveryArea
 
+/** Shiprocket's API user as typed in the form; the password is sent once and never read back (#1489). */
+export interface CourierLogin {
+  email: string
+  password: string
+  webhookToken: string | null
+}
+
 /** Answers its status: pricing when no other courier prices orders, otherwise standby (or what it was, if connected). */
-export const connectCourier = async (provider: string): Promise<Courier['status']> =>
-  (await query('mutation C($p: String!) { connectCourier(provider: $p) }', z.object({ connectCourier: z.enum(courierStatuses) }), { p: provider })).connectCourier
+export const connectCourier = async (provider: string, login?: CourierLogin): Promise<Courier['status']> =>
+  (
+    await query(
+      'mutation C($p: String!, $e: String, $w: String, $t: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t) }',
+      z.object({ connectCourier: z.enum(courierStatuses) }),
+      { p: provider, e: login?.email ?? null, w: login?.password ?? null, t: login?.webhookToken ?? null },
+    )
+  ).connectCourier
 
 export const useCourierForPricing = async (provider: string): Promise<void> => {
   await query('mutation U($p: String!) { useCourierForPricing(provider: $p) }', z.object({ useCourierForPricing: z.boolean() }), { p: provider })

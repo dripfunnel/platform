@@ -107,14 +107,19 @@ const localLabelPdf = (lines: readonly string[]): Uint8Array<ArrayBuffer> => {
   return new TextEncoder().encode(body)
 }
 
+/** The password the local stand-in refuses, so a wrong login can be tried without Shiprocket (docs/setup/local.md §6.1). */
+export const localRefusedPassword = 'wrong-password'
+
 /**
- * Every partner has both accounts, quoting a fixed tariff within the courier's own country and booking labels with a
- * made-up tracking number, so checkout, Settings › Shipping and Ship items work locally without Shiprocket or EasyPost
- * (#275 sets the real accounts).
+ * Every store has both accounts, quoting a fixed tariff within the courier's own country and booking labels with a
+ * made-up tracking number, so checkout, Settings › Shipping and Ship items work locally without Shiprocket or EasyPost.
+ * Connecting Shiprocket checks the login against `localRefusedPassword` only.
  */
 export const localCouriers = (): CourierDirectory => ({
-  forPartner: async () => ({
+  check: async (_, login) => (login.password === localRefusedPassword ? 'rejected' : 'ok'),
+  forStore: async () => ({
     accounts: new Set(['shiprocket', 'easypost'] as const),
+    connectable: new Set(['shiprocket', 'easypost'] as const),
     gateway: {
       quote: async (provider, parcel) => {
         const tariff = localTariff[provider]

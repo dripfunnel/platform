@@ -265,8 +265,8 @@ describe('the delivery news (#311)', () => {
     // As a label booked through the courier would be (migration 0130).
     await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-40', booked_at = now() where id = ${shipment}`
     const delivered = { providerRef: null, trackingNumber: 'AWB40', status: 'delivered' as const, at: new Date('2026-10-12T10:00:00Z') }
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [delivered])).toBe(1)
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ ...delivered, at: new Date('2026-10-12T11:00:00Z') }])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [delivered])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [{ ...delivered, at: new Date('2026-10-12T11:00:00Z') }])).toBe(1)
     await relay()
     const [mail, ...again] = mailTo('Your Jaipur Looms order JL-40 was delivered')
     expect(again).toEqual([])
@@ -280,7 +280,7 @@ describe('the delivery news (#311)', () => {
     const shipment = made.ok ? (made.value[0] ?? '') : ''
     await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-41', booked_at = now() where id = ${shipment}`
     await db.sql`insert into store_courier (store_id, provider, role, label_size, tracking_emails) values (${t.storeA1}, 'shiprocket', 'pricing', 'a6', false)`
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ providerRef: null, trackingNumber: 'AWB41', status: 'delivered', at: new Date() }])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [{ providerRef: null, trackingNumber: 'AWB41', status: 'delivered', at: new Date() }])).toBe(1)
     expect(await db.sql`select 1 from outbox where kind = ${orderUpdateKind} and payload ->> 'event' = 'delivered' and payload ->> 'orderId' = ${id}`).toHaveLength(0)
     await db.sql`delete from store_courier where store_id = ${t.storeA1}`
   })

@@ -35,8 +35,10 @@ const label = (request: LabelRequest): BookedLabel => ({
   pickup: request.pickup === 'scheduled' ? { ref: 'PU-1', date: '2026-10-12' } : null,
 })
 const couriers: CourierDirectory = {
-  forPartner: async () => ({
+  check: async () => 'ok',
+  forStore: async () => ({
     accounts: new Set(['shiprocket'] as const),
+    connectable: new Set(['shiprocket'] as const),
     gateway: {
       quote: async () => null,
       book: async (provider, request) => {

@@ -1,7 +1,7 @@
 import type { SmsProvider, SmsRoute } from '#core/sms'
 import type { ScopedSql } from './index'
 
-// DripFunnel's own SMS and WhatsApp accounts (#1543, migration 0409): system scope only, every column, as the Admin API
+// DripFunnel's own SMS and WhatsApp accounts (#1543, migration 0410): system scope only, every column, as the Admin API
 // reads and writes them for staff. A partner reads only its own two switches on `partner`.
 
 export type MessagingKind = 'sms' | 'whatsapp'
