@@ -103,5 +103,5 @@ A vulnerable package is fixed by bumping the direct dependency that pulls it in.
 reason naming the advisory, and is removed once its parent catches up. Today (#1511) there are none.
 
 Known and left, until the mobile apps are worked on again: the advisories that come in through
-the Expo and Firebase packages (`zod` in `@expo/cli`, `node-forge`, `@grpc/grpc-js`,
+the Expo and Firebase packages (`zod` in `@expo/cli`, `@grpc/grpc-js`,
 `decode-uri-component`), and `picomatch` 4.0.7, which has no fixed release yet.
