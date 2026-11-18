@@ -1,12 +1,11 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
-import { ApiError, createApiClient, isApiError, typedQuery } from '@dripfunnel/shared/graphql'
-import { actingHeaders, actingStore } from '../acting'
+import { ApiError, isApiError } from '@dripfunnel/shared/graphql'
+import { actingStore } from '../acting'
 import { query } from './client'
 
 // The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it.
 const afterClockMs = 4 * 60_000
-const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 8 * 60_000 + afterClockMs }))
 /** A design run's answer is read this often, for at most a build's clock, since an ask may build at once (AI-STUDIO §4 "A design run"). */
 export const runPollMs = 3_000
 const runWaitMs = 15 * 60_000 + afterClockMs
@@ -105,12 +104,18 @@ export const askDesign = async (input: DesignRequest): Promise<string> => {
 }
 
 /** "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or Skip questions. */
-export const answerDesignQuestions = async (messageId: string, answers: readonly string[], skip: boolean, model: string | null): Promise<string> =>
-  (await slowQuery('mutation Q($id: ID!, $a: [String!]!, $s: Boolean, $m: String) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s, model: $m) { outcome } }', z.object({ answerDesignQuestions: outcomeOf }), { id: messageId, a: answers, s: skip, m: model })).answerDesignQuestions.outcome
+export const answerDesignQuestions = async (messageId: string, answers: readonly string[], skip: boolean, model: string | null): Promise<string> => {
+  const run = crypto.randomUUID()
+  await query('mutation Q($id: ID!, $a: [String!]!, $s: Boolean, $m: String, $run: ID!) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s, model: $m, run: $run) }', z.object({ answerDesignQuestions: z.string() }), { id: messageId, a: answers, s: skip, m: model, run })
+  return runOutcome(run)
+}
 
 /** A change to the open plan, asked in words; it takes no new AI request. */
-export const changeDesignPlan = async (messageId: string, words: string, model: string | null): Promise<string> =>
-  (await slowQuery('mutation C($id: ID!, $t: String!, $m: String) { changeDesignPlan(messageId: $id, text: $t, model: $m) { outcome } }', z.object({ changeDesignPlan: outcomeOf }), { id: messageId, t: words, m: model })).changeDesignPlan.outcome
+export const changeDesignPlan = async (messageId: string, words: string, model: string | null): Promise<string> => {
+  const run = crypto.randomUUID()
+  await query('mutation C($id: ID!, $t: String!, $m: String, $run: ID!) { changeDesignPlan(messageId: $id, text: $t, model: $m, run: $run) }', z.object({ changeDesignPlan: z.string() }), { id: messageId, t: words, m: model, run })
+  return runOutcome(run)
+}
 
 /** Build it: every planned page, home first; cancelDesign ends it after the page being built. */
 export const buildDesignPlan = async (messageId: string, model: string | null): Promise<string> => {

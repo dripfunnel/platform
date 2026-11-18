@@ -4,10 +4,10 @@ import type { TenantContext } from '#core/tenancy'
 import type { DesignRefusal, DesignResult } from './service'
 import type { AskAnswer } from './studio'
 
-// askDesign's and buildDesignPlan's runs on the DesignRun Workflow (storefront AI-STUDIO §4 "A design run"). Its params
+// The studio's AI requests as runs on the DesignRun Workflow (storefront AI-STUDIO §4 "A design run"). Its params
 // carry ids only: the request itself waits in the store's StudioSession until the run takes it.
 
-export type DesignRunParams = { kind: 'ask' | 'build'; run: string; context: TenantContext; actor: { id: string; partnerId: string }; role: StoreRole }
+export type DesignRunParams = { kind: RunRequest['kind']; run: string; context: TenantContext; actor: { id: string; partnerId: string }; role: StoreRole }
 
 export type DesignRunState = { state: 'running' } | { state: 'complete'; output: unknown } | { state: 'failed' } | { state: 'missing' }
 
@@ -32,9 +32,11 @@ const askInput = z.object({
 })
 const askRun = z.object({ kind: z.literal('ask'), input: askInput })
 const buildRun = z.object({ kind: z.literal('build'), messageId: z.string(), model: z.string().nullable() })
-export type RunRequest = z.infer<typeof askRun> | z.infer<typeof buildRun>
+const questionsRun = z.object({ kind: z.literal('questions'), messageId: z.string(), answers: z.array(z.string()), skip: z.boolean(), model: z.string().nullable() })
+const planChangeRun = z.object({ kind: z.literal('planChange'), messageId: z.string(), text: z.string(), model: z.string().nullable() })
+export type RunRequest = z.infer<typeof askRun> | z.infer<typeof buildRun> | z.infer<typeof questionsRun> | z.infer<typeof planChangeRun>
 /** What the studio holds for a run: the request and its facts (LOGGING §4.1), never logged or put in params. */
-export const heldRun = z.discriminatedUnion('kind', [askRun.extend({ facts }), buildRun.extend({ facts })])
+export const heldRun = z.discriminatedUnion('kind', [askRun.extend({ facts }), buildRun.extend({ facts }), questionsRun.extend({ facts }), planChangeRun.extend({ facts })])
 export type HeldRun = z.infer<typeof heldRun>
 
 /** The job's answer as plain JSON (a Workflow's output); messageId null when the run found nothing to take. */

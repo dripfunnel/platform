@@ -47,6 +47,18 @@ describe('a design run', () => {
     expect(sent.slice(1).every((s) => s.variables['r'] === run)).toBe(true)
   })
 
+  it('answers questions and changes a plan as runs too, never one long request', async () => {
+    vi.useFakeTimers()
+    const sent = serve(({ query }) => (query.startsWith('mutation') ? { data: { answerDesignQuestions: 'r', changeDesignPlan: 'r' } } : { data: { designRun: { outcome: 'asked' } } }))
+    const { answerDesignQuestions, changeDesignPlan, runPollMs } = await import('./studio')
+    const answered = answerDesignQuestions('m1', ['Sarees'], false, null)
+    const changed = changeDesignPlan('m1', 'No blog', null)
+    await vi.advanceTimersByTimeAsync(runPollMs)
+    expect([await answered, await changed]).toEqual(['asked', 'asked'])
+    const starts = sent.filter((s) => s.query.startsWith('mutation'))
+    expect(starts.map((s) => s.variables['run'])).toEqual([expect.stringMatching(/^[0-9a-f-]{36}$/), expect.stringMatching(/^[0-9a-f-]{36}$/)])
+  })
+
   it('throws the API’s refusal, from the start or from the run, as the request did', async () => {
     serve(() => ({ data: { buildDesignPlan: null }, errors: [{ message: 'Queued', extensions: { code: 'STUDIO_QUEUED', place: 2 } }] }))
     const { buildDesignPlan } = await import('./studio')

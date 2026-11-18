@@ -1,4 +1,4 @@
-import { createStudioService, designAudit, flowOf, type AskAnswer, type AskInput, type DesignRunOutput, type DesignRunParams, type DesignQuestion, type PlanFlow, type RunAnswer, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
+import { createStudioService, designAudit, flowOf, type AskInput, type DesignRunOutput, type DesignRunParams, type DesignQuestion, type PlanFlow, type RunAnswer, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
 import type { MessageRow } from '#db/scoped/design'
 import type { StockPhoto } from '#integrations/stockImages/pixabay'
 import { decodeCursor, encodeCursor } from '#core/cursor'
@@ -121,16 +121,10 @@ export const registerStudio = (builder: StoreBuilder) => {
       next: t.exposeString('next', { nullable: true }),
     }),
   })
-  const Answer = builder.objectRef<AskAnswer>('DesignAnswer').implement({
+  const RunAnswerRef = builder.objectRef<RunAnswer>('DesignRunAnswer').implement({
     fields: (t) => ({
       // changed, unchanged (asked for nothing the theme holds, or declined), refused (failed the checks), failed, cancelled,
       // or asked: the AI answered a vague request with questions or a plan, the message (#1243).
-      outcome: t.exposeString('outcome'),
-      message: t.field({ type: Message, resolve: (a) => a.message }),
-    }),
-  })
-  const RunAnswerRef = builder.objectRef<RunAnswer>('DesignRunAnswer').implement({
-    fields: (t) => ({
       outcome: t.exposeString('outcome'),
       // Null when the run found nothing to do: stopped before it began.
       message: t.field({ type: Message, nullable: true, resolve: (a) => a.message }),
@@ -173,7 +167,7 @@ export const registerStudio = (builder: StoreBuilder) => {
       extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none' } },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).stockSearch(args.query, args.page)).photos,
     }),
-    // A run askDesign or buildDesignPlan started (AI-STUDIO §4 "A design run"): null while it works. The Owner's access, as
+    // A run askDesign, answerDesignQuestions, changeDesignPlan or buildDesignPlan started (AI-STUDIO §4 "A design run"): null while it works. The Owner's access, as
     // to start one; a support session acting as the Owner reads it as it reads the chat.
     designRun: t.field({
       type: RunAnswerRef,
@@ -202,18 +196,17 @@ export const registerStudio = (builder: StoreBuilder) => {
       },
     }),
     // #1243: "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or skip.
-    answerDesignQuestions: t.field({
-      type: Answer,
-      args: { messageId: t.arg.id({ required: true }), answers: t.arg.stringList({ required: true }), skip: t.arg.boolean(), model: t.arg.string() },
+    answerDesignQuestions: t.id({
+      args: { messageId: t.arg.id({ required: true }), answers: t.arg.stringList({ required: true }), skip: t.arg.boolean(), model: t.arg.string(), run: t.arg.id({ required: true }) },
       extensions: { access: designWrite(designAudit.questionsAnswered) },
-      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).answerQuestions(String(args.messageId), args.answers, args.skip ?? false, args.model ?? null)),
+      resolve: async (_, args, ctx: StoreContext) =>
+        answered(await studioFor(ctx).startRun({ kind: 'questions', messageId: String(args.messageId), answers: args.answers, skip: args.skip ?? false, model: args.model ?? null }, String(args.run))),
     }),
     // A change to the open plan, asked in words; part of the same request, at most three times.
-    changeDesignPlan: t.field({
-      type: Answer,
-      args: { messageId: t.arg.id({ required: true }), text: t.arg.string({ required: true }), model: t.arg.string() },
+    changeDesignPlan: t.id({
+      args: { messageId: t.arg.id({ required: true }), text: t.arg.string({ required: true }), model: t.arg.string(), run: t.arg.id({ required: true }) },
       extensions: { access: designWrite(designAudit.planChanged) },
-      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).changePlan(String(args.messageId), args.text, args.model ?? null)),
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).startRun({ kind: 'planChange', messageId: String(args.messageId), text: args.text, model: args.model ?? null }, String(args.run))),
     }),
     // Build it: every planned page, home first, each through the checks; cancelDesign stops it after the current page.
     buildDesignPlan: t.id({
