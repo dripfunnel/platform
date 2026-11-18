@@ -50,6 +50,15 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
     )
   }
 
+  // The store's setting isn't known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).
+  if (!s.waysKnown) {
+    return (
+      <section className={styles.auth} aria-busy="true">
+        <h1 className={styles.title}>{title}</h1>
+      </section>
+    )
+  }
+
   const byPhone = purpose === 'signIn' && (channel === 'phone' || !s.ways.email)
   const tabs = purpose === 'signIn' && s.ways.email && s.ways.phone
   const sentTo = s.sent?.to ?? ''
