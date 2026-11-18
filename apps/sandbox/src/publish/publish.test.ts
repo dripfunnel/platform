@@ -398,23 +398,18 @@ describe.skipIf(!chrome)('step check', () => {
       let x = seed
       return Array.from({ length: 11_000 }, () => (x = (x * 1103515245 + 12345) % 2147483648) % 1000000).join(', ')
     }
-    const table = (n: number) => `export const table${n} = [${digits(n + 7)}]\n`
+    // Ten tables of 85 KB each, as one file may hold at most 100 KB (guard/files.ts), clear the 200 KB JavaScript budget.
+    const tables = Array.from({ length: 10 }, (_, i) => i + 1)
     const source = await sourceOf('broken', {
-      'src/theme/components/interactive/tableA.tsx': table(1),
-      'src/theme/components/interactive/tableB.tsx': table(2),
-      'src/theme/components/interactive/tableC.tsx': table(3),
-      'src/theme/components/interactive/tableD.tsx': table(4),
+      ...Object.fromEntries(tables.map((n) => [`src/theme/components/interactive/table${n}.tsx`, `export const table${n} = [${digits(n + 7)}]\n`])),
       'src/theme/components/interactive/Heavy.tsx': [
         "'use client'",
         '',
         "import { useMemo } from 'react'",
-        "import { table1 } from './tableA'",
-        "import { table2 } from './tableB'",
-        "import { table3 } from './tableC'",
-        "import { table4 } from './tableD'",
+        ...tables.map((n) => `import { table${n} } from './table${n}'`),
         '',
         'export const Heavy = () => {',
-        '  const total = useMemo(() => table1.length + table2.length + table3.length + table4.length, [])',
+        `  const total = useMemo(() => ${tables.map((n) => `table${n}.length`).join(' + ')}, [])`,
         '  return <span data-total={total} />',
         '}',
         '',
@@ -452,7 +447,7 @@ describe.skipIf(!chrome)('step check', () => {
     expect(report.passed).toBe(false)
     expect(failed['sealed']).toContain('The "powered" component on the home page isn\'t seen: something covers its centre.')
     expect(failed['checkout']).toContain('The checkout page at 390 px can\'t be used')
-    expect(failed['budgets']).toMatch(/^Home page loads [\d.]+ KB of JavaScript gzipped, over the 90.0 KB budget\./)
+    expect(failed['budgets']).toMatch(/^Home page loads [\d.]+ KB of JavaScript gzipped, over the 200.0 KB budget\./)
     expect(failed['no-js']).toContain("main heading is empty without JavaScript.")
     expect(report.checks.find((c) => c.name === 'validator')).toEqual({ name: 'validator', passed: true })
   })
