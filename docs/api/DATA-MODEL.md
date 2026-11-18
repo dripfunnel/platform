@@ -2648,7 +2648,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   `story_block` or `store.logo_asset_id` reference whose owner row passes that visibility
   rule, or any of the store's product photos whatever its product's state (#1465, 0398's
   `asset_is_product_photo`: a cart line keeps its photo; a shopper may list and fetch a hidden
-  product's photo, decided 2026-11-18), and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
+  product's photo, accepted on #1582), and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
   `customer_data_request`, `catalog_import` or `delivery_area` (the matrix row: a shopper selecting
   an invoice asset by id gets nothing; a catalogue export keeps its file on its `catalog_export`
   row, never as an asset); `order_line`, `order_part`
