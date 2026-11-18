@@ -75,6 +75,73 @@ describe('SizeChart', () => {
     expect(screen.getByRole('table', { name: '' })).toBeTruthy()
   })
 
+  describe('the cm | in switch (#1571)', () => {
+    const baby: Chart = {
+      name: 'Baby',
+      unit: 'cm',
+      measurements: ['Baby height', 'Baby weight (kg)', 'Fit'],
+      rows: [{ size: '0–3m', values: ['55–61', '4–6', 'Snug'] }, { size: '3–6m', values: ['62', '6.5', 'Roomy'] }],
+    }
+    const cells = (dialog: HTMLElement) => within(dialog).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell').map((c) => c.textContent))
+    const heads = (dialog: HTMLElement) => within(dialog).getAllByRole('columnheader').map((h) => h.textContent)
+
+    it('opens in the saved unit, with that unit picked, and offers the other', async () => {
+      const { dialog } = await opened(baby)
+      expect(within(dialog).getByRole('button', { name: 'cm' }).getAttribute('aria-pressed')).toBe('true')
+      expect(within(dialog).getByRole('button', { name: 'in' }).getAttribute('aria-pressed')).toBe('false')
+      expect(cells(dialog)[0]).toEqual(['55–61', '4–6', 'Snug'])
+      cleanup()
+      const inches = await opened({ ...baby, unit: 'in', measurements: ['Baby height', 'Baby weight (lb)', 'Fit'], rows: [{ size: '0–3m', values: ['21.7–24', '8.8–13.2', 'Snug'] }] })
+      expect(within(inches.dialog).getByRole('button', { name: 'in' }).getAttribute('aria-pressed')).toBe('true')
+      expect(screen.getByText('Measurements are in inches.')).toBeTruthy()
+      fireEvent.click(within(inches.dialog).getByRole('button', { name: 'cm' }))
+      expect(cells(inches.dialog)[0]).toEqual(['55.1–61', '4–6', 'Snug'])
+      expect(heads(inches.dialog)).toEqual(['Size', 'Baby height', 'Baby weight (kg)', 'Fit'])
+      expect(screen.getByText('Measurements are in centimetres.')).toBeTruthy()
+    })
+
+    it('converts lengths and ranges, and weights kg ↔ lb with the column’s name, leaving sizes and words as typed', async () => {
+      const { dialog } = await opened(baby)
+      fireEvent.click(within(dialog).getByRole('button', { name: 'in' }))
+      expect(cells(dialog)).toEqual([['21.7–24', '8.8–13.2', 'Snug'], ['24.4', '14.3', 'Roomy']])
+      expect(heads(dialog)).toEqual(['Size', 'Baby height', 'Baby weight (lb)', 'Fit'])
+      expect(within(dialog).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['0–3m', '3–6m'])
+      expect(within(dialog).getByRole('button', { name: 'in' }).getAttribute('aria-pressed')).toBe('true')
+      expect(screen.getByText('Measurements are in inches.')).toBeTruthy()
+    })
+
+    it('gives the merchant’s own numbers and names back when switched back', async () => {
+      const { dialog } = await opened(baby)
+      fireEvent.click(within(dialog).getByRole('button', { name: 'in' }))
+      fireEvent.click(within(dialog).getByRole('button', { name: 'cm' }))
+      expect(cells(dialog)).toEqual(baby.rows.map((r) => r.values))
+      expect(heads(dialog)).toEqual(['Size', ...baby.measurements])
+      expect(screen.getByText('Measurements are in centimetres.')).toBeTruthy()
+    })
+
+    it('leaves a size system’s cells alone when the row carries them before the measurements', async () => {
+      const { dialog } = await opened({ ...baby, measurements: ['Chest'], rows: [{ size: 'M', values: ['10', '96–101'] }] })
+      fireEvent.click(within(dialog).getByRole('button', { name: 'in' }))
+      expect(cells(dialog)).toEqual([['10', '37.8–39.8']])
+    })
+
+    it('switches with the keyboard: the buttons are tab stops that Enter and Space press', async () => {
+      const { dialog } = await opened(baby)
+      const inches = within(dialog).getByRole('button', { name: 'in' }) as HTMLButtonElement
+      expect(inches.type).toBe('button')
+      expect(inches.tabIndex).toBe(0)
+      inches.focus()
+      fireEvent.click(inches)
+      expect(inches.getAttribute('aria-pressed')).toBe('true')
+      expect(within(dialog).getByRole('group', { name: 'Show measurements in' })).toBeTruthy()
+    })
+
+    it('offers no switch for a unit it doesn’t know', async () => {
+      const { dialog } = await opened({ ...baby, unit: null })
+      expect(within(dialog).queryByRole('group')).toBeNull()
+    })
+  })
+
   it('puts only the link in built HTML, not the table', () => {
     const html = renderToString(drawn())
     expect(html).toContain('Size chart')

@@ -58,6 +58,15 @@ export const chartProblem = (d: ChartDraft): ChartProblem | null => {
 }
 
 const numeric = /^\d+(\.\d+)?([–-]\d+(\.\d+)?)?$/
+// The storefront's rule (core's sizeChartUnits.ts, #1571): a weight column is kg in a cm chart and lb in an inch chart.
+const weightName = /weight|\bkg\b|\blbs?\b/i
+const lbPerKg = 2.2046
+
+/** The measurements, and the notes that name them, with a weight column's kg or lb following the unit. */
+const withWeightUnitNamed = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
+  const name = (m: string) => (weightName.test(m) ? m.replace(unit === 'cm' ? /\blbs?\b/gi : /\bkg\b/gi, unit === 'cm' ? 'kg' : 'lb') : m)
+  return { ...d, measurements: d.measurements.map(name), howToMeasure: d.howToMeasure.map((h) => ({ ...h, measurement: name(h.measurement) })) }
+}
 
 /**
  * The measurements in the other unit, rounded to one decimal; sizes, size systems and words stay as typed. Always
@@ -67,9 +76,11 @@ export const inUnit = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
   if (unit === d.unit) return d
   const untouched = d.typed !== undefined && JSON.stringify(d.typed.shown) === JSON.stringify(d.rows)
   const base = untouched && d.typed ? { unit: d.typed.unit, rows: d.typed.rows } : { unit: d.unit, rows: d.rows }
-  if (base.unit === unit) return { ...d, unit, rows: base.rows, typed: undefined }
-  const factor = unit === 'cm' ? 2.54 : 1 / 2.54
-  const convert = (v: string) =>
+  if (base.unit === unit) return withWeightUnitNamed({ ...d, unit, rows: base.rows, typed: undefined }, unit)
+  const length = unit === 'cm' ? 2.54 : 1 / 2.54
+  const weight = unit === 'cm' ? 1 / lbPerKg : lbPerKg
+  const factors = d.measurements.map((m) => (weightName.test(m) ? weight : length))
+  const convert = (v: string, factor: number) =>
     numeric.test(v.trim())
       ? v
           .trim()
@@ -77,8 +88,8 @@ export const inUnit = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
           .map((part) => (/^[\d.]+$/.test(part) ? String(Math.round(Number(part) * factor * 10) / 10) : part))
           .join('')
       : v
-  const rows = base.rows.map((r) => ({ ...r, values: r.values.map((v, i) => (i < d.systems.length ? v : convert(v))) }))
-  return { ...d, unit, rows, typed: { ...base, shown: rows } }
+  const rows = base.rows.map((r) => ({ ...r, values: r.values.map((v, i) => (i < d.systems.length ? v : convert(v, factors[i - d.systems.length] ?? length))) }))
+  return withWeightUnitNamed({ ...d, unit, rows, typed: { ...base, shown: rows } }, unit)
 }
 
 /** Column `i` of the systems-then-measurements columns renamed; a measurement takes its how-to-measure note with it. */
