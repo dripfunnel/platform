@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -199,7 +199,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.
-5. **`/shop-api/*` goes to the API Worker only after the full re-check of step 4** (the slug
+5. **`/shop-api/*` goes to the API Worker (its placed default `fetch`, #1292) only after the full re-check of step 4** (the slug
    isn't secret, so the hostname alone opens nothing: no test-mode cart or checkout either). The
    API Worker finds the store from the slug in the hostname
    ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.

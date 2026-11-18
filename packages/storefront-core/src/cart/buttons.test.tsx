@@ -84,6 +84,54 @@ describe('AddToCart and BuyNow', () => {
   })
 })
 
+describe('telling the theme it is busy (#1292)', () => {
+  it('gives a function child `busy` while the engine answers, marks the button aria-busy, and goes back after', async () => {
+    let answer = () => {}
+    shopAnswering(() => new Promise((resolve) => (answer = () => resolve({ data: { addToCart: { cartToken: 't', cart: cartOf([line('v1', 1)]) } } }))))
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="v1">{({ busy }) => (busy ? 'Adding…' : 'Add')}</AddToCart>
+      </Provided>,
+    )
+    const button = screen.getByRole('button', { name: 'Add' })
+    expect(button.getAttribute('aria-busy')).toBeNull()
+    await act(async () => void fireEvent.click(button))
+    expect(screen.getByRole('button', { name: 'Adding…' })).toBe(button)
+    expect(button.getAttribute('aria-busy')).toBe('true')
+    expect(button).toHaveProperty('disabled', true)
+    await act(async () => answer())
+    expect(screen.getByRole('button', { name: 'Add' })).toBe(button)
+    expect(button.getAttribute('aria-busy')).toBeNull()
+    expect(button).toHaveProperty('disabled', false)
+  })
+
+  it('does the same for a plain child as before: no busy to read, and still disabled until the answer', async () => {
+    let answer = () => {}
+    shopAnswering(() => new Promise((resolve) => (answer = () => resolve({ data: { addToCart: { cartToken: 't', cart: cartOf([line('v1', 1)]) } } }))))
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="v1">Add</AddToCart>
+      </Provided>,
+    )
+    const button = screen.getByRole('button', { name: 'Add' })
+    await act(async () => void fireEvent.click(button))
+    expect(button).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Add' })).toBe(button)
+    await act(async () => answer())
+  })
+
+  it('tells a failed add’s theme busy ended too', async () => {
+    shopAnswering(() => ({ errors: [{ message: 'gone', extensions: { code: 'UNAVAILABLE' } }] }))
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="v1">{({ busy }) => (busy ? 'Adding…' : 'Add')}</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    expect(screen.getByRole('button', { name: 'Add' }).getAttribute('aria-busy')).toBeNull()
+  })
+})
+
 describe('when the engine refuses', () => {
   it('tells the theme the add failed, and buy now stays on the page', async () => {
     const assign = vi.fn()
