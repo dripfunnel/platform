@@ -84,7 +84,7 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[]; lastTurn: string; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', turns: [] }
+const script: { answers: string[]; sent: string[]; lastTurn: string; results: string[]; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', results: [], turns: [] }
 const reply = (files: FileEdit[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
@@ -102,9 +102,12 @@ const provider: AiProvider = {
     // A conversation's first turn is recorded like a plain call, with the tools it was offered (#1242: every change has the store lookups).
     const first = call.messages[0]?.content.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join('\n\n') ?? ''
     if (call.messages.length === 1) script.sent.push(`[tools: ${call.tools.map((t) => t.name).join(' ')}] ${first}`)
-    // The model can call only the tools it was offered.
+    const newest = call.messages.at(-1)
+    if (newest?.role === 'tool') script.results.push(JSON.stringify(newest.content))
+    // The model can call only the tools it was offered; an empty turn answers in words from `answers`.
     const next = script.turns[0]
-    if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
+    if (next?.length === 0) script.turns.shift()
+    else if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
       script.turns.shift()
       return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
     }
@@ -123,6 +126,8 @@ let aiMode: 'plan' | 'none' = 'plan'
 let providerFails: Error | null = null
 /** The studio's RPC fails before it reaches the model (a Durable Object fault). */
 let studioDown = false
+/** The studio's place in the queue its status answers, as the Durable Object does while waiting for room. */
+let queuedAt: number | null = null
 let askedModel: string | null = null
 /** When set, the next model call waits on it, so a test can stop a change mid-thought. */
 let hold: Promise<void> | null = null
@@ -155,9 +160,17 @@ const lookup: DnsLookup = { resolve: async (name, type) => dns[`${name} ${type}`
 const enPages = () => template.find((f) => f.path === 'content/en/pages.json')?.content ?? ''
 const lead = (words: string) => ({ path: 'content/en/pages.json', content: enPages().replace(/"lead": "[^"]*"/, `"lead": "${words}"`) })
 const refusedPage = { path: 'src/theme/pages/HomePage.tsx', content: "export const HomePage = () => { fetch('/x'); return null }\n" }
+const original = (path: string) => template.find((f) => f.path === path)?.content ?? ''
+const tool = (id: string, name: string, args: object) => ({ id, name, arguments: JSON.stringify(args) })
+const finish = (id: string) => tool(id, 'finish', { reply: 'I made the lead warmer.', changed: ['Hero lead'], page: 'home' })
+/** A repair keeps the refused copy (AI-STUDIO §4 "The agent"), so it puts the page back, writes the lead, checks and finishes. */
+const repairTurns = (words: string) => [[], [tool('r1', 'write_file', { path: refusedPage.path, content: original(refusedPage.path) }), tool('r2', 'write_file', lead(words)), tool('r3', 'check', {}), finish('r4')]]
+const refusedRepair = 'Your working copy still holds it: fix these, check, then finish:\n- src/theme/pages/HomePage.tsx:1 code/browser-global:'
 
 const ask = (who: Who, text: string, extra: Record<string, unknown> = {}) =>
-  w.gql(who, 'mutation A($text: String!, $image: ID, $site: String, $model: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $site, model: $model, page: "home", device: "desktop") { outcome message { id role text changed page canUndo } } }', { text, ...extra })
+  w.designed(who, 'mutation A($text: String!, $image: ID, $site: String, $model: String, $run: ID!) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $site, model: $model, page: "home", device: "desktop", run: $run) }', { text, ...extra }, 'askDesign', 'outcome message { id role text changed page canUndo }')
+const chat = (who: Who, variables: Record<string, unknown>, selection: string) =>
+  w.designed(who, 'mutation A($text: String!, $run: ID!) { askDesign(text: $text, page: "home", device: "desktop", mode: "chat", run: $run) }', variables, 'askDesign', selection)
 const draft = async (storeId: string) => (await db.sql<{ head_commit: string; preview_deploy_ref: string; commits: string[] }[]>`select head_commit, preview_deploy_ref, commits from design_draft where store_id = ${storeId}`)[0] ?? null
 const usage = async (storeId: string) => (await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = 'ai_prompts'`)[0]?.used ?? 0
 const texts = async (who: Who, locale = 'en-IN') => (await w.gql(who, 'query T($l: String!) { designText(page: "home", locale: $l) { key text } }', { l: locale })).data?.['designText'] as { key: string; text: string }[] | undefined
@@ -171,7 +184,11 @@ beforeAll(async () => {
     lookup,
     studio: (context) => {
       const studio = local.studio(context)
-      return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
+      return {
+        ...studio,
+        status: (storeId) => (queuedAt === null ? studio.status(storeId) : Promise.resolve({ state: 'queued' as const, place: queuedAt })),
+        change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)),
+      }
     },
     extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, allowStock: async () => stockBudget-- > 0, siteRepos: async () => (siteText === null ? null : ({ themeText: async () => siteText }) as never) },
   })
@@ -215,18 +232,35 @@ describe('asking for a change', () => {
   })
 
   it('takes a whole brief of 10,000 characters, in a script of three bytes a character too, and gives the model all of it', async () => {
-    script.answers = [reply([lead('Warm linen, cut slowly.')])]
+    // Over 1,500 characters a brief is planned, then built at once step by step (AI-STUDIO §4 "A plan").
+    const plan = { plan: { header: null, footer: null, pages: [{ page: 'home', title: 'Home', sections: ['A warm linen hero'] }] }, reply: 'Here is the plan.' }
+    script.answers = [JSON.stringify(plan), reply([lead('Ten thousand characters, built.')])]
     const brief = 'क'.repeat(9_999) + '।'
-    expect((await ask('owner', brief)).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
-    expect(script.sent.at(-1)).toContain(brief)
-    const [saved] = await db.sql<{ n: number }[]>`select char_length(text) as n from design_message where store_id = ${t.storeA1} and role = 'user' order by created_at desc limit 1`
-    expect(saved?.n).toBe(10_000)
+    const sent = script.sent.length
+    const used = await usage(t.storeA1)
+    try {
+      expect((await ask('owner', brief)).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+      const [planned, built] = script.sent.slice(sent)
+      expect(planned).toContain(`This request is a long brief: answer with a plan`)
+      expect(planned).toContain(brief)
+      expect(built).toContain(`The merchant first asked: ${brief.slice(0, 100)}`)
+      expect(script.sent).toHaveLength(sent + 2)
+      const [saved] = await db.sql<{ n: number }[]>`select char_length(text) as n from design_message where store_id = ${t.storeA1} and role = 'user' order by created_at desc limit 1`
+      expect(saved?.n).toBe(10_000)
+    } finally {
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    }
   })
 
   it('repairs a failing change from the exact errors; the repairs are the platform’s and don’t count on the meter', async () => {
-    script.answers = [reply([refusedPage]), reply([lead('Repaired lead.')])]
-    expect((await ask('owner', 'A change needing one repair')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
-    expect(script.sent.at(-1)).toContain('failed these checks')
+    script.answers = [reply([refusedPage])]
+    script.turns = repairTurns('Repaired lead.')
+    try {
+      expect((await ask('owner', 'A change needing one repair')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    } finally {
+      script.turns = []
+    }
+    expect(script.sent.at(-1)).toContain(refusedRepair)
     const runs = await db.sql<{ kind: string; billed_to: string }[]>`select kind, billed_to from ai_run where store_id = ${t.storeA1} order by created_at desc limit 2`
     expect(runs.map((r) => `${r.kind}:${r.billed_to}`).sort()).toEqual(['design:plan', 'repair:platform'])
     expect(await usage(t.storeA1)).toBe(2)
@@ -234,18 +268,42 @@ describe('asking for a change', () => {
 
   it('shows each repair the answer of the attempt before it, and the first ask none', async () => {
     const second = { path: 'src/theme/pages/AboutPage.tsx', content: "export const AboutPage = () => { fetch('/y'); return null }\n" }
-    const deletion = { path: 'src/theme/components/Gone.tsx', delete: true as const }
-    script.answers = [reply([refusedPage, deletion]), reply([second]), reply([lead('Third time.')])]
-    expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    const gone = 'src/theme/styles/page.module.css'
+    const look = (id: string) => [tool(`${id}a`, 'read_file', { path: refusedPage.path }), tool(`${id}b`, 'read_file', { path: second.path }), tool(`${id}c`, 'list_files', {})]
+    script.answers = [reply([refusedPage, { path: gone, delete: true }])]
+    script.turns = [
+      [],
+      look('1'),
+      [tool('1d', 'write_file', { path: refusedPage.path, content: original(refusedPage.path) }), tool('1e', 'write_file', { path: gone, content: original(gone) }), tool('1f', 'write_file', second), tool('1g', 'check', {}), finish('1h')],
+      [finish('1i')],
+      look('2'),
+      [tool('2d', 'write_file', { path: second.path, content: original(second.path) }), tool('2e', 'write_file', lead('Third time.')), tool('2f', 'check', {}), finish('2g')],
+    ]
+    const results = script.results.length
+    try {
+      expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    } finally {
+      script.turns = []
+    }
     const [first, repair, again] = script.sent.slice(-3)
-    const marker = "Your last answer's files, which failed and were not kept:"
+    const marker = 'Your working copy still holds it'
     expect(first).not.toContain(marker)
-    expect(repair).toContain(`${marker}\n${JSON.stringify([refusedPage, deletion])}`)
-    expect(again).toContain(`${marker}\n${JSON.stringify([second])}`)
-    expect(again).not.toContain(JSON.stringify(refusedPage))
+    expect(repair).toContain(`${marker}: fix these, check, then finish:\n`)
+    expect(repair).toContain('- src/theme/pages/HomePage.tsx:1 code/browser-global:')
+    expect(repair).toContain(`- src/theme/pages/AboutPage.tsx:3 code/import-not-allowed: "../styles/page.module.css"`)
+    expect(again).toContain(`${marker}: fix these, check, then finish:\n- src/theme/pages/AboutPage.tsx:1 code/browser-global:`)
+    expect(again).not.toContain('HomePage.tsx:1')
+    // What each repair's first look read: the copy the attempt before it left, never an older one.
+    const [seen1, , seen2] = script.results.slice(results)
+    expect(seen1).toContain("fetch('/x')")
+    expect(seen1).not.toContain("fetch('/y')")
+    expect(seen1).not.toContain(`${gone} `)
+    expect(seen2).toContain("fetch('/y')")
+    expect(seen2).not.toContain("fetch('/x')")
+    expect(seen2).toContain(`${gone} `)
   })
 
-  it('refuses a change still failing after three repairs and leaves the draft as it was', async () => {
+  it('refuses a change still failing after five repairs and leaves the draft as it was', async () => {
     const before = await draft(t.storeA1)
     script.answers = [reply([refusedPage]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage])]
     expect((await ask('owner', 'Fetch something')).data?.['askDesign']).toMatchObject({ outcome: 'refused', message: { role: 'error', text: 'change_refused' } })
@@ -419,7 +477,7 @@ describe('asking for a change', () => {
     const used = await usage(t.storeA1)
     const sent = script.sent.length
     script.answers = ['Warmer colours would suit linen. Switch to Change mode to apply them.']
-    const said = await w.gql('owner', 'mutation A($text: String!) { askDesign(text: $text, page: "home", device: "desktop", mode: "chat") { outcome message { role text changed canUndo } } }', { text: 'What would suit linen?' })
+    const said = await chat('owner', { text: 'What would suit linen?' }, 'outcome message { role text changed canUndo }')
     expect(said.code).toBeUndefined()
     expect(said.data?.['askDesign']).toEqual({ outcome: 'unchanged', message: { role: 'ai', text: 'Warmer colours would suit linen. Switch to Change mode to apply them.', changed: [], canUndo: false } })
     expect(script.sent.length).toBe(sent + 1)
@@ -432,10 +490,10 @@ describe('asking for a change', () => {
     const used = await usage(t.storeA1)
     try {
       providerFails = new SignInExpired()
-      expect((await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')).data?.['askDesign']).toEqual({ outcome: 'failed' })
+      expect((await chat('owner', { text: 'Hi' }, 'outcome')).data?.['askDesign']).toEqual({ outcome: 'failed' })
       expect(await usage(t.storeA1)).toBe(used)
       providerFails = new GatewayError('TIMEOUT')
-      await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')
+      await chat('owner', { text: 'Hi' }, 'outcome')
       expect(await usage(t.storeA1)).toBe(used + 1)
     } finally {
       providerFails = null
@@ -529,6 +587,10 @@ describe('asking for a change', () => {
       expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
     }
     expect((await w.support(cookie, t.partnerA, 'query { libraryAssets { assets { id } } }')).code).toBeUndefined()
+    const runQuery = `query { designRun(run: "${crypto.randomUUID()}") { outcome } }`
+    expect((await w.gql('manager', runQuery)).code).toBe('FORBIDDEN')
+    // A support session reads, as it reads the chat; only in its store, and it can't start a run.
+    expect((await w.support(cookie, t.partnerA, runQuery)).code).toBe('NOT_FOUND')
     expect((await w.gql('manager', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBe('FORBIDDEN')
     expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
     // The studio's wake is a write like the rest, so a read-only session waits for an Allow (#1241, #1344).
@@ -806,11 +868,13 @@ describe('the live progress socket (#1237)', () => {
 
   it('sends every step of a change in order, each repair included, and leaves askDesign’s answer as it was', async () => {
     await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
-    script.answers = [reply([refusedPage]), reply([lead('Live, on the second try.')])]
-    const asked = await ask('owner', 'A change shown as it happens')
+    script.answers = [reply([refusedPage])]
+    script.turns = repairTurns('Live, on the second try.')
+    const asked = await ask('owner', 'A change shown as it happens').finally(() => (script.turns = []))
     expect(asked).toMatchObject({ code: undefined, data: { askDesign: { outcome: 'changed', message: { role: 'ai', text: 'I made the lead warmer.', changed: ['Hero lead'], page: 'home', canUndo: true } } } })
     const events = runOf(t.storeA1)
-    expect(named(events)).toEqual(['reading', 'asking', 'text', 'checking', 'repairing 1 of 3', 'checking', 'saving', 'updating', 'done'])
+    // The repair's own steps: its writes, its check, then the runner's gate (AI-STUDIO §4 "Live progress").
+    expect(named(events)).toEqual(['reading', 'asking', 'text', 'checking', 'repairing 1 of 5', 'editing', 'checking', 'checking', 'saving', 'updating', 'done'])
     expect(events.find((e) => e.type === 'text')).toEqual({ type: 'text', text: 'I made the lead warmer.' })
     const message = (asked.data?.['askDesign'] as { message: { id: string } }).message
     expect(events.at(-1)).toEqual({ type: 'done', outcome: 'changed', messageId: message.id })
@@ -823,14 +887,14 @@ describe('the live progress socket (#1237)', () => {
     await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
     script.answers = [reply([{ path: 'content/en/pages.json', edits: [{ search: 'not in the file', replace: 'x' }] }]), reply([lead('Applied on the repair.')])]
     expect((await ask('owner', 'An edit that misses')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
-    expect(named(runOf(t.storeA1))).toEqual(['reading', 'asking', 'text', 'repairing 1 of 3', 'checking', 'saving', 'updating', 'done'])
+    expect(named(runOf(t.storeA1))).toEqual(['reading', 'asking', 'text', 'repairing 1 of 5', 'checking', 'saving', 'updating', 'done'])
     expect(script.sent.at(-1)).toContain('patch/not-found')
   })
 
   it('streams a chat answer word by word, then the outcome; a refusal before the first step sends nothing', async () => {
     script.answers = ['Linen reads best in calm, natural tones.']
-    const chat = await w.gql('owner', 'mutation { askDesign(text: "What suits linen?", page: "home", device: "desktop", mode: "chat") { outcome message { id text } } }')
-    expect(chat.data?.['askDesign']).toMatchObject({ outcome: 'unchanged', message: { text: 'Linen reads best in calm, natural tones.' } })
+    const said = await chat('owner', { text: 'What suits linen?' }, 'outcome message { id text }')
+    expect(said.data?.['askDesign']).toMatchObject({ outcome: 'unchanged', message: { text: 'Linen reads best in calm, natural tones.' } })
     const events = runOf(t.storeA1)
     expect(events[0]).toEqual({ type: 'step', step: 'asking' })
     expect(events.filter((e) => e.type === 'text').map((e) => (e.type === 'text' ? e.text : '')).join('')).toBe('Linen reads best in calm, natural tones.')
@@ -946,5 +1010,81 @@ describe('the live socket’s checks at the handler (#1237)', () => {
     await db.sql`update studio_session set expires_at = '2000-01-01T00:00:00Z' where id_hash = ${await hashStudioSession(session)}`
     const ended = await contextFor(cookie, `store=${t.storeA1}&session=${session}`)
     expect((await handleStudioLive(ended.request, ended.ctx, { open })).status).toBe(403)
+  })
+})
+
+describe('a design run (AI-STUDIO §4 "A design run")', () => {
+  const start = (who: Who, text: string, run: string) =>
+    w.gql(who, 'mutation A($text: String!, $run: ID!) { askDesign(text: $text, page: "home", device: "desktop", run: $run) }', { text, run })
+  const result = (who: Who, run: string) => w.gql(who, 'query R($run: ID!) { designRun(run: $run) { outcome message { id role } } }', { run })
+  const runs = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from ai_run where store_id = ${t.storeA1}`)[0]?.n ?? 0
+  const messages = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from design_message where store_id = ${t.storeA1}`)[0]?.n ?? 0
+
+  it('starts once for one run id, answers at once, and keeps the request out of the job’s params', async () => {
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([lead('Started by a run.')])]
+    const run = crypto.randomUUID()
+    expect(await start('owner', 'A secret-ish request about linen', run)).toEqual({ data: { askDesign: run }, code: undefined, extensions: undefined })
+    expect(await start('owner', 'A secret-ish request about linen', run)).toMatchObject({ data: { askDesign: run }, code: undefined })
+    const id = `${t.storeA1}-${run}`
+    expect([...w.runs.instances.keys()].filter((key) => key === id)).toHaveLength(1)
+    expect(JSON.stringify(w.runs.instances.get(id)?.params)).not.toContain('linen')
+    expect(w.runs.instances.get(id)?.params).toMatchObject({ kind: 'ask', run, context: { storeId: t.storeA1 }, actor: { id: w.people.owner } })
+    const before = await runs()
+    expect(await result('owner', run)).toEqual({ data: { designRun: null }, code: undefined, extensions: undefined })
+    await w.runs.step(id)
+    expect(await result('owner', run)).toMatchObject({ code: undefined, data: { designRun: { outcome: 'changed', message: { role: 'ai' } } } })
+    expect(await runs()).toBe(before + 1)
+    expect(await usage(t.storeA1)).toBe(1)
+  })
+
+  it('never finds another store’s run, and asks the Owner’s access', async () => {
+    const run = crypto.randomUUID()
+    script.answers = [reply([lead('Only A1’s.')])]
+    expect((await start('owner', 'Mine', run)).code).toBeUndefined()
+    await w.runs.step(`${t.storeA1}-${run}`)
+    expect((await result('bOwner', run)).code).toBe('NOT_FOUND')
+    expect((await result('a2Owner', run)).code).toBe('NOT_FOUND')
+    for (const who of ['staff', 'supplier'] as const) expect([who, (await result(who, run)).code]).toEqual([who, 'FORBIDDEN'])
+    expect((await result('owner', run)).data?.['designRun']).toMatchObject({ outcome: 'changed' })
+    expect((await result('owner', 'not-a-uuid')).code).toBe('NOT_FOUND')
+  })
+
+  it('refuses straight from the mutation while the studio waits for room or the month is used, starting nothing', async () => {
+    const count = w.runs.instances.size
+    queuedAt = 2
+    try {
+      const queued = await start('owner', 'While queued', crypto.randomUUID())
+      expect(queued).toMatchObject({ code: 'STUDIO_QUEUED', extensions: { place: 2 } })
+    } finally {
+      queuedAt = null
+    }
+    await db.sql`update store_usage set used = 6 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    expect((await start('owner', 'Over budget', crypto.randomUUID())).code).toBe('AI_BUDGET_REACHED')
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    expect((await start('owner', 'Bad id', 'not-a-uuid')).code).toBe('INVALID_INPUT')
+    expect(w.runs.instances.size).toBe(count)
+  })
+
+  it('a replayed step finds its request taken and changes and charges nothing again', async () => {
+    script.answers = [reply([lead('Once only.')])]
+    const run = crypto.randomUUID()
+    await start('owner', 'Once', run)
+    await w.runs.step(`${t.storeA1}-${run}`)
+    expect((await result('owner', run)).data?.['designRun']).toMatchObject({ outcome: 'changed' })
+    const [used, made, said, sent] = [await usage(t.storeA1), await runs(), await messages(), script.sent.length]
+    expect(await w.runs.step(`${t.storeA1}-${run}`)).toEqual({ ok: true, outcome: 'cancelled', messageId: null })
+    expect([await usage(t.storeA1), await runs(), await messages(), script.sent.length]).toEqual([used, made, said, sent])
+    expect(local.live.filter((e) => e.run === run).at(-1)?.event).toEqual({ type: 'done', outcome: 'cancelled', messageId: null })
+  })
+
+  it('Stop on a run not started yet drops its request, so the run ends with nothing done', async () => {
+    const run = crypto.randomUUID()
+    const [used, made, said, sent] = [await usage(t.storeA1), await runs(), await messages(), script.sent.length]
+    await start('owner', 'Stopped before it began', run)
+    expect((await w.gql('owner', 'mutation { cancelDesign }')).data?.['cancelDesign']).toBe(true)
+    await w.runs.step(`${t.storeA1}-${run}`)
+    expect(await result('owner', run)).toMatchObject({ code: undefined, data: { designRun: { outcome: 'cancelled', message: null } } })
+    expect([await usage(t.storeA1), await runs(), await messages(), script.sent.length]).toEqual([used, made, said, sent])
   })
 })

@@ -242,6 +242,19 @@ describe('the agent, when the runner can check', () => {
     expect(proposal).toMatchObject({ files: [{ path: 'src/theme/styles/theme.css', edits: [{ search: 'red', replace: 'maroon' }] }], summary: { reply: 'Maroon.', changed: ['Colour'], page: 'home' } })
   })
 
+  it('takes a one-shot answer in a repair too, though the refused files are carried into its copy', async () => {
+    const oneShot = JSON.stringify({ files: [{ path: 'src/theme/styles/theme.css', content: ':root { --c: maroon; }' }], reply: 'Fixed.', changed: ['Colour'], page: 'home' })
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => turnOf(oneShot) }
+    const refused = { path: 'src/theme/pages/HomePage.tsx', content: "export const HomePage = () => { fetch('/x'); return null }" }
+    const problems = [{ file: refused.path, line: 1, rule: 'code/browser-global', message: 'A theme may not use "fetch".', step: 'validator' as const }]
+    const proposal = await designModel(provider, brief).propose({ request: 'make it maroon', theme, problems, previous: [refused], check: async () => [] })
+    expect(proposal).toMatchObject({ files: [{ path: 'src/theme/styles/theme.css', content: ':root { --c: maroon; }' }], summary: { reply: 'Fixed.' } })
+    const empty = JSON.stringify({ files: [], reply: 'Nothing to do.', changed: [], page: 'home' })
+    const idle: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => turnOf(empty) }
+    const kept = await designModel(idle, brief).propose({ request: 'make it maroon', theme, problems, previous: [refused], check: async () => [] })
+    expect(kept.files).toEqual([refused])
+  })
+
   it('asks the model nothing for a repair once the change’s clock has run out, so the gate’s problems stand', async () => {
     let asked = 0
     const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async () => ((asked += 1), turnOf('', [call('f', 'finish', { reply: 'x', changed: [], page: null })])) }

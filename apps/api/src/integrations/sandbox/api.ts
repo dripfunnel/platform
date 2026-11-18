@@ -57,7 +57,6 @@ export type PreviewFiles = z.infer<typeof previewSchema>
 export type DraftMedia = z.infer<typeof mediaSchema>
 type Prechecked = z.infer<typeof precheckedSchema>
 export type Upgraded = z.infer<typeof upgradedSchema>
-/** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files, and `to`'s skeleton. */
 /** The sandbox's limit on a commit message (apps/sandbox server.ts); a longer request is kept whole in the chat, not here. */
 const maxMessage = 2000
 const commitMessage = (message: string): string => {
@@ -65,6 +64,7 @@ const commitMessage = (message: string): string => {
   return /[\ud800-\udbff]$/.test(cut) ? cut.slice(0, -1) : cut
 }
 
+/** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files, and `to`'s skeleton. */
 export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null; skeleton: { path: string; content: string | null }[] }
 
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */

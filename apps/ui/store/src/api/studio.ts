@@ -1,14 +1,30 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
-import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
+import { ApiError, createApiClient, isApiError, typedQuery } from '@dripfunnel/shared/graphql'
 import { actingHeaders, actingStore } from '../acting'
 import { query } from './client'
 
-// The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it. An ask
-// waits a build's time, since one naming a sample site may be built at once, section by section.
+// The agent's clock (8 minutes a change, 15 a build: AI-STUDIO §4 "The agent"), its last turn and the gate after it.
 const afterClockMs = 4 * 60_000
 const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 8 * 60_000 + afterClockMs }))
-const buildQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 15 * 60_000 + afterClockMs }))
+/** A design run's answer is read this often, for at most a build's clock, since an ask may build at once (AI-STUDIO §4 "A design run"). */
+export const runPollMs = 3_000
+const runWaitMs = 15 * 60_000 + afterClockMs
+const outcomeOf = z.object({ outcome: z.string() })
+
+/** The run's outcome once it ends, or its refusal as the API words it; a lost poll is tried again. */
+const runOutcome = async (run: string): Promise<string> => {
+  for (const until = Date.now() + runWaitMs; Date.now() < until; ) {
+    await new Promise((resolve) => setTimeout(resolve, runPollMs))
+    try {
+      const { designRun } = await query('query R($r: ID!) { designRun(run: $r) { outcome } }', z.object({ designRun: outcomeOf.nullable() }), { r: run })
+      if (designRun) return designRun.outcome
+    } catch (error) {
+      if (!isApiError(error, 'NOT_CONNECTED')) throw error
+    }
+  }
+  throw new ApiError('NOT_CONNECTED', 'The design run took too long to answer.')
+}
 
 // The AI studio (PortalStorefront › studio; FIRST-RELEASE §14, §19 "Built on #318 (part 2)"; storefront AI-STUDIO §3–§5):
 // `storefront.read` reads, `publish` (the Owner) changes.
@@ -77,17 +93,16 @@ export interface DesignRequest {
   mode?: 'change' | 'chat'
 }
 
-/** One change, checked and repaired in the store's sandbox before it answers: changed, unchanged, refused or failed. */
-export const askDesign = async (input: DesignRequest): Promise<string> =>
-  (
-    await buildQuery(
-      'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!, $mode: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device, mode: $mode) { outcome } }',
-      z.object({ askDesign: z.object({ outcome: z.string() }) }),
-      { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device, mode: input.mode ?? 'change' },
-    )
-  ).askDesign.outcome
-
-const outcomeOf = z.object({ outcome: z.string() })
+/** One change, checked and repaired in the store's sandbox: changed, unchanged, refused or failed. Starts a run and waits on it. */
+export const askDesign = async (input: DesignRequest): Promise<string> => {
+  const run = crypto.randomUUID()
+  await query(
+    'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!, $mode: String, $run: ID!) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device, mode: $mode, run: $run) }',
+    z.object({ askDesign: z.string() }),
+    { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device, mode: input.mode ?? 'change', run },
+  )
+  return runOutcome(run)
+}
 
 /** "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or Skip questions. */
 export const answerDesignQuestions = async (messageId: string, answers: readonly string[], skip: boolean, model: string | null): Promise<string> =>
@@ -98,8 +113,11 @@ export const changeDesignPlan = async (messageId: string, words: string, model: 
   (await slowQuery('mutation C($id: ID!, $t: String!, $m: String) { changeDesignPlan(messageId: $id, text: $t, model: $m) { outcome } }', z.object({ changeDesignPlan: outcomeOf }), { id: messageId, t: words, m: model })).changeDesignPlan.outcome
 
 /** Build it: every planned page, home first; cancelDesign ends it after the page being built. */
-export const buildDesignPlan = async (messageId: string, model: string | null): Promise<string> =>
-  (await buildQuery('mutation B($id: ID!, $m: String) { buildDesignPlan(messageId: $id, model: $m) { outcome } }', z.object({ buildDesignPlan: outcomeOf }), { id: messageId, m: model })).buildDesignPlan.outcome
+export const buildDesignPlan = async (messageId: string, model: string | null): Promise<string> => {
+  const run = crypto.randomUUID()
+  await query('mutation B($id: ID!, $m: String, $run: ID!) { buildDesignPlan(messageId: $id, model: $m, run: $run) }', z.object({ buildDesignPlan: z.string() }), { id: messageId, m: model, run })
+  return runOutcome(run)
+}
 
 /** The platform fetches a public https image into the store's own files; resolves its asset id (AI-STUDIO §8). */
 export const importDesignImage = async (url: string): Promise<string> =>

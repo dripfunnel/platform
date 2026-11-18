@@ -88,7 +88,7 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): stri
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
-    // Google Fonts, when the theme names one (guard/fonts.ts; ARCHITECTURE §3.5).
+    // Google Fonts' hosts for every store; only a theme that lists a family loads one (guard/fonts.ts; ARCHITECTURE §3.5).
     ['style-src', [...build, ...hashes.styles, googleFontsCss]],
     ['font-src', [...build, googleFontsFiles]],
     // The asset host too: a theme's CSS url(media/…) names its image beside the stylesheet there (#1405).

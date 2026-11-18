@@ -1,6 +1,8 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import type postgres from 'postgres'
 import type { StoreContext } from '#apis/store/access'
+import { runDesign } from '#apis/store/studio'
+import type { DesignRunOutput, DesignRunParams, DesignRuns } from '#saas/ai-designer/index'
 import { storeSchema } from '#apis/store/schema'
 import type { SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
@@ -37,6 +39,42 @@ export interface StoreWorld {
   support: (cookie: string, partnerId: string, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** A bearer credential (an API key or an app's token) on a partner's portal host. */
   bearer: (secret: string, source: string, partnerId: string) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
+  /** The DesignRun binding's instances, by Workflow instance id. */
+  runs: ReturnType<typeof localDesignRuns>
+  /** `source` started with a new `$run`, its step run, then its answer read by `designRun` under `field`: a refusal from either. */
+  designed: (who: Who, source: string, variables: Record<string, unknown>, field: string, selection: string) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
+}
+
+/**
+ * The DesignRun Workflow in this process: `start` only keeps the params, as a queued instance; `step` runs its step, and
+ * again for a replay, as the engine may after a restart.
+ */
+export const localDesignRuns = () => {
+  const instances = new Map<string, { params: DesignRunParams; ctx: StoreContext; output: DesignRunOutput | null; failed: boolean; ran: boolean }>()
+  const step = async (id: string): Promise<DesignRunOutput | null> => {
+    const instance = instances.get(id)
+    if (!instance?.ctx.sql) throw new Error(`design run ${id}: none`)
+    instance.ran = true
+    try {
+      instance.output = await runDesign({ ...instance.ctx, sql: instance.ctx.sql }, instance.params)
+    } catch {
+      instance.failed = true
+    }
+    return instance.output
+  }
+  const bindingFor = (ctx: StoreContext): DesignRuns => ({
+    start: async (id, params) => {
+      if (instances.has(id)) throw new Error(`design run ${id}: already exists`)
+      instances.set(id, { params, ctx, output: null, failed: false, ran: false })
+    },
+    status: async (id) => {
+      const instance = instances.get(id)
+      if (!instance) return { state: 'missing' }
+      if (!instance.ran) return { state: 'running' }
+      return instance.failed ? { state: 'failed' } : { state: 'complete', output: instance.output }
+    },
+  })
+  return { instances, bindingFor, step }
 }
 
 export interface WorldOptions {
@@ -71,25 +109,37 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
   const partnerOf = (who: Who) => stores[seats[who].store][0]
   const storeOf = (who: Who) => stores[seats[who].store][1]
   const facts = { requestId: 'r', ip: null, userAgent: null }
+  const runs = localDesignRuns()
   const contextOf = async (headers: Record<string, string>, partnerId: string): Promise<StoreContext> => {
     const standing = await resolveStoreStanding(sql, new Request('https://store.example/api/', { headers }), partnerId, o.now(), activityLog, facts)
-    return { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false, shopDomain: 'shop.example' }, studio: o.studio ?? null, ...o.extra, now: o.now }
+    const ctx: StoreContext = { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false, shopDomain: 'shop.example' }, studio: o.studio ?? null, ...o.extra, now: o.now }
+    ctx.designRuns ??= runs.bindingFor(ctx)
+    return ctx
   }
   const run = async (headers: Record<string, string>, partnerId: string, source: string, variables: Record<string, unknown> = {}) => {
     const contextValue = await contextOf(headers, partnerId)
     const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
     return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
   }
+  const gql = (who: Who, source: string, variables: Record<string, unknown> = {}) =>
+    run({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who), source, variables)
   return {
     people,
     storeOf,
     partnerOf,
     context: (who) => contextOf({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who)),
-    gql: (who, source, variables = {}) =>
-      run({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who), source, variables),
+    gql,
     supportContext: (cookie, partnerId) => contextOf({ cookie: `${supportCookieName}=${cookie}` }, partnerId),
     support: (cookie, partnerId, source, variables = {}) => run({ cookie: `${supportCookieName}=${cookie}` }, partnerId, source, variables),
     bearer: (secret, source, partnerId) => run({ authorization: `Bearer ${secret}` }, partnerId, source),
+    runs,
+    designed: async (who, source, variables, field, selection) => {
+      const id = crypto.randomUUID()
+      const started = await gql(who, source, { ...variables, run: id })
+      if (started.code) return started
+      await runs.step(`${storeOf(who)}-${id}`)
+      return gql(who, `query R($run: ID!) { ${field}: designRun(run: $run) { ${selection} } }`, { run: id })
+    },
   }
 }
 

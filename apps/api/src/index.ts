@@ -34,6 +34,8 @@ import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportS
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
 import { handleStudioLive, isStudioLivePath, studioLiveRequest } from '#apis/store/studioLive'
+import { runDesign } from '#apis/store/studio'
+import type { DesignRunParams, DesignRuns } from '#saas/ai-designer/index'
 import { handleAiGateway, isAiGatewayPath } from '#apis/store/aiGateway'
 import { createAiOAuth, type AiOAuth } from '#saas/aiOAuth/index'
 import { createOAuthProviders } from '#integrations/ai/index'
@@ -167,6 +169,7 @@ import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/d
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
+import { designRunWorkflow } from '#jobs/workflows/design-run'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
 import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
@@ -247,6 +250,8 @@ interface Env extends Record<string, unknown> {
   RENDER_PAGE?: Workflow<PublishParams> | undefined
   // SAAS §10's upgrade bot, one instance per store in a rollout (jobs/workflows/core-upgrade.ts).
   CORE_UPGRADE?: Workflow<UpgradeParams> | undefined
+  // askDesign's and buildDesignPlan's runs (storefront AI-STUDIO §4 "A design run"); unbound, those requests are NOT_CONNECTED.
+  DESIGN_RUN?: Workflow<DesignRunParams> | undefined
   // The studio (storefront AI-STUDIO.md §2): a StudioSession per store, holding its container, and the account's StudioCapacity.
   STUDIO_SESSION?: DurableObjectNamespace | undefined
   STUDIO_CAPACITY?: CapacityNamespace | undefined
@@ -724,12 +729,11 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: couriersOf(sql, config, secrets), files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: couriersOf(sql, config, secrets), payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
-      allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       uploadLinks: await (uploadLinksFor(config) ?? null),
-      preview: await previewFor(config), siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+      siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, ...(await studioPiecesFor(config, env, sql, secrets)), now: () => new Date() }
     if (live) return handleStudioLive(request, context, { open: studioLiveFor(env) })
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
@@ -907,6 +911,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
     reference: accountId && token ? browserReference({ accountId, token }) : null,
+    lookCache: dataCentreCache(),
     aiPhotos: aiPhotoSourcesOf(config),
     stock: stockImages({
       ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
@@ -920,6 +925,34 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
           return object ? { bytes: new Uint8Array(await object.arrayBuffer()), mime: object.httpMetadata?.contentType ?? '' } : null
         }
       : null,
+  }
+}
+
+/** The studio's pieces for a Store API request and for a DesignRun alike (apis/store/studio.ts `StudioPieces`). */
+const studioPiecesFor = async (config: Config, env: Env, sql: postgres.Sql, secrets: SecretBox | null) => ({
+  lookup: lookupFor(sql, config),
+  files: env.ASSETS ?? null,
+  allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
+  preview: await previewFor(config),
+  studio: studioFor(env),
+  design: designFor(config, env, sql, secrets),
+  designRuns: designRunsFor(env),
+  domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null },
+})
+
+const designRunsFor = (env: Env): DesignRuns | null => {
+  const flow = env.DESIGN_RUN
+  if (!flow) return null
+  return {
+    start: async (id, params) => void (await flow.create({ id, params })),
+    status: async (id) => {
+      // `get` throws for an id with no instance.
+      const instance = await flow.get(id).catch(() => null)
+      if (!instance) return { state: 'missing' }
+      const { status, output } = await instance.status()
+      if (status === 'complete') return { state: 'complete', output }
+      return status === 'errored' || status === 'terminated' ? { state: 'failed' } : { state: 'running' }
+    },
   }
 }
 
@@ -937,6 +970,9 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       change: async (storeId, input, model) => await stub.change(storeId, input, model),
       progress: async (storeId, run, event) => await stub.progress(storeId, run, event),
       cancel: async (storeId) => await stub.cancel(storeId),
+      hold: async (storeId, run, input) => await stub.hold(storeId, run, input),
+      take: async (storeId, run) => await stub.take(storeId, run),
+      drop: async (storeId, run) => await stub.drop(storeId, run),
       undo: async (storeId, input) => await stub.undo(storeId, input),
       build: async (storeId, input, model) => await stub.build(storeId, input, model),
       buildSoFar: async (storeId, run) => await stub.buildSoFar(storeId, run),
@@ -1429,6 +1465,18 @@ export const CreateStorefront = createStorefrontWorkflow(getClient)
 export const PublishStorefront = publishStorefrontWorkflow(getClient)
 export const RenderPage = renderPageWorkflow(getClient)
 export const CoreUpgrade = coreUpgradeWorkflow(getClient)
+export const DesignRun = designRunWorkflow<Env>(async (env, params) => {
+  const config = parseConfig(env)
+  if (!config.HYPERDRIVE) throw new Error('design-run: no database')
+  const sql = getClient(config.HYPERDRIVE)
+  try {
+    const pieces = await studioPiecesFor(config, env, sql, await (secretsFor(config) ?? null))
+    // The request's own facts come with its held input (saas/ai-designer runs.ts).
+    return await runDesign({ ...pieces, sql, activity: activityLog, facts: { requestId: null, ip: null, userAgent: null }, now: () => new Date() }, params)
+  } finally {
+    await sql.end({ timeout: 5 })
+  }
+})
 // Wrangler finds the studio's Durable Object classes among the exports too (wrangler.jsonc `durable_objects`).
 export const StudioSession = studioSessionClass(getClient)
 export const StudioCapacity = studioCapacityClass()

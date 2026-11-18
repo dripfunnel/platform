@@ -118,7 +118,8 @@ export type AgentRun = {
   now?: () => number
 }
 
-export type AgentResult = Spent & { files: FileEdit[]; finished: Finished | null; text: string }
+/** `edited`: this run changed its copy itself, so files carried from a refused answer alone don't count. */
+export type AgentResult = Spent & { files: FileEdit[]; edited: boolean; finished: Finished | null; text: string }
 
 /** The agent's turns until it finishes, answers in words, or a limit ends it; the files are whatever its copy holds then. */
 export const runAgent = async (run: AgentRun): Promise<AgentResult> => {
@@ -137,7 +138,8 @@ export const runAgent = async (run: AgentRun): Promise<AgentResult> => {
   let warned = false
   let lastWords = ''
   let lastCheck: GateProblem[] | null = null
-  const result = (finished: Finished | null, text: string): AgentResult => ({ ...spent, files: filesOf(changesOf(base, working)), finished, text })
+  let edited = false
+  const result = (finished: Finished | null, text: string): AgentResult => ({ ...spent, files: filesOf(changesOf(base, working)), edited, finished, text })
 
   for (;;) {
     run.signal?.throwIfAborted()
@@ -204,6 +206,7 @@ export const runAgent = async (run: AgentRun): Promise<AgentResult> => {
           else {
             for (const [p, c] of applied.after) working.set(p, c)
             lastCheck = null
+            edited = true
             answer('Done.')
           }
           break
@@ -216,6 +219,7 @@ export const runAgent = async (run: AgentRun): Promise<AgentResult> => {
           else {
             working.set(path, content)
             lastCheck = null
+            edited = true
             answer('Written.')
           }
           break
@@ -226,6 +230,7 @@ export const runAgent = async (run: AgentRun): Promise<AgentResult> => {
           else {
             working.delete(path)
             lastCheck = null
+            edited = true
             answer('Deleted.')
           }
           break

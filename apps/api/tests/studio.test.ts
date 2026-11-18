@@ -158,7 +158,7 @@ describe('one change', () => {
     await runner.saved()
     expect(drafts.objects.has(draftBundle(t.storeA1))).toBe(true)
     expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
-    expect([...sites.objects.keys()].some((k) => k.startsWith(previewFolder(t.storeA1, changed.previewRef)) && k.includes('assets/core/'))).toBe(false)
+    expect([...sites.objects.keys()].some((k) => k.startsWith(previewFolder(t.storeA1, changed.previewRef)) && k.includes('assets/core/'))).toBe(true)
     expect(await draftRow(t.storeA1)).toEqual({ head_commit: changed.commit, preview_deploy_ref: changed.previewRef, changed_by: ownerA.userId })
     expect(bundles.length).toBeGreaterThanOrEqual(2)
 
@@ -173,14 +173,14 @@ describe('one change', () => {
     expect(run?.sandbox_ms).toBeGreaterThan(0)
   })
 
-  it('is refused after three repairs with nothing changed, and records the three repairs on the platform', async () => {
+  it('is refused after five repairs with nothing changed, and records the five repairs on the platform', async () => {
     const { runner } = await runnerFor(t.storeA2)
     await runner.open()
     const before = { drafts: drafts.puts.length, sites: sites.objects.size }
     const { model, asks } = scripted([[refusedPage]])
     const refused = await runner.change({ request: 'Fetch something', userId: ownerA.userId, billedTo: 'own_key', model })
-    expect(refused).toMatchObject({ outcome: 'refused', repairs: 3 })
-    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
+    expect(refused).toMatchObject({ outcome: 'refused', repairs: 5 })
+    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
     expect({ drafts: drafts.puts.length, sites: sites.objects.size }).toEqual(before)
     expect(await draftRow(t.storeA2)).toBeNull()
     const runs = await db.sql<{ kind: string; billed_to: string; parent_run_id: string | null; outcome: string; repair_attempts: number }[]>`
@@ -190,8 +190,10 @@ describe('one change', () => {
       ['repair', 'platform', 'refused'],
       ['repair', 'platform', 'refused'],
       ['repair', 'platform', 'refused'],
+      ['repair', 'platform', 'refused'],
+      ['repair', 'platform', 'refused'],
     ])
-    expect(runs[0]?.repair_attempts).toBe(3)
+    expect(runs[0]?.repair_attempts).toBe(5)
     expect(new Set(runs.slice(1).map((r) => r.parent_run_id))).toEqual(new Set([refused.runId]))
   })
 
@@ -259,17 +261,17 @@ describe('an answer of edits (#1238)', () => {
     expect(seen[1]?.map((p) => p.rule)).toEqual(['answer/shape'])
   })
 
-  it('refuses after three repairs of edits that never apply, with the draft unchanged and each repair metered', async () => {
+  it('refuses after five repairs of edits that never apply, with the draft unchanged and each repair metered', async () => {
     const { runner } = await runnerFor(t.storeA2)
     await runner.open()
     const before = { drafts: drafts.puts.length, sites: sites.objects.size }
     const { model, asks } = scripted([[{ path: shell, edits: [{ search: 'not in the file', replace: 'x' }] }]])
-    expect(await runner.change({ request: 'Never applies', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'refused', repairs: 3 })
-    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
+    expect(await runner.change({ request: 'Never applies', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'refused', repairs: 5 })
+    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
     expect({ drafts: drafts.puts.length, sites: sites.objects.size }).toEqual(before)
     expect(await draftRow(t.storeA2)).toBeNull()
     const runs = await db.sql<{ kind: string; outcome: string; sandbox_ms: number }[]>`select kind, outcome, sandbox_ms from ai_run where store_id = ${t.storeA2} order by kind`
-    expect(runs.map((r) => [r.kind, r.outcome, r.sandbox_ms])).toEqual([['design', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0]])
+    expect(runs.map((r) => [r.kind, r.outcome, r.sandbox_ms])).toEqual([['design', 'refused', 0], ...Array.from({ length: 5 }, () => ['repair', 'refused', 0])])
   })
 })
 
@@ -607,12 +609,12 @@ describe('the migration agent and a draft’s rebase onto an upgrade (#485)', ()
     expect(runs[0]?.prompt).toContain('Leads are shorter.')
   })
 
-  it('gives up after three repairs the gate refuses, recording each on the platform', async () => {
+  it('gives up after five repairs the gate refuses, recording each on the platform', async () => {
     const upgrade = await upgradeOfLive()
     const { runner } = await runnerFor(t.storeA2)
     expect((await runner.migrate({ commit: upgrade, to: '0.5.0', failing: ['axe: x'], notes: [], model: scripted([[refusedPage]]).model })).outcome).toBe('refused')
     const runs = await runsOf()
-    expect(runs.map((r) => [r.kind, r.outcome])).toEqual([['migration', 'refused'], ['repair', 'refused'], ['repair', 'refused'], ['repair', 'refused']])
+    expect(runs.map((r) => [r.kind, r.outcome])).toEqual([['migration', 'refused'], ...Array.from({ length: 5 }, () => ['repair', 'refused'])])
     expect(runs.every((r) => r.billed_to === 'platform')).toBe(true)
   })
 

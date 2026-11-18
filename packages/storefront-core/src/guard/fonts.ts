@@ -1,6 +1,5 @@
-// Web fonts from Google Fonts (decided 2026-11-12, ARCHITECTURE §3.4 "Fonts"): a theme lists the families it wants in
-// theme.css's `@theme { --google-fonts: 'Bebas Neue', 'Barlow'; }` and core loads them, so none load unasked. Each family's weights are
-// the ones Google serves, since a request naming one a family lacks is refused whole. Loading sends a shopper's IP to Google.
+// Google Fonts a theme lists in theme.css's `--google-fonts` (ARCHITECTURE §3.4 "Fonts"). Each family's weights are the
+// ones Google serves, since a request naming one a family lacks is refused whole.
 
 const all = 'wght@100;200;300;400;500;600;700;800;900'
 

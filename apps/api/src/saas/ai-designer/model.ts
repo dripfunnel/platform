@@ -674,8 +674,9 @@ export const designModel = (
     const cost = { model: run.model, tokensIn: run.tokensIn, tokensOut: run.tokensOut, tokensCached: run.tokensCached, costAmount: run.costAmount, costCurrency: run.costCurrency }
     if (run.finished) return { files: run.files, summary: run.finished, ...cost }
     // A model that ignored its tools and answered in the one-shot format is taken as that answer.
-    const oneShot = run.files.length === 0 ? readAnswer(run.text) : null
-    if (oneShot) return { files: oneShot.files, summary: { reply: oneShot.reply, changed: oneShot.changed, page: oneShot.page }, ...cost }
+    // In a repair, an answer changing nothing is no fix: the carried copy goes back to the gate.
+    const oneShot = run.edited ? null : readAnswer(run.text)
+    if (oneShot && (oneShot.files.length > 0 || input.problems.length === 0)) return { files: oneShot.files, summary: { reply: oneShot.reply, changed: oneShot.changed, page: oneShot.page }, ...cost }
     const asked = run.files.length === 0 && brief.mayAsk && input.problems.length === 0 ? readAsk(run.text) : null
     if (asked) {
       const { reply, ...ask } = asked

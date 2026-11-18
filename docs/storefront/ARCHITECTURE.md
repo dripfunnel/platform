@@ -746,7 +746,7 @@ transform, opacity, filter and paint), in a CSS Module, `theme.css`'s `@keyframe
 from core's list (`guard/fonts.ts`, with each family's weights), and core puts one `@import` of fonts.googleapis.com
 first in the stylesheet; §3.5's CSP lets `fonts.googleapis.com` styles and `fonts.gstatic.com` fonts load. *Note:*
 loading them sends each shopper's IP address to Google, which data-protection law (GDPR, DPDP) may require the
-merchant to disclose or ask consent for; a store that lists none loads none.
+merchant to disclose or ask consent for; a store that lists none loads none, though every store's CSP allows the two hosts (§3.5, decided 2026-11-18).
 **Scroll-driven animation** is allowed (#1245): `animation-timeline` with `scroll()` and `view()`, `scroll-timeline`,
 `view-timeline` and `animation-range`, so parallax and reveals need no JavaScript. Reduced motion is core's (§2.1): a
 theme needn't write its own `prefers-reduced-motion` rule, and can't undo core's. As built on #480 *(decided there)*: `url()` names a media id from the

@@ -28,3 +28,22 @@ export const fakeApi = (handlers: Record<string, Handler>, seat: { store?: strin
   const client = createApiClient({ domain: 'shop.test', path: apiPath, fetchImpl, token: () => 'token', store: () => seat.store ?? 'store-1', supplier: () => seat.supplier ?? null })
   return { client, calls }
 }
+
+/**
+ * `mutation Ask(`'s handler answering the change itself, as askDesign did before design runs: the mutation now answers the
+ * run's id, and the answer comes from `designRun` (AI-STUDIO §4 "A design run").
+ */
+export const withDesignRuns = (handlers: Record<string, Handler>): Record<string, Handler> => {
+  const ask = handlers['mutation Ask(']
+  if (!ask) return handlers
+  let answer: unknown = null
+  return {
+    ...handlers,
+    'mutation Ask(': async (variables, headers) => {
+      const said = ((await ask(variables, headers)) as { askDesign?: object } | undefined)?.askDesign
+      answer = said ? { message: null, ...said } : null
+      return { askDesign: String(variables['run']) }
+    },
+    'designRun(': () => ({ designRun: answer }),
+  }
+}

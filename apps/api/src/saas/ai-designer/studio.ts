@@ -12,6 +12,7 @@ import { makeVisible, selectLibraryImageByChecksum } from '#db/scoped/catalog'
 import { insertAiRun, selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import { AiDeclined, GatewayError, SignInExpired, type AiImage, type AiProvider } from '#integrations/ai/index'
 import type { ReferencePage, ReferenceReader } from '#integrations/cloudflare/reference'
+import { lookKey, throughLookCache, type LookCache } from './lookCache'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
 import { siteIn } from './sample'
 import type { DnsLookup } from '#integrations/dns/doh'
@@ -25,6 +26,7 @@ import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type FileEdit, type StudioState } from '#saas/studio/index'
 import { agentBuildMs, agentChangeMs, chatReply, designModel, type CopiedImage, type DesignTools, type DesignBrief, type Device, type ReferenceBrief } from './model'
 import { answersOf, chunkRequests, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, sectionRequests, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { designRunId, heldRun, outputOf, runOutput, type DesignRunOutput, type DesignRuns, type HeldRun, type RunRequest } from './runs'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -41,6 +43,8 @@ export interface StudioDeps extends DesignerDeps {
   screenshots: Screenshotter | null
   /** Reads a sample site's fonts, colours, sections and pictures; null or unset where Browser Rendering isn't set up. */
   reference?: ReferenceReader | null
+  /** Where a sample site's look is kept for a session, so an earlier turn's site isn't pictured again; null off Cloudflare. */
+  lookCache?: LookCache | null
   lookup: DnsLookup | null
   /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
   stock: StockImages | null
@@ -54,6 +58,8 @@ export interface StudioDeps extends DesignerDeps {
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   /** `my-store.one` (SHOP_DOMAIN); the studio frame opens only on `{slug}-preview.` of it. */
   previewDomain: string | null
+  /** The DesignRun Workflow askDesign and buildDesignPlan start (AI-STUDIO §4 "A design run"); null where it isn't bound. */
+  runs?: DesignRuns | null
 }
 
 export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device; mode?: 'change' | 'chat' }
@@ -68,6 +74,8 @@ const reasonOf = (error: unknown): DesignFailureReason | null => {
 
 /** `asked`: the AI answered a vague request with questions or a plan (#1243), and the message is that. */
 export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'cancelled' | 'asked'; message: MessageRow }
+/** A finished design run: `message` null when it found nothing to take (stopped before it began, or a replayed step). */
+export type RunAnswer = { outcome: AskAnswer['outcome']; message: MessageRow | null }
 export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
 
@@ -207,11 +215,7 @@ export const createStudioService = (deps: StudioDeps) => {
     return url instanceof URL ? deps.reference.read(url, device) : null
   }
 
-  /**
-   * A site named in the request has its own banner and tile pictures copied into Assets (decided 2026-11-13, AI-STUDIO §8),
-   * never its product photos; bytes the library already holds are reused. `upload` false (a site from an earlier turn) only
-   * finds the copies already made, so a follow-up still knows them.
-   */
+  /** A named site's banner and tile pictures copied into Assets, never product photos (AI-STUDIO §8); `upload` false only finds earlier copies. */
   const copiedFrom = async (page: ReferencePage, upload: boolean): Promise<CopiedImage[]> => {
     const { lookup, assets } = deps
     if (!lookup || !assets) return []
@@ -357,12 +361,11 @@ export const createStudioService = (deps: StudioDeps) => {
    * `askDesign` (SAAS §9.2): budget, then the model through the store's studio (fast gate, up to five repairs), then the
    * chat and the activity entry, which says only that a request was made and its outcome (LOGGING §4.1).
    */
-  const ask = (input: AskInput): Promise<DesignResult<AskAnswer>> => followed((run, live) => askIn(input, run, live))
+  const ask = (input: AskInput, run: string): Promise<DesignResult<AskAnswer>> => followed((id, live) => askIn(input, id, live), run)
 
   /** One request's work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
-  const followed = async (work: (run: string, live: Live) => Promise<DesignResult<AskAnswer>>): Promise<DesignResult<AskAnswer>> => {
+  const followed = async (work: (run: string, live: Live) => Promise<DesignResult<AskAnswer>>, run: string = crypto.randomUUID()): Promise<DesignResult<AskAnswer>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-    const run = crypto.randomUUID()
     const live = liveSender(
       (event) => studio.progress(storeId, run, event),
       (error) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }),
@@ -379,21 +382,35 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** `askDesign`'s work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
-  const askIn = async (input: AskInput, run: string, live: Live): Promise<DesignResult<AskAnswer>> => {
-    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+  /** A request's checks that cost nothing but reads, made again by its run: words, model, account and budget. */
+  const askReady = async (input: AskInput): Promise<DesignResult<{ text: string; billedTo: 'plan' | 'own_key'; provider: AiProvider }>> => {
     const text = input.text.trim()
     if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
+    const ready = await providerFor(input.model)
+    if (!ready.ok) return ready
+    if (ready.value.billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    return { ok: true, value: { text, ...ready.value } }
+  }
+
+  const askIn = async (input: AskInput, run: string, live: Live): Promise<DesignResult<AskAnswer>> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     live.step(input.mode === 'chat' ? 'asking' : 'reading')
-    const billedTo = await billing()
-    if (input.model !== null && !(await deps.models(billedTo, context)).includes(input.model)) return { ok: false, reason: 'INVALID_INPUT' }
-    const provider = await deps.ai(billedTo, context, input.model)
-    if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
-    if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    const ready = await askReady(input)
+    if (!ready.ok) return ready
+    const { text, billedTo, provider } = ready.value
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
     const started = now()
-    const look = (site: string) => Promise.all([screenshotOf(site, input.device), measuredOf(site, input.device)])
+    const look = async (site: string): Promise<[DesignResult<AiImage[]>, ReferencePage | null]> => {
+      const missed: { shot: DesignResult<AiImage[]> | null } = { shot: null }
+      const kept = await throughLookCache(deps.lookCache ?? null, lookKey(storeId, input.device, site), async () => {
+        const [shot, measured] = await Promise.all([screenshotOf(site, input.device), measuredOf(site, input.device)])
+        if (!shot.ok) missed.shot = shot
+        return shot.ok ? { shots: shot.value, measured } : null
+      })
+      return kept ? [{ ok: true, value: kept.shots }, kept.measured] : [missed.shot ?? { ok: false, reason: 'SAMPLE_UNAVAILABLE' }, null]
+    }
     const attachedLook = input.sampleUrl ? await look(input.sampleUrl) : null
     const attached = attachedLook?.[0] ?? null
     if (attached && !attached.ok) return attached
@@ -615,13 +632,19 @@ export const createStudioService = (deps: StudioDeps) => {
    */
   /** `given`: what an ask that answered with a sample site's plan already read, and what is left of its clock. */
   type Given = { shots: AiImage[]; reference: ReferenceBrief | null; wallMs: number }
+  /** A build's checks that cost nothing but reads, made again by its run. */
+  const buildReady = async (messageId: string, model: string | null) => {
+    const open = await openPlan(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    if ((open.flow.failedBuilds ?? 0) >= maxFailedBuilds) return { ok: false, reason: 'PLAN_BUILDS_USED' } as const
+    const ready = await providerFor(model)
+    return ready.ok ? { ok: true, open, ready } as const : ready
+  }
   const buildIn = async (messageId: string, model: string | null, run: string, live: Live, given: Given | null = null): Promise<DesignResult<AskAnswer>> => {
       if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-      const open = await openPlan(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      if ((open.flow.failedBuilds ?? 0) >= maxFailedBuilds) return { ok: false, reason: 'PLAN_BUILDS_USED' }
-      const ready = await providerFor(model)
-      if (!ready.ok) return ready
+      const checked = await buildReady(messageId, model)
+      if (!checked.ok) return checked
+      const { open, ready } = checked
       const { row, flow } = open
       // Open again after a build that built nothing; one that asked the model counts against `maxFailedBuilds`.
       const tried = { ...reopened(flow), failedBuilds: (flow.failedBuilds ?? 0) + 1 }
@@ -711,7 +734,66 @@ export const createStudioService = (deps: StudioDeps) => {
       return { ok: true, value: { outcome, message } }
   }
 
-  const buildPlan = (messageId: string, model: string | null): Promise<DesignResult<AskAnswer>> => followed((run, live) => buildIn(messageId, model, run, live))
+  const buildPlan = (messageId: string, model: string | null, run: string): Promise<DesignResult<AskAnswer>> => followed((id, live) => buildIn(messageId, model, id, live), run)
+
+  /**
+   * askDesign's and buildDesignPlan's start (AI-STUDIO §4 "A design run"): the cheap refusals at once, then the request held
+   * in the store's studio and the run started under the portal's `run` id; the same id again starts nothing.
+   */
+  const startRun = async (request: RunRequest, run: string): Promise<DesignResult<string>> => {
+    const runs = deps.runs
+    if (!studio || !runs) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (!isUuid(run)) return { ok: false, reason: 'INVALID_INPUT' }
+    const id = designRunId(storeId, run)
+    if ((await runs.status(id)).state !== 'missing') return { ok: true, value: run }
+    const checked = request.kind === 'ask' ? await askReady(request.input) : await buildReady(request.messageId, request.model)
+    if (!checked.ok) return checked
+    const state = await studio.status(storeId)
+    if (state.state === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: state.place }
+    if (state.state === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    await studio.hold(storeId, run, { ...request, facts } satisfies HeldRun)
+    try {
+      await runs.start(id, { kind: request.kind, run, context, actor, role: deps.role })
+    } catch (error) {
+      // Another request with the same id started it first; otherwise nothing will take what was held.
+      if ((await runs.status(id)).state !== 'missing') return { ok: true, value: run }
+      await studio.drop(storeId, run)
+      throw error
+    }
+    return { ok: true, value: run }
+  }
+
+  /** The DesignRun's one step: takes the held request first, so a replayed step or a stopped run reserves and asks nothing. */
+  const runHeld = async (run: string): Promise<DesignRunOutput> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    const held = heldRun.safeParse(await studio.take(storeId, run))
+    if (!held.success) {
+      // A replay's first attempt may have shown steps: other tabs still hear the run end.
+      await studio.progress(storeId, run, { type: 'done', outcome: 'cancelled', messageId: null }).catch((error: unknown) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }))
+      return { ok: true, outcome: 'cancelled', messageId: null }
+    }
+    // The request's own facts (LOGGING §4.1), kept with it rather than in the job's params.
+    const own = createStudioService({ ...deps, facts: held.data.facts })
+    const h = held.data
+    return runOutput(h.kind === 'ask' ? await own.ask(h.input, run) : await own.buildPlan(h.messageId, h.model, run))
+  }
+
+  /** `designRun`: null while the run works; a refusal as the request would have answered it. */
+  const runResult = async (run: string): Promise<DesignResult<RunAnswer | null>> => {
+    if (!deps.runs) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (!isUuid(run)) return { ok: false, reason: 'NOT_FOUND' }
+    const status = await deps.runs.status(designRunId(storeId, run))
+    if (status.state === 'missing') return { ok: false, reason: 'NOT_FOUND' }
+    if (status.state === 'failed') return { ok: false, reason: 'FAILED' }
+    if (status.state === 'running') return { ok: true, value: null }
+    const output = outputOf.safeParse(status.output)
+    if (!output.success) return { ok: false, reason: 'FAILED' }
+    if (!output.data.ok) return output.data
+    const { outcome, messageId } = output.data
+    if (messageId === null) return { ok: true, value: { outcome, message: null } }
+    const message = await withScope(sql, context, (tx) => selectMessage(tx, storeId, messageId))
+    return message ? { ok: true, value: { outcome, message } } : { ok: false, reason: 'NOT_FOUND' }
+  }
 
   /** `searchStockImages`: every source's results for words the merchant typed; page 1 to 20. */
   const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {
@@ -741,7 +823,12 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** `cancelDesign`: stops the store's running change; the pending `askDesign` answers `cancelled`. */
-  const cancel = async (): Promise<DesignResult<boolean>> => (studio ? { ok: true, value: await studio.cancel(storeId) } : { ok: false, reason: 'NOT_CONNECTED' })
+  /** Stop: a run not started yet loses its held request, so it ends with nothing done; a running one stops in the studio. */
+  const cancel = async (): Promise<DesignResult<boolean>> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    const dropped = await studio.drop(storeId)
+    return { ok: true, value: (await studio.cancel(storeId)) || dropped }
+  }
 
   /** "Undo this change" on the latest change only (AI-STUDIO §5): a new change, with its own preview. */
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
@@ -815,5 +902,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, wake, chat, ask, answerQuestions, changePlan, buildPlan, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
+  return { session, renew, wake, chat, ask, answerQuestions, changePlan, buildPlan, startRun, runHeld, runResult, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }
