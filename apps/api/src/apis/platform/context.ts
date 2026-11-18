@@ -58,7 +58,7 @@ export interface PlatformContextDeps {
   ourWhatsApp?: OurWhatsApp
 }
 
-/** OpenAI's own keys are saved "Not tested" (#950); a DeepInfra key (`sk-di-`) is tested against DeepInfra. */
+/** Every key is tested before it is saved: OpenAI's against OpenAI, a DeepInfra key (`sk-di-`) against DeepInfra. */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> =>
   provider === 'anthropic' ? checkAnthropicKey(key) : openaiChat(key).validateCredentials()
 

@@ -2,6 +2,7 @@ import type { ReasoningEffort } from '../canonical'
 import type { Executor, ResolvedConnection } from '../executors/types'
 import type { RequestTranslator, ResponseTranslator, StreamTranslatorFactory } from '../translators/types'
 import type { GatewayErrorCode, GatewayProvider } from '../gateway'
+import type { ModelCapability } from '../registry'
 
 export interface Route {
   provider: GatewayProvider
@@ -13,6 +14,8 @@ export interface Route {
   streamTranslator: StreamTranslatorFactory<unknown>
   /** Sent on this route only: not every model takes one (the Claude sign-in's model does not). */
   reasoningEffort?: ReasoningEffort
+  /** A model the key listed itself (DeepInfra's), carried with the route; otherwise `capabilityOf` knows it. */
+  capability?: ModelCapability
 }
 
 export interface RetryPolicy {

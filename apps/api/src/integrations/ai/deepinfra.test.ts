@@ -21,7 +21,7 @@ describe('DeepInfra through an OpenAI key (sk-di-)', () => {
     expect(send.mock.calls.map((c) => c[0])).toEqual([`${deepinfraEndpoint}/chat/completions`, 'https://api.openai.com/v1/chat/completions'])
   })
 
-  it('lists the key’s tool-calling chat models only, the preferred first, priced in cents and known to capabilityOf', async () => {
+  it('lists the key’s tool-calling chat models only, the preferred first, priced in cents and kept by no module', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(listing)))
     const models = await deepinfraModels(key, fetcher)
     expect(fetcher.mock.calls[0]?.[0]).toBe(`${deepinfraEndpoint}/models`)
@@ -29,8 +29,7 @@ describe('DeepInfra through an OpenAI key (sk-di-)', () => {
     expect(models[1]).toMatchObject({ provider: 'openai', maxOutputTokens: 32_000, centsPerMillion: { input: 50, output: 200, cacheRead: 10, cacheWrite: 50 } })
     expect(models[0]?.maxOutputTokens).toBe(8_000)
     expect(models.map((m) => m.images)).toEqual([true, false])
-    expect(capabilityOf('openai', 'zai-org/GLM-4.6')).toEqual(models[1])
-    expect(capabilityOf('anthropic', 'zai-org/GLM-4.6')).toBeNull()
+    expect(capabilityOf('openai', 'zai-org/GLM-4.6')).toBeNull()
   })
 
   it('keeps only families known to call tools, the preferred among them', () => {

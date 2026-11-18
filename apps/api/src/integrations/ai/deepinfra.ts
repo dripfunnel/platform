@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { GatewayError } from './gateway'
 import { providerHeaders } from './headers'
-import { registerModels, type ModelCapability } from './registry'
+import type { ModelCapability } from './registry'
 
 // DeepInfra's OpenAI-compatible API, reached with an OpenAI key the merchant pasted from DeepInfra (`sk-di-…`, decided
 // 2026-11-13): the key's prefix picks this fixed host, never anything a caller sends (SSRF).
@@ -66,6 +66,5 @@ export const deepinfraModels = async (key: string, fetcher: typeof fetch = fetch
     ]
   })
   models.sort((a, b) => Number(b.id === deepinfraPreferred) - Number(a.id === deepinfraPreferred))
-  registerModels(models)
   return models
 }

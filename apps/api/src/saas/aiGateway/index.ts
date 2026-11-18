@@ -8,7 +8,7 @@ import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectSealedStoreKey } from '#db/scoped/storeAiAccount'
 import { logEvent } from '#core/log'
-import { anthropicChat, anthropicOAuthDesignerModel, buildRoute, deepinfraModels, isDeepInfraKey, chatgptSignInRoute, createRouter, designerModel, openaiChat, openaiResponsesChat, routedDesignerProvider, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, NoExecutorError, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type ExecutorOptions, type GatewayProvider, type ResolvedConnection, type Route } from '#integrations/ai/index'
+import { anthropicChat, anthropicOAuthDesignerModel, buildRoute, deepinfraModels, isDeepInfraKey, chatgptSignInRoute, createRouter, designerModel, openaiChat, openaiResponsesChat, routedDesignerProvider, capabilityOf, costOf, modelsOf, GatewayError, type ModelCapability, gatewayProviders, withRetry, NoExecutorError, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type ExecutorOptions, type GatewayProvider, type ResolvedConnection, type Route } from '#integrations/ai/index'
 import { createAiConnections } from '#saas/aiConnections/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
@@ -87,7 +87,9 @@ interface Resolved {
   auth: AuthMethod
 }
 
-export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oauth = null, adapters = realAdapters, now, sleep }: GatewayDeps) => {
+const deepInfra = (found: { provider: string; auth: AuthMethod; key: string }) => found.provider === 'openai' && found.auth === 'api_key' && isDeepInfraKey(found.key)
+
+export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oauth = null, adapters = realAdapters, executor, now, sleep }: GatewayDeps) => {
   const { storeId, partnerId } = context
 
   const allowance = async (): Promise<{ allowed: number; mode: number }> => ({ allowed: await allowanceFor(sql, context, 'ai_prompts', now()), mode: await allowanceFor(sql, context, 'ai_mode', now()) })
@@ -160,42 +162,52 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   /** A sign-in's runs are paid from the person's own plan at the provider, so no money moves through us and none is recorded. */
   const costIn = (auth: AuthMethod, model: Parameters<typeof costOf>[0], usage: { tokensIn: number; tokensOut: number }) => (auth === 'oauth' ? 0 : costOf(model, usage.tokensIn, usage.tokensOut))
 
-  const requestOf = (input: ChatInput): ChatRequest => ({
+  const requestOf = (input: ChatInput, model: ModelCapability): ChatRequest => ({
     model: input.model,
     ...(input.system !== undefined ? { system: input.system } : {}),
     messages: input.messages,
     ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
-    maxTokens: input.maxTokens ?? capabilityOf(input.provider, input.model)?.maxOutputTokens ?? 64_000,
+    maxTokens: input.maxTokens ?? model.maxOutputTokens,
     ...(input.options !== undefined ? { options: input.options } : {}),
   })
 
-  /** Checks the request against the model's capabilities before any provider or budget is touched. */
-  const validate = (input: ChatInput) => {
-    const model = capabilityOf(input.provider, input.model)
+  /** Checks the request against the model's capabilities, the static registry's unless one is given. */
+  const validate = (input: ChatInput, model = capabilityOf(input.provider, input.model)) => {
+    if (!input.messages.some((m) => m.role === 'user')) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     if (!model) return { ok: false as const, reason: 'MODEL_NOT_FOUND' as const }
     const [low, high] = model.temperature
-    if (!input.messages.some((m) => m.role === 'user')) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     if ((input.maxTokens ?? 0) > model.maxOutputTokens || (input.temperature !== undefined && (input.temperature < low || input.temperature > high))) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     return { ok: true as const, model }
+  }
+
+  /** The model as the resolved key knows it: a DeepInfra key's own list, read per call (SAAS.md §9.3), else the static registry. */
+  const capabilityFor = async (input: ChatInput, resolved: { key: string; keyProvider: AiProvider; auth: AuthMethod }) =>
+    deepInfra({ provider: resolved.keyProvider, auth: resolved.auth, key: resolved.key }) ? ((await deepinfraModels(resolved.key, executor?.fetch)).find((m) => m.id === input.model) ?? null) : capabilityOf(input.provider, input.model)
+
+  /** Who pays, then the model as that key knows it; a listing failure throws before any prompt is taken. */
+  const prepare = async (input: ChatInput) => {
+    if (!input.messages.some((m) => m.role === 'user')) return { ok: false as const, reason: 'INVALID_INPUT' as const }
+    const who = await resolve()
+    if (!who.ok) return who
+    // A key reaches only its own provider's models: asking for another's is a model it doesn't have.
+    if (who.resolved.keyProvider !== input.provider) return { ok: false as const, reason: 'MODEL_NOT_FOUND' as const }
+    const checked = validate(input, await capabilityFor(input, who.resolved))
+    return checked.ok ? { ok: true as const, model: checked.model, ...who.resolved } : checked
   }
 
   const retry = (signal: AbortSignal | undefined) => ({ attempts: 3, baseMs: 500, maxMs: 8_000, ...(signal ? { signal } : {}), ...(sleep ? { sleep } : {}) })
 
   /** Runs `input` to its answer. The plan's prompt is taken before the call and given back if the model was never reached. */
   const complete = async (input: ChatInput, signal?: AbortSignal): Promise<{ ok: true; answer: ChatAnswer; billed: Billed } | { ok: false; reason: GatewayRefusal } | { ok: false; error: GatewayError }> => {
-    const checked = validate(input)
+    const checked = await prepare(input)
     if (!checked.ok) return checked
-    const who = await resolve()
-    if (!who.ok) return who
-    const { billed, key, keyProvider, auth, accountId } = who.resolved
-    // A key reaches only its own provider's models: asking for another's is a model it doesn't have.
-    if (keyProvider !== input.provider) return { ok: false, reason: 'MODEL_NOT_FOUND' }
+    const { billed, key, auth, accountId, model } = checked
     if (billed === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     let reached = false
     try {
       const adapter = adapters(input.provider, key, auth, accountId)
-      const answer = await withRetry(() => ((reached = true), adapter.generateResponse(requestOf(input), signal)), retry(signal))
-      await record(input, billed, auth, { model: answer.model, ...answer.usage }, costIn(auth, checked.model, answer.usage), 'changed')
+      const answer = await withRetry(() => ((reached = true), adapter.generateResponse(requestOf(input, model), signal)), retry(signal))
+      await record(input, billed, auth, { model: answer.model, ...answer.usage }, costIn(auth, model, answer.usage), 'changed')
       return { ok: true, answer, billed }
     } catch (error) {
       const failure = error instanceof GatewayError ? error : new GatewayError('PROVIDER_UNAVAILABLE')
@@ -210,20 +222,17 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
 
   /** The same, as a stream; the run is recorded when the stream ends or fails. */
   const stream = async function* (input: ChatInput, signal?: AbortSignal): AsyncGenerator<ChatChunk> {
-    const checked = validate(input)
+    const checked = await prepare(input)
     if (!checked.ok) throw new GatewayRefused(checked.reason)
-    const who = await resolve()
-    if (!who.ok) throw new GatewayRefused(who.reason)
-    if (who.resolved.keyProvider !== input.provider) throw new GatewayRefused('MODEL_NOT_FOUND')
-    const { billed, key, auth, accountId } = who.resolved
+    const { billed, key, auth, accountId, model } = checked
     if (billed === 'plan' && !(await reserve())) throw new GatewayRefused('AI_BUDGET_REACHED')
     let ended = false
     let sent = false
     try {
-      for await (const chunk of adapters(input.provider, key, auth, accountId).streamResponse(requestOf(input), signal)) {
+      for await (const chunk of adapters(input.provider, key, auth, accountId).streamResponse(requestOf(input, model), signal)) {
         if (chunk.kind === 'end') {
           ended = true
-          await record(input, billed, auth, { model: chunk.model, ...chunk.usage }, costIn(auth, checked.model, chunk.usage), 'changed')
+          await record(input, billed, auth, { model: chunk.model, ...chunk.usage }, costIn(auth, model, chunk.usage), 'changed')
         }
         if (chunk.kind === 'text') sent = true
         yield chunk
@@ -246,9 +255,11 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
 export type AiGateway = ReturnType<typeof createAiGateway>
 
 const openaiDesignerModel = 'gpt-5'
-const deepInfra = (found: { provider: string; auth: AuthMethod; key: string }) => found.provider === 'openai' && found.auth === 'api_key' && isDeepInfraKey(found.key)
 
 type DesignerDeps = Omit<GatewayDeps, 'actor' | 'now'>
+
+/** A DeepInfra key's own models, read per call (SAAS.md §9.3); a key that can't list them has none. */
+const listedBy = (deps: DesignerDeps, key: string) => deepinfraModels(key, deps.executor?.fetch).catch((): ModelCapability[] => [])
 
 const credentialFor = async (deps: DesignerDeps, billed: Billed) => {
   const found = await createAiGateway({ ...deps, actor: { keyId: null, userId: null }, now: () => new Date() }).credential(billed)
@@ -260,7 +271,7 @@ export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Pro
   const found = await credentialFor(deps, billed)
   // A Claude sign-in runs only this model: Anthropic answers any other with a bare 429 (THIRD-PARTY-ACCESS §2.6).
   if (found?.provider === 'anthropic' && found.auth === 'oauth') return [anthropicOAuthDesignerModel]
-  if (found && deepInfra(found)) return (await deepinfraModels(found.key).catch(() => [])).map((m) => m.id)
+  if (found && deepInfra(found)) return (await listedBy(deps, found.key)).map((m) => m.id)
   return found ? modelsOf(found.provider) : []
 }
 
@@ -272,32 +283,37 @@ export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requeste
   const found = await credentialFor(deps, billed)
   if (!found) return null
   const anthropicOAuth = found.provider === 'anthropic' && found.auth === 'oauth'
-  // A DeepInfra key's models are its own list, read (and so known to `capabilityOf`) before one is picked.
-  const listed = deepInfra(found) ? await deepinfraModels(found.key).catch(() => []) : null
+  const listed = deepInfra(found) ? await listedBy(deps, found.key) : null
   const model = requested ?? listed?.[0]?.id ?? defaultModel(found.provider, anthropicOAuth)
-  if (!capabilityOf(found.provider, model) || (anthropicOAuth && model !== anthropicOAuthDesignerModel)) return null
+  const capability = listed ? listed.find((m) => m.id === model) : capabilityOf(found.provider, model)
+  if (!capability || (anthropicOAuth && model !== anthropicOAuthDesignerModel)) return null
 
   const connections = createAiConnections({ sql: deps.sql, context: deps.context, secrets: deps.secrets, oauth: deps.oauth ?? null, now: () => new Date() })
   const executor: ExecutorOptions = { timeoutMs: 180_000, refresh: connections.refresher, ...deps.executor }
   const adapters = deps.adapters ?? realAdapters
-  const routeOf = (connection: ResolvedConnection, routeModel: string, effort: boolean): Route => {
+  const routeOf = (connection: ResolvedConnection, routeModel: string, effort: boolean, listedCapability?: ModelCapability): Route => {
     if (connection.provider === 'openai' && connection.authType === 'oauth') return chatgptSignInRoute(connection, routeModel, adapters('openai', connection.secret, 'oauth', connection.accountId ?? null))
-    return buildRoute(connection, routeModel, { executor, ...(effort ? { reasoningEffort: 'high' as const } : {}) })
+    return buildRoute(connection, routeModel, { executor, ...(effort ? { reasoningEffort: 'high' as const } : {}), ...(listedCapability ? { capability: listedCapability } : {}) })
   }
   const primaryId = found.connectionId ?? 'platform:key'
   const primaryConnection: ResolvedConnection = { connectionId: primaryId, provider: found.provider, authType: found.auth, secret: found.key, ...(found.accountId ? { accountId: found.accountId } : {}) }
-  const fallbacks = (await connections.resolveConnections(billed, true))
-    .filter((connection) => connection.connectionId !== primaryId)
-    .flatMap((connection) => {
-      try {
-        const claudeSignIn = connection.authType === 'oauth' && connection.provider === 'anthropic'
-        return [routeOf(connection, claudeSignIn ? anthropicOAuthDesignerModel : (connection.preferredModel ?? defaultModel(connection.provider, false)), false)]
-      } catch (error) {
-        if (error instanceof NoExecutorError) return []
-        throw error
-      }
-    })
-  const router = createRouter({ primary: routeOf(primaryConnection, model, found.provider === 'anthropic' && found.auth === 'api_key'), fallbacks, retry: { attempts: 3, baseMs: 500, maxMs: 8_000 } }, { cooldown: connections, ...(deps.sleep ? { sleep: deps.sleep } : {}) })
+  const fallbackOf = async (connection: ResolvedConnection): Promise<Route[]> => {
+    // A DeepInfra fallback runs its preferred model if it lists it, else its first; one that lists none is skipped.
+    if (deepInfra({ provider: connection.provider, auth: connection.authType, key: connection.secret })) {
+      const models = await listedBy(deps, connection.secret)
+      const pick = models.find((m) => m.id === connection.preferredModel) ?? models[0]
+      return pick ? [routeOf(connection, pick.id, false, pick)] : []
+    }
+    try {
+      const claudeSignIn = connection.authType === 'oauth' && connection.provider === 'anthropic'
+      return [routeOf(connection, claudeSignIn ? anthropicOAuthDesignerModel : (connection.preferredModel ?? defaultModel(connection.provider, false)), false)]
+    } catch (error) {
+      if (error instanceof NoExecutorError) return []
+      throw error
+    }
+  }
+  const fallbacks = (await Promise.all((await connections.resolveConnections(billed, true)).filter((connection) => connection.connectionId !== primaryId).map(fallbackOf))).flat()
+  const router = createRouter({ primary: routeOf(primaryConnection, model, found.provider === 'anthropic' && found.auth === 'api_key', capability), fallbacks, retry: { attempts: 3, baseMs: 500, maxMs: 8_000 } }, { cooldown: connections, ...(deps.sleep ? { sleep: deps.sleep } : {}) })
   return routedDesignerProvider(router, model, {
     signIn: found.auth === 'oauth',
     onRouted: (routed) => routed.fallbackUsed && logEvent({ event: 'ai_fallback_used', api: 'store', storeId: deps.context.storeId, code: routed.fallbackFrom ?? 'unknown' }),

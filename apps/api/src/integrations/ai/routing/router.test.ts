@@ -3,7 +3,6 @@ import { UnsupportedFeature, type CanonicalRequest } from '../canonical'
 import type { Executor } from '../executors/types'
 import { GatewayError, type GatewayErrorCode } from '../gateway'
 import { anthropicMessagesRequest, anthropicMessagesResponse, anthropicMessagesStream } from '../translators/anthropic-messages'
-import { registerModels } from '../registry'
 import { collectStream, createRouter } from './router'
 import type { CooldownStore, Route } from './types'
 
@@ -135,10 +134,9 @@ describe('fallback', () => {
   })
 
   it('tells a model listed as unable to see images that one was attached, instead of sending it', async () => {
-    registerModels([{ provider: 'anthropic', id: 'blind-model', maxOutputTokens: 1000, temperature: [0, 1], centsPerMillion: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, images: false }])
     const bodies: unknown[] = []
     const a = fake('a', [])
-    const route = a.route('blind-model')
+    const route = { ...a.route('blind-model'), capability: { provider: 'anthropic' as const, id: 'blind-model', maxOutputTokens: 1000, temperature: [0, 1] as const, centsPerMillion: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, images: false } }
     const execute = route.executor.execute
     route.executor = { ...route.executor, execute: (prepared, ...rest) => (bodies.push(prepared.body), execute(prepared, ...rest)) }
     const withImage: CanonicalRequest = { ...request, messages: [{ role: 'user', content: [{ type: 'image', mediaType: 'image/png', base64: 'aGk=' }, { type: 'text', text: 'look' }] }] }

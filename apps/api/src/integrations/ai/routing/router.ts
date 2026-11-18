@@ -3,7 +3,7 @@ import { executorFor } from '../executors/registry'
 import type { ExecutorOptions } from '../executors/base'
 import type { ResolvedConnection } from '../executors/types'
 import { GatewayError, transientCodes } from '../gateway'
-import { capabilityOf } from '../registry'
+import { capabilityOf, type ModelCapability } from '../registry'
 import { withRetry } from '../retry'
 import { defaultTranslators, translatorsFor } from '../translators/registry'
 import type { TranslatorRegistry } from '../translators/types'
@@ -15,14 +15,15 @@ import type { CooldownStore, Route, Routed, RoutingPolicy } from './types'
 export interface RouteOptions {
   executor?: ExecutorOptions
   reasoningEffort?: ReasoningEffort
+  capability?: ModelCapability
   registry?: TranslatorRegistry
 }
 
 /** The route for a connection: its executor and its format's translators. Throws NoExecutorError for a pair with no executor. */
-export const buildRoute = (connection: ResolvedConnection, model: string, { executor: executorOptions, reasoningEffort, registry = defaultTranslators() }: RouteOptions = {}): Route => {
+export const buildRoute = (connection: ResolvedConnection, model: string, { executor: executorOptions, reasoningEffort, capability, registry = defaultTranslators() }: RouteOptions = {}): Route => {
   const executor = executorFor(connection, executorOptions)
   const { request, response, stream } = translatorsFor(registry, executor.format)
-  return { provider: connection.provider, model, connection, executor, requestTranslator: request, responseTranslator: response, streamTranslator: stream, ...(reasoningEffort ? { reasoningEffort } : {}) }
+  return { provider: connection.provider, model, connection, executor, requestTranslator: request, responseTranslator: response, streamTranslator: stream, ...(reasoningEffort ? { reasoningEffort } : {}), ...(capability ? { capability } : {}) }
 }
 
 export interface RouterDeps {
@@ -39,7 +40,7 @@ const withoutImages = (messages: readonly CanonicalMessage[]): CanonicalMessage[
 
 /** The route's model and effort win over the request's, and the answer may be as long as that model allows (never more). */
 const bodyOf = (route: Route, request: CanonicalRequest): object => {
-  const capability = capabilityOf(route.provider, route.model)
+  const capability = route.capability ?? capabilityOf(route.provider, route.model)
   const limit = Math.min(capability?.maxOutputTokens ?? Infinity, route.executor.capabilities.maxOutputTokens)
   const messages = capability?.images === false ? withoutImages(request.messages) : request.messages
   const body = route.requestTranslator.translate({ ...request, messages, model: route.model, maxTokens: Math.min(request.maxTokens, limit), ...(route.reasoningEffort && capability?.effort !== false ? { reasoningEffort: route.reasoningEffort } : {}) }, route.executor.capabilities)

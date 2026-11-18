@@ -71,8 +71,6 @@ export const handleAiGateway = async (request: Request, ctx: StoreContext, env: 
     actor: { keyId: caller.actor.kind === 'api_key' ? caller.actor.id : null, userId: caller.actor.kind === 'person' ? caller.actor.id : null },
     now: ctx.now,
   })
-  const checked = gateway.validate(input.data)
-  if (!checked.ok) return failure(checked.reason, refusalStatus[checked.reason])
   // `request.signal` ends the provider call when the caller goes away.
   if (input.data.stream) {
     // The first chunk is read before the 200 is sent, so a refusal or a provider failure answers with its own status and code.
