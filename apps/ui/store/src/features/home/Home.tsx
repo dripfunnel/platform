@@ -263,10 +263,6 @@ const setupLink = (key: SetupItem['key']) => {
       return { to: '/products/$productId' } as const
     case 'collections':
       return { to: '/collections' } as const
-    case 'payments':
-      return { to: '/settings', tab: 'payments' } as const
-    case 'shipping':
-      return { to: '/settings', tab: 'shipping' } as const
     case 'brand':
       return { to: '/storefront', tab: 'settings' } as const
   }
