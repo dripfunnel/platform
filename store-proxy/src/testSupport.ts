@@ -59,6 +59,23 @@ export const fakeSites = (objects: Record<string, FakeObject>) => {
   return { sites: bucket as unknown as R2Bucket, asked }
 }
 
+/** The API's default fetch: every request it is handed, in order. */
+export interface FakeApi {
+  fetch: (request: Request) => Promise<Response>
+  forwarded: Request[]
+}
+
+export const fakeApi = (): FakeApi => {
+  const api: FakeApi = {
+    forwarded: [],
+    fetch: async (request) => {
+      api.forwarded.push(request)
+      return new Response('{"data":{}}', { headers: { 'content-type': 'application/json' } })
+    },
+  }
+  return api
+}
+
 export interface FakeEdge extends EdgeApi {
   hosts: Map<string, LiveHost>
   /** Each token's preview key and what `openPreview` answers for it there; `previewAccess` per key, store, user and epoch. */
@@ -107,10 +124,11 @@ export const fakeEdge = (): FakeEdge => {
 export const sessionKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))
 
 /** The deps, and `settle` to wait for the cache writes `waitUntil` was handed. */
-export const depsWith = async (parts: { edge: EdgeApi; sites: R2Bucket; cache: Cache; clock: Clock }): Promise<{ deps: Deps; settle: () => Promise<void> }> => {
+export const depsWith = async (parts: { edge: EdgeApi; api: FakeApi; sites: R2Bucket; cache: Cache; clock: Clock }): Promise<{ deps: Deps; settle: () => Promise<void> }> => {
   const pending: Promise<unknown>[] = []
   const deps: Deps = {
     edge: parts.edge,
+    api: parts.api,
     sites: parts.sites,
     cache: parts.cache,
     waitUntil: (work) => void pending.push(work),

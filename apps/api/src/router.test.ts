@@ -52,8 +52,49 @@ describe('resolveArea', () => {
     expect(entry('https://store.dripfunnel.ai/api')).toBe('public')
     expect(entry('https://dripfunnel.ai/api')).toBe('public')
     expect(entry('https://store.partner.com/')).toBe('public')
-    expect(entry('https://acme.shops.partner.com/shop-api')).toBe('public')
     expect(entryOf(new URL('https://store.partner.com/api'), config, 'edge')).toBe('edge')
+  })
+
+  it('reads a store host’s /shop-api, Delivery API and download at the default fetch as store-proxy’s placed call, and nothing else (#1292)', () => {
+    const shops = { ...config, SHOP_DOMAIN: 'my-store.one' }
+    const entry = (href: string, c = shops) => entryOf(new URL(href), c, 'public')
+    for (const host of ['acme.my-store.one', 'acme-preview.my-store.one', 'www.acme.com', 'store.dripfunnel.ai.partner.com']) {
+      expect(entry(`https://${host}/shop-api/graphql`)).toBe('edge')
+      expect(entry(`https://${host}/delivery-api/`)).toBe('edge')
+      expect(entry(`https://${host}/app/delivery.apk`)).toBe('edge')
+      expect(entry(`https://${host}/`)).toBe('public')
+      expect(entry(`https://${host}/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/`)).toBe('public')
+    }
+    // Our own hosts keep the entry they came by, so none of them gains the storefront entry.
+    for (const host of ['admin.dripfunnel.ai', 'platform.dripfunnel.ai', 'hooks.dripfunnel.ai', 'store.dripfunnel.ai', 'dripfunnel.ai']) {
+      expect(entry(`https://${host}/shop-api/graphql`)).toBe('public')
+      expect(entry(`https://${host}/delivery-api/`)).toBe('public')
+    }
+    // The other entries are never changed.
+    expect(entryOf(new URL('https://acme.my-store.one/shop-api'), shops, 'portal')).toBe('portal')
+    expect(entryOf(new URL('https://acme.my-store.one/shop-api'), shops, 'edge')).toBe('edge')
+    // Locally the shop domain sits inside our zone, so it is named: its hosts are store hosts, the portal and consoles are not.
+    const local = { ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost', SHOP_DOMAIN: 'my-store.localhost' }
+    expect(entry('https://acme.my-store.localhost/shop-api/graphql', local)).toBe('edge')
+    expect(entry('https://store.northstar.localhost/shop-api/graphql', local)).toBe('public')
+    expect(entry('https://admin.localhost/shop-api/graphql', local)).toBe('public')
+  })
+
+  it('judges the storefront entry by the same rules as StorefrontEdge: the Delivery API only on a free address, never a preview host (#1292)', () => {
+    const shops = { ...config, SHOP_DOMAIN: 'my-store.one' }
+    const placed = (href: string) => {
+      const url = new URL(href)
+      return resolveArea(url, shops, entryOf(url, shops, 'public'))
+    }
+    expect(placed('https://kesari.my-store.one/shop-api/graphql')).toBe('shop')
+    expect(placed('https://kesari-preview.my-store.one/shop-api/graphql')).toBe('shop')
+    expect(placed('https://www.kesari.com/shop-api/graphql')).toBe('shop')
+    expect(placed('https://kesari.my-store.one/delivery-api/')).toBe('delivery')
+    expect(placed('https://kesari.my-store.one/app/delivery.apk')).toBe('delivery')
+    expect(placed('https://kesari-preview.my-store.one/delivery-api/')).toBeUndefined()
+    expect(placed('https://www.kesari.com/delivery-api/')).toBeUndefined()
+    expect(placed('https://kesari.my-store.one/')).toBeUndefined()
+    expect(placed('https://admin.dripfunnel.ai/shop-api')).not.toBe('shop')
   })
 
   it('serves the Shop API on storefront hosts', () => {

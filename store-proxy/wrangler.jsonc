@@ -22,7 +22,7 @@
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
       "vars": { "OWN_ZONE": "dripfunnel.dev", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "SHOP_DOMAIN": "my-shop.dev" },
-      // A partner's own host goes to the API's default fetch, so its placement applies (SAAS.md §8, ARCHITECTURE §6); shop and preview hosts use StorefrontEdge (LIVE-SHOP §5, PREVIEW §5).
+      // A partner's own host goes to the API's default fetch, so its placement applies (SAAS.md §8, ARCHITECTURE §6); their `/shop-api/*` and the Delivery API go there too (#1292), and only the host lookups, preview checks and the studio frame use StorefrontEdge (LIVE-SHOP §5, PREVIEW §5).
       "services": [
         { "binding": "API", "service": "dripfunnel-api-dev" },
         { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }
