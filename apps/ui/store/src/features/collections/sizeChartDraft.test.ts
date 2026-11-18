@@ -48,6 +48,26 @@ describe('a size chart being edited', () => {
     expect(inUnit(inUnit(back, 'in'), 'cm').rows).toEqual(draftOfChart(chart).rows)
   })
 
+  it('converts a weight column kg ↔ lb, not by 2.54, and renames it and its how-to-measure note (#1571)', () => {
+    const baby: SizeChart = {
+      ...chart,
+      systems: [],
+      measurements: ['Baby height', 'Baby weight (kg)'],
+      rows: [{ size: '0–3m', values: ['55–61', '4–6'] }],
+      howToMeasure: [{ measurement: 'Baby weight (kg)', text: 'On scales' }],
+    }
+    const inches = inUnit(draftOfChart(baby), 'in')
+    expect(inches.rows[0]?.values).toEqual(['21.7–24', '8.8–13.2'])
+    expect(inches.measurements).toEqual(['Baby height', 'Baby weight (lb)'])
+    expect(inches.howToMeasure).toEqual([{ measurement: 'Baby weight (lb)', text: 'On scales' }])
+    const back = inUnit(inches, 'cm')
+    expect(back.rows).toEqual(draftOfChart(baby).rows)
+    expect(back.measurements).toEqual(baby.measurements)
+    const fromInches = inUnit({ ...draftOfChart(baby), unit: 'in', measurements: ['Baby height', 'Baby weight (lb)'], rows: [{ size: '0–3m', values: ['21.7', '8.8'] }] }, 'cm')
+    expect(fromInches.rows[0]?.values).toEqual(['55.1', '4'])
+    expect(fromInches.measurements).toEqual(['Baby height', 'Baby weight (kg)'])
+  })
+
   it('takes a value typed after a switch as the one to convert from', () => {
     const inches = inUnit(draftOfChart(chart), 'in')
     const typed = { ...inches, rows: inches.rows.map((r, i) => (i === 0 ? { ...r, values: ['10', '40', 'Slim'] } : r)) }

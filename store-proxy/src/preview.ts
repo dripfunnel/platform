@@ -86,7 +86,7 @@ export const servePreview = async (request: Request, url: URL, key: string, deps
 
   const access = parsePreviewAccess(await deps.edge.previewAccess({ key, storeId: session.s, userId: session.u, epoch: session.e }))
   if (!access.ok || access.storeId !== session.s || access.folder === null) return isShopApi(url.pathname) ? closedApi() : closed()
-  if (isShopApi(url.pathname)) return started(access, key, deps, await deps.edge.fetch(withoutCookie(request, sessionCookie)))
+  if (isShopApi(url.pathname)) return started(access, key, deps, await deps.api.fetch(withoutCookie(request, sessionCookie)))
   // The SPA fallback: any page path that isn't a file of its own gets the folder's index.html.
   const rel = url.pathname.endsWith('.html') ? relativeKey(url.pathname) : 'index.html'
   const found = rel ? await previewObject(url, session, access.folder, rel, deps, false) : null

@@ -373,7 +373,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
-    'export.catalog': catalogExportDeliverer(sql),
+    'export.catalog': catalogExportDeliverer(sql, undefined, config.SHOP_DOMAIN ?? null),
     [offerKind]: deliveryOfferDeliverer(sql, activityLog),
     [etaKind]: deliveryEtaDeliverer(sql, routesFor(config)),
     [orderUpdateKind]: orderNotifyDeliverer(sql),

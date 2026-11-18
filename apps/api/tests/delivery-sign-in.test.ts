@@ -160,11 +160,18 @@ describe('the Delivery API’s host (ARCHITECTURE §2, DELIVERY §4)', () => {
     expect((await post(hostA1, '/delivery-apix')).status).toBe(404)
   })
 
-  it('is never answered on the Worker’s own routes', async () => {
+  // #1292: store-proxy sends this API to the default fetch, which Cloudflare places next to the database, so it answers there as it does
+  // through StorefrontEdge, on a store's free address only; our own hosts' Delivery API is nothing.
+  it('is answered at the default fetch on a store’s free address as through StorefrontEdge, and never on our own hosts', async () => {
     const { default: worker } = await import('../src/index')
-    const request = new Request(`https://${hostA1}/delivery-api/`, { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.9' }, body: '{}' })
-    const answer = await worker.fetch(request as Parameters<typeof worker.fetch>[0], env() as never, ctx)
-    expect(answer.status).toBe(404)
+    const send = (host: string) => new Request(`https://${host}/delivery-api/`, { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.9' }, body: '{}' })
+    const placed = await worker.fetch(send(hostA1) as Parameters<typeof worker.fetch>[0], env() as never, ctx)
+    const edge = await new StorefrontEdge(ctx, env() as never).fetch(send(hostA1))
+    expect(placed.status).toBe(edge.status)
+    expect(placed.status).not.toBe(404)
+    for (const own of ['admin.dripfunnel.ai', 'platform.dripfunnel.ai', 'hooks.dripfunnel.ai']) {
+      expect((await worker.fetch(send(own) as Parameters<typeof worker.fetch>[0], env() as never, ctx)).status).toBe(404)
+    }
   })
 })
 

@@ -46,13 +46,13 @@ export const tasksOf = (home: StoreHome): Task[] => {
   return tasks
 }
 
-export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand' | 'payments' | 'shipping'
+export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand'
 
 export interface SetupItem {
   key: SetupKey
   done: boolean
   note: string | null
-  /** Payments and shipping can be skipped by the Owner until done; a skipped one leaves the count (#719). */
+  /** The logo step can be skipped by the Owner until done; a skipped one leaves the count (#719). */
   optional: boolean
   skipped: boolean
 }
@@ -71,12 +71,12 @@ export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, c
     items.push({ key: 'locale', done: true, optional: false, skipped: false, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
   // What the shop sells, the Owner's (DATA-MODEL §7.2): before products, as the sections it suggests shape them.
   if (home.setup.category !== null) items.push({ key: 'category', done: home.setup.category, optional: false, skipped: false, note: home.setup.category ? categoryName : null })
-  for (const key of ['products', 'collections', 'brand', 'payments', 'shipping'] as const) {
+  // No payments or shipping step: new stores start with Cash on delivery and a flat rate (#1406).
+  for (const key of ['products', 'collections', 'brand'] as const) {
     const done = home.setup[key]
     if (done === null || done === undefined) continue
-    const optional = key === 'payments' || key === 'shipping' || key === 'brand'
-    const skipped = !done && ((key === 'payments' && home.setup.paymentsSkipped) || (key === 'shipping' && home.setup.shippingSkipped) || (key === 'brand' && home.setup.brandSkipped)) === true
-    items.push({ key, done, note: null, optional: optional && !done, skipped })
+    const brand = key === 'brand'
+    items.push({ key, done, note: null, optional: brand && !done, skipped: brand && !done && home.setup.brandSkipped === true })
   }
   return items
 }

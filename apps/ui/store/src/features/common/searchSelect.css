@@ -4,6 +4,7 @@
   max-width: 420px;
 }
 .df-search-select input {
+  box-sizing: border-box;
   width: 100%;
   min-height: 36px;
   padding: 0 32px 0 var(--df-space-3);

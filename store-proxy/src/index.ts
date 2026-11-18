@@ -96,7 +96,7 @@ export default {
       response = new Response(null, { status: 500 })
     } else {
       const deps: Deps | null =
-        env.EDGE && env.SITES ? { edge: env.EDGE, sites: env.SITES, cache: caches.default, waitUntil: (work) => ctx.waitUntil(work), now: () => Date.now(), sessions: await (sessionsFor(env) ?? null) } : null
+        env.EDGE && env.SITES ? { edge: env.EDGE, api: env.API, sites: env.SITES, cache: caches.default, waitUntil: (work) => ctx.waitUntil(work), now: () => Date.now(), sessions: await (sessionsFor(env) ?? null) } : null
       response = await route(request, env, deps)
     }
     const url = new URL(request.url)

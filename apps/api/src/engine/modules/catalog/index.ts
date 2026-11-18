@@ -72,6 +72,7 @@ export {
   exportDtoOf,
   type CatalogExportDto,
   type CatalogExportService,
+  type PhotoUrl,
 } from './exports'
 export { catalogJobPayload, jobContextOf, jobPayloadOf, type CatalogJobPayload } from './jobScope'
 export {

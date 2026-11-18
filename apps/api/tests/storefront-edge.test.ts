@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
-import { StorefrontEdge } from '../src/index'
+import worker, { StorefrontEdge } from '../src/index'
 import { cachePurgeDeliverer } from '#jobs/queues/deliverers/cachePurge'
 import { GiveUp, type Effect } from '#jobs/queues/outbox-relay'
 import { CloudflareRefused, CloudflareUnavailable } from '#integrations/cloudflare/api'
@@ -138,6 +138,61 @@ describe('the edge’s door to the API', () => {
     expect((await edge().fetch(graphql(shopsA1, '/'))).status).toBe(404)
     expect((await edge().fetch(graphql('admin.dripfunnel.ai'))).status).toBe(404)
     expect((await edge().fetch(graphql('unknown.example'))).status).toBe(404)
+  })
+})
+
+// #1292: store-proxy sends /shop-api and the Delivery API to the default fetch, which Cloudflare places next to the database
+// (StorefrontEdge is a named entrypoint and isn't placed). It must answer exactly what StorefrontEdge did.
+describe('the placed default fetch, for store-proxy’s storefront calls', () => {
+  const placed = (request: Request) => worker.fetch(request as never, env() as never, ctx)
+  const call = (host: string, path: string) =>
+    new Request(`https://${host}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' }, body: JSON.stringify({ query: '{ __typename }' }) })
+
+  it('answers /shop-api/* on a storefront host as StorefrontEdge does, and the same body', async () => {
+    const [a, b] = [await placed(call(shopsA1, '/shop-api')), await edge().fetch(call(shopsA1, '/shop-api'))]
+    expect([a.status, await a.text()]).toEqual([b.status, await b.text()])
+    expect(a.status).toBe(200)
+    // A merchant's own domain, answered or not, the same either way.
+    expect((await placed(call(customA2, '/shop-api'))).status).toBe((await edge().fetch(call(customA2, '/shop-api'))).status)
+  })
+
+  it('answers nothing else on a storefront host, and nothing on our own hosts or an unknown one, as StorefrontEdge does', async () => {
+    const different: string[] = []
+    for (const [host, path] of [
+      [shopsA1, '/'],
+      [shopsA1, '/delivery-apix'],
+      ['unknown.example', '/shop-api'],
+      ['unknown.example', '/'],
+      ['admin.dripfunnel.ai', '/shop-api'],
+      ['platform.dripfunnel.ai', '/shop-api'],
+      ['hooks.dripfunnel.ai', '/shop-api'],
+      ['admin.dripfunnel.ai', '/delivery-api/'],
+      ['hooks.dripfunnel.ai', '/delivery-api/'],
+    ] as const) {
+      const [a, b] = [await placed(call(host, path)), await edge().fetch(call(host, path))]
+      if (a.status !== b.status) different.push(`${host}${path}: placed ${a.status}, edge ${b.status}`)
+    }
+    expect(different).toEqual([])
+  })
+
+  it('judges the Delivery API and its download by the same host rules: a free address only, never a preview or an own domain', async () => {
+    const different: string[] = []
+    for (const [host, path] of [
+      [shopsA1, '/delivery-api/'],
+      [shopsA1, '/app/delivery.apk'],
+      ['store-a1-preview.shop.example', '/delivery-api/'],
+      [customA2, '/delivery-api/'],
+      ['a.store-a1.shop.example', '/delivery-api/'],
+    ] as const) {
+      const [a, b] = [await placed(call(host, path)), await edge().fetch(call(host, path))]
+      if (a.status !== b.status) different.push(`${host}${path}: placed ${a.status}, edge ${b.status}`)
+    }
+    expect(different).toEqual([])
+  })
+
+  it('does not answer the studio frame: that stays on StorefrontEdge, since no placed entry knows it', async () => {
+    const frame = '/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/index.html'
+    expect((await placed(call(shopsA1, frame))).status).toBe(404)
   })
 })
 

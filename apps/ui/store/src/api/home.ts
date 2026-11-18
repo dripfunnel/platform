@@ -38,10 +38,6 @@ const homeSchema = z.object({
       category: z.boolean().nullable(),
       products: z.boolean().nullable(),
       collections: z.boolean().nullable(),
-      payments: z.boolean().nullable(),
-      shipping: z.boolean().nullable(),
-      paymentsSkipped: z.boolean().nullable(),
-      shippingSkipped: z.boolean().nullable(),
       brand: z.boolean().nullable(),
       brandSkipped: z.boolean().nullable(),
     })
@@ -56,7 +52,7 @@ export const loadHome = async (): Promise<StoreHome | null> =>
       `{ home { timeZone hasOrders toShip partlyShipped oldestToShipAt paymentsToCollect { count firstOrderId } awaitingApproval lowStock { count names }
         rejectedCouriers ordersToday ordersYesterday sales { yesterday { amount currency } dayBefore { amount currency } averageWeek { amount currency } }
         returningCustomers latestOrders { id number placedAt state paymentState fulfilmentState customerName items total { amount currency } test }
-        setup { category products collections payments shipping paymentsSkipped shippingSkipped brand brandSkipped } } }`,
+        setup { category products collections brand brandSkipped } } }`,
       z.object({ home: homeSchema.nullable() }),
     )
   ).home
@@ -78,8 +74,8 @@ export const loadLocaleFacts = async (): Promise<StoreLocaleFacts> => {
   return { country: storeInfo?.country ?? null, currency: storeLocale?.pricingCurrency ?? null, language: storeLocale?.mainLanguage ?? null }
 }
 
-export type SkippableStep = 'payments' | 'shipping' | 'brand'
-/** The Owner's Skip and Undo on "Choose how shoppers pay" and "Choose how you ship" (#719). */
+export type SkippableStep = 'brand'
+/** The Owner's Skip and Undo on the logo step (#719). */
 export const skipSetupStep = async (step: SkippableStep, skipped: boolean): Promise<void> => {
   await query('mutation Skip($step: SetupStep!, $skipped: Boolean!) { skipSetupStep(step: $step, skipped: $skipped) }', z.object({ skipSetupStep: z.boolean().nullable() }), { step, skipped })
 }

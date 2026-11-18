@@ -64,7 +64,7 @@ const fresh: StoreHome = {
   sales: [],
   returningCustomers: 0,
   latestOrders: [],
-  setup: { category: null, products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false, brand: null, brandSkipped: null },
+  setup: { category: null, products: true, collections: false, brand: null, brandSkipped: null },
 }
 
 const ownerPermissions = ['orders.read', 'reports.read', 'settings', 'approve', 'shipping.configure', 'orders.mark_paid', 'catalog.read', 'catalog.import']
@@ -174,52 +174,59 @@ describe('the Home screen', () => {
     api.loadHome.mockResolvedValue(fresh)
     await show(owner)
     const setup = screen.getByRole('region', { name: words.setup.title })
-    expect(within(setup).getByText('2 of 5')).toBeTruthy()
+    expect(within(setup).getByText('2 of 3')).toBeTruthy()
     expect(within(setup).getByText('India · INR · English')).toBeTruthy()
     const steps = within(setup).getAllByRole('link')
-    expect(steps.map((s) => s.getAttribute('href'))).toEqual(['/settings?tab=store', '/products/new', '/collections', '/settings?tab=payments', '/settings?tab=shipping'])
+    expect(steps.map((s) => s.getAttribute('href'))).toEqual(['/settings?tab=store', '/products/new', '/collections'])
     expect(steps[1]?.textContent).toContain(words.setup.doneSuffix)
     expect(steps[2]?.textContent).not.toContain(words.setup.doneSuffix)
     expect(within(setup).queryByText(words.setup.ownerNote)).toBeNull()
     expect(screen.queryByRole('region', { name: words.numbers.title })).toBeNull()
   })
 
-  it('tags payments and shipping Optional, and Skip drops a step from the count and Undo brings it back', async () => {
-    api.loadHome.mockResolvedValue(fresh)
+  it('lists no payments or shipping step, as new stores start with Cash on delivery and a flat rate (#1406)', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: false, brandSkipped: false } })
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    expect(within(setup).queryByText('Choose how shoppers pay')).toBeNull()
+    expect(within(setup).queryByText('Choose how you ship')).toBeNull()
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
+  })
+  it('drops a skipped logo step from the count, and Undo brings it back', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: false, brandSkipped: false } })
     api.skipSetupStep.mockResolvedValue(undefined)
     await show(owner)
     const setup = screen.getByRole('region', { name: words.setup.title })
-    expect(within(setup).getAllByText(words.setup.optional)).toHaveLength(2)
     await act(async () => {
-      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.payments.label}` }))
+      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.brand.label}` }))
     })
-    expect(api.skipSetupStep).toHaveBeenCalledWith('payments', true)
-    expect(within(setup).getByText('2 of 4')).toBeTruthy()
+    expect(api.skipSetupStep).toHaveBeenCalledWith('brand', true)
+    expect(within(setup).getByText('2 of 3')).toBeTruthy()
     expect(within(setup).getByText(words.setup.skipped)).toBeTruthy()
     await act(async () => {
-      fireEvent.click(within(setup).getByRole('button', { name: `Undo skipping: ${words.setup.payments.label}` }))
+      fireEvent.click(within(setup).getByRole('button', { name: `Undo skipping: ${words.setup.brand.label}` }))
     })
-    expect(api.skipSetupStep).toHaveBeenLastCalledWith('payments', false)
-    expect(within(setup).getByText('2 of 5')).toBeTruthy()
+    expect(api.skipSetupStep).toHaveBeenLastCalledWith('brand', false)
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
   })
   it('keeps a step as it was and says so when the skip is not saved', async () => {
-    api.loadHome.mockResolvedValue(fresh)
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { ...fresh.setup, brand: false, brandSkipped: false } })
     api.skipSetupStep.mockRejectedValue(new Error('down'))
     await show(owner)
     const setup = screen.getByRole('region', { name: words.setup.title })
     await act(async () => {
-      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.shipping.label}` }))
+      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.brand.label}` }))
     })
     expect(within(setup).getByRole('alert').textContent).toBe(words.setup.skipError)
-    expect(within(setup).getByText('2 of 5')).toBeTruthy()
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
   })
   it('offers a Manager no Skip, as the steps are not theirs', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, brand: null, brandSkipped: null } })
     await show(manager)
     expect(screen.queryByRole('button', { name: /Skip/ })).toBeNull()
   })
   it('gives a Manager only the catalogue steps, saying the rest is the owner’s', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { category: null, products: true, collections: false, brand: null, brandSkipped: null } })
     await show(manager)
     const setup = screen.getByRole('region', { name: words.setup.title })
     expect(within(setup).getAllByRole('link')).toHaveLength(2)
@@ -227,7 +234,7 @@ describe('the Home screen', () => {
   })
 
   it('tells Staff in a new store that the first order will show up here', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { category: null, products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null, brand: null, brandSkipped: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { category: null, products: null, collections: null, brand: null, brandSkipped: null } })
     await show(staff)
     expect(screen.getByRole('region', { name: words.staffWait.title })).toBeTruthy()
     expect(screen.queryByRole('region', { name: words.setup.title })).toBeNull()
@@ -245,7 +252,7 @@ describe('the Home screen', () => {
     categories.chooseShopCategory.mockResolvedValue(shoes)
     await show(owner)
     const setup = screen.getByRole('region', { name: words.setup.title })
-    expect(within(setup).getByText('2 of 6')).toBeTruthy()
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
     await act(async () => {
       fireEvent.click(within(setup).getByRole('button', { name: new RegExp(words.setup.category.label) }))
     })
@@ -259,7 +266,7 @@ describe('the Home screen', () => {
       fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
     })
     expect(categories.chooseShopCategory).toHaveBeenCalledWith('c3')
-    expect(within(setup).getByText('3 of 6')).toBeTruthy()
+    expect(within(setup).getByText('3 of 4')).toBeTruthy()
     expect(within(setup).getByText('Footwear')).toBeTruthy()
     expect(href(new RegExp(words.setup.category.label))).toBe('/settings?tab=catalogue')
   })
@@ -353,7 +360,7 @@ describe('the Home screen', () => {
       fireEvent.click(within(setup).getByRole('button', { name: words.setup.category.save }))
     })
     expect(within(setup).getByRole('alert').textContent).toBe(words.setup.category.error)
-    expect(within(setup).getByText('2 of 6')).toBeTruthy()
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
   })
 
   it('sends a read-only session to Settings rather than picking', async () => {
@@ -406,7 +413,7 @@ describe('the Home screen', () => {
     api.loadHome.mockResolvedValue(fresh)
     api.loadLocaleFacts.mockRejectedValue(new Error('down'))
     await show(owner)
-    expect(within(screen.getByRole('region', { name: words.setup.title })).getByText('1 of 4')).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: words.setup.title })).getByText('1 of 2')).toBeTruthy()
   })
 
   it('sends a supplier to its products without asking for Home', async () => {
