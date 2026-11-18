@@ -29,9 +29,15 @@ export const ProductPage = () => {
             </Notice>
           ) : (
             <div className={styles.product} aria-busy="true">
-              <div className={styles.noPicture} />
+              <div className={styles.loadingPicture} />
               <div className={styles.info}>
-                <h1 className={styles.loadingTitle}>{t('shop.product.loading')}</h1>
+                <h1 className={shop.srOnly}>{t('shop.product.loading')}</h1>
+                <span className={shop.skeletonTitle} />
+                <span className={shop.skeletonShort} />
+                <span className={shop.skeletonButton} />
+                <span className={shop.skeletonText} />
+                <span className={shop.skeletonText} />
+                <span className={shop.skeletonText} />
               </div>
             </div>
           )}

@@ -88,7 +88,7 @@ export const MoreOnScroll = ({ listing }: { listing: Listing }) => {
   return (
     <div ref={end} className={styles.more}>
       {listing.loadingMore ? (
-        <p className={styles.muted} role="status">
+        <p className={styles.srOnly} role="status">
           {t('shop.listing.loadingMore')}
         </p>
       ) : null}

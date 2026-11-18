@@ -367,7 +367,8 @@
   list-style: none;
 }
 
-.order {
+.order,
+.orderRow {
   display: flex;
   align-items: center;
   justify-content: space-between;

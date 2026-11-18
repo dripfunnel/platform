@@ -473,6 +473,71 @@
   background: var(--soft);
 }
 
+.skeletonText,
+.skeletonShort,
+.skeletonTitle,
+.skeletonPhoto,
+.skeletonCover,
+.skeletonDot,
+.skeletonButton {
+  display: block;
+  border-radius: 6px;
+  background: var(--soft);
+}
+
+.skeletonText {
+  width: 100%;
+  max-width: 28rem;
+  height: 14px;
+}
+
+.skeletonShort {
+  width: 40%;
+  height: 14px;
+}
+
+.skeletonTitle {
+  width: min(100%, 16rem);
+  height: 28px;
+  border-radius: 8px;
+}
+
+.skeletonPhoto {
+  width: 88px;
+  height: 110px;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+.skeletonCover {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius);
+}
+
+.skeletonDot {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.skeletonButton {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--button-radius);
+}
+
+.srOnly {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .notice {
   display: flex;
   flex-direction: column;

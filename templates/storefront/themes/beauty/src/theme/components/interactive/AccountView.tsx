@@ -28,7 +28,21 @@ export const AccountView = ({ section }: { section: Section }) => {
   if (page.status === 'loading' || page.status === 'signedOut') {
     return (
       <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('pages.account.title')}</h1>
+        <div className={styles.hello}>
+          <h1 className={styles.title}>{t('pages.account.title')}</h1>
+        </div>
+        <div className={styles.account}>
+          <div className={styles.nav}>
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className={shop.skeletonShort} />
+            ))}
+          </div>
+          <div className={styles.card}>
+            <span className={shop.skeletonTitle} />
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonText} />
+          </div>
+        </div>
       </section>
     )
   }
@@ -99,9 +113,17 @@ const Orders = () => {
   if (page.status === 'loading' || page.status === 'signedOut') {
     return (
       <Card title={t('shop.orders.title')}>
-        <p className={styles.note} aria-busy="true">
-          {t('shop.orders.loading')}
-        </p>
+        <div aria-busy="true">
+          <p className={shop.srOnly}>{t('shop.orders.loading')}</p>
+          <ul className={styles.orders}>
+            {[0, 1, 2].map((i) => (
+              <li key={i} className={styles.orderRow}>
+                <span className={shop.skeletonShort} />
+                <span className={shop.skeletonShort} />
+              </li>
+            ))}
+          </ul>
+        </div>
       </Card>
     )
   }

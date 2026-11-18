@@ -21,7 +21,17 @@ export const BlogView = () => {
           </Link>
         ) : null}
       </header>
-      {blog.status === 'loading' ? <p className={shop.lead}>{t('pages.blog.loading')}</p> : null}
+      {blog.status === 'loading' ? (
+        <div className={styles.posts} aria-busy="true" aria-label={t('pages.blog.loading')}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={styles.post}>
+              <span className={shop.skeletonCover} />
+              <span className={shop.skeletonShort} />
+              <span className={shop.skeletonText} />
+            </div>
+          ))}
+        </div>
+      ) : null}
       {blog.status === 'error' ? (
         <Notice title={t('pages.blog.failed')} lead={t('shop.listing.failedLead')}>
           <Retry label={t('shop.listing.retry')} onRetry={blog.retry} />

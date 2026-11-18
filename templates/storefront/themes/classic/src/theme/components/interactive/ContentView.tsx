@@ -13,9 +13,14 @@ export const ContentView = () => {
   const view = useContentPage()
   if (view.status === 'loading') {
     return (
-      <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('pages.content.loading')}</h1>
-      </section>
+      <article className={styles.article} aria-busy="true">
+        <h1 className={shop.srOnly}>{t('pages.content.loading')}</h1>
+        <span className={shop.skeletonTitle} />
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={shop.skeletonText} />
+        ))}
+        <span className={shop.skeletonShort} />
+      </article>
     )
   }
   if (view.status === 'error') {

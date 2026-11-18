@@ -31,6 +31,12 @@
   background: var(--picture-alt);
 }
 
+.loadingPicture {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius);
+  background: var(--soft);
+}
+
 .thumbs {
   display: flex;
   flex-wrap: wrap;
@@ -87,8 +93,7 @@
   font-weight: 600;
 }
 
-.title,
-.loadingTitle {
+.title {
   margin: 0;
   font-family: var(--heading-font);
   font-size: 28px;
@@ -97,11 +102,6 @@
   line-height: 1.15;
   overflow-wrap: anywhere;
   text-transform: var(--heading-case);
-}
-
-.loadingTitle {
-  color: var(--muted);
-  font-size: 20px;
 }
 
 .price {

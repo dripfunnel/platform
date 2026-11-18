@@ -47,7 +47,27 @@ export const CartView = () => {
     return (
       <section className={shop.page} aria-busy="true">
         <h1 className={shop.title}>{t('shop.cart.title')}</h1>
-        <p className={shop.lead}>{t('shop.cart.loading')}</p>
+        <p className={shop.srOnly}>{t('shop.cart.loading')}</p>
+        <div className={styles.cart}>
+          <ul className={styles.lines}>
+            {[0, 1].map((i) => (
+              <li key={i} className={styles.line}>
+                <span className={shop.skeletonPhoto} />
+                <div className={styles.info}>
+                  <span className={shop.skeletonText} />
+                  <span className={shop.skeletonShort} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <aside className={styles.side}>
+            <h2 className={styles.sideTitle}>{t('shop.cart.summary')}</h2>
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonShort} />
+            <span className={shop.skeletonButton} />
+          </aside>
+        </div>
       </section>
     )
   }
