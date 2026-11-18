@@ -127,8 +127,9 @@ export interface OrderSnapshot {
 }
 
 export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnapshot): Promise<void> => {
-  for (const [position, l] of s.lines.entries()) {
-    await tx`
+  // Independent rows, sent together on the transaction: one round trip, not one each (#1590).
+  await Promise.all([
+    ...s.lines.map((l, position) => tx`
       insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, version_name, sku, hs_code, tax_class_id, tax_rate_bps,
         quantity, unit_amount, discount_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position,
         gift_recipient_name, gift_recipient_email, gift_message, gift_send_on, answers, unit_extras_amount, line_extras_amount)
@@ -136,16 +137,12 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
         ${l.quantity}, ${l.unitAmount.toString()}, ${l.discountAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position},
         ${l.gift?.recipientName ?? null}, ${l.gift?.recipientEmail ?? null}, ${l.gift?.message ?? null}, ${l.gift?.sendOn ?? null}::date,
         ${l.answers ? tx.json(l.answers as unknown as postgres.JSONValue) : null}, ${l.unitExtrasAmount.toString()}, ${l.lineExtrasAmount.toString()})
-    `
-  }
-  for (const p of s.parts) {
-    await tx`insert into order_part (order_id, store_id, seller_id, shipping_mode) values (${s.orderId}, ${storeId}, ${p.sellerId}, ${p.shippingMode})`
-  }
-  if (s.shipping) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'shipping', ${s.shipping.label}, ${s.shipping.amount.toString()})`
-  for (const d of s.discounts) {
-    await tx`insert into order_adjustment (order_id, store_id, kind, label, amount, promotion_id, promotion_code_id) values (${s.orderId}, ${storeId}, 'discount', ${d.label}, ${d.amount.toString()}, ${d.promotionId}, ${d.codeId})`
-  }
-  if (s.tax.amount > 0n) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'tax', null, ${s.tax.amount.toString()})`
+    `),
+    ...s.parts.map((p) => tx`insert into order_part (order_id, store_id, seller_id, shipping_mode) values (${s.orderId}, ${storeId}, ${p.sellerId}, ${p.shippingMode})`),
+    ...(s.shipping ? [tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'shipping', ${s.shipping.label}, ${s.shipping.amount.toString()})`] : []),
+    ...s.discounts.map((d) => tx`insert into order_adjustment (order_id, store_id, kind, label, amount, promotion_id, promotion_code_id) values (${s.orderId}, ${storeId}, 'discount', ${d.label}, ${d.amount.toString()}, ${d.promotionId}, ${d.codeId})`),
+    ...(s.tax.amount > 0n ? [tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'tax', null, ${s.tax.amount.toString()})`] : []),
+  ])
   await tx`
     update "order" set state = 'placed', number = ${s.number}, placed_at = ${s.now}, tax_inclusive = ${s.tax.inclusive},
       subtotal_amount = ${s.subtotal.toString()}, discount_amount = ${s.discount.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},

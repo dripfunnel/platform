@@ -26,6 +26,7 @@ import {
   writeSnapshot,
   type PaymentAccountRow,
   type SnapshotLine,
+  type SnapshotVersionRow,
 } from '#db/scoped/orders'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { queueStoreEvent } from '#db/scoped/storeEvents'
@@ -196,8 +197,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     }
   }
 
-  const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean, deliveringAt: string | null): Promise<SnapshotLine[]> => {
-    const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
+  const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean, deliveringAt: string | null, versions: ReadonlyMap<string, SnapshotVersionRow>): Promise<SnapshotLine[]> => {
     // By cart line: two lines of one version (different answers) are held one after the other.
     const heldAt = new Map<string, string | null>()
     // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4); in
@@ -266,7 +266,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
 
   /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
   const place = async (provider: string, app?: AppPaymentInput, ageConfirmed = false): Promise<CheckoutResult<PlacedOrder>> => {
-    const cart = await createCartService({ ...deps, allowNewCart: async () => false }).cart()
+    const { cart, also: accounts } = await createCartService({ ...deps, allowNewCart: async () => false }).cartAnd((tx) => selectLivePaymentAccounts(tx, storeId))
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
@@ -282,8 +282,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     const gift = cart.giftCard
     const covered = gift !== null && cart.amountDue.amount === 0n
     if ((gift && mode === 'test') || covered !== (provider === giftCardMethod)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-    // One read: the option and the account the payment names can't drift apart.
-    const accounts = await liveAccounts()
+    // One read, with the cart's: the option and the account the payment names can't drift apart.
     const option = covered ? giftCardOption : optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     let card: { attemptId: string; accountId: string; started: PaymentStart } | null = null
@@ -308,9 +307,10 @@ export const createCheckout = (deps: CheckoutDeps) => {
         // A preview's test order takes no real use (storefront PREVIEW); a live one takes each, or the shopper sees the cart again.
         if (mode === 'live') await claimOffers(tx, cart)
         const deliveringAt = cart.shippingOption === 'own_delivery' ? (cart.shippingOptions.find((o) => o.id === 'own_delivery')?.warehouseId ?? null) : null
-        const lines = await snapshotLines(tx, cart, holds, deliveringAt)
+        const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
+        const lines = await snapshotLines(tx, cart, holds, deliveringAt, versions)
         const parts = [...new Map(lines.map((l) => [l.sellerId ?? 'store', l.sellerId])).values()]
-        const modes = new Map((await selectSnapshotVersions(tx, storeId, lines.map((l) => l.versionId))).map((v) => [v.seller_id ?? 'store', v.shipping_mode]))
+        const modes = new Map([...versions.values()].map((v) => [v.seller_id ?? 'store', v.shipping_mode]))
         const number = await takeOrderNumber(tx, storeId)
         const at = now()
         const dueIn = option.provider === 'bank_transfer' ? transferDaysMs : card ? cardPaymentMs : null
