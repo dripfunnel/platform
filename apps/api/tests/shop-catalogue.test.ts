@@ -202,9 +202,9 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     expect(await count(asShopper(t.storeB1, t.partnerB), 'product_photo')).toBe(0)
   })
 
-  it('reads a file only while something shoppers see shows it, or a product photo even hidden (#1465), never an unreferenced file', async () => {
+  it('reads a file only while something shoppers see shows it: never a hidden product’s photo or an unreferenced file', async () => {
     const files = await withScope(db.sql, asShopper(t.storeA1), async (tx) => (await tx<{ id: string }[]>`select id from asset`).map((r) => r.id))
-    expect(files.sort()).toEqual([ids.photo, ids.hiddenPhoto].sort())
+    expect(files).toEqual([ids.photo])
     expect(await count(asShopper(t.storeA2), 'asset')).toBe(0)
   })
 
