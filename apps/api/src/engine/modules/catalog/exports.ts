@@ -15,6 +15,7 @@ import {
   type CatalogExportRow,
   type ExportProductRow,
   type ExportStockRow,
+  type ExportVersionRow,
 } from '#db/scoped/catalogExports'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectLanguages } from '#db/scoped/translations'
@@ -43,21 +44,51 @@ export const catalogExportFilter = z
 export type CatalogExportFilter = z.infer<typeof catalogExportFilter>
 
 const optionColumns = [1, 2, 3].flatMap((n) => [`option${n} name`, `option${n} value`])
-const productHeader = ['handle', 'name', 'description', 'type', 'visible', ...optionColumns, 'sku', 'barcode', 'price', 'compare at price', 'cost', 'weight grams', 'stock']
+const productHeader = ['handle', 'name', 'description', 'type', 'visible', ...optionColumns, 'sku', 'barcode', 'price', 'compare at price', 'cost', 'weight grams', 'stock', 'image', 'image alt']
+
+/** The public address a photo is fetched from, by its asset id (the shop's own, which serves a photo whatever its product's state). */
+export type PhotoUrl = (asset: string) => string
 
 const money = (amount: string | null, currency: string | null): Money | null => (amount === null || currency === null ? null : { amount: BigInt(amount), currency })
+
+interface ProductRow {
+  version: ExportVersionRow | null
+  photo: { asset: string; alt: string | null } | null
+}
+
+/**
+ * A product's rows as the importer reads them (importFile.ts): a row a version, its photos in the product's order by where each
+ * is first written. The first row shows the main photo; a later version shows its own where that keeps the order, the photos
+ * before it each on a row of their own; the rest follow. A version's photo already written above is written again on its row.
+ */
+const rowsOf = (p: ExportProductRow): ProductRow[] => {
+  const photos = p.photos ?? []
+  const rows: ProductRow[] = []
+  let next = 0
+  ;(p.versions?.length ? p.versions : [null]).forEach((version, i) => {
+    const own = i === 0 ? (photos.length > 0 ? 0 : -1) : photos.findIndex((x) => x.asset === version?.photo)
+    if (own < next) {
+      rows.push({ version, photo: own < 0 ? null : (photos[own] ?? null) })
+      return
+    }
+    for (; next < own; next += 1) rows.push({ version: null, photo: photos[next] ?? null })
+    rows.push({ version, photo: photos[own] ?? null })
+    next = own + 1
+  })
+  for (; next < photos.length; next += 1) rows.push({ version: null, photo: photos[next] ?? null })
+  return rows
+}
 
 /**
  * One row a version, the product's own columns on its first row only (as Shopify's file does), then a
  * `name:hi`/`description:hi` pair a translation language and a `price:USD` column a manually priced currency (K10, K11).
  */
-export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: string | null; languages: readonly string[]; truncatedAt: number | null }): string => {
+export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: string | null; languages: readonly string[]; truncatedAt: number | null; photoUrl: PhotoUrl | null }): string => {
   const extra = [...new Set(rows.flatMap((p) => (p.versions ?? []).flatMap((v) => (v.prices ?? []).filter((x) => x.source === 'manual' && x.currency !== o.currency).map((x) => x.currency))))].sort()
   const header = [...productHeader, ...o.languages.flatMap((l) => [`name:${l}`, `description:${l}`]), ...extra.map((c) => `price:${c}`)]
   const lines = rows.flatMap((p) => {
     const text = (language: string, field: 'name' | 'description') => p.translations?.find((t) => t.language === language && t.field === field)?.text ?? null
-    const versions = p.versions?.length ? p.versions : [null]
-    return versions.map((v, i) => {
+    return rowsOf(p).map(({ version: v, photo }, i) => {
       const first = i === 0
       const priced = (currency: string) => v?.prices?.find((x) => x.currency === currency)
       const home = o.currency === null ? undefined : priced(o.currency)
@@ -76,6 +107,8 @@ export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: st
         money(v?.cost ?? null, v?.cost_currency?.trim() ?? null),
         v?.weight,
         v?.stock,
+        photo === null ? null : (o.photoUrl?.(photo.asset) ?? null),
+        photo?.alt,
         ...o.languages.flatMap((l) => [first ? text(l, 'name') : null, first ? text(l, 'description') : null]),
         ...extra.map((c) => {
           const x = priced(c)
@@ -95,13 +128,13 @@ export const stockCsv = (rows: readonly ExportStockRow[], truncatedAt: number | 
   ].join('\n')
 
 /** The scan stops at the cap as well as the rows do, so products with no stock can't walk the whole catalogue in one delivery. */
-export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; products?: number; truncated: boolean; csv: string }> => {
+export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax, photoUrl: PhotoUrl | null = null): Promise<{ rows: number; products?: number; truncated: boolean; csv: string }> => {
   const filter = catalogExportFilter.parse(job.filter)
   // A store with no currency has no prices to list; never one in a currency it didn't choose.
   const currency = await selectPricingCurrency(tx)
   const products: ExportProductRow[] = []
   const stock: ExportStockRow[] = []
-  const count = () => (job.kind === 'products' ? products.reduce((n, p) => n + Math.max(1, p.versions?.length ?? 0), 0) : stock.length)
+  const count = () => (job.kind === 'products' ? products.reduce((n, p) => n + rowsOf(p).length, 0) : stock.length)
   let after: { value: string; id: string } | null = null
   let scanned = 0
   let more = false
@@ -127,13 +160,13 @@ export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, m
   const kept: ExportProductRow[] = []
   let rows = 0
   for (const p of products) {
-    const size = Math.max(1, p.versions?.length ?? 0)
+    const size = rowsOf(p).length
     if (rows + size > max) break
     kept.push(p)
     rows += size
   }
   const { main, active } = await selectLanguages(tx, job.store_id)
-  return { rows, products: kept.length, truncated, csv: productsCsv(kept, { currency, languages: active.filter((l) => l !== main), truncatedAt: truncated ? rows : null }) }
+  return { rows, products: kept.length, truncated, csv: productsCsv(kept, { currency, languages: active.filter((l) => l !== main), truncatedAt: truncated ? rows : null, photoUrl }) }
 }
 
 export type CatalogExportRefusal = 'INVALID_INPUT'
