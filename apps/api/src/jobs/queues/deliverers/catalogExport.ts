@@ -4,13 +4,19 @@ import { shopAssetPath } from '#apis/shop/catalog'
 import { selectStorefrontHost } from '#db/scoped/publishing'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { buildCustomerExport } from '#engine/modules/customers/index'
-import { buildCatalogExport, catalogExportLifetimeMs, catalogJobPayload, jobContextOf } from '#engine/modules/catalog/index'
+import { buildCatalogExport, catalogExportLifetimeMs, type PhotoUrl, catalogJobPayload, jobContextOf } from '#engine/modules/catalog/index'
 import { buildOrderExport } from '#engine/modules/orders/index'
 import { buildRiderExport } from '#engine/modules/ownDelivery/index'
 import { buildOfferCodesExport } from '#engine/modules/promotions/index'
 import { buildReportExport } from '#engine/modules/reports/index'
 import { buildActivityExport } from '#saas/storeActivity/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
+
+/** Links to a store's photos on its public address; null where it has none. A supplier may not read the store row, so the address is read in system scope. */
+const photoLinks = async (sql: postgres.Sql, storeId: string, shopDomain: string | null): Promise<PhotoUrl | null> => {
+  const host = await withSystemScope(sql, (tx) => selectStorefrontHost(tx, storeId, shopDomain))
+  return host === null ? null : (asset) => `https://${host}${shopAssetPath}/${asset}`
+}
 
 /** `export.catalog`: a store's products, stock, orders, customers, an offer's codes, reports or the activity log or a rider's data as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
 export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date(), shopDomain: string | null = null): Deliverer => ({
@@ -19,13 +25,11 @@ export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () =
     if (!parsed.success) throw new Error('export.catalog: bad payload')
     const { jobId, storeId } = parsed.data
     const scope = jobContextOf(parsed.data)
-    // The store's public address is no secret, and a supplier may not read the store row, so it is read here, in system scope.
-    const host = await withSystemScope(sql, (tx) => selectStorefrontHost(tx, storeId, shopDomain))
-    const photoUrl = host === null ? null : (asset: string) => `https://${host}${shopAssetPath}/${asset}`
     try {
       await withScope(sql, scope, async (tx) => {
         const job = await selectCatalogExport(tx, storeId, jobId)
         if (job?.state !== 'queued') return
+        const photoUrl = job.kind === 'products' ? await photoLinks(sql, storeId, shopDomain) : null
         const built =
           job.kind === 'orders' ? await buildOrderExport(tx, job)
           : job.kind === 'customers' ? await buildCustomerExport(tx, job)

@@ -407,6 +407,37 @@ describe('photos in the products file (#1561)', () => {
     expect(kurta?.input.versions.map((v) => v.sku)).toEqual(['KU-S', 'KU-M'])
   })
 
+  it('counts the photo rows against the cap: a product whose rows don’t fit is left out whole, and the note names the rows kept', async () => {
+    const scope: TenantContext = { caller: { kind: 'person', userId: people.owner, sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const { id } = await ask('owner', 'products', { search: 'kurta' })
+    const built = (max: number) =>
+      withScope(db.sql, scope, async (tx) => {
+        const row = await selectCatalogExport(tx, t.storeA1, id ?? '')
+        if (!row) throw new Error('no job')
+        return buildCatalogExport(tx, row, max, (asset) => link(asset))
+      })
+    // Kurta is two versions and a photo of its own: three rows, though only two versions.
+    expect(await built(3)).toMatchObject({ rows: 3, products: 1, truncated: false })
+    const cut = await built(2)
+    expect(cut).toMatchObject({ rows: 0, products: 0, truncated: true })
+    expect(cut.csv.split('\n').at(-1)).toBe('Only the first 0 rows are included; narrow the filter to see the rest.')
+  })
+
+  it('leaves the image columns empty for a store with no public host, and keeps the alt text', async () => {
+    const { id } = await ask('owner', 'products', { search: 'kurta' })
+    await relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now, null) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    const done = await job('owner', id ?? '')
+    expect(done?.state).toBe('done')
+    const rows = parseCsv(done?.csv ?? '') ?? []
+    const head = rows[0] ?? []
+    const kurta = rows.slice(1).filter((r) => r[head.indexOf('handle')] === 'kurta')
+    expect(kurta.map((r) => [r[head.indexOf('image')], r[head.indexOf('image alt')]])).toEqual([
+      ['', 'Front of the kurta'],
+      ['', 'Back, with the pocket'],
+      ['', ''],
+    ])
+  })
+
   it('holds only a supplier’s own products’ photos in its file', async () => {
     const { csv } = await table('supplier')
     expect(csv).toContain(link(ids.mugPhoto))
