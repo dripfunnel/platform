@@ -33,11 +33,11 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
-  // Numbered for the first release after 1.0.0: it only has to fall between a store's version and the release it goes to, and
+  // Numbered for the next major after 1.0.0: it only has to fall between a store's version and the release it goes to, and
   // the release card gives it the number of the release that ships it (§7.1).
   {
-    version: '1.0.1',
-    kind: 'minor',
+    version: '2.0.0',
+    kind: 'major',
     security: false,
     notes: [
       'The sign-in, create-account and reset-password pages no longer guess the store\'s sign-in ways (#1490): `useSignIn()` now says `waysKnown`, false from the first draw of a live page until the Shop API has answered, and a theme draws only its heading until then, so the tabs and fields appear once, from the store\'s setting, and never jump (before, an email-only form was drawn first and the Mobile number tab or form popped in afterwards).',

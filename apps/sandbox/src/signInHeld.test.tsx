@@ -95,7 +95,7 @@ describe('the sign-in view for a store made before #1490', () => {
   const themes = ['classic', 'baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry']
   const held = /\n {2}\/\/ The store's setting isn't known until it answers:[\s\S]*?\n {2}}\n/
   const read = (theme: string) => readFileSync(themeFile(theme, viewPath), 'utf8').replace(/\r\n/g, '\n')
-  const codemods = notesBetween('1.0.0', '1.0.1', coreUpgradeNotes).flatMap((n) => n.codemods)
+  const codemods = notesBetween('1.0.0', '2.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
 
   it.each(themes)('brings the shipped %s view back exactly from the one before, and a second run changes nothing', (theme) => {
     const shipped = read(theme)
