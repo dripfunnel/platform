@@ -247,6 +247,9 @@ export const createCartService = (deps: CartDeps) => {
   const shippingFor = (context: TenantContext) =>
     createShippingService({ sql, context, actor: { id: customerId ?? 'guest', partnerId: context.partnerId }, activity: deps.activity, facts: deps.facts, now, couriers: deps.couriers })
 
+  const factsOf = (item: CartItem | null) =>
+    item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
+
   /** A cart view's reads on the caller's transaction (docs/api/README.md §7, #1590); `known`: items already looked up. */
   const loadView = async (tx: ScopedSql, context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null) => {
     const shop = catalog(context)
@@ -259,10 +262,10 @@ export const createCartService = (deps: CartDeps) => {
     const [items, setup, uploads] = await Promise.all([looked, selectTaxSetup(tx, storeId), withFiles ? selectCartUploads(tx, row.id) : []])
     const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
     const customised = [...new Set(row.lines.flatMap((l) => (asks(l) ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
-    // The lines priceView() sends (priceLine prices a line sold here with a price); the quote's answer is given their value later.
+    // What priceView sends: a physical line priceLine prices (extras never decide that); the quote is given their value later.
     const sent = row.lines.filter((l) => {
-      const item = items.get(l.version_id)
-      return item?.product.productType === 'physical' && item.soldHere && item.version.price !== null
+      const item = items.get(l.version_id) ?? null
+      return item?.product.productType === 'physical' && priceLine({ versionId: l.version_id, quantity: l.quantity, item: factsOf(item) }).lineTotal !== null
     })
     const address = row.shipping_address
     const shipTo = address
@@ -290,7 +293,7 @@ export const createCartService = (deps: CartDeps) => {
     const shown = unbuyable.length > 0 ? await catalog(context).cartLineDisplays(unbuyable) : new Map<string, CartLineDisplay>()
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
-      const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
+      const facts = factsOf(item)
       const checked = asks(l) && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers ?? []), (u, q) => files.get(u) === q) : null
       // A line with no answers keeps no extras; it only learns it no longer fits.
       const extras = checked && (l.answers !== null || checked.problems.length > 0) ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
