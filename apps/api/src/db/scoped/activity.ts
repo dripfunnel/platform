@@ -3,9 +3,20 @@ import type { ActivityCategory, ActivityResult, ActivityRow, ActorKind, NewActiv
 import { pageLimit, pgArray, type ScopedSql } from './index'
 import { likePattern } from './stores'
 
-// One statement for one row or many, so the person's name (below) is defined once.
+// A person's entry with no label takes "Name <email>" from their user row (LOGGING §4); jobs and old entries stay nameless.
+// Only then is "user" in the plan: Postgres checks the grant on every table it plans, and riders and shoppers have none.
+const labelOf = (tx: ScopedSql, rows: readonly NewActivityRow[]) =>
+  rows.some((r) => r.actor_kind === 'person' && r.actor_label === null)
+    ? tx`coalesce(x.actor_label, (
+        select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end
+        from "user" u where u.id = case when x.actor_kind = 'person' and x.actor_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x.actor_id::uuid end
+      ))`
+    : tx`x.actor_label`
+
+// One statement for one row or many, so the person's name (above) is defined once. No RETURNING: it would need the
+// writer to read its own entry, and a shopper's or rider's role can't read most of theirs (DATA-MODEL §7.11).
 const insertRows = (tx: ScopedSql, rows: readonly NewActivityRow[]) =>
-  tx<{ id: string }[]>`
+  tx`
     insert into activity_log (
       occurred_at, category, action, result, actor_kind, actor_id, actor_label,
       on_behalf_of_kind, on_behalf_of_id, on_behalf_of_label, access_kind, access_ref,
@@ -13,11 +24,7 @@ const insertRows = (tx: ScopedSql, rows: readonly NewActivityRow[]) =>
       changes, reason, api, host, request_id, ip, user_agent, visibility
     )
     select coalesce(x.occurred_at, now()), x.category, x.action, x.result, x.actor_kind, x.actor_id,
-      -- A person's entry with no label takes "Name <email>" from their user row (LOGGING §4); jobs and old entries stay nameless.
-      coalesce(x.actor_label, (
-        select case when nullif(u.name, '') is null then u.email else u.name || ' <' || u.email || '>' end
-        from "user" u where u.id = case when x.actor_kind = 'person' and x.actor_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x.actor_id::uuid end
-      )),
+      ${labelOf(tx, rows)},
       x.on_behalf_of_kind, x.on_behalf_of_id, x.on_behalf_of_label, x.access_kind, x.access_ref,
       x.partner_id, x.store_id, x.seller_id, x.customer_id, x.target_type, x.target_id, x.target_label,
       x.changes, x.reason, x.api, x.host, x.request_id, x.ip, x.user_agent, x.visibility
@@ -27,13 +34,10 @@ const insertRows = (tx: ScopedSql, rows: readonly NewActivityRow[]) =>
       partner_id uuid, store_id uuid, seller_id uuid, customer_id uuid, target_type text, target_id text, target_label text,
       changes jsonb, reason text, api text, host text, request_id text, ip text, user_agent text, visibility text
     )
-    returning id
   `
 
-export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
-  const inserted = (await insertRows(tx, [row]))[0]
-  if (!inserted) throw new Error('activity_log insert returned no row')
-  return inserted.id
+export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<void> => {
+  await insertRows(tx, [row])
 }
 
 /** Many rows in one statement, as `insertActivity` writes one. */
