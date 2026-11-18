@@ -63,12 +63,16 @@ export const seed = async (connectionString: string, now: Date = new Date()): Pr
   const sql = postgres(connectionString, { max: 1 })
   try {
     return await sql.begin(async (tx) => {
-      // The cascade empties storefront_template through its demo store; the gallery is 0331's, so it goes back without
-      // demo links, whose stores the truncate removed and the seed doesn't make.
+      // The cascade empties storefront_template through its demo store, and the categories through their template (0409);
+      // the migrations' rows go back, without demo links, whose stores the truncate removed and the seed doesn't make.
       await tx.unsafe('create temp table kept_template on commit drop as select * from storefront_template')
+      await tx.unsafe('create temp table kept_category on commit drop as select * from store_category')
+      await tx.unsafe('create temp table kept_default_sample on commit drop as select * from store_category_default_sample')
       await tx.unsafe(`truncate ${owned.join(', ')} restart identity cascade`)
       await tx.unsafe('update kept_template set demo_store_id = null')
       await tx.unsafe('insert into storefront_template select * from kept_template')
+      await tx.unsafe('insert into store_category select * from kept_category')
+      await tx.unsafe('insert into store_category_default_sample select * from kept_default_sample')
       return seedInto(tx, now)
     })
   } finally {
