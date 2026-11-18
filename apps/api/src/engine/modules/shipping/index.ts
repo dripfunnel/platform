@@ -474,7 +474,10 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
    * What delivery costs this cart going to this address, in the cart's currency. One parcel from the store's address
    * (decided on #305): couriers are asked outside any transaction, so a slow one never holds a connection.
    */
-  const quote = async (request: QuoteRequest): Promise<ShippingResult<DeliveryQuote>> => {
+  const quote = async (request: QuoteRequest): Promise<ShippingResult<DeliveryQuote>> => (await inScope((tx) => quoteIn(tx, request)))()
+
+  /** The quote's reads on the caller's transaction (#1590); its answer, given the goods' value then, is asked after it. */
+  const quoteIn = async (tx: ScopedSql, request: QuoteRequest): Promise<(subtotal?: Money) => Promise<ShippingResult<DeliveryQuote>>> => {
     const country = request.shipTo.country.trim().toUpperCase()
     const currency = request.subtotal.currency
     const distinct = new Set(request.lines.map((l) => l.versionId.toLowerCase())).size === request.lines.length
@@ -482,17 +485,39 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       isCountry(country) && isCurrency(currency) && request.subtotal.amount >= 0n && request.lines.length > 0 && request.lines.length <= maxLines && distinct &&
       request.lines.every((l) => isUuid(l.versionId) && Number.isInteger(l.quantity) && l.quantity >= 1 && l.quantity <= 10_000) &&
       (request.marketId === null || isUuid(request.marketId)) && (request.shipTo.postal?.length ?? 0) <= 20 && (request.shipTo.region?.length ?? 0) <= 100
-    if (!valid) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!valid) return () => Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const postal = request.shipTo.postal ? normalisePostal(country, request.shipTo.postal) : null
-    const loaded = await inScope(async (tx) => {
-      const store = await selectQuoteSettings(tx, storeId)
-      const versions = await selectParcelVersions(tx, storeId, request.lines.map((l) => l.versionId.toLowerCase()))
-      const market = request.marketId ? await selectMarketDelivery(tx, storeId, request.marketId.toLowerCase()) : null
-      const listed = store?.shipping?.area_mode === 'list' && postal !== null && country === store.country ? await postalCodeListed(tx, postal) : false
-      const rates = new Map([...(await selectRates(tx, [...new Set([currency, store?.shipping?.currency ?? currency, 'INR', 'USD'])])).values()].map((r) => [r.currency, r.per_euro]))
-      const rows = await selectQuoteCouriers(tx, storeId)
-      return { store, versions, market, listed, rates, rows }
-    })
+    const [store, versions, market, rows] = await Promise.all([
+      selectQuoteSettings(tx, storeId),
+      selectParcelVersions(tx, storeId, request.lines.map((l) => l.versionId.toLowerCase())),
+      request.marketId ? selectMarketDelivery(tx, storeId, request.marketId.toLowerCase()) : null,
+      selectQuoteCouriers(tx, storeId),
+    ])
+    const [listed, rated] = await Promise.all([
+      store?.shipping?.area_mode === 'list' && postal !== null && country === store.country ? postalCodeListed(tx, postal) : false,
+      selectRates(tx, [...new Set([currency, store?.shipping?.currency ?? currency, 'INR', 'USD'])]),
+    ])
+    const rates = new Map([...rated.values()].map((r) => [r.currency, r.per_euro]))
+    return (subtotal = request.subtotal) =>
+      subtotal.currency !== currency || subtotal.amount < 0n
+        ? Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+        : answerQuote({ ...request, subtotal }, country, currency, postal, { store, versions, market, listed, rates, rows })
+  }
+
+  const answerQuote = async (
+    request: QuoteRequest,
+    country: string,
+    currency: string,
+    postal: string | null,
+    loaded: {
+      store: Awaited<ReturnType<typeof selectQuoteSettings>>
+      versions: Awaited<ReturnType<typeof selectParcelVersions>>
+      market: Awaited<ReturnType<typeof selectMarketDelivery>> | null
+      listed: boolean
+      rates: Map<string, string>
+      rows: Awaited<ReturnType<typeof selectQuoteCouriers>>
+    },
+  ): Promise<ShippingResult<DeliveryQuote>> => {
     const settings = loaded.store?.shipping
     if (!loaded.store || (request.marketId !== null && !loaded.market)) return { ok: false, reason: 'NOT_FOUND' }
     if (loaded.versions.length !== request.lines.length) return { ok: false, reason: 'NOT_FOUND' }
@@ -531,5 +556,5 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     return { ok: true, value: { currency, deliverable, options } }
   }
 
-  return { settings, save, replaceArea, connect, usePricing, disconnect, saveOptions, test, quote }
+  return { settings, save, replaceArea, connect, usePricing, disconnect, saveOptions, test, quote, quoteIn }
 }

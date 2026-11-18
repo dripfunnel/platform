@@ -64,18 +64,21 @@ const pricingOf = (row: CartOfferRow): PricingOffer | null => {
 
 const firstOrderIn = (conditions: readonly Condition[]) => conditions.some((c) => c.operation === 'first_order' || (c.operation === 'any_of' && c.conditions.some((x) => x.operation === 'first_order')))
 
-export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Promise<CartOffers> => {
-  const { storeId, now } = input
-  const { customerId } = input
-  const { rows, uses, shopper, targets } = await withSystemScope(sql, async (tx) => {
-    const rows = await selectCartOffers(tx, storeId, input.codes, now)
-    return {
-      rows,
-      uses: await selectShopperUses(tx, storeId, [...new Set(rows.filter((r) => r.per_customer_limit !== null).map((r) => r.id))], customerId),
-      shopper: await selectCartShopper(tx, storeId, customerId),
-      targets: await selectProductTargets(tx, storeId, [...new Set(input.lines.map((l) => l.productId))]),
-    }
+/** What pricing the offers reads; `productIds` may still be coming, so the cart's own reads run alongside (#1590). */
+export const loadCartOffers = (sql: postgres.Sql, input: Pick<CartOffersInput, 'storeId' | 'codes' | 'customerId' | 'now'>, productIds: Promise<readonly string[]>) =>
+  withSystemScope(sql, async (tx) => {
+    const { storeId, customerId } = input
+    const [rows, shopper] = await Promise.all([selectCartOffers(tx, storeId, input.codes, input.now), selectCartShopper(tx, storeId, customerId)])
+    const [uses, targets] = await Promise.all([
+      selectShopperUses(tx, storeId, [...new Set(rows.filter((r) => r.per_customer_limit !== null).map((r) => r.id))], customerId),
+      productIds.then((ids) => selectProductTargets(tx, storeId, [...new Set(ids)])),
+    ])
+    return { rows, uses, shopper, targets }
   })
+export type CartOfferFacts = Awaited<ReturnType<typeof loadCartOffers>>
+
+export const priceCartOffers = ({ rows, uses, shopper, targets }: CartOfferFacts, input: CartOffersInput): CartOffers => {
+  const { now, customerId } = input
   const states = new Map<string, CodeState>()
   const offers: PricingOffer[] = []
   const limits = new Map<string, number | null>()

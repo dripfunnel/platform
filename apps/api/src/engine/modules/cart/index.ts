@@ -5,7 +5,7 @@ import type { StoreCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { addCartLine, insertCart, lockCartRow, selectCart, selectGuestCartId, setCartDeliveryWarehouse, setCartGift, setCartLineAnswers, setCartLineQuantity, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { addCartLine, insertCart, lockCartRow, lockShopperCart, selectCart, selectGuestCartId, setCartDeliveryWarehouse, setCartGift, setCartLineAnswers, setCartLineQuantity, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
 import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
 import { setCartGiftCard } from '#db/scoped/giftCards'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -14,7 +14,7 @@ import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
 import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadCart, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
-import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
+import { deadCodeStates, loadCartOffers, normaliseCode, priceCartOffers, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem, type CartLineDisplay } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
@@ -244,15 +244,46 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  /** `known`: the lines' items when the caller already looked them up in this request. */
-  const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> => {
-    const items = known ?? (await catalog(context).cartItems(row.lines.map((l) => l.version_id)))
-    // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
+  const shippingFor = (context: TenantContext) =>
+    createShippingService({ sql, context, actor: { id: customerId ?? 'guest', partnerId: context.partnerId }, activity: deps.activity, facts: deps.facts, now, couriers: deps.couriers })
+
+  /** A cart view's reads on the caller's transaction (docs/api/README.md §7, #1590); `known`: items already looked up. */
+  const loadView = async (tx: ScopedSql, context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null) => {
+    const shop = catalog(context)
+    const withFiles = row.lines.some((l) => uploadsIn(l.answers).length > 0)
+    const looked = known ? Promise.resolve(known) : shop.cartItemsIn(tx, row.lines.map((l) => l.version_id))
+    // The offers are read in system scope on a connection of their own, alongside this transaction rather than after it.
+    const offersAt = now()
+    const offerFacts = loadCartOffers(sql, { storeId, codes: row.promotion_codes, customerId: row.customer_id, now: offersAt }, looked.then((found) => [...found.values()].map((i) => i.product.id)))
+    offerFacts.catch(() => undefined)
+    const [items, setup, uploads] = await Promise.all([looked, selectTaxSetup(tx, storeId), withFiles ? selectCartUploads(tx, row.id) : []])
     const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
     const customised = [...new Set(row.lines.flatMap((l) => (asks(l) ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
-    const questions = customised.length > 0 ? await catalog(context).questions(customised) : new Map<string, ShopQuestion[]>()
-    const withFiles = row.lines.some((l) => uploadsIn(l.answers).length > 0)
-    const files = withFiles ? new Map((await withScope(sql, context, (tx) => selectCartUploads(tx, row.id))).map((u) => [u.id, u.question_id])) : new Map<string, string | null>()
+    // The lines priceView() sends (priceLine prices a line sold here with a price); the quote's answer is given their value later.
+    const sent = row.lines.filter((l) => {
+      const item = items.get(l.version_id)
+      return item?.product.productType === 'physical' && item.soldHere && item.version.price !== null
+    })
+    const address = row.shipping_address
+    const shipTo = address
+      ? { country: address.country, region: address.region, postal: address.postalCode, latitude: address.latitude ?? null, longitude: address.longitude ?? null }
+      : setup?.country ? { country: setup.country, region: null, postal: null } : null
+    const lines = sent.map((l) => ({ versionId: l.version_id, quantity: l.quantity }))
+    const [questions, quoted] = await Promise.all([
+      customised.length > 0 ? shop.questionsIn(tx, customised) : new Map<string, ShopQuestion[]>(),
+      lines.length > 0 && shipTo ? shippingFor(context).quoteIn(tx, { lines, shipTo, subtotal: { amount: 0n, currency }, marketId }) : null,
+    ])
+    return { items, setup, files: new Map(uploads.map((u) => [u.id, u.question_id])), questions, quoted, offerFacts, offersAt }
+  }
+  type Loaded = Awaited<ReturnType<typeof loadView>>
+
+  const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> =>
+    priceView(context, row, await withScope(sql, context, (tx) => loadView(tx, context, row, known)))
+
+  const priceView = async (context: TenantContext, row: CartRow, loaded: Loaded): Promise<CartView> => {
+    const { items, questions, files, setup } = loaded
+    // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
+    const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
     const ofVersion = new Map<string, number>()
     for (const l of row.lines) ofVersion.set(l.version_id, (ofVersion.get(l.version_id) ?? 0) + l.quantity)
     const unbuyable = [...new Set(row.lines.filter((l) => !items.has(l.version_id)).map((l) => l.version_id))]
@@ -271,20 +302,14 @@ export const createCartService = (deps: CartDeps) => {
     const sent = priced.filter((l) => l.item?.product.productType === 'physical')
     const needsShipping = lines.some((l) => l.item?.product.productType === 'physical')
     const taxable = priced.filter((l) => l.item?.product.productType !== 'gift_card')
-    const setup = await withScope(sql, context, (tx) => selectTaxSetup(tx, storeId))
     const pickup = needsShipping && row.shipping_option === 'pickup'
     const address = row.shipping_address
-    const shipping = createShippingService({ sql, context, actor: { id: customerId ?? 'guest', partnerId: context.partnerId }, activity: deps.activity, facts: deps.facts, now, couriers: deps.couriers })
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
-    // Without an address, only collection from the store's own country can be quoted; a store with none offers nothing yet.
-    const shipTo = address
-      ? { country: address.country, region: address.region, postal: address.postalCode, latitude: address.latitude ?? null, longitude: address.longitude ?? null }
-      : setup?.country ? { country: setup.country, region: null, postal: null } : null
-    if (sent.length > 0 && shipTo) {
+    // Without an address, only collection from the store's own country is quoted (loadView); a store with none offers nothing yet.
+    if (sent.length > 0 && loaded.quoted) {
       // Free delivery's threshold and the parcel's declared value are what is sent, never a download or gift card.
-      const sentValue = { amount: sent.reduce((sum, l) => sum + l.lineTotal.amount, 0n), currency }
-      const quoted = await shipping.quote({ lines: sent.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal: sentValue, marketId })
+      const quoted = await loaded.quoted({ amount: sent.reduce((sum, l) => sum + l.lineTotal.amount, 0n), currency })
       if (quoted.ok) {
         // Without an address only collection in person can be priced honestly.
         shippingOptions = address ? quoted.value.options : quoted.value.options.filter((o) => o.id === 'pickup')
@@ -292,7 +317,7 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
-    const offers = await cartOffers(sql, {
+    const offers = priceCartOffers(await loaded.offerFacts, {
       storeId,
       cartId: row.id,
       currency,
@@ -305,7 +330,7 @@ export const createCartService = (deps: CartDeps) => {
           : [],
       ),
       shipping: chosen?.amount.amount ?? null,
-      now: now(),
+      now: loaded.offersAt,
     })
     for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.lineId ?? l.versionId) ?? 0n, currency } : null
     // Tax is on what each line and the delivery come to after their offers (OFFERS fact 11).
@@ -366,25 +391,33 @@ export const createCartService = (deps: CartDeps) => {
     updateCart(tx, row.id, { ...patch, ...(row.checkout_step === 'pay' && !('checkoutStep' in patch) ? { checkoutStep: 'ship' as const } : {}) }, { currency, marketId, language, expiresAt: expiry(), now: now() })
 
   /** The shopper's cart, priced now; null when it has none. */
-  const cart = async (): Promise<CartView | null> => {
-    const row = await withScope(sql, deps.context, (tx) => selectCart(tx, storeId, now()))
-    return row ? view(deps.context, row) : null
+  const cart = async (): Promise<CartView | null> => (await cartAnd(() => Promise.resolve(null))).cart
+
+  /** The cart, and what the caller reads with it on the same transaction (placement's payment accounts, #1590). */
+  const cartAnd = async <T>(also: (tx: ScopedSql) => Promise<T>): Promise<{ cart: CartView | null; also: T }> => {
+    const read = await withScope(sql, deps.context, async (tx) => {
+      const [row, extra] = await Promise.all([selectCart(tx, storeId, now()), also(tx)])
+      return { extra, found: row && { row, loaded: await loadView(tx, deps.context, row) } }
+    })
+    return { cart: read.found ? await priceView(deps.context, read.found.row, read.found.loaded) : null, also: read.extra }
   }
 
-  const change = async (work: (tx: ScopedSql, row: CartRow) => Promise<void>): Promise<CartResult<CartChange>> => {
+  /** `after`: what the changed cart's priced view decides, once the change is committed. */
+  const change = async (work: (tx: ScopedSql, row: CartRow) => Promise<void>, after?: (cart: CartView) => Promise<void>): Promise<CartResult<CartChange>> => {
     try {
-      const row = await withScope(sql, deps.context, async (tx) => {
-        const seen = await selectCart(tx, storeId, now())
-        if (!seen) throw new Refused('NO_CART')
-        // Read again under the row's lock, so a change works on what the last one left (two tabs, two codes).
-        await lockCartRow(tx, storeId, seen.id)
+      const read = await withScope(sql, deps.context, async (tx) => {
+        // Read under the row's lock, so a change works on what the last one left (two tabs, two codes).
+        if (!(await lockShopperCart(tx, storeId, now()))) throw new Refused('NO_CART')
         const found = await selectCart(tx, storeId, now())
         if (!found) throw new Refused('NO_CART')
         await work(tx, found)
-        return selectCart(tx, storeId, now())
+        const row = await selectCart(tx, storeId, now())
+        return row && { row, loaded: await loadView(tx, deps.context, row) }
       })
-      if (!row) return { ok: false, reason: 'NO_CART' }
-      return { ok: true, value: { cart: await view(deps.context, row), token: null } }
+      if (!read) return { ok: false, reason: 'NO_CART' }
+      const changed = await priceView(deps.context, read.row, read.loaded)
+      await after?.(changed)
+      return { ok: true, value: { cart: changed, token: null } }
     } catch (error) {
       if (error instanceof Refused) return refusalOf(error)
       throw error
@@ -430,12 +463,8 @@ export const createCartService = (deps: CartDeps) => {
     // One transaction finds the cart, looks up its items and writes the line; null when a guest's token opens no cart.
     const addIn = async (context: TenantContext, token: string | null, known: ReadonlyMap<string, CartItem> | null): Promise<CartResult<CartChange> | null> => {
       const done = await withScope(sql, context, async (tx) => {
-        let found = await selectCart(tx, storeId, now())
-        // Read again under the row's lock, as change() does, so two quick adds of one item both count.
-        if (found) {
-          await lockCartRow(tx, storeId, found.id)
-          found = await selectCart(tx, storeId, now())
-        }
+        // Read under the row's lock, as change() does, so two quick adds of one item both count.
+        let found = (await lockShopperCart(tx, storeId, now())) ? await selectCart(tx, storeId, now()) : null
         if (!found) {
           if (customerId === null && token === null) return null
           const tokenHash = context.caller.kind === 'shopper' ? (context.caller.orderTokenHash ?? null) : null
@@ -461,9 +490,9 @@ export const createCartService = (deps: CartDeps) => {
         await write(tx, found, {})
         const row = await selectCart(tx, storeId, now())
         if (!row) throw new Refused('NO_CART')
-        return { row, items }
+        return { row, loaded: await loadView(tx, context, row, items) }
       })
-      return done && { ok: true, value: { cart: await view(context, done.row, done.items), token } }
+      return done && { ok: true, value: { cart: await priceView(context, done.row, done.loaded), token } }
     }
     // A new guest cart, behind a new token: the item is checked before the limiter counts it.
     const startGuestCart = async (): Promise<CartResult<CartChange>> => {
@@ -535,22 +564,17 @@ export const createCartService = (deps: CartDeps) => {
     })
 
   /** The own-delivery warehouse the cart is quoted now, kept by the engine (decided on #841); placement takes it afresh. */
-  const keepDeliveryWarehouse = async (result: CartResult<CartChange>): Promise<CartResult<CartChange>> => {
-    if (!result.ok) return result
-    const { cart: view } = result.value
+  const keepDeliveryWarehouse = async (view: CartView): Promise<void> => {
     const warehouseId = view.shippingOption === 'own_delivery' ? (view.shippingOptions.find((o) => o.id === 'own_delivery')?.warehouseId ?? null) : null
     await withSystemScope(sql, (tx) => setCartDeliveryWarehouse(tx, storeId, view.id, warehouseId))
-    return result
   }
 
   const setShippingAddress = async (input: AddressInput) =>
-    keepDeliveryWarehouse(
-      await change(async (tx, row) => {
-        const address = cleanAddress(input)
-        if (!address) throw new Refused('INVALID_INPUT')
-        await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
-      }),
-    )
+    change(async (tx, row) => {
+      const address = cleanAddress(input)
+      if (!address) throw new Refused('INVALID_INPUT')
+      await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
+    }, keepDeliveryWarehouse)
 
   /** Null bills the delivery address. */
   const setBillingAddress = (input: AddressInput | null) =>
@@ -562,12 +586,10 @@ export const createCartService = (deps: CartDeps) => {
 
   /** One of the options the cart is offered; checkout refuses one no longer offered. */
   const setShippingOption = async (option: string) =>
-    keepDeliveryWarehouse(
-      await change(async (tx, row) => {
-        if (option !== 'courier' && option !== 'flat' && option !== 'pickup' && option !== 'own_delivery') throw new Refused('INVALID_INPUT')
-        await write(tx, row, { shippingOption: option, checkoutStep: 'ship' })
-      }),
-    )
+    change(async (tx, row) => {
+      if (option !== 'courier' && option !== 'flat' && option !== 'pickup' && option !== 'own_delivery') throw new Refused('INVALID_INPUT')
+      await write(tx, row, { shippingOption: option, checkoutStep: 'ship' })
+    }, keepDeliveryWarehouse)
 
   /**
    * "Discount code or coupon": the code goes on the cart and the cart is priced with it. One that can't work whatever is
@@ -734,5 +756,5 @@ export const createCartService = (deps: CartDeps) => {
   /** The guest cart the request's token really opens (expired or not), for keying a limit on it; null for a made-up token. */
   const guestCartId = () => withScope(sql, deps.context, (tx) => selectGuestCartId(tx, storeId))
 
-  return { cart, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
+  return { cart, cartAnd, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }

@@ -67,6 +67,18 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
     `
   )[0] ?? null
 
+/** Holds the cart selectCart would find, in one statement, before it is read (#1590); false when there is none. */
+export const lockShopperCart = async (tx: ScopedSql, storeId: string, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      select o.id from "order" o
+      where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
+      order by (o.customer_id is null) desc, o.updated_at desc
+      limit 1
+      for update
+    `
+  ).length > 0
+
 /** Holds the cart's row to the end of the transaction, so two changes from two tabs apply one after the other. */
 export const lockCartRow = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`select id from "order" where id = ${id} and store_id = ${storeId} and state = 'cart' for update`

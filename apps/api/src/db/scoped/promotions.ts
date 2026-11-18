@@ -435,7 +435,7 @@ export const selectProductTargets = async (tx: ScopedSql, storeId: string, produ
   if (productIds.length === 0) return new Map()
   const rows = await tx<{ id: string; collections: string[]; filter_values: string[] }[]>`
     select p.id,
-      to_json(array(select cp.collection_id from collection_product cp join collection c on c.id = cp.collection_id and c.deleted_at is null where cp.product_id = p.id)) as collections,
+      to_json(array(select cp.collection_id from collection_product cp join collection c on c.id = cp.collection_id and c.deleted_at is null where cp.store_id = p.store_id and cp.product_id = p.id)) as collections,
       to_json(array(select f.filter_value_id from product_filter_value f where f.product_id = p.id)) as filter_values
     from product p where p.store_id = ${storeId} and p.id = any (${pgArray(productIds)}::uuid[])
   `

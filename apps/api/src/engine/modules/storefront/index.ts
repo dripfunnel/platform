@@ -200,8 +200,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
 
   /** The prices' facts: the store's currencies and rates, the shopper's market, and whether the cart's currency can be priced. */
   const pricingIn = async (tx: ScopedSql) => {
-    const row = await selectShopPricing(tx, storeId)
-    const market = await selectShopMarket(tx, storeId, marketId)
+    const [row, market] = await Promise.all([selectShopPricing(tx, storeId), selectShopMarket(tx, storeId, marketId)])
     if (!row || !market) return null
     const pricing: StorePricing = { pricingCurrency: row.pricing_currency, currencies: row.currencies.map((c) => ({ currency: c.currency, mode: c.mode, rounding: c.rounding })), perEuro: new Map(row.rates.map((r) => [r.currency, r.per_euro])) }
     const rate = (c: string) => c === 'EUR' || pricing.perEuro.has(c)
@@ -221,9 +220,9 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
 
   const viewsOf = async (tx: ScopedSql, ids: readonly string[], facts: NonNullable<Awaited<ReturnType<typeof pricingIn>>>): Promise<ShopProductView[]> => {
     if (ids.length === 0) return []
-    const rows = await selectShopProductRows(tx, storeId, ids, language)
+    // Independent reads go together on the transaction: one round trip each batch (docs/api/README.md §7).
+    const [rows, badges] = await Promise.all([selectShopProductRows(tx, storeId, ids, language), features.badges ? selectShopBadges(tx, storeId) : null])
     const stock = await selectShopStock(tx, rows.flatMap((r) => r.versions.map((v) => v.id)))
-    const badges = features.badges ? await selectShopBadges(tx, storeId) : null
     const byId = new Map(rows.map((r) => [r.id, productView(r, { currency, market: facts.market, pricing: facts.pricing, stock: new Map(stock.map((s) => [s.version_id, s])), badges, now: now() })]))
     return ids.flatMap((id) => byId.get(id) ?? [])
   }
@@ -320,12 +319,11 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
    * market sells it. A version shoppers can't see is missing from the answer.
    */
   const cartItemsIn = async (tx: ScopedSql, versionIds: readonly string[]): Promise<Map<string, CartItem>> => {
-    const facts = await pricingIn(tx)
-    const versions = await selectCartVersions(tx, storeId, versionIds, language)
+    const [facts, versions] = await Promise.all([pricingIn(tx), selectCartVersions(tx, storeId, versionIds, language)])
     if (!facts || versions.length === 0) return new Map()
     const productIds = [...new Set(versions.map((v) => v.product_id))]
-    const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
-    const views = new Map((await viewsOf(tx, productIds, facts)).map((p) => [p.id, p]))
+    const [listed, shown] = await Promise.all([selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds), viewsOf(tx, productIds, facts)])
+    const views = new Map(shown.map((p) => [p.id, p]))
     return new Map(
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
