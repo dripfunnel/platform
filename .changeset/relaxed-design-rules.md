@@ -1,0 +1,5 @@
+---
+'@dripfunnel/storefront-core': minor
+---
+
+The validator lets a theme do more of what a designer asks (2026-11-12): words and numbers may be written in the code as well as in content files, while every literal text in the code is now checked for invented prices, stock, urgency, ratings and countdowns exactly as content is; any CSS or motion property may animate (motion's values still written out); more elements and attributes (`label`, `code`, `pre`, `progress`, `meter`, SVG text, masks, clip paths and filters); `lucide-react` icons; Google Fonts listed in `theme.css`'s `@theme { --google-fonts: 'Bebas Neue'; }`, with the CSP letting fonts.googleapis.com and fonts.gstatic.com load; and the page budgets rise to 200 KB of JavaScript and 120 KB of CSS, gzipped. The rule ids `code/text-in-string`, `jsx/text-literal` and `css/animated-property` no longer exist. A theme that passed before still passes; no code change is needed. Loading Google Fonts sends each shopper's IP address to Google, so a store that lists fonts may need to disclose it.

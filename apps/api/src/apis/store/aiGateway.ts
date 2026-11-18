@@ -15,7 +15,7 @@ const failure = (code: string, status: number, headers: Record<string, string> =
 
 const authStatus: Record<string, number> = { UNAUTHENTICATED: 401, RATE_LIMITED: 429, STORE_SUSPENDED: 403, FORBIDDEN: 403 }
 const refusalStatus: Record<GatewayRefusal, number> = { INVALID_INPUT: 400, MODEL_NOT_FOUND: 404, AI_NOT_CONNECTED: 409, AI_BUDGET_REACHED: 429, NOT_CONFIGURED: 503, AI_ACCOUNT_EXPIRED: 409, AI_ACCOUNT_UNAVAILABLE: 503 }
-const errorStatus: Record<GatewayErrorCode, number> = { INVALID_CREDENTIALS: 502, RATE_LIMITED: 429, PROVIDER_UNAVAILABLE: 502, TIMEOUT: 504, CANCELLED: 499, BAD_REQUEST: 400, MODEL_NOT_FOUND: 404, CONTENT_REFUSED: 422 }
+const errorStatus: Record<GatewayErrorCode, number> = { INVALID_CREDENTIALS: 502, RATE_LIMITED: 429, PROVIDER_UNAVAILABLE: 502, TIMEOUT: 504, CANCELLED: 499, BAD_REQUEST: 400, MODEL_NOT_FOUND: 404, CONTENT_REFUSED: 422, OUT_OF_CREDIT: 402 }
 
 // Keys only: a signed-in person's cookie never reaches a call that spends money, so no CSRF path exists.
 const authorise = async (ctx: StoreContext, name: string) => {
@@ -71,8 +71,6 @@ export const handleAiGateway = async (request: Request, ctx: StoreContext, env: 
     actor: { keyId: caller.actor.kind === 'api_key' ? caller.actor.id : null, userId: caller.actor.kind === 'person' ? caller.actor.id : null },
     now: ctx.now,
   })
-  const checked = gateway.validate(input.data)
-  if (!checked.ok) return failure(checked.reason, refusalStatus[checked.reason])
   // `request.signal` ends the provider call when the caller goes away.
   if (input.data.stream) {
     // The first chunk is read before the 200 is sent, so a refusal or a provider failure answers with its own status and code.

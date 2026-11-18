@@ -92,7 +92,7 @@ const lead = (words: string) => JSON.stringify({ files: [{ path: 'content/en/pag
 
 const ask = async (text: string, answer: string) => {
   answers.push(answer)
-  const asked = await w.gql('owner', 'mutation A($t: String!) { askDesign(text: $t, page: "home", device: "desktop") { outcome message { id } } }', { t: text })
+  const asked = await w.designed('owner', 'mutation A($t: String!, $run: ID!) { askDesign(text: $t, page: "home", device: "desktop", run: $run) }', { t: text }, 'askDesign', 'outcome message { id }')
   return asked.data?.['askDesign'] as { outcome: string; message: { id: string } }
 }
 const head = async () => (await db.sql<{ head_commit: string }[]>`select head_commit from design_draft where store_id = ${t.storeA1}`)[0]?.head_commit ?? null

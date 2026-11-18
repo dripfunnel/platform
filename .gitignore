@@ -17,3 +17,6 @@ apps/api/wrangler.feature.json
 # What the local email and SMS stand-ins sent (docs/setup/local.md §6.1)
 apps/api/.local-mail/
 .release/
+
+# The studio bench's screenshots and reports (apps/sandbox/scripts/studio-bench.ts)
+.studio-bench/

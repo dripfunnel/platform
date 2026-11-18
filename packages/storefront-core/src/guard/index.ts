@@ -1,4 +1,5 @@
 export { maxThemeZIndex } from './css.js'
+export { fontsIn } from './fonts.js'
 export { isThemePath, maxFileBytes, maxFiles, maxMediaBytes, maxMediaFiles, maxMediaTotalBytes, maxThemeBytes, mediaFolder, themeCssPath } from './files.js'
 export { ruleIds, type GuardContext, type GuardResult, type Problem, type RuleId, type ThemeFile } from './rules.js'
 export { reducedMotionCss } from './reducedMotion.js'

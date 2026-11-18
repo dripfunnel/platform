@@ -37,10 +37,11 @@ export const frameAddress = (frameUrl: string, path: string): string => {
 /** A path on the shop, as the frame reports one. */
 export const studioPathPattern = /^\/[^\s\\]{0,500}$/
 
-// The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows and the words picked for Edit text.
+// The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows, the words picked for Edit text and a page that threw.
 const fromFrame = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('df-studio:page'), path: z.string().regex(studioPathPattern) }),
   z.strictObject({ type: z.literal('df-studio:text'), key: z.string().regex(/^[a-z][a-z0-9-]{0,40}:[A-Za-z0-9_.-]{1,200}$/) }),
+  z.strictObject({ type: z.literal('df-studio:problem'), section: z.string().regex(/^[A-Za-z0-9/_-]{1,100}$/) }),
 ])
 export type FrameMessage = z.infer<typeof fromFrame>
 
@@ -97,6 +98,10 @@ export const noteText = (code: string, templateName: (key: string) => string): s
 }
 
 export const askRefusal = refusalIn(words.chat.refused)
+
+/** A request's limit, as the Worker checks it (SAAS §9.2); the count shows from `countFrom` on. */
+export const maxRequest = 10_000
+export const countFrom = 8_000
 export const editRefusal = refusalIn(words.edit.refused)
 
 /** A website to take inspiration from: a full https address with a dotted host. */

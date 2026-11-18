@@ -140,10 +140,10 @@ const planned = JSON.stringify({ plan: { header: 'logo and a short menu', footer
 
 const fields = 'outcome message { id role text changed canUndo flowState questions { text options } answers plan { header footer pages { page title sections } } build { pages { page title outcome } stopped } }'
 type Answer = { outcome: string; message: { id: string; role: string; text: string; changed: string[]; canUndo: boolean; flowState: string | null; questions: { text: string; options: string[] }[]; answers: (string | null)[]; plan: { pages: { page: string }[] } | null; build: { pages: { page: string; title: string; outcome: string }[]; stopped: boolean } | null } }
-const ask = async (who: Who, text: string) => w.gql(who, `mutation A($text: String!) { askDesign(text: $text, page: "home", device: "desktop") { ${fields} } }`, { text })
+const ask = async (who: Who, text: string) => w.designed(who, 'mutation A($text: String!, $run: ID!) { askDesign(text: $text, page: "home", device: "desktop", run: $run) }', { text }, 'askDesign', fields)
 const answer = async (id: string, answers: string[], skip = false) => w.gql('owner', `mutation Q($id: ID!, $a: [String!]!, $s: Boolean) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s) { ${fields} } }`, { id, a: answers, s: skip })
 const change = async (id: string, text: string) => w.gql('owner', `mutation C($id: ID!, $t: String!) { changeDesignPlan(messageId: $id, text: $t) { ${fields} } }`, { id, t: text })
-const build = async (id: string) => w.gql('owner', `mutation B($id: ID!) { buildDesignPlan(messageId: $id) { ${fields} } }`, { id })
+const build = async (id: string) => w.designed('owner', 'mutation B($id: ID!, $run: ID!) { buildDesignPlan(messageId: $id, run: $run) }', { id }, 'buildDesignPlan', fields)
 const value = (r: Awaited<ReturnType<typeof ask>>, field: string) => r.data?.[field] as Answer
 const usage = async (storeId: string) => (await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = 'ai_prompts'`)[0]?.used ?? 0
 const head = async (storeId: string) => (await db.sql<{ head_commit: string }[]>`select head_commit from design_draft where store_id = ${storeId}`)[0]?.head_commit ?? null
@@ -447,8 +447,8 @@ describe('the plan and its build (#1243)', () => {
 
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {
     const plan = await toPlan()
-    expect((await w.gql('manager', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('FORBIDDEN')
-    expect((await w.gql('bOwner', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
+    expect((await w.gql('manager', 'mutation B($id: ID!, $r: ID!) { buildDesignPlan(messageId: $id, run: $r) }', { id: plan.id, r: crypto.randomUUID() })).code).toBe('FORBIDDEN')
+    expect((await w.gql('bOwner', 'mutation B($id: ID!, $r: ID!) { buildDesignPlan(messageId: $id, run: $r) }', { id: plan.id, r: crypto.randomUUID() })).code).toBe('PLAN_GONE')
     expect((await w.gql('bOwner', 'mutation C($id: ID!) { changeDesignPlan(messageId: $id, text: "x") { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
   })
 })

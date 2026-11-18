@@ -1,4 +1,4 @@
-import { createStudioService, designAudit, flowOf, type AskAnswer, type DesignQuestion, type PlanFlow, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
+import { createStudioService, designAudit, flowOf, type AskAnswer, type AskInput, type DesignRunOutput, type DesignRunParams, type DesignQuestion, type PlanFlow, type RunAnswer, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
 import type { MessageRow } from '#db/scoped/design'
 import type { StockPhoto } from '#integrations/stockImages/pixabay'
 import { decodeCursor, encodeCursor } from '#core/cursor'
@@ -12,14 +12,22 @@ import { answered, designWrite } from './storefront'
 // The AI studio (PortalStorefront's studio; FIRST-RELEASE §14, §19; storefront AI-STUDIO §3–§5): the Owner changes the
 // draft, the Manager opens the studio read-only and reads the chat; a support or staff session does neither.
 
+/** What the studio needs besides its caller, the same for a request and for the DesignRun job (index.ts `studioPiecesFor`). */
+export type StudioPieces = Pick<StoreContext, 'activity' | 'facts' | 'studio' | 'design' | 'lookup' | 'files' | 'allowStock' | 'preview' | 'domains' | 'designRuns' | 'now'> & { sql: NonNullable<StoreContext['sql']> }
+type StudioCaller = Pick<DesignRunParams, 'context' | 'actor' | 'role'>
+
 const studioFor = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const caller = actingCaller(ctx)
+  return studioOf({ ...ctx, sql: ctx.sql }, { context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, role: caller.role })
+}
+
+const studioOf = (ctx: StudioPieces, caller: StudioCaller) => {
   const design = ctx.design ?? null
   return createStudioService({
     sql: ctx.sql,
     context: caller.context,
-    actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+    actor: caller.actor,
     activity: ctx.activity,
     facts: ctx.facts,
     studio: ctx.studio?.(caller.context) ?? null,
@@ -27,6 +35,8 @@ const studioFor = (ctx: StoreContext) => {
     ai: design?.ai ?? (() => null),
     models: design?.models ?? (() => []),
     screenshots: design?.screenshots ?? null,
+    reference: design?.reference ?? null,
+    lookCache: design?.lookCache ?? null,
     lookup: ctx.lookup ?? null,
     assets: ctx.files ?? null,
     readAsset: design?.readAsset ?? null,
@@ -35,9 +45,13 @@ const studioFor = (ctx: StoreContext) => {
     allowStock: ctx.allowStock ?? (async () => false),
     previewDomain: ctx.preview?.domain ?? null,
     shopDomain: ctx.domains?.shopDomain ?? null,
+    runs: ctx.designRuns ?? null,
     now: ctx.now,
   })
 }
+
+/** The DesignRun Workflow's step (jobs/workflows/design-run.ts), with the caller its params name. */
+export const runDesign = (ctx: StudioPieces, params: DesignRunParams): Promise<DesignRunOutput> => studioOf(ctx, params).runHeld(params.run)
 
 /** The studio's read access: its queries and its live socket (studioLive.ts). */
 export const studioRead = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none' } as const
@@ -115,6 +129,13 @@ export const registerStudio = (builder: StoreBuilder) => {
       message: t.field({ type: Message, resolve: (a) => a.message }),
     }),
   })
+  const RunAnswerRef = builder.objectRef<RunAnswer>('DesignRunAnswer').implement({
+    fields: (t) => ({
+      outcome: t.exposeString('outcome'),
+      // Null when the run found nothing to do: stopped before it began.
+      message: t.field({ type: Message, nullable: true, resolve: (a) => a.message }),
+    }),
+  })
   const StockPhotoRef = builder.objectRef<StockPhoto>('StockPhoto').implement({
     fields: (t) => ({ id: t.exposeString('id'), source: t.exposeString('source'), thumb: t.exposeString('thumb'), user: t.exposeString('user'), pageUrl: t.exposeString('pageUrl'), tags: t.exposeString('tags') }),
   })
@@ -152,6 +173,15 @@ export const registerStudio = (builder: StoreBuilder) => {
       extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none' } },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).stockSearch(args.query, args.page)).photos,
     }),
+    // A run askDesign or buildDesignPlan started (AI-STUDIO §4 "A design run"): null while it works. The Owner's access, as
+    // to start one; a support session acting as the Owner reads it as it reads the chat.
+    designRun: t.field({
+      type: RunAnswerRef,
+      nullable: true,
+      args: { run: t.arg.id({ required: true }) },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none' } },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).runResult(String(args.run))),
+    }),
     designText: t.field({
       type: [Text],
       args: { page: t.arg.string({ required: true }), locale: t.arg.string({ required: true }) },
@@ -161,13 +191,14 @@ export const registerStudio = (builder: StoreBuilder) => {
   }))
 
   builder.mutationFields((t) => ({
-    askDesign: t.field({
-      type: Answer,
-      args: { text: t.arg.string({ required: true }), model: t.arg.string(), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }), mode: t.arg.string() },
+    // Starts a run under `run`, a UUID the client made, and answers it at once; designRun reads its answer (AI-STUDIO §4).
+    askDesign: t.id({
+      args: { text: t.arg.string({ required: true }), model: t.arg.string(), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }), mode: t.arg.string(), run: t.arg.id({ required: true }) },
       extensions: { access: designWrite(designAudit.designRequested) },
       resolve: async (_, args, ctx: StoreContext) => {
         const device = args.device === 'phone' || args.device === 'tablet' ? args.device : 'desktop'
-        return answered(await studioFor(ctx).ask({ text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device, mode: args.mode === 'chat' ? 'chat' : 'change' }))
+        const input = { text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device, mode: args.mode === 'chat' ? 'chat' : 'change' } satisfies AskInput
+        return answered(await studioFor(ctx).startRun({ kind: 'ask', input }, String(args.run)))
       },
     }),
     // #1243: "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or skip.
@@ -185,11 +216,10 @@ export const registerStudio = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).changePlan(String(args.messageId), args.text, args.model ?? null)),
     }),
     // Build it: every planned page, home first, each through the checks; cancelDesign stops it after the current page.
-    buildDesignPlan: t.field({
-      type: Answer,
-      args: { messageId: t.arg.id({ required: true }), model: t.arg.string() },
+    buildDesignPlan: t.id({
+      args: { messageId: t.arg.id({ required: true }), model: t.arg.string(), run: t.arg.id({ required: true }) },
       extensions: { access: designWrite(designAudit.planBuilt) },
-      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).buildPlan(String(args.messageId), args.model ?? null)),
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).startRun({ kind: 'build', messageId: String(args.messageId), model: args.model ?? null }, String(args.run))),
     }),
     cancelDesign: t.boolean({
       extensions: { access: designWrite(designAudit.designStopped) },

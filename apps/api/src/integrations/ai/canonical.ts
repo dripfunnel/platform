@@ -6,7 +6,7 @@ export type CanonicalPart =
   | { type: 'text'; text: string; cache?: boolean }
   | { type: 'image'; mediaType: string; base64: string }
   | { type: 'tool_call'; id: string; name: string; arguments: string }
-  | { type: 'tool_result'; callId: string; content: string; isError?: boolean }
+  | { type: 'tool_result'; callId: string; content: string; isError?: boolean; cache?: boolean }
 
 export interface CanonicalMessage {
   role: 'user' | 'assistant' | 'tool'

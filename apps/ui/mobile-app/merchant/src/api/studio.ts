@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
-import { designOutcomes, storefrontStatuses } from './storefront'
+import { designOutcomes, designRun, storefrontStatuses } from './storefront'
 
 // The AI studio on the Store API (FIRST-RELEASE (store) §14; storefront AI-STUDIO §3–§5, §8; apps/api src/apis/store/studio.ts):
 // `storefront.read` reads, `publish` (the Owner) changes, and the API refuses everyone else.
@@ -43,15 +43,17 @@ export const loadDesignChat = async (client: ApiClient): Promise<DesignMessage[]
 
 export type StudioRequest = { text: string; sampleUrl: string | null; page: string }
 
-/** One change, checked and repaired in the store's sandbox before it answers: changed, unchanged, refused or failed. The phone always asks for the page as a phone sees it. */
+/** One change, checked and repaired in the store's sandbox: changed, unchanged, refused or failed, once its run ends. The phone always asks for the page as a phone sees it. */
 export const askStudio = async (client: ApiClient, request: StudioRequest): Promise<(typeof designOutcomes)[number]> =>
   (
-    await typedQuery(client)(
-      'mutation Ask($text: String!, $sample: String, $page: String!, $device: String!) { askDesign(text: $text, sampleUrl: $sample, page: $page, device: $device) { outcome } }',
-      z.object({ askDesign: z.object({ outcome: z.enum(designOutcomes) }) }),
-      { text: request.text, sample: request.sampleUrl, page: request.page, device: 'phone' },
-    )
-  ).askDesign.outcome
+    await designRun(client, async (run) => {
+      await typedQuery(client)(
+        'mutation Ask($text: String!, $sample: String, $page: String!, $device: String!, $run: ID!) { askDesign(text: $text, sampleUrl: $sample, page: $page, device: $device, run: $run) }',
+        z.object({ askDesign: z.string() }),
+        { text: request.text, sample: request.sampleUrl, page: request.page, device: 'phone', run },
+      )
+    })
+  ).outcome
 
 export const undoDesignChange = async (client: ApiClient, messageId: string): Promise<void> => {
   await typedQuery(client)('mutation Undo($id: ID!) { undoDesignChange(messageId: $id) { id } }', z.object({ undoDesignChange: z.object({ id: z.string() }) }), { id: messageId })

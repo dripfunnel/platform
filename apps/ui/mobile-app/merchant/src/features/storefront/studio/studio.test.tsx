@@ -1,7 +1,7 @@
 import { Linking } from 'react-native'
 import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
-import { fakeApi, type Call } from '../../../testing/fakeApi'
+import { fakeApi, withDesignRuns, type Call } from '../../../testing/fakeApi'
 import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../../testing/harness'
 import { resetScenario } from '../../states/scenario'
 import { StudioScreen } from './StudioScreen'
@@ -73,7 +73,7 @@ const base = (over: Handlers = {}): Handlers => ({
 })
 
 const show = async (handlers: Handlers, role = 'owner') => {
-  const { client, calls } = fakeApi(handlers)
+  const { client, calls } = fakeApi(withDesignRuns(handlers))
   mockSession.client = client
   const renderer = await renderShell(<StudioScreen />, { acting: actingAs(role) })
   await settle()
@@ -92,6 +92,8 @@ const clickLast = async (renderer: ReactTestRenderer, label: string) => {
 }
 const hasButton = (renderer: ReactTestRenderer, label: string) => pressablesNamed(renderer, label).length > 0
 const asked = (calls: Call[], text: string) => calls.filter((call) => call.query.includes(text))
+/** The run id the app makes for a design run: a UUID, as the API checks it. */
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const field = (renderer: ReactTestRenderer, label: string): ReactTestInstance => {
   const found = renderer.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onChangeText === 'function')[0]
   if (!found) throw new Error(`no field named "${label}"`)
@@ -377,7 +379,7 @@ describe('the chat', () => {
     await type(renderer, 'Describe a change', 'Add a sale banner')
     await click(renderer, 'Send')
 
-    expect(asked(calls, 'mutation Ask(')[0]?.variables).toEqual({ text: 'Add a sale banner', sample: null, page: '/', device: 'phone' })
+    expect(asked(calls, 'mutation Ask(')[0]?.variables).toEqual({ text: 'Add a sale banner', sample: null, page: '/', device: 'phone', run: expect.stringMatching(uuid) })
     expect(hasText(renderer, 'Added a sale banner.')).toBe(true)
     expect(field(renderer, 'Describe a change').props.value).toBe('')
   })
@@ -394,7 +396,7 @@ describe('the chat', () => {
 
     await type(renderer, 'Website address', 'https://example.com/shop')
     await click(renderer, 'Send')
-    expect(asked(calls, 'mutation Ask(')[0]?.variables).toEqual({ text: 'Like this', sample: 'https://example.com/shop', page: '/', device: 'phone' })
+    expect(asked(calls, 'mutation Ask(')[0]?.variables).toEqual({ text: 'Like this', sample: 'https://example.com/shop', page: '/', device: 'phone', run: expect.stringMatching(uuid) })
   })
 
   it('never sends an empty request', async () => {

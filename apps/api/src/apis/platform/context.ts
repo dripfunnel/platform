@@ -19,7 +19,7 @@ import type { OurWhatsApp, PartnerWhatsAppAccount } from '#saas/whatsapp/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
-import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
+import { checkAnthropicKey, openaiChat, type KeyCheck } from '#integrations/ai/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
@@ -58,8 +58,9 @@ export interface PlatformContextDeps {
   ourWhatsApp?: OurWhatsApp
 }
 
-/** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
-const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
+/** Every key is tested before it is saved: OpenAI's against OpenAI, a DeepInfra key (`sk-di-`) against DeepInfra. */
+const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> =>
+  provider === 'anthropic' ? checkAnthropicKey(key) : openaiChat(key).validateCredentials()
 
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 

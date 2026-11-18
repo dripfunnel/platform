@@ -1,6 +1,6 @@
 import { en } from '../platform/i18n/messages.js'
 import { brandCopied } from './brand.js'
-import { claimsIn } from './claims.js'
+import { claimMessage, claimsIn } from './claims.js'
 import type { KeyUse } from './code.js'
 import { contentPath } from './files.js'
 import { readJson } from './json.js'
@@ -61,7 +61,7 @@ export const checkContent = (files: ReadonlyMap<string, string>, keys: readonly 
       const line = read.lineOf(key)
       if (words.trim() === '') problems.push(problem(path, line, 'content/missing-key', `"${key}" is empty; write it in ${locale}.`))
       for (const { rule, what } of claimsIn(words)) {
-        problems.push(problem(path, line, rule, `"${words}" reads as ${what}. Such facts come only from the store's data through core, never from the theme's words.`))
+        problems.push(problem(path, line, rule, claimMessage(words, what)))
       }
       const field = copied(words)
       if (field) problems.push(problem(path, line, 'content/brand-literal', `This repeats the store's ${field}. Read it from useStorefront() and pass it to t() as a {value}, so a change in Site settings reaches the site.`))

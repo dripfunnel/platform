@@ -15,7 +15,7 @@ import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
-import type { StudioDeps } from '#saas/ai-designer/index'
+import type { DesignRuns, StudioDeps } from '#saas/ai-designer/index'
 import type { StoreRepos } from '#integrations/github/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, blockedIn, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
@@ -72,7 +72,9 @@ export interface StoreContext extends Record<string, unknown> {
   /** The AI sign-in flow (SAAS §9.3); null where the Worker has none. */
   aiOauth?: AiOAuth | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
-  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
+  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'reference' | 'lookCache' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
+  /** The DesignRun Workflow askDesign and buildDesignPlan start (storefront AI-STUDIO §4); null where it isn't bound. */
+  designRuns?: DesignRuns | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
   /** Signs the 10-minute links to shoppers' files on orders (#1369); null where CREDENTIALS_KEK isn't set. */
