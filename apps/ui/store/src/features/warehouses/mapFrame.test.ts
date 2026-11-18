@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// @vitest-environment-options { "settings": { "disableIframePageLoading": false } }
+// @vitest-environment-options { "settings": { "disableIframePageLoading": false, "enableIframePageLoading": true } }
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { frameMap } from './mapFrame'
 
