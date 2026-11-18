@@ -1310,7 +1310,8 @@ with validation before any write, partial-failure reports, and translation and c
   Waist, Length, Shoulder…). Add, remove and reorder rows and columns, and paste from Excel or
   Google Sheets.
 - R4. Units: cm or inches, defaulting from the store's unit system (§3 fact 39), with the other
-  computed automatically and a toggle for the shopper on the storefront. Ranges allowed
+  computed automatically and a toggle for the shopper on the storefront (opens in the saved unit; lengths
+  convert cm ↔ in and weight columns kg ↔ lb, in the portal's preview too, #1571). Ranges allowed
   ("38–40").
 - R5. **How to measure**: an illustration (from a library or uploaded) and short text per
   measurement. Optional fit notes ("Runs small — order one size up") and model info ("Model is

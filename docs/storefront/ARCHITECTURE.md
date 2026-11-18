@@ -170,8 +170,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   from the shared `--df-sealed-font`, `-color`, `-muted`, `-surface`, `-radius` and `-backdrop` the theme already sets. Its code and styles are
   in their own chunk, fetched on the first click (`import()`, as `<PriceRange>`), so no page pays for it in its budget (§9); only
   the link is in built HTML. Its words are core's (`sizeChart.*`); the unit shows as "Measurements are in centimetres/inches" and
-  nothing for another value. The starting themes place it under the options. Not built:
-  the cm/inches switch, fit notes, how to measure and model info (CATALOG-DESIGN R12), which the Shop API already returns.
+  nothing for another value. The starting themes place it under the options. The window has a **cm | in** switch (#1571) that opens in the
+  chart's saved `unit`: lengths and ranges convert × or ÷ 2.54, a weight column (a name that says weight, kg or lb) kg ↔ lb × or ÷ 2.2046 with
+  its name following, each rounded to one decimal, from the saved numbers so switching back is exact; sizes, size systems and words stay as typed,
+  and the unit line follows. The portal's `inUnit` is the same rule. Not built: fit notes, how to measure and model info (CATALOG-DESIGN R12), which the Shop API already returns.
 - **A product's A+ content** (#1351, core minor): `useProduct().product.story` holds the modules the merchant published, in
   their order, as the Shop API's `story` gives them (CATALOG-DESIGN A+ content), and `storyTemplate`. Core decodes each with zod:
   a kind it doesn't know, or a module with nothing to show (a banner with no picture, a comparison of fewer than two products), is left out,
