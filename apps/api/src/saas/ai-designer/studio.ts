@@ -602,29 +602,39 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** "Make the plan" or "Skip questions" (#1243): `given` in the questions' order, each an option, words of their own or empty. */
-  const answerQuestions = (messageId: string, given: readonly string[], skip: boolean, model: string | null): Promise<DesignResult<AskAnswer>> =>
+  const questionsReady = async (messageId: string, given: readonly string[], skip: boolean) => {
+    const open = await openQuestions(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    const answers = answersOf(open.flow.questions, skip ? [] : given)
+    return answers ? ({ ok: true, open, answers } as const) : ({ ok: false, reason: 'INVALID_INPUT' } as const)
+  }
+  const answerQuestions = (messageId: string, given: readonly string[], skip: boolean, model: string | null, run: string): Promise<DesignResult<AskAnswer>> =>
     followed(async (_run, live) => {
-      const open = await openQuestions(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      const answers = answersOf(open.flow.questions, skip ? [] : given)
-      if (!answers) return { ok: false, reason: 'INVALID_INPUT' }
+      const ready = await questionsReady(messageId, given, skip)
+      if (!ready.ok) return ready
+      const { open, answers } = ready
       const moved: QuestionsFlow = { ...open.flow, state: skip ? 'skipped' : 'answered', answers }
       const count = answers.filter((a) => a.answer !== null).length
       const audit = entry(designAudit.questionsAnswered, [{ field: 'answers', before: null, after: skip ? 'skipped' : String(count) }])
       return plan({ row: open.row, from: open.flow, moved }, { request: open.flow.request, answers, previous: null, change: null }, 0, null, model, live, audit)
-    })
+    }, run)
 
   /** A change to the plan asked in words (#1243), at most three a plan, inside the same prompt unit. */
-  const changePlan = (messageId: string, words: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
+  const planChangeReady = async (messageId: string, words: string) => {
+    const said = words.trim()
+    if (said.length === 0 || said.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' } as const
+    const open = await openPlan(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    return open.flow.changes >= maxPlanChanges ? ({ ok: false, reason: 'PLAN_CHANGES_USED' } as const) : ({ ok: true, open, said } as const)
+  }
+  const changePlan = (messageId: string, words: string, model: string | null, run: string): Promise<DesignResult<AskAnswer>> =>
     followed(async (_run, live) => {
-      const said = words.trim()
-      if (said.length === 0 || said.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' }
-      const open = await openPlan(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      if (open.flow.changes >= maxPlanChanges) return { ok: false, reason: 'PLAN_CHANGES_USED' }
+      const ready = await planChangeReady(messageId, words)
+      if (!ready.ok) return ready
+      const { open, said } = ready
       const audit = entry(designAudit.planChanged, [{ field: 'changes', before: String(open.flow.changes), after: String(open.flow.changes + 1) }])
       return plan({ row: open.row, from: open.flow, moved: { ...open.flow, state: 'replaced' } }, { request: open.flow.request, answers: open.flow.answers, previous: open.flow.plan, change: said }, open.flow.changes + 1, said, model, live, audit)
-    })
+    }, run)
 
   /**
    * **Build it** (#1243): every planned page, home first, each its own change through the gate in the store's studio; the
@@ -736,8 +746,15 @@ export const createStudioService = (deps: StudioDeps) => {
 
   const buildPlan = (messageId: string, model: string | null, run: string): Promise<DesignResult<AskAnswer>> => followed((id, live) => buildIn(messageId, model, id, live), run)
 
+  const runReady = async (request: RunRequest) => {
+    if (request.kind === 'ask') return askReady(request.input)
+    if (request.kind === 'build') return buildReady(request.messageId, request.model)
+    const open = request.kind === 'questions' ? await questionsReady(request.messageId, request.answers, request.skip) : await planChangeReady(request.messageId, request.text)
+    return open.ok ? providerFor(request.model) : open
+  }
+
   /**
-   * askDesign's and buildDesignPlan's start (AI-STUDIO §4 "A design run"): the cheap refusals at once, then the request held
+   * A design run's start (AI-STUDIO §4 "A design run"): the cheap refusals at once, then the request held
    * in the store's studio and the run started under the portal's `run` id; the same id again starts nothing.
    */
   const startRun = async (request: RunRequest, run: string): Promise<DesignResult<string>> => {
@@ -746,7 +763,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!isUuid(run)) return { ok: false, reason: 'INVALID_INPUT' }
     const id = designRunId(storeId, run)
     if ((await runs.status(id)).state !== 'missing') return { ok: true, value: run }
-    const checked = request.kind === 'ask' ? await askReady(request.input) : await buildReady(request.messageId, request.model)
+    const checked = await runReady(request)
     if (!checked.ok) return checked
     const state = await studio.status(storeId)
     if (state.state === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: state.place }
@@ -775,6 +792,8 @@ export const createStudioService = (deps: StudioDeps) => {
     // The request's own facts (LOGGING §4.1), kept with it rather than in the job's params.
     const own = createStudioService({ ...deps, facts: held.data.facts })
     const h = held.data
+    if (h.kind === 'questions') return runOutput(await own.answerQuestions(h.messageId, h.answers, h.skip, h.model, run))
+    if (h.kind === 'planChange') return runOutput(await own.changePlan(h.messageId, h.text, h.model, run))
     return runOutput(h.kind === 'ask' ? await own.ask(h.input, run) : await own.buildPlan(h.messageId, h.model, run))
   }
 

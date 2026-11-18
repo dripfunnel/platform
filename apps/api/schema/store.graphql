@@ -715,11 +715,6 @@ type DeliveryStep {
   state: String
 }
 
-type DesignAnswer {
-  message: DesignMessage
-  outcome: String
-}
-
 type DesignBuild {
   pages: [DesignBuildPage!]
   stopped: Boolean
@@ -1155,7 +1150,7 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
-  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, skip: Boolean): DesignAnswer
+  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, run: ID!, skip: Boolean): ID
   approveProduct(id: ID!): Boolean
   askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, run: ID!, sampleUrl: String, text: String!): ID
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
@@ -1167,7 +1162,7 @@ type Mutation {
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
-  changeDesignPlan(messageId: ID!, model: String, text: String!): DesignAnswer
+  changeDesignPlan(messageId: ID!, model: String, run: ID!, text: String!): ID
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
