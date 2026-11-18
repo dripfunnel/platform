@@ -33,6 +33,217 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  // Numbered for the first release after 1.0.0: it only has to fall between a store's version and the release it goes to, and
+  // the release card gives it the number of the release that ships it (§7.1).
+  {
+    version: '1.0.1',
+    kind: 'patch',
+    security: false,
+    notes: [
+      'The starting themes draw a skeleton while a page loads (#1598): grey blocks in the page\'s own layout instead of a "Loading …" line. The cart shows line rows beside its summary, checkout its step cards beside the order summary, the order, account, orders and wishlist their rows and cards, the product page its picture and details, the blog and content pages their cards and lines, a collection a title bar until its name arrives, and a listing a row of grey product cells while more products load. Each view keeps its "Loading …" words for screen readers, as a hidden heading or label.',
+      'No theme has to change. The codemods rewrite each loading block of a Baseline, Classic or category theme that still has the shipped markup, and add the skeleton classes to its shop styles (`skeletonText`, `skeletonShort`, `skeletonTitle`, `skeletonPhoto`, `skeletonCover`, `skeletonDot`, `skeletonButton` and `srOnly`), `loadingPicture` to its product styles and `orderRow` to its account styles, and lets `ProductGrid` draw placeholder cells after its products (`placeholders`). A theme that draws its own loading states keeps them; to match, draw blocks in the theme\'s soft colour shaped like the loaded page, and keep the loading words for screen readers.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/CartView.tsx'],
+        find: '        <h1 className={shop.title}>{t(\'shop.cart.title\')}</h1>\n        <p className={shop.lead}>{t(\'shop.cart.loading\')}</p>\n      </section>',
+        replace: '        <h1 className={shop.title}>{t(\'shop.cart.title\')}</h1>\n        <p className={shop.srOnly}>{t(\'shop.cart.loading\')}</p>\n        <div className={styles.cart}>\n          <ul className={styles.lines}>\n            {[0, 1].map((i) => (\n              <li key={i} className={styles.line}>\n                <span className={shop.skeletonPhoto} />\n                <div className={styles.info}>\n                  <span className={shop.skeletonText} />\n                  <span className={shop.skeletonShort} />\n                </div>\n              </li>\n            ))}\n          </ul>\n          <aside className={styles.side}>\n            <h2 className={styles.sideTitle}>{t(\'shop.cart.summary\')}</h2>\n            <span className={shop.skeletonText} />\n            <span className={shop.skeletonText} />\n            <span className={shop.skeletonShort} />\n            <span className={shop.skeletonButton} />\n          </aside>\n        </div>\n      </section>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/CheckoutView.tsx'],
+        find: '    return (\n      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.title}>{t(\'shop.checkout.title\')}</h1>\n        <p className={shop.lead}>{t(\'shop.checkout.loading\')}</p>\n      </section>',
+        replace: '    return (\n      <section className={styles.page} aria-busy="true">\n        <h1 className={styles.title}>{t(\'shop.checkout.title\')}</h1>\n        <p className={shop.srOnly}>{t(\'shop.checkout.loading\')}</p>\n        <div className={styles.layout}>\n          <ol className={styles.steps}>\n            {[0, 1, 2, 3].map((i) => (\n              <li key={i} className={styles.step}>\n                <div className={styles.stepHead}>\n                  <span className={shop.skeletonDot} />\n                  <span className={shop.skeletonText} />\n                </div>\n              </li>\n            ))}\n          </ol>\n          <aside className={styles.side}>\n            <h2 className={styles.sideTitle}>{t(\'shop.checkout.summary\')}</h2>\n            <span className={shop.skeletonText} />\n            <span className={shop.skeletonText} />\n            <span className={shop.skeletonShort} />\n          </aside>\n        </div>\n      </section>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/OrderView.tsx'],
+        find: '      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.title}>{t(\'shop.order.loading\')}</h1>\n      </section>',
+        replace: '      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.srOnly}>{t(\'shop.order.loading\')}</h1>\n        <div className={styles.order}>\n          <div className={styles.main}>\n            <div className={styles.head}>\n              <span className={shop.skeletonTitle} />\n              <span className={shop.skeletonShort} />\n            </div>\n            <div className={styles.card}>\n              <span className={shop.skeletonText} />\n              <span className={shop.skeletonText} />\n              <span className={shop.skeletonShort} />\n            </div>\n          </div>\n          <aside className={styles.side}>\n            {[0, 1, 2].map((i) => (\n              <span key={i} className={shop.skeletonText} />\n            ))}\n            <span className={shop.skeletonShort} />\n          </aside>\n        </div>\n      </section>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/AccountView.tsx'],
+        find: '      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.title}>{t(\'pages.account.title\')}</h1>\n      </section>',
+        replace: '      <section className={shop.page} aria-busy="true">\n        <div className={styles.hello}>\n          <h1 className={styles.title}>{t(\'pages.account.title\')}</h1>\n        </div>\n        <div className={styles.account}>\n          <div className={styles.nav}>\n            {[0, 1, 2, 3].map((i) => (\n              <span key={i} className={shop.skeletonShort} />\n            ))}\n          </div>\n          <div className={styles.card}>\n            <span className={shop.skeletonTitle} />\n            <span className={shop.skeletonText} />\n            <span className={shop.skeletonText} />\n          </div>\n        </div>\n      </section>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/AccountView.tsx'],
+        find: '      <Card title={t(\'shop.orders.title\')}>\n        <p className={styles.note} aria-busy="true">\n          {t(\'shop.orders.loading\')}\n        </p>\n      </Card>',
+        replace: '      <Card title={t(\'shop.orders.title\')}>\n        <div aria-busy="true">\n          <p className={shop.srOnly}>{t(\'shop.orders.loading\')}</p>\n          <ul className={styles.orders}>\n            {[0, 1, 2].map((i) => (\n              <li key={i} className={styles.orderRow}>\n                <span className={shop.skeletonShort} />\n                <span className={shop.skeletonShort} />\n              </li>\n            ))}\n          </ul>\n        </div>\n      </Card>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/WishlistList.tsx'],
+        find: '        <h2 className={styles.cardTitle}>{t(\'shop.wishlist.title\')}</h2>\n        <p className={styles.note} aria-busy="true">\n          {t(\'shop.wishlist.loading\')}\n        </p>\n      </div>',
+        replace: '        <h2 className={styles.cardTitle}>{t(\'shop.wishlist.title\')}</h2>\n        <ul className={styles.wishlist} aria-busy="true" aria-label={t(\'shop.wishlist.loading\')}>\n          {[0, 1, 2].map((i) => (\n            <li key={i} className={styles.wished}>\n              <div className={shop.skeletonPicture} />\n              <span className={shop.skeletonText} />\n              <span className={shop.skeletonShort} />\n              <span className={shop.skeletonButton} />\n              <span className={shop.skeletonButton} />\n            </li>\n          ))}\n        </ul>\n      </div>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/BlogView.tsx'],
+        find: '      </header>\n      {blog.status === \'loading\' ? <p className={shop.lead}>{t(\'pages.blog.loading\')}</p> : null}\n      {blog.status === \'error\' ? (',
+        replace: '      </header>\n      {blog.status === \'loading\' ? (\n        <div className={styles.posts} aria-busy="true" aria-label={t(\'pages.blog.loading\')}>\n          {[0, 1, 2].map((i) => (\n            <div key={i} className={styles.post}>\n              <span className={shop.skeletonCover} />\n              <span className={shop.skeletonShort} />\n              <span className={shop.skeletonText} />\n            </div>\n          ))}\n        </div>\n      ) : null}\n      {blog.status === \'error\' ? (',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/BlogPostView.tsx'],
+        find: '    return (\n      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.title}>{t(\'pages.blog.loadingPost\')}</h1>\n      </section>\n    )',
+        replace: '    return (\n      <article className={styles.article} aria-busy="true">\n        <h1 className={shop.srOnly}>{t(\'pages.blog.loadingPost\')}</h1>\n        <span className={shop.skeletonShort} />\n        <span className={shop.skeletonTitle} />\n        <span className={shop.skeletonCover} />\n        {[0, 1, 2, 3].map((i) => (\n          <span key={i} className={shop.skeletonText} />\n        ))}\n      </article>\n    )',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/ContentView.tsx'],
+        find: '    return (\n      <section className={shop.page} aria-busy="true">\n        <h1 className={shop.title}>{t(\'pages.content.loading\')}</h1>\n      </section>\n    )',
+        replace: '    return (\n      <article className={styles.article} aria-busy="true">\n        <h1 className={shop.srOnly}>{t(\'pages.content.loading\')}</h1>\n        <span className={shop.skeletonTitle} />\n        {[0, 1, 2, 3].map((i) => (\n          <span key={i} className={shop.skeletonText} />\n        ))}\n        <span className={shop.skeletonShort} />\n      </article>\n    )',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: '            <div className={styles.product} aria-busy="true">\n              <div className={styles.noPicture} />\n              <div className={styles.info}>\n                <h1 className={styles.loadingTitle}>{t(\'shop.product.loading\')}</h1>\n              </div>',
+        replace: '            <div className={styles.product} aria-busy="true">\n              <div className={styles.loadingPicture} />\n              <div className={styles.info}>\n                <h1 className={shop.srOnly}>{t(\'shop.product.loading\')}</h1>\n                <span className={shop.skeletonTitle} />\n                <span className={shop.skeletonShort} />\n                <span className={shop.skeletonButton} />\n                <span className={shop.skeletonText} />\n                <span className={shop.skeletonText} />\n                <span className={shop.skeletonText} />\n              </div>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/CollectionPage.tsx'],
+        find: '            <header className={styles.intro}>\n              <h1 className={styles.title}>{name ?? t(\'shop.collection.loading\')}</h1>\n              {lead ? <p className={styles.lead}>{lead}</p> : null}',
+        replace: '            <header className={styles.intro}>\n              {name !== null ? (\n                <h1 className={styles.title}>{name}</h1>\n              ) : (\n                <>\n                  <h1 className={styles.srOnly}>{t(\'shop.collection.loading\')}</h1>\n                  <span className={styles.skeletonTitle} />\n                </>\n              )}\n              {lead ? <p className={styles.lead}>{lead}</p> : null}',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/Filters.tsx'],
+        find: '      {listing.loadingMore ? (\n        <p className={styles.muted} role="status">\n          {t(\'shop.listing.loadingMore\')}',
+        replace: '      {listing.loadingMore ? (\n        <p className={styles.srOnly} role="status">\n          {t(\'shop.listing.loadingMore\')}',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ListingResults.tsx'],
+        find: '        ) : null}\n        {listing.status === \'ready\' ? <ProductGrid products={listing.items} /> : null}\n        <MoreOnScroll listing={listing} />',
+        replace: '        ) : null}\n        {listing.status === \'ready\' ? <ProductGrid products={listing.items} placeholders={listing.loadingMore ? 4 : 0} /> : null}\n        <MoreOnScroll listing={listing} />',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '      ) : null}\n    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count }: { label: string; count: number }) => (',
+        replace: '      ) : null}\n    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />\n        <div className={styles.skeletonLine} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count }: { label: string; count: number }) => (',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-soft\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-soft\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-soft\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-soft\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-soft\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/product.tsx'],
+        find: '  legal: clsx(\'block w-full [--df-sealed-size:14px]\'),\n  loadingTitle: clsx(\'m-0 font-heading font-[var(--heading-weight)] tracking-[var(--heading-spacing)] leading-[1.15] wrap-anywhere [text-transform:var(--heading-case)] text-muted text-[20px]\'),\n  media: clsx(\'block w-full h-full object-cover\'),\n  noPicture: clsx(\'aspect-[4/5] rounded-card [background:var(--picture-alt)]\'),',
+        replace: '  legal: clsx(\'block w-full [--df-sealed-size:14px]\'),\n  media: clsx(\'block w-full h-full object-cover\'),\n  loadingPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  noPicture: clsx(\'aspect-[4/5] rounded-card [background:var(--picture-alt)]\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/account.tsx'],
+        find: '  order: clsx(\'p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface text-ink no-underline hover:border-ink-soft focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]\'),\n  orderFacts: clsx(\'flex min-w-0 flex-col gap-y-1 gap-x-1\'),',
+        replace: '  order: clsx(\'p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface text-ink no-underline hover:border-ink-soft focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]\'),\n  orderRow: clsx(\'p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface\'),\n  orderFacts: clsx(\'flex min-w-0 flex-col gap-y-1 gap-x-1\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '        <p className={styles.cardPrice}>\n          {product.from ? <span className={styles.from}>{t(\'shop.card.from\')}</span> : null}\n          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />\n        </p>\n      ) : null}\n    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, wide = false }: { label: string; count: number; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy="true" aria-label={label}>\n    {[...Array(count).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonCard}>',
+        replace: '        <p className={styles.cardPrice}>\n          {product.from ? <span className={styles.from}>{t(\'shop.card.from\')}</span> : null}\n          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />\n        </p>\n      ) : null}\n    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonCard}>\n          <div className={styles.skeletonPicture} />\n          <div className={styles.skeletonLine} />\n        </div>\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, wide = false }: { label: string; count: number; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy="true" aria-label={label}>\n    {[...Array(count).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonCard}>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-square rounded-[16px] bg-tint\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-square rounded-[16px] bg-tint\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-tint\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-tint\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-tint\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-tint\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-tint\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-tint\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-tint\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '      </Link>\n    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count }: { label: string; count: number }) => (',
+        replace: '      </Link>\n    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />\n        <div className={styles.skeletonLine} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count }: { label: string; count: number }) => (',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/shop.module.css'],
+        find: '  background: var(--soft);\n}\n\n.notice {\n  display: flex;\n  flex-direction: column;',
+        replace: '  background: var(--soft);\n}\n\n.skeletonText,\n.skeletonShort,\n.skeletonTitle,\n.skeletonPhoto,\n.skeletonCover,\n.skeletonDot,\n.skeletonButton {\n  display: block;\n  border-radius: 6px;\n  background: var(--soft);\n}\n\n.skeletonText {\n  width: 100%;\n  max-width: 28rem;\n  height: 14px;\n}\n\n.skeletonShort {\n  width: 40%;\n  height: 14px;\n}\n\n.skeletonTitle {\n  width: min(100%, 16rem);\n  height: 28px;\n  border-radius: 8px;\n}\n\n.skeletonPhoto {\n  width: 88px;\n  height: 110px;\n  border-radius: calc(var(--radius) - 4px);\n}\n\n.skeletonCover {\n  aspect-ratio: 3 / 2;\n  border-radius: var(--radius);\n}\n\n.skeletonDot {\n  flex-shrink: 0;\n  width: 26px;\n  height: 26px;\n  border-radius: 50%;\n}\n\n.skeletonButton {\n  width: 100%;\n  height: 48px;\n  border-radius: var(--button-radius);\n}\n\n.srOnly {\n  position: absolute;\n  overflow: hidden;\n  width: 1px;\n  height: 1px;\n  margin: -1px;\n  padding: 0;\n  border: 0;\n  clip-path: inset(50%);\n  white-space: nowrap;\n}\n\n.notice {\n  display: flex;\n  flex-direction: column;',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/product.module.css'],
+        find: '  background: var(--picture-alt);\n}\n\n.thumbs {\n  display: flex;\n  flex-wrap: wrap;',
+        replace: '  background: var(--picture-alt);\n}\n\n.loadingPicture {\n  aspect-ratio: 4 / 5;\n  border-radius: var(--radius);\n  background: var(--soft);\n}\n\n.thumbs {\n  display: flex;\n  flex-wrap: wrap;',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/product.module.css'],
+        find: '\n.title,\n.loadingTitle {\n  margin: 0;',
+        replace: '\n.title {\n  margin: 0;',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/product.module.css'],
+        find: '\n.loadingTitle {\n  color: var(--muted);\n  font-size: 20px;\n}\n\n.price {',
+        replace: '\n.price {',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/account.module.css'],
+        find: '\n.order {\n  display: flex;',
+        replace: '\n.order,\n.orderRow {\n  display: flex;',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '        <p className={styles.cardPrice}>\n          {product.from ? <span className={styles.from}>{t(\'shop.card.from\')}</span> : null}\n          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />\n        </p>\n      ) : null}\n    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, wide = false }: { label: string; count: number; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy="true" aria-label={label}>\n    {[...Array(count).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />',
+        replace: '        <p className={styles.cardPrice}>\n          {product.from ? <span className={styles.from}>{t(\'shop.card.from\')}</span> : null}\n          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />\n        </p>\n      ) : null}\n    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />\n        <div className={styles.skeletonLine} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, wide = false }: { label: string; count: number; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy="true" aria-label={label}>\n    {[...Array(count).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-square rounded-card bg-soft\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-square rounded-card bg-soft\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-soft\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-soft\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-soft\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-soft\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-soft\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-0.75 px-2.5 absolute rounded-full text-[12px] font-semibold top-auto right-2.5 bottom-2.5 left-auto bg-ink text-bg\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive; `list` and `cell` match the loaded grid. */',
+        replace: '    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonCard}>\n          <div className={styles.skeletonPicture} />\n          <div className={styles.skeletonLine} />\n        </div>\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive; `list` and `cell` match the loaded grid. */',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-square rounded-[9px] bg-soft\'),\n  soldOut: clsx(\'py-0.5 px-2 absolute rounded-[6px] text-[11px] font-bold top-2 right-2 bottom-auto left-auto bg-ink text-bg\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-square rounded-[9px] bg-soft\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-soft\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-soft\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-soft\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-soft\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-soft\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-0.5 px-2 absolute rounded-[6px] text-[11px] font-bold top-2 right-2 bottom-auto left-auto bg-ink text-bg\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/product.tsx'],
+        find: '  legal: clsx(\'block w-full [--df-sealed-size:14px]\'),\n  loadingTitle: clsx(\'m-0 font-heading font-[var(--heading-weight)] tracking-[var(--heading-spacing)] leading-[1.15] wrap-anywhere [text-transform:var(--heading-case)] text-muted text-[20px]\'),\n  media: clsx(\'block w-full h-full object-cover\'),\n  noPicture: clsx(\'aspect-square rounded-card [background:var(--picture-alt)]\'),',
+        replace: '  legal: clsx(\'block w-full [--df-sealed-size:14px]\'),\n  media: clsx(\'block w-full h-full object-cover\'),\n  loadingPicture: clsx(\'aspect-square rounded-card bg-soft\'),\n  noPicture: clsx(\'aspect-square rounded-card [background:var(--picture-alt)]\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ProductCard.tsx'],
+        find: '      ) : null}\n    </article>\n  )\n}\n\nexport const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (\n  <ul className={wide ? styles.gridWide : styles.grid}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, list = styles.grid, cell = styles.cell }: { label: string; count: number; list?: string; cell?: string }) => (',
+        replace: '      ) : null}\n    </article>\n  )\n}\n\n/** `placeholders`: that many cells shaped like the placeholder\'s, after the products, while more load. */\nexport const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (\n  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>\n    {products.map((p) => (\n      <li key={p.id} className={styles.cell}>\n        <ProductCard product={p} />\n      </li>\n    ))}\n    {[...Array(placeholders).keys()].map((i) => (\n      <li key={i} className={styles.cell}>\n        <div className={styles.skeletonPicture} />\n        <div className={styles.skeletonLine} />\n      </li>\n    ))}\n  </ul>\n)\n\n/** The grid\'s shape while its products load, so nothing moves when they arrive. */\nexport const GridPlaceholder = ({ label, count, list = styles.grid, cell = styles.cell }: { label: string; count: number; list?: string; cell?: string }) => (',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  soldOut: clsx(\'py-1 px-3 absolute rounded-full text-[12px] font-bold top-auto right-3 bottom-3 left-auto bg-olive text-footer-ink\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-soft\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-soft\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-soft\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-soft\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-soft\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-1 px-3 absolute rounded-full text-[12px] font-bold top-auto right-3 bottom-3 left-auto bg-olive text-footer-ink\'),',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  soldOut: clsx(\'py-1 px-2.5 absolute top-auto right-3 bottom-3 left-auto bg-ink text-bg text-[10px] font-semibold tracking-[0.2em] uppercase\'),',
+        replace: '  skeletonPicture: clsx(\'aspect-[4/5] rounded-card bg-soft\'),\n  skeletonButton: clsx(\'block w-full h-12 rounded-button bg-soft\'),\n  skeletonCover: clsx(\'block aspect-[3/2] rounded-card bg-soft\'),\n  skeletonDot: clsx(\'block w-6.5 h-6.5 shrink-0 rounded-full bg-soft\'),\n  skeletonPhoto: clsx(\'block w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] bg-soft\'),\n  skeletonShort: clsx(\'block w-[40%] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonText: clsx(\'block w-full max-w-[28rem] h-3.5 rounded-[6px] bg-soft\'),\n  skeletonTitle: clsx(\'block w-[min(100%,16rem)] h-7 rounded-[8px] bg-soft\'),\n  srOnly: clsx(\'absolute overflow-hidden w-px h-px -m-px p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap\'),\n  soldOut: clsx(\'py-1 px-2.5 absolute top-auto right-3 bottom-3 left-auto bg-ink text-bg text-[10px] font-semibold tracking-[0.2em] uppercase\'),',
+      },
+    ],
+  },
   {
     version: '1.0.0',
     kind: 'major',

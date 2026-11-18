@@ -31,11 +31,20 @@ export const ProductCard = ({ product }: { product: Card }) => {
   )
 }
 
-export const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (
-  <ul className={wide ? styles.gridWide : styles.grid}>
+/** `placeholders`: that many cells shaped like the placeholder's, after the products, while more load. */
+export const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (
+  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>
     {products.map((p) => (
       <li key={p.id} className={styles.cell}>
         <ProductCard product={p} />
+      </li>
+    ))}
+    {[...Array(placeholders).keys()].map((i) => (
+      <li key={i} className={styles.cell}>
+        <div className={styles.skeletonCard}>
+          <div className={styles.skeletonPicture} />
+          <div className={styles.skeletonLine} />
+        </div>
       </li>
     ))}
   </ul>

@@ -13,9 +13,15 @@ export const BlogPostView = () => {
   const view = useBlogPost()
   if (view.status === 'loading') {
     return (
-      <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('pages.blog.loadingPost')}</h1>
-      </section>
+      <article className={styles.article} aria-busy="true">
+        <h1 className={shop.srOnly}>{t('pages.blog.loadingPost')}</h1>
+        <span className={shop.skeletonShort} />
+        <span className={shop.skeletonTitle} />
+        <span className={shop.skeletonCover} />
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={shop.skeletonText} />
+        ))}
+      </article>
     )
   }
   if (view.status === 'error') {

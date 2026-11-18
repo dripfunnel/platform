@@ -24,9 +24,27 @@ export const CheckoutView = () => {
 
   if (c.status === 'loading') {
     return (
-      <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('shop.checkout.title')}</h1>
-        <p className={shop.lead}>{t('shop.checkout.loading')}</p>
+      <section className={styles.page} aria-busy="true">
+        <h1 className={styles.title}>{t('shop.checkout.title')}</h1>
+        <p className={shop.srOnly}>{t('shop.checkout.loading')}</p>
+        <div className={styles.layout}>
+          <ol className={styles.steps}>
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className={styles.step}>
+                <div className={styles.stepHead}>
+                  <span className={shop.skeletonDot} />
+                  <span className={shop.skeletonText} />
+                </div>
+              </li>
+            ))}
+          </ol>
+          <aside className={styles.side}>
+            <h2 className={styles.sideTitle}>{t('shop.checkout.summary')}</h2>
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonShort} />
+          </aside>
+        </div>
       </section>
     )
   }

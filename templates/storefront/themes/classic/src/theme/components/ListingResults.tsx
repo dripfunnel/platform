@@ -35,7 +35,7 @@ export const ListingResults = ({ listing }: { listing: Listing }) => {
             </Notice>
           )
         ) : null}
-        {listing.status === 'ready' ? <ProductGrid products={listing.items} /> : null}
+        {listing.status === 'ready' ? <ProductGrid products={listing.items} placeholders={listing.loadingMore ? 4 : 0} /> : null}
         <MoreOnScroll listing={listing} />
       </div>
     </div>

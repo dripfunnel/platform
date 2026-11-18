@@ -22,9 +22,17 @@ export const WishlistList = () => {
     return (
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>{t('shop.wishlist.title')}</h2>
-        <p className={styles.note} aria-busy="true">
-          {t('shop.wishlist.loading')}
-        </p>
+        <ul className={styles.wishlist} aria-busy="true" aria-label={t('shop.wishlist.loading')}>
+          {[0, 1, 2].map((i) => (
+            <li key={i} className={styles.wished}>
+              <div className={shop.skeletonPicture} />
+              <span className={shop.skeletonText} />
+              <span className={shop.skeletonShort} />
+              <span className={shop.skeletonButton} />
+              <span className={shop.skeletonButton} />
+            </li>
+          ))}
+        </ul>
       </div>
     )
   }

@@ -20,7 +20,26 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
   if (page.status === 'loading') {
     return (
       <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('shop.order.loading')}</h1>
+        <h1 className={shop.srOnly}>{t('shop.order.loading')}</h1>
+        <div className={styles.order}>
+          <div className={styles.main}>
+            <div className={styles.head}>
+              <span className={shop.skeletonTitle} />
+              <span className={shop.skeletonShort} />
+            </div>
+            <div className={styles.card}>
+              <span className={shop.skeletonText} />
+              <span className={shop.skeletonText} />
+              <span className={shop.skeletonShort} />
+            </div>
+          </div>
+          <aside className={styles.side}>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className={shop.skeletonText} />
+            ))}
+            <span className={shop.skeletonShort} />
+          </aside>
+        </div>
       </section>
     )
   }
