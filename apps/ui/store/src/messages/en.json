@@ -3026,6 +3026,7 @@
       },
       "none": "No filters yet. Create one — Fabric, Occasion or Fit — and add its values.",
       "noValues": "No values yet.",
+      "valueCount": "({count})",
       "explainTitle": "Choices or filters?",
       "choicesLabel": "Choices",
       "choices": "the shopper picks one when buying, like Size M. Each has its own price and stock. Set them on the product.",
