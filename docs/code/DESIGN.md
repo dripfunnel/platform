@@ -100,8 +100,5 @@ commitment under semver (ARCHITECTURE §5).
 
 A vulnerable package is fixed by bumping the direct dependency that pulls it in. An entry in
 `pnpm-workspace.yaml` `overrides` is used only when no fixed parent exists, carries a one-line
-reason naming the advisory, and is removed once its parent catches up. Today (#1511) there are none.
-
-Known and left, until the mobile apps are worked on again: the advisories that come in through
-the Expo and Firebase packages (`zod` in `@expo/cli`, `@grpc/grpc-js`,
-`decode-uri-component`), and `picomatch` 4.0.7, which has no fixed release yet.
+reason naming the advisory, and is removed once its parent catches up. Advisories that no release fixes yet are tracked on
+the card that found them, not here.
