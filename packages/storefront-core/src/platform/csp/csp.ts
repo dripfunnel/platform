@@ -79,8 +79,8 @@ const directives = (list: [name: string, sources: readonly string[]][]) =>
 /** The built pages with the address form, the only ones that may frame "Pin on map" (ARCHITECTURE §3.5). */
 export const isMapsPage = (path: string): boolean => /^(?:checkout|account)\//.test(path)
 
-/** The CSP header for a store's live site and its preview link; `page` is the built file's path. */
-export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): string => {
+/** The CSP header for a store's live site and its preview link; `page` is the built file's path, `fonts` whether theme.css lists Google fonts. */
+export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = '', fonts = false): string => {
   const p = storeCspSchema.parse(input)
   const from = (key: keyof Hosts) => [...p.analytics.flatMap((a) => analyticsHosts[a][key] ?? []), ...p.payments.flatMap((k) => paymentHosts[k][key] ?? [])]
   const build = ["'self'", ...(p.assetOrigin ? [p.assetOrigin] : [])]
@@ -88,9 +88,9 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): stri
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
-    // Google Fonts' hosts for every store; only a theme that lists a family loads one (guard/fonts.ts; ARCHITECTURE §3.5).
-    ['style-src', [...build, ...hashes.styles, googleFontsCss]],
-    ['font-src', [...build, googleFontsFiles]],
+    // Google's hosts only for a theme that lists a family, so no other store's shoppers reach Google (ARCHITECTURE §3.5).
+    ['style-src', [...build, ...hashes.styles, ...(fonts ? [googleFontsCss] : [])]],
+    ['font-src', [...build, ...(fonts ? [googleFontsFiles] : [])]],
     // The asset host too: a theme's CSS url(media/…) names its image beside the stylesheet there (#1405).
     ['img-src', [...build, ...p.mediaOrigins, ...from('img')]],
     ['media-src', ["'self'", ...p.mediaOrigins]],

@@ -337,6 +337,8 @@ describe.skipIf(!chrome)('step check', () => {
     expect(headers['index.html']?.['content-security-policy']).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/)
     // A snapshot without the store's portal lets no page frame the site.
     expect(Object.values(headers).every((h) => h['content-security-policy'].includes("frame-ancestors 'none'"))).toBe(true)
+    // The baseline lists no Google font, so no page lets Google's hosts load (ARCHITECTURE §3.5).
+    expect(Object.values(headers).some((h) => /fonts\.(googleapis|gstatic)\.com/.test(h['content-security-policy']))).toBe(false)
   })
 
   it('passes a catalogue snapshot’s product and collection pages through the whole gate, hydrated from their answers (#1011)', async () => {

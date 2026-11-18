@@ -21,7 +21,7 @@ describe('storeCsp', () => {
 
   it('names no analytics or payment host a store hasn’t set up, and no goog#html without Google', () => {
     const csp = storeCsp({ ...store, analytics: ['meta'], payments: [] }, none)
-    expect(csp.replaceAll('https://fonts.googleapis.com', '').replaceAll('https://fonts.gstatic.com', '')).not.toContain('google')
+    expect(csp).not.toContain('google')
     expect(csp).not.toContain('stripe')
     expect(directive(csp, 'frame-src')).toBe("frame-src 'none'")
     expect(directive(csp, 'trusted-types')).toBe('trusted-types df-core default')
@@ -104,8 +104,14 @@ describe('inlineHashes and pageHeaders', () => {
 })
 
 describe('Google Fonts in the CSP (ARCHITECTURE §3.5, decided 2026-11-12)', () => {
-  it('lets the fonts’ stylesheet and files load on a live page and in the studio, and nothing else of Google', () => {
+  it('names no Google host for a store whose theme lists no font', () => {
     const csp = storeCsp({ ...store, analytics: [], payments: [] }, none)
+    expect(csp).not.toContain('fonts.googleapis.com')
+    expect(csp).not.toContain('fonts.gstatic.com')
+  })
+
+  it('lets the fonts’ stylesheet and files load on a live page whose theme lists one, and nothing else of Google', () => {
+    const csp = storeCsp({ ...store, analytics: [], payments: [] }, none, '', true)
     expect(directive(csp, 'style-src')).toContain('https://fonts.googleapis.com')
     expect(directive(csp, 'font-src')).toContain('https://fonts.gstatic.com')
     expect(directive(csp, 'script-src')).not.toContain('google')
