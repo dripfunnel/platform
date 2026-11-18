@@ -33,8 +33,14 @@ const nextOf = (query: URLSearchParams) => {
 }
 
 export type SignInPage = {
-  /** The ways this shop signs shoppers in; email only until it answers, and both on a preview, which never asks. */
+  /** The ways this shop signs shoppers in; email only until it answers, and both on a preview, which never asks. Read `waysKnown` too: until it is true this is a guess. */
   ways: { email: boolean; phone: boolean }
+  /**
+   * False from the first draw of a live page until the shop has answered (#1490): a theme holds its tabs and fields until
+   * then, so the form is drawn once, from the setting, and never jumps. True at once on a preview, which never asks, and
+   * when the shop can't be asked (`ways` is then email only). A theme that doesn't read it draws `ways` as it always did.
+   */
+  waysKnown: boolean
   /** A preview or the studio frame: nobody signs in there (the Shop API refuses with NOT_IN_PREVIEW). */
   previewOnly: boolean
   busy: boolean
@@ -85,6 +91,7 @@ export const useSignIn = (): SignInPage => {
   const ways = options.data?.signInOptions
   return {
     ways: { email: ways?.email ?? true, phone: ways?.phone ?? previewOnly },
+    waysKnown: previewOnly || options.status === 'ready' || options.status === 'error',
     previewOnly,
     busy,
     error,

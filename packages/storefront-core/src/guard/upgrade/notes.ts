@@ -33,6 +33,32 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  // Numbered for the next major after 1.0.0: it only has to fall between a store's version and the release it goes to, and
+  // the release card gives it the number of the release that ships it (§7.1).
+  {
+    version: '2.0.0',
+    kind: 'major',
+    security: false,
+    notes: [
+      'The sign-in, create-account and reset-password pages no longer guess the store\'s sign-in ways (#1490): `useSignIn()` now says `waysKnown`, false from the first draw of a live page until the Shop API has answered, and a theme draws only its heading until then, so the tabs and fields appear once, from the store\'s setting, and never jump (before, an email-only form was drawn first and the Mobile number tab or form popped in afterwards).',
+      '`ways` itself is unchanged (email only until the answer, both on a preview), so a theme that does not read `waysKnown` draws as it always did. A theme that draws its own sign-in view adds `if (!s.waysKnown) return <section><h1>{title}</h1></section>` after its preview check.',
+      'The codemods add that check to the shipped sign-in view of the Classic, Baseline, Beauty, Electronics, Fashion, Grocery, Home and Jewelry themes; a theme that changed the view places it itself.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/SignInView.tsx'],
+        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
+        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/SignInView.tsx'],
+        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
+        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
+      },
+    ],
+  },
   {
     version: '1.0.0',
     kind: 'major',
