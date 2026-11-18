@@ -37,4 +37,15 @@
   --color-light-82: rgb(255 244 240 / 0.82);
   --color-tone-3d2232-14: rgb(61 34 50 / 0.14);
   --color-tone-3d2232-18: rgb(61 34 50 / 0.18);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--color-tint) 40%, var(--color-bg) 50%, var(--color-tint) 60%) 150% 0 / 200% 100% var(--color-tint);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--color-tint) 40%, var(--color-bg) 50%, var(--color-tint) 60%) -50% 0 / 200% 100% var(--color-tint);
+  }
 }

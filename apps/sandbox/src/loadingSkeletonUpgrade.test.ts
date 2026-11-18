@@ -37,7 +37,7 @@ describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'groce
   const before = undone(now)
 
   it('has the skeletons taken out of the fixture, so the test means something', () => {
-    for (const text of before.values()) expect(text).not.toMatch(/skeleton(Text|Short|Title|Photo|Cover|Dot|Button)|srOnly/)
+    for (const text of before.values()) expect(text).not.toMatch(/skeleton(Text|Short|Title|Photo|Cover|Dot|Button)|srOnly|shimmer/)
   })
 
   it('brings the shipped theme back exactly, and a second run changes nothing', () => {
