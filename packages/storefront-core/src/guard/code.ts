@@ -1,13 +1,13 @@
 import ts from 'typescript'
-import { animationAdvice } from './animation.js'
 import { brandCopied } from './brand.js'
 import { interactiveFolder } from './files.js'
-import { animatable, animated, jsxProblems } from './jsx.js'
+import { animated, jsxProblems } from './jsx.js'
 import { coreThemeModule, inTheme, isOpen, lineOf, literalStrings, parts, themeProgram } from './program.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 import { clsxNames, inClassPosition } from './tailwind.js'
 import { productImageProblems, urlClassesOf } from './productImage.js'
-import { isAddress, looksLikeWords, showsWrittenText } from './text.js'
+import { claimMessage, claimsIn, literalTexts } from './claims.js'
+import { isAddress } from './text.js'
 
 /** A `t('file.key')` call, matched against the content files. */
 export type KeyUse = { file: string; line: number; key: string }
@@ -28,6 +28,8 @@ const libraries = new Map<string, Library>([
   ['clsx', { names: new Set(['clsx']), defaultImport: true, interactiveOnly: false }],
   ['motion', motion],
   ['motion/react', motion],
+  // Icons, bundled into the theme so only those used load (ARCHITECTURE §3.4 "Imports", decided 2026-11-12).
+  ['lucide-react', { names: 'any', defaultImport: false, interactiveOnly: false }],
 ])
 
 /** The language's own globals a theme may use, and the members it may use of those that have more. */
@@ -281,8 +283,8 @@ const checkAnimate = (w: Walk, call: ts.CallExpression) => {
   if (!keyframes || ts.isSpreadElement(keyframes)) return
   const frames = w.checker.getTypeAtLocation(keyframes)
   const isObject = parts(frames).every((t) => (t.flags & ts.TypeFlags.Object) !== 0 && !w.checker.isArrayType(t) && !w.checker.isTupleType(t) && t.getCallSignatures().length === 0)
-  const bad = isObject ? animated(w.checker, keyframes, frames, animatable, false) : []
-  if (bad.length > 0) w.report(keyframes, 'jsx/animated-property', `With motion, ${animationAdvice([...new Set(bad)])}.`)
+  const bad = isObject ? animated(w.checker, keyframes, frames, false) : []
+  if (bad.length > 0) w.report(keyframes, 'jsx/animated-property', `With motion, write the values out: not ${[...new Set(bad)].join(', ')}.`)
 }
 
 /** useAnimate's answer is taken apart where it's made, so every call of its animate is checked. */
@@ -405,14 +407,9 @@ const checkCall = (w: Walk, call: ts.CallExpression) => {
   if (values && ts.isObjectLiteralExpression(values)) {
     for (const p of values.properties) {
       const value = ts.isPropertyAssignment(p) ? p.initializer : ts.isShorthandPropertyAssignment(p) ? p.name : undefined
-      if (value && showsWrittenText(w.checker, value)) w.report(value, 'jsx/text-literal', "A value given to t() is shown to shoppers; it comes from core's data, never written in the code.")
+      for (const words of value ? literalTexts(value) : []) for (const { rule, what } of claimsIn(words)) w.report(value ?? call, rule, claimMessage(words, what))
     }
   }
-}
-
-const isChoice = (w: Walk, node: ts.StringLiteralLike): boolean => {
-  const contextual = w.checker.getContextualType(node)
-  return contextual !== undefined && literalStrings(w.checker.getNonNullableType(contextual)) !== undefined
 }
 
 const isName = (node: ts.Node) => {
@@ -426,9 +423,10 @@ const checkText = (w: Walk, node: ts.StringLiteralLike | ts.TemplateLiteralToken
   if (field) w.report(node, 'code/brand-literal', `This repeats the store's ${field}; read it from useStorefront() so a change in Site settings reaches the site.`)
   if (ts.isJsxText(node)) return
   if (isAddress(node.text)) w.report(node, 'code/url-in-code', "A theme writes no address in its code: links go through core's <Link>, images and video through <Image> and <Video>.")
-  if (ts.isJsxAttribute(node.parent) || ts.isJsxExpression(node.parent) || !looksLikeWords(node.text) || isName(node)) return
+  // Words may be written in the code (ARCHITECTURE §3.4 "Words"); JSX's own are checked in jsx.ts, an invented claim never stands.
+  if (ts.isJsxAttribute(node.parent) || ts.isJsxExpression(node.parent) || isName(node)) return
   if (w.classes && inClassPosition(node, w.classes)) return
-  if (!ts.isStringLiteralLike(node) || !isChoice(w, node)) w.report(node, 'code/text-in-string', "Words shoppers see belong in content/{language}/*.json, shown through t('file.key').")
+  for (const { rule, what } of claimsIn(node.text)) w.report(node, rule, claimMessage(node.text, what))
 }
 
 const checkDirectives = (w: Walk, sf: ts.SourceFile) => {

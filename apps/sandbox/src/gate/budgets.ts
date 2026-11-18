@@ -6,7 +6,7 @@ import type { GateProblem } from './problems'
 
 // Storefront ARCHITECTURE §9's byte budgets, over the theme's own chunks: what a change can move. A theme can't import
 // lazily (§3.4), so every chunk loads on the first page; core's runtime is the publish gate's to count (AI-STUDIO §9).
-export const budgets = { firstLoadJsGzip: 90 * 1024, cssGzip: 50 * 1024 } as const
+export const budgets = { firstLoadJsGzip: 200 * 1024, cssGzip: 120 * 1024 } as const
 
 const gzipped = async (file: string) => gzipSync(await readFile(file)).byteLength
 

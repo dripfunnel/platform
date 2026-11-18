@@ -154,7 +154,7 @@ export const routedDesignerProvider = (router: Router, model: string, options: {
       const wantsTools = answer.finish === 'tool_use' && answer.toolCalls.length > 0
       if (!wantsTools && answer.finish !== 'stop') throw new AiDeclined(answer.finish === 'refusal' ? 'the model declined' : 'the answer was cut short')
       const { route } = routed
-      const capability = route.connection.authType === 'oauth' ? null : capabilityOf(route.provider, route.model)
+      const capability = route.connection.authType === 'oauth' ? null : (route.capability ?? capabilityOf(route.provider, route.model))
       return { ...metered(answer, capability), toolCalls: answer.toolCalls, wantsTools }
     } catch (error) {
       if (error instanceof UnsupportedFeature) throw new AiDeclined(error.message)
@@ -177,7 +177,7 @@ export const routedDesignerProvider = (router: Router, model: string, options: {
       const answer = await collectStream(call.onText ? tapText(routed.value, call.onText) : routed.value)
       if (answer.finish !== 'stop') throw new AiDeclined(answer.finish === 'refusal' ? 'the model declined' : 'the answer was cut short')
       const { route } = routed
-      const capability = route.connection.authType === 'oauth' ? null : capabilityOf(route.provider, route.model)
+      const capability = route.connection.authType === 'oauth' ? null : (route.capability ?? capabilityOf(route.provider, route.model))
       return metered(answer, capability)
     } catch (error) {
       if (error instanceof UnsupportedFeature) throw new AiDeclined(error.message)

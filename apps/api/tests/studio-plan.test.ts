@@ -140,10 +140,11 @@ const planned = JSON.stringify({ plan: { header: 'logo and a short menu', footer
 
 const fields = 'outcome message { id role text changed canUndo flowState questions { text options } answers plan { header footer pages { page title sections } } build { pages { page title outcome } stopped } }'
 type Answer = { outcome: string; message: { id: string; role: string; text: string; changed: string[]; canUndo: boolean; flowState: string | null; questions: { text: string; options: string[] }[]; answers: (string | null)[]; plan: { pages: { page: string }[] } | null; build: { pages: { page: string; title: string; outcome: string }[]; stopped: boolean } | null } }
-const ask = async (who: Who, text: string) => w.gql(who, `mutation A($text: String!) { askDesign(text: $text, page: "home", device: "desktop") { ${fields} } }`, { text })
-const answer = async (id: string, answers: string[], skip = false) => w.gql('owner', `mutation Q($id: ID!, $a: [String!]!, $s: Boolean) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s) { ${fields} } }`, { id, a: answers, s: skip })
-const change = async (id: string, text: string) => w.gql('owner', `mutation C($id: ID!, $t: String!) { changeDesignPlan(messageId: $id, text: $t) { ${fields} } }`, { id, t: text })
-const build = async (id: string) => w.gql('owner', `mutation B($id: ID!) { buildDesignPlan(messageId: $id) { ${fields} } }`, { id })
+const ask = async (who: Who, text: string) => w.designed(who, 'mutation A($text: String!, $run: ID!) { askDesign(text: $text, page: "home", device: "desktop", run: $run) }', { text }, 'askDesign', fields)
+const answer = async (id: string, answers: string[], skip = false) =>
+  w.designed('owner', 'mutation Q($id: ID!, $a: [String!]!, $s: Boolean, $run: ID!) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s, run: $run) }', { id, a: answers, s: skip }, 'answerDesignQuestions', fields)
+const change = async (id: string, text: string) => w.designed('owner', 'mutation C($id: ID!, $t: String!, $run: ID!) { changeDesignPlan(messageId: $id, text: $t, run: $run) }', { id, t: text }, 'changeDesignPlan', fields)
+const build = async (id: string) => w.designed('owner', 'mutation B($id: ID!, $run: ID!) { buildDesignPlan(messageId: $id, run: $run) }', { id }, 'buildDesignPlan', fields)
 const value = (r: Awaited<ReturnType<typeof ask>>, field: string) => r.data?.[field] as Answer
 const usage = async (storeId: string) => (await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = 'ai_prompts'`)[0]?.used ?? 0
 const head = async (storeId: string) => (await db.sql<{ head_commit: string }[]>`select head_commit from design_draft where store_id = ${storeId}`)[0]?.head_commit ?? null
@@ -445,11 +446,26 @@ describe('the plan and its build (#1243)', () => {
     expect(script.sent.length).toBe(calls)
   })
 
+  it('changes a plan as one run for one run id, the merchant’s words held out of the job’s params', async () => {
+    const plan = await toPlan()
+    script.answers = [planned]
+    const run = crypto.randomUUID()
+    const start = () => w.gql('owner', 'mutation C($id: ID!, $t: String!, $run: ID!) { changeDesignPlan(messageId: $id, text: $t, run: $run) }', { id: plan.id, t: 'drop the linen page', run })
+    expect((await start()).data).toEqual({ changeDesignPlan: run })
+    expect((await start()).data).toEqual({ changeDesignPlan: run })
+    const id = `${t.storeA1}-${run}`
+    expect([...w.runs.instances.keys()].filter((key) => key === id)).toHaveLength(1)
+    expect(JSON.stringify(w.runs.instances.get(id)?.params)).not.toContain('linen')
+    expect(w.runs.instances.get(id)?.params).toMatchObject({ kind: 'planChange', run })
+    await w.runs.step(id)
+    expect((await w.gql('owner', 'query R($run: ID!) { designRun(run: $run) { outcome message { role } } }', { run })).data).toEqual({ designRun: { outcome: 'asked', message: { role: 'plan' } } })
+  })
+
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {
     const plan = await toPlan()
-    expect((await w.gql('manager', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('FORBIDDEN')
-    expect((await w.gql('bOwner', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
-    expect((await w.gql('bOwner', 'mutation C($id: ID!) { changeDesignPlan(messageId: $id, text: "x") { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
+    expect((await w.gql('manager', 'mutation B($id: ID!, $r: ID!) { buildDesignPlan(messageId: $id, run: $r) }', { id: plan.id, r: crypto.randomUUID() })).code).toBe('FORBIDDEN')
+    expect((await w.gql('bOwner', 'mutation B($id: ID!, $r: ID!) { buildDesignPlan(messageId: $id, run: $r) }', { id: plan.id, r: crypto.randomUUID() })).code).toBe('PLAN_GONE')
+    expect((await w.gql('bOwner', 'mutation C($id: ID!, $r: ID!) { changeDesignPlan(messageId: $id, text: "x", run: $r) }', { id: plan.id, r: crypto.randomUUID() })).code).toBe('PLAN_GONE')
   })
 })
 

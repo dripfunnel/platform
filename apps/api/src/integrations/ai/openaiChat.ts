@@ -1,10 +1,10 @@
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type FinishReason } from './gateway'
+import { openaiEndpointFor } from './deepinfra'
 import { providerHeaders } from './headers'
 import { parseRetryAfter } from './retryAfter'
 
 // ChatGPT's models through OpenAI's documented Chat Completions API, API key only (#950; THIRD-PARTY-ACCESS §2.6).
-// The endpoint is fixed: nothing a caller sends picks a host (SSRF), and no header comes from a caller.
-const endpoint = 'https://api.openai.com/v1'
+// The endpoint is fixed by the key (OpenAI's, or DeepInfra's for `sk-di-`, deepinfra.ts): nothing a caller sends picks a host (SSRF).
 const timeoutMs = 60_000
 /** Options OpenAI takes through `options`; anything else is refused rather than passed on. */
 export const openaiOptions = ['top_p', 'presence_penalty', 'frequency_penalty', 'seed', 'stop', 'response_format'] as const
@@ -13,6 +13,7 @@ const finishOf = (reason: string | null | undefined): FinishReason => (reason ==
 
 const failureOf = (status: number, retryAfter: string | null): GatewayError => {
   if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
+  if (status === 402) return new GatewayError('OUT_OF_CREDIT')
   if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
   if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(retryAfter, new Date()))
   if (status === 400 || status === 413 || status === 422) return new GatewayError('BAD_REQUEST')
@@ -41,7 +42,7 @@ const send = async (apiKey: string, path: string, init: { method: string; body?:
   const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline
   let response: Response
   try {
-    response = await fetch(`${endpoint}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: providerHeaders({ provider: 'openai', auth: 'api_key', secret: apiKey, stream: init.stream === true, hasBody: init.body !== undefined }) })
+    response = await fetch(`${openaiEndpointFor(apiKey)}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: providerHeaders({ provider: 'openai', auth: 'api_key', secret: apiKey, stream: init.stream === true, hasBody: init.body !== undefined }) })
   } catch {
     throw new GatewayError(init.signal?.aborted ? 'CANCELLED' : deadline.aborted ? 'TIMEOUT' : 'PROVIDER_UNAVAILABLE')
   }

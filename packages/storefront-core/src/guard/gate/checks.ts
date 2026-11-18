@@ -12,7 +12,8 @@ export const gateWidths = [390, 768, 1440] as const
 
 /** ARCHITECTURE §9's budgets: bytes are exact and hard; timings are the median of three loads. */
 // pageBytes is 1,200 KB until #1396 brings pages back under 1 MB (#1395).
-export const pageBudgets = { jsGzip: 90 * 1024, cssGzip: 50 * 1024, pageBytes: 1200 * 1024, lcpMs: 2000, cls: 0.05, tbtMs: 150 } as const
+// JavaScript and CSS raised from 90 and 50 KB on 2026-11-12 (ARCHITECTURE §9), with the studio's budgets (apps/sandbox gate/budgets.ts).
+export const pageBudgets = { jsGzip: 200 * 1024, cssGzip: 120 * 1024, pageBytes: 1200 * 1024, lcpMs: 2000, cls: 0.05, tbtMs: 150 } as const
 
 /** A page's share of pixels that may differ from the live site's before it counts as looking different. */
 export const lookTolerance = 0.005

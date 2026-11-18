@@ -14,10 +14,14 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
   const kept = new Map<string, KeptSummary>()
   const builds = new Map<string, BuildOutcome>()
   const live: { storeId: string; run: string; event: LiveEvent }[] = []
+  const held = new Map<string, unknown>()
   const studio = (context: TenantContext): StudioApi => {
-    const runner = (storeId: string) => {
+    const own = (storeId: string) => {
       calls.push({ contextStore: context.storeId, storeId })
       if (storeId !== context.storeId) throw new Error('studio: a call for another store')
+    }
+    const runner = (storeId: string) => {
+      own(storeId)
       return runnerOf(storeId)
     }
     return {
@@ -53,6 +57,22 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         live.push({ storeId, run, event })
       },
       cancel: async (storeId) => runner(storeId).cancel(),
+      hold: async (storeId, run, input) => {
+        own(storeId)
+        held.set(`${storeId}:${run}`, input)
+      },
+      take: async (storeId, run) => {
+        own(storeId)
+        const input = held.get(`${storeId}:${run}`) ?? null
+        held.delete(`${storeId}:${run}`)
+        return input
+      },
+      drop: async (storeId, run) => {
+        own(storeId)
+        const keys = [...held.keys()].filter((key) => (run ? key === `${storeId}:${run}` : key.startsWith(`${storeId}:`)))
+        for (const key of keys) held.delete(key)
+        return keys.length > 0
+      },
       undo: async (storeId, input) => {
         const r = runner(storeId)
         return studioAnswer(() => r.undo(input.commit, input.userId, input.before ?? null))
@@ -96,5 +116,5 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
       },
     }
   }
-  return { studio, calls, live, kept }
+  return { studio, calls, live, kept, held }
 }

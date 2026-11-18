@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { applyCodemods, coreUpgradeNotes, notesBetween, validateTheme } from '@dripfunnel/storefront-core/guard'
 
-// #1598: the 1.0.1 codemods turn each starting theme as it was before its loading skeletons into the one the template ships now.
+// #1598: the 2.0.1 codemods turn each starting theme as it was before its loading skeletons into the one the template ships now.
 const themesDir = fileURLToPath(new URL('../../../templates/storefront/themes/', import.meta.url))
 const walk = (dir: string, rel = ''): string[] =>
   readdirSync(join(dir, rel)).flatMap((name) => {
@@ -17,7 +17,7 @@ const shipped = (theme: string) =>
       .filter((path) => /\.(tsx|css)$/.test(path))
       .map((path) => [path, readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n')] as const),
   )
-const codemods = notesBetween('1.0.0', '1.0.1', coreUpgradeNotes).flatMap((n) => n.codemods)
+const codemods = notesBetween('2.0.0', '2.0.1', coreUpgradeNotes).flatMap((n) => n.codemods)
 
 /** The theme with every codemod undone, last first: what a store made before the skeletons holds. */
 const undone = (theme: ReadonlyMap<string, string>) => {
@@ -32,7 +32,7 @@ const undone = (theme: ReadonlyMap<string, string>) => {
   return files
 }
 
-describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry'])('the loading skeletons for a %s store made before core 1.0.1', (key) => {
+describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry'])('the loading skeletons for a %s store made before core 2.0.1', (key) => {
   const now = shipped(key)
   const before = undone(now)
 
@@ -48,7 +48,7 @@ describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'groce
 })
 
 // Market's cart, collection and product pages ship Classic's markup, so an existing Market store gets those skeletons too.
-describe('a Market store upgraded to core 1.0.1', () => {
+describe('a Market store upgraded to core 2.0.1', () => {
   const before = shipped('market')
   const after = applyCodemods(before, codemods)
   const changed = [...after.keys()].filter((path) => after.get(path) !== before.get(path))

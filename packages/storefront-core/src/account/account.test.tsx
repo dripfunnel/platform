@@ -131,6 +131,27 @@ describe('useSignIn', () => {
     expect(shown(signIn).ways).toEqual({ email: true, phone: true })
   })
 
+  // #1490: a page drew an email-only form before it knew the store's setting, then redrew; a theme holds its form until this is true.
+  it('says the ways are not known until the shop answers, and then known, so a theme draws its form once', async () => {
+    const options = later<unknown>()
+    shopAnswering(() => options.promise)
+    await show('signIn')
+    expect(shown(signIn).waysKnown).toBe(false)
+    await act(async () => options.settle({ data: { signInOptions: { email: false, phone: true } } }))
+    expect(shown(signIn).waysKnown).toBe(true)
+    expect(shown(signIn).ways).toEqual({ email: false, phone: true })
+  })
+
+  it('knows the ways at once on a preview, which never asks, and when the shop cannot be asked, as email only, so no page waits for ever', async () => {
+    shopAnswering(() => ({ data: {} }))
+    await show('signIn', 'preview')
+    expect([shown(signIn).waysKnown, shown(signIn).ways]).toEqual([true, { email: true, phone: true }])
+    cleanup()
+    shopAnswering(() => ({ errors: [{ message: 'down', extensions: { code: 'UNAVAILABLE' } }] }))
+    await show('signIn')
+    expect([shown(signIn).waysKnown, shown(signIn).ways]).toEqual([true, { email: true, phone: false }])
+  })
+
   it('asks the Shop API nothing on a preview, where nobody signs in', async () => {
     const asked = shopAnswering(() => ({ data: {} }))
     await show('signIn', 'preview')

@@ -715,11 +715,6 @@ type DeliveryStep {
   state: String
 }
 
-type DesignAnswer {
-  message: DesignMessage
-  outcome: String
-}
-
 type DesignBuild {
   pages: [DesignBuildPage!]
   stopped: Boolean
@@ -769,6 +764,11 @@ type DesignPlanPage {
 type DesignQuestion {
   options: [String!]
   text: String
+}
+
+type DesignRunAnswer {
+  message: DesignMessage
+  outcome: String
 }
 
 type DesignText {
@@ -1150,19 +1150,19 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
-  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, skip: Boolean): DesignAnswer
+  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, run: ID!, skip: Boolean): ID
   approveProduct(id: ID!): Boolean
-  askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, run: ID!, sampleUrl: String, text: String!): ID
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
-  buildDesignPlan(messageId: ID!, model: String): DesignAnswer
+  buildDesignPlan(messageId: ID!, model: String, run: ID!): ID
   cancelDelivery(deliveryId: ID!): Boolean
   cancelDesign: Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
-  changeDesignPlan(messageId: ID!, model: String, text: String!): DesignAnswer
+  changeDesignPlan(messageId: ID!, model: String, run: ID!, text: String!): ID
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
@@ -2409,6 +2409,7 @@ type Query {
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
   designChat(after: String): DesignChat
+  designRun(run: ID!): DesignRunAnswer
   designText(locale: String!, page: String!): [DesignText!]
   downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage

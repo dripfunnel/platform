@@ -49,7 +49,6 @@ import type { EdgeProbe } from '#integrations/http/edgeProbe'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
-import { maxRepairs } from '#saas/studio/index'
 import { attachCatalogue, pruneCatalogue, recordCatalogueBase, recordCatalogueProducts, type CatalogueRecorder } from './catalogue'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
@@ -519,13 +518,16 @@ const attemptBuild = async (deps: PublishDeps, steps: PublishSteps, p: PublishPa
   return { id, passed }
 }
 
+// Not the studio's five: publish_run.repair_attempts allows 0 to 3 (migration 0281).
+const maxPublishRepairs = 3
+
 /** ARCHITECTURE §4.2 step 4, a design publish only: the AI repairs its own code from the report, at most three times. */
 const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams): Promise<string | null> => {
   const repair = deps.repair
   if (!repair) return null
   // Each try is told what the last build failed: the publish's own first, then the previous repair's.
   let failed = p.runId
-  for (let n = 1; n <= maxRepairs; n += 1) {
+  for (let n = 1; n <= maxPublishRepairs; n += 1) {
     const from = failed
     await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.storeId, p.runId, n)).then(() => String(n)))
     // A repair still out of reach after the step's retries ends the repairs; bisect follows.

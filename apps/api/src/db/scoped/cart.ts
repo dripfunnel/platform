@@ -52,7 +52,14 @@ export interface CartRow {
   lines: { id: string; version_id: string; quantity: number; gift: CartGift | null; answers: StoredAnswer[] | null }[]
 }
 
-/** The shopper's open cart: the guest token's when one was presented, else the account's latest. */
+/** The shopper's open cart: the guest token's when one was presented, else the account's latest. Both readers below share it. */
+const openCart = (tx: ScopedSql, storeId: string, now: Date) => tx`
+  from "order" o
+  where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
+  order by (o.customer_id is null) desc, o.updated_at desc
+  limit 1
+`
+
 export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Promise<CartRow | null> =>
   (
     await tx<CartRow[]>`
@@ -60,12 +67,13 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
         o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes, o.gift_card_id,
         coalesce((select json_agg(json_build_object('id', l.id, 'version_id', l.version_id, 'quantity', l.quantity, 'answers', l.answers, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
           'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id, l.id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
-      from "order" o
-      where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
-      order by (o.customer_id is null) desc, o.updated_at desc
-      limit 1
+      ${openCart(tx, storeId, now)}
     `
   )[0] ?? null
+
+/** Holds the cart selectCart then reads, in one statement (#1590); false when there is none. */
+export const lockShopperCart = async (tx: ScopedSql, storeId: string, now: Date): Promise<boolean> =>
+  (await tx`select o.id ${openCart(tx, storeId, now)} for update`).length > 0
 
 /** Holds the cart's row to the end of the transaction, so two changes from two tabs apply one after the other. */
 export const lockCartRow = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {

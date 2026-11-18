@@ -1,4 +1,5 @@
-import type { GateProblem } from '#integrations/sandbox/index'
+import type { AiImage } from '#integrations/ai/index'
+import type { FileChange, GateProblem } from '#integrations/sandbox/index'
 
 // The designer's model, as the studio's change loop sees it (storefront AI-STUDIO §4 step 2): the Worker calls it with
 // the partner's or merchant's key, which never reaches the Durable Object's storage or the container.
@@ -23,6 +24,8 @@ export type Proposal = {
   summary?: ProposalSummary | null
   /** The model asked questions or wrote a plan instead of edits (#1243): no gate runs, and the Worker holds what it asked. */
   asked?: boolean
+  /** The answer itself was in no usable shape: repaired like a gate failure, never taken as "nothing to change". */
+  problems?: GateProblem[]
 }
 
 export type ProposalSummary = { reply: string; changed: string[]; page: string | null }
@@ -38,6 +41,12 @@ export type ProposalInput = {
   onFile?: (file: FileEdit) => void | Promise<void>
   /** The model's one sentence on what it understood and will change, as soon as it is whole. */
   onIntro?: (text: string) => void
+  /** The sandbox's pre-check of changes over the theme, for the agent's own checks (AI-STUDIO §4 "The agent"). */
+  check?: (changes: FileChange[]) => Promise<GateProblem[]>
+  /** A picture of one page with changes over the theme, rendered in the sandbox; null when it can't be taken. */
+  screenshot?: (changes: FileChange[], page: string) => Promise<AiImage[] | null>
+  /** The agent's step for the live feed: never a file's name or content. */
+  onStep?: (step: 'reading' | 'editing' | 'checking') => void
 }
 
 export interface DesignModel {
@@ -45,4 +54,4 @@ export interface DesignModel {
 }
 
 /** ARCHITECTURE §6.2: on a gate failure the model repairs from the exact errors, at most three times. */
-export const maxRepairs = 3
+export const maxRepairs = 5

@@ -42,9 +42,9 @@ describe('openai-chat request', () => {
     expect(() => translate(withTools, bare)).toThrow(UnsupportedFeature)
     expect(() => translate({ ...withTools, messages: withTools.messages.slice(0, 2) })).toThrow(GatewayError)
   })
-  it('refuses a tool result error flag rather than show a failure as a success', () => {
+  it('says a failed tool result is an error in its text, which the format has no flag for', () => {
     const failing = { ...withTools, messages: [...withTools.messages.slice(0, 2), { role: 'tool' as const, content: [{ type: 'tool_result' as const, callId: 'c1', content: 'x', isError: true }] }] }
-    expect(() => translate(failing)).toThrow(UnsupportedFeature)
+    expect(translate(failing).messages.at(-1)).toEqual({ role: 'tool', tool_call_id: 'c1', content: 'Error: x' })
   })
   it('sends reasoning effort and structured output', () => {
     const body = translate({ ...base, reasoningEffort: 'medium', structuredOutput: { name: 'out', schema: { type: 'object' } } })
@@ -68,6 +68,7 @@ describe('openai-chat response', () => {
   })
   it('turns error bodies, no choices and malformed bodies into gateway errors', () => {
     expect(() => response.parse({ error: { code: 'rate_limit_exceeded' } })).toThrow(expect.objectContaining({ code: 'RATE_LIMITED' }))
+    expect(() => response.parse({ error: { code: 'insufficient_quota' } })).toThrow(expect.objectContaining({ code: 'OUT_OF_CREDIT' }))
     expect(() => response.parse({ error: { code: 'invalid_api_key' } })).toThrow(expect.objectContaining({ code: 'INVALID_CREDENTIALS' }))
     expect(() => response.parse({ model: 'm', choices: [] })).toThrow(GatewayError)
     expect(() => response.parse(null)).toThrow(GatewayError)

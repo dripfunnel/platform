@@ -53,14 +53,12 @@ describe('what a theme may animate', () => {
     ['.a { transition: margin-top 0.3s, opacity 0.3s; }', 'margin-top'],
     ['@keyframes drop { from { top: -20px; } }', 'top'],
     ['.a { transition-property: padding, gap; transition-duration: 0.2s; }', 'padding, gap'],
-  ])('refuses %s in a CSS Module, naming the layout property', async (text, named) => {
-    const found = await problems(css(text))
-    expect(at(found)).toEqual([{ file: 'src/theme/styles/motion.module.css', line: 1, rule: 'css/animated-property' }])
-    expect(found[0]?.message).toContain(`not ${named}, which moves layout`)
+  ])('lets %s through in a CSS Module: any property may animate since 2026-11-12', async (text) => {
+    expect(await problems(css(text))).toEqual([])
   })
 
-  it.each(['transition-[height]', 'transition-[margin]', '[transition:top_.3s]', 'transition-[inset]', 'transition-[font-size]'])('refuses the class %s, naming file and line', async (className) => {
-    expect(at(await problems(note(className)))).toEqual([{ file: 'src/theme/components/Note.tsx', line: 5, rule: 'css/animated-property' }])
+  it.each(['transition-[height]', 'transition-[margin]', '[transition:top_.3s]', 'transition-[inset]', 'transition-[font-size]', 'transition-all'])('lets the class %s through', async (className) => {
+    expect(await problems(note(className))).toEqual([])
   })
 })
 
@@ -88,9 +86,7 @@ describe('motion in a theme', () => {
 
   // Each case alone, refused by exactly its rule at the line it's written on (the island's body starts at line 8).
   it.each([
-    ['a layout property in the animate prop', '  void (<motion.div animate={{ height: 200 }} />)', 8, 'jsx/animated-property'],
-    ['a layout property in motion’s style', '  const top = useMotionValue(0)\n  void (<motion.div style={{ top }} />)', 9, 'jsx/animated-property'],
-    ['a layout property in animate()’s keyframes', '  const press = () => { if (own.current) void animate(own.current, { marginTop: 8 }) }\n  void press', 8, 'jsx/animated-property'],
+    ['animate worked out at run time', '  const frames = () => ({ x: 1 })\n  void (<motion.div animate={frames} />)', 9, 'jsx/animated-property'],
     ['animate with a selector string', "  void animate('.card', { opacity: 0 })", 8, 'code/animate-target'],
     ['useAnimate’s animate with a selector string', "  const [scope, run] = useAnimate()\n  void scope\n  void run('li', { opacity: 1 })", 10, 'code/animate-target'],
     ['animate held in another name', '  const go = animate\n  void go', 8, 'code/animate-target'],
@@ -104,9 +100,12 @@ describe('motion in a theme', () => {
     expect(new Set(found.map((p) => p.rule))).toEqual(new Set([rule]))
   })
 
-  it('names the layout property motion may not animate', async () => {
-    const [found] = await problems(island('  void (<motion.div animate={{ height: 200 }} />)'))
-    expect(found?.message).toContain('not height, which moves layout')
+  it.each([
+    ['a layout property in the animate prop', '  void (<motion.div animate={{ height: 200 }} />)'],
+    ['a layout property in motion’s style', '  const top = useMotionValue(0)\n  void (<motion.div style={{ top }} />)'],
+    ['a layout property in animate()’s keyframes', '  const press = () => { if (own.current) void animate(own.current, { marginTop: 8 }) }\n  void press'],
+  ])('lets %s through', async (_case, body) => {
+    expect(await problems(island(body))).toEqual([])
   })
 
   it('refuses motion outside components/interactive/, its scroll hook too', async () => {

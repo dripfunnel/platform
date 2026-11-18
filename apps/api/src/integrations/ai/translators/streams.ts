@@ -88,9 +88,10 @@ export const endToolCall = (call: ToolCallState, index: number): CanonicalStream
 /** An OpenAI endpoint's error in a body or an event (the Codex usage-limit codes too), as one of ours. */
 export const openaiErrorCode = (code: unknown, type?: unknown): GatewayErrorCode => {
   const key = typeof code === 'string' ? code : typeof type === 'string' ? type : ''
-  if (['rate_limit_exceeded', 'insufficient_quota', 'usage_limit_reached'].includes(key) || key.startsWith('subscription_sharing_usage')) return 'RATE_LIMITED'
+  if (['rate_limit_exceeded', 'usage_limit_reached'].includes(key) || key.startsWith('subscription_sharing_usage')) return 'RATE_LIMITED'
   if (['invalid_api_key', 'invalid_authentication', 'authentication_error', 'permission_denied', 'insufficient_permissions'].includes(key)) return 'INVALID_CREDENTIALS'
   if (key === 'model_not_found') return 'MODEL_NOT_FOUND'
+  if (key === 'insufficient_quota') return 'OUT_OF_CREDIT'
   if (['content_filter', 'content_policy_violation'].includes(key)) return 'CONTENT_REFUSED'
   if (key === 'timeout') return 'TIMEOUT'
   if (['invalid_request_error', 'invalid_prompt', 'invalid_value', 'context_length_exceeded', 'unsupported_parameter'].includes(key)) return 'BAD_REQUEST'

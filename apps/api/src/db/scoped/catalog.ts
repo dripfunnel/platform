@@ -648,6 +648,10 @@ export const hasLibraryChecksum = async (tx: ScopedSql, storeId: string, checksu
       and not exists (select 1 from rider r where r.photo_asset_id = a.id) limit 1`
   ).length > 0
 
+/** The library image already holding these bytes, so a copy made again reuses it (storefront AI-STUDIO §8). */
+export const selectLibraryImageByChecksum = async (tx: ScopedSql, storeId: string, checksum: string): Promise<string | null> =>
+  (await tx<{ id: string }[]>`select a.id from asset a where a.store_id = ${storeId} and a.seller_id is null and a.kind = 'image' and a.checksum = ${checksum} limit 1`)[0]?.id ?? null
+
 /** A file the caller's scope can read: its R2 key and type, or null. */
 export const selectAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; mime: string; bytes: number } | null> =>
   (await tx<{ r2_key: string; mime: string; bytes: number }[]>`select r2_key, mime, bytes from asset where id = ${id} and store_id = ${storeId}`)[0] ?? null

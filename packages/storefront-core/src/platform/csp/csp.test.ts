@@ -69,8 +69,8 @@ describe('studioCsp', () => {
       [
         "default-src 'none'",
         "script-src 'self'",
-        "style-src 'self' 'sha256-s='",
-        "font-src 'self'",
+        "style-src 'self' 'sha256-s=' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
         "connect-src 'self'",
         "img-src 'self' https://media.dripfunnel.ai",
         "media-src 'self' https://media.dripfunnel.ai",
@@ -100,5 +100,21 @@ describe('inlineHashes and pageHeaders', () => {
     expect(Object.keys(headers)).toEqual(['index.html', 'cart/index.html'])
     expect(headers['index.html']?.['content-security-policy']).toContain(await hashSource('self.a=1'))
     expect(headers['cart/index.html']?.['content-security-policy']).not.toContain('sha256')
+  })
+})
+
+describe('Google Fonts in the CSP (ARCHITECTURE §3.5, decided 2026-11-12)', () => {
+  it('names no Google host for a store whose theme lists no font', () => {
+    const csp = storeCsp({ ...store, analytics: [], payments: [] }, none)
+    expect(csp).not.toContain('fonts.googleapis.com')
+    expect(csp).not.toContain('fonts.gstatic.com')
+  })
+
+  it('lets the fonts’ stylesheet and files load on a live page whose theme lists one, and nothing else of Google', () => {
+    const csp = storeCsp({ ...store, analytics: [], payments: [] }, none, '', true)
+    expect(directive(csp, 'style-src')).toContain('https://fonts.googleapis.com')
+    expect(directive(csp, 'font-src')).toContain('https://fonts.gstatic.com')
+    expect(directive(csp, 'script-src')).not.toContain('google')
+    expect(directive(csp, 'connect-src')).not.toContain('google')
   })
 })

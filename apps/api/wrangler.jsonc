@@ -75,7 +75,9 @@
         // Storefront LIVE-SHOP §7 (jobs/workflows/render-page.ts): a page run, woken by its build's "uploaded" like a publish.
         { "name": "dripfunnel-render-page-local", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
         // SAAS §10 (jobs/workflows/core-upgrade.ts): one store's upgrade in a rollout, through its studio's sandbox.
-        { "name": "dripfunnel-core-upgrade-local", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+        { "name": "dripfunnel-core-upgrade-local", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" },
+        // Storefront AI-STUDIO §4 "A design run" (jobs/workflows/design-run.ts): askDesign's and buildDesignPlan's runs.
+        { "name": "dripfunnel-design-run-local", "binding": "DESIGN_RUN", "class_name": "DesignRun" }
       ],
       // The studio (storefront AI-STUDIO.md §2, jobs/durable/studio.ts). Locally its sandbox is apps/sandbox on this machine
       // (SANDBOX_LOCAL_URL), never a container; dev gains these with a `containers` entry once Containers is on (docs/setup/dev.md).
@@ -135,12 +137,13 @@
         { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-dev" },
         { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-dev" }
       ],
-      // The same four Workflows as env.local; the deploy token needs Workflows: Edit.
+      // The same five Workflows as env.local; the deploy token needs Workflows: Edit.
       "workflows": [
         { "name": "dripfunnel-create-storefront-dev", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
         { "name": "dripfunnel-publish-storefront-dev", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
         { "name": "dripfunnel-render-page-dev", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
-        { "name": "dripfunnel-core-upgrade-dev", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+        { "name": "dripfunnel-core-upgrade-dev", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" },
+        { "name": "dripfunnel-design-run-dev", "binding": "DESIGN_RUN", "class_name": "DesignRun" }
       ],
       // The studio's Durable Objects. A Durable Object starts only an image named here, so dev.yml swaps the image below for
       // the newest dev tag's digest on the runner before deploying (docs/setup/dev.md §2.8 item 3, #790); never commit one.
@@ -206,7 +209,8 @@
         { "name": "dripfunnel-create-storefront-prod", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
         { "name": "dripfunnel-publish-storefront-prod", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
         { "name": "dripfunnel-render-page-prod", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
-        { "name": "dripfunnel-core-upgrade-prod", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+        { "name": "dripfunnel-core-upgrade-prod", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" },
+        { "name": "dripfunnel-design-run-prod", "binding": "DESIGN_RUN", "class_name": "DesignRun" }
       ],
       // prod.yml swaps the image below for the newest stable tag's digest on the runner before uploading (#816); never commit one.
       "containers": [{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { "studio": { "image": "PROD_STUDIO_IMAGE" } } }],

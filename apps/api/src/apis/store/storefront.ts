@@ -41,6 +41,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   BUILD_GONE: 'That version can’t be restored any more.',
   NOTHING_LIVE: 'Publish your design first.',
   NOTHING_WAITING: 'Your live site is already up to date.',
+  FAILED: 'The AI couldn’t finish that. Try again.',
   NO_PRESSES_LEFT: 'You’ve used this month’s Publish now presses. Your changes go live with the next automatic publish.',
   SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
 }

@@ -115,7 +115,7 @@ describe('errors', () => {
   const codeOf = async (response: Response) => (await failure(anthropicExecutor({ fetch: vi.fn().mockResolvedValue(response) }).execute(prepared, key())))
 
   it('maps statuses', async () => {
-    const table: [number, string][] = [[401, 'INVALID_CREDENTIALS'], [403, 'INVALID_CREDENTIALS'], [404, 'MODEL_NOT_FOUND'], [400, 'BAD_REQUEST'], [413, 'BAD_REQUEST'], [422, 'BAD_REQUEST'], [408, 'TIMEOUT'], [429, 'RATE_LIMITED'], [500, 'PROVIDER_UNAVAILABLE'], [529, 'PROVIDER_UNAVAILABLE']]
+    const table: [number, string][] = [[401, 'INVALID_CREDENTIALS'], [403, 'INVALID_CREDENTIALS'], [402, 'OUT_OF_CREDIT'], [404, 'MODEL_NOT_FOUND'], [400, 'BAD_REQUEST'], [413, 'BAD_REQUEST'], [422, 'BAD_REQUEST'], [408, 'TIMEOUT'], [429, 'RATE_LIMITED'], [500, 'PROVIDER_UNAVAILABLE'], [529, 'PROVIDER_UNAVAILABLE']]
     for (const [status, code] of table) expect((await codeOf(json({}, status)))?.code).toBe(code)
   })
 
