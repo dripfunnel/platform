@@ -30,4 +30,15 @@
   --color-footer-line: #d9c9ac;
   --picture: linear-gradient(160deg, #efe4d0, #d6c09a);
   --picture-alt: linear-gradient(160deg, #f4eee3, #e6d8c0);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) 150% 0 / 200% 100% var(--color-soft);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) -50% 0 / 200% 100% var(--color-soft);
+  }
 }

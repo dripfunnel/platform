@@ -22,7 +22,7 @@ export const product = {
   kindNote: clsx('m-0 basis-[100%] text-ink-soft text-[14px]'),
   legal: clsx('block w-full [--df-sealed-size:14px]'),
   media: clsx('block w-full h-full object-cover'),
-  loadingPicture: clsx('aspect-[4/5] rounded-card bg-soft'),
+  loadingPicture: clsx('aspect-[4/5] rounded-card bg-soft animate-shimmer'),
   noPicture: clsx('aspect-[4/5] rounded-card [background:var(--picture-alt)]'),
   option: clsx('flex flex-col gap-y-2 gap-x-2'),
   optionName: clsx('m-0 text-muted text-[14px]'),

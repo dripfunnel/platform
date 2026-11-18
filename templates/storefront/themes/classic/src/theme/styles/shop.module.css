@@ -526,6 +526,28 @@
   border-radius: var(--button-radius);
 }
 
+.skeletonPicture,
+.skeletonLine,
+.skeletonText,
+.skeletonShort,
+.skeletonTitle,
+.skeletonPhoto,
+.skeletonCover,
+.skeletonDot,
+.skeletonButton {
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--soft) 40%, var(--bg) 50%, var(--soft) 60%) 150% 0 / 200% 100% var(--soft);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--soft) 40%, var(--bg) 50%, var(--soft) 60%) -50% 0 / 200% 100% var(--soft);
+  }
+}
+
 .srOnly {
   position: absolute;
   overflow: hidden;
