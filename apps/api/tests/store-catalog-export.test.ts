@@ -7,6 +7,8 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { deleteExpiredCatalogExports, failDeadCatalogExports, selectCatalogExport } from '#db/scoped/catalogExports'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { buildCatalogExport } from '#engine/modules/catalog/index'
+import { planImport, type ImportPlan } from '#engine/modules/catalog/importFile'
+import { parseCsv } from '#core/csv'
 import type { TenantContext } from '#core/tenancy'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
@@ -19,6 +21,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const now = new Date('2026-10-06T09:00:00Z')
+const shopDomain = 'my-store.example'
 type Who = 'owner' | 'staff' | 'supplier' | 'otherSupplier' | 'bOwner'
 const people: Record<Who, string> = { owner: '', staff: '', supplier: '', otherSupplier: '', bOwner: '' }
 const cookies: Record<Who, string> = { owner: '', staff: '', supplier: '', otherSupplier: '', bOwner: '' }
@@ -68,7 +71,7 @@ const ask = async (who: Who, kind: 'products' | 'stock', filter?: Record<string,
   return { id: result.data?.['requestCatalogExport'] as string | undefined, code: result.code }
 }
 const job = async (who: Who, id: string) => (await gql('query J($id: ID!) { catalogExport(id: $id) { id kind state rows products truncated csv expiresAt } }', who, { id })).data?.['catalogExport'] as Job | null
-const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now, shopDomain) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
 const exported = async (who: Who, kind: 'products' | 'stock', filter?: Record<string, unknown>) => {
   const { id } = await ask(who, kind, filter)
   expect(id).toBeDefined()
@@ -133,9 +136,9 @@ describe('product exports', () => {
     await relay()
     const done = await job('owner', id ?? '')
     const lines = (done?.csv ?? '').split('\n')
-    expect(lines[0]).toBe('handle,name,description,type,visible,option1 name,option1 value,option2 name,option2 value,option3 name,option3 value,sku,barcode,price,compare at price,cost,weight grams,stock,name:hi-IN,description:hi-IN,price:USD')
-    expect(lines).toContain(`kurta,Kurta,"'=cotton, handloomed",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,कुर्ता,,15.99`)
-    expect(lines).toContain('kurta,,,,,,M,,,,,KU-M,,1299.50,,,,0,,,')
+    expect(lines[0]).toBe('handle,name,description,type,visible,option1 name,option1 value,option2 name,option2 value,option3 name,option3 value,sku,barcode,price,compare at price,cost,weight grams,stock,image,image alt,name:hi-IN,description:hi-IN,price:USD')
+    expect(lines).toContain(`kurta,Kurta,"'=cotton, handloomed",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,,,कुर्ता,,15.99`)
+    expect(lines).toContain('kurta,,,,,,M,,,,,KU-M,,1299.50,,,,0,,,,,')
     // The merchant side's file holds its suppliers' products, never another store's.
     expect(done?.csv).toContain('MUG')
     expect(done?.csv).toContain('BOWL')
@@ -324,5 +327,90 @@ describe('who reads an export', () => {
     expect(await state()).toEqual({ state: 'queued', expires_at: null })
     await expect(deliverer.deliver(effect(defaultRelayOptions.maxAttempts), AbortSignal.timeout(5000))).rejects.toThrow()
     expect(await state()).toEqual({ state: 'failed', expires_at: new Date(now.getTime() + 60 * 60 * 1000) })
+  })
+})
+
+// Bug #1561: the products file carries each product's photos in the template's `image` and `image alt` columns, as links the
+// importer can fetch, so a product moved to another store keeps them (CATALOG-DESIGN K8, K6).
+describe('photos in the products file (#1561)', () => {
+  const ids = { kurta: '', lamp: '', mug: '', front: '', back: '', detail: '', lampPhoto: '', mugPhoto: '' }
+  let origin = ''
+  const photo = async (productId: string, position: number, alt: string | null) => {
+    const [asset] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position, alt) values (${productId}, ${t.storeA1}, ${asset?.id ?? ''}, ${position}, ${alt})`
+    return asset?.id ?? ''
+  }
+  const link = (asset: string) => `${origin}/shop-api/assets/${asset}`
+  const table = async (who: Who, filter?: Record<string, unknown>) => {
+    const done = await exported(who, 'products', filter)
+    const rows = parseCsv(done.csv ?? '') ?? []
+    const head = rows[0] ?? []
+    const col = (name: string) => head.indexOf(name)
+    return { head, rows: rows.slice(1), col, csv: done.csv ?? '' }
+  }
+
+  beforeAll(async () => {
+    const [slug] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    origin = `https://${slug?.slug ?? ''}.${shopDomain}`
+    const product = async (name: string) => (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA1} and name = ${name}`)[0]?.id ?? ''
+    ids.kurta = await product('Kurta')
+    ids.lamp = await product('Hidden lamp')
+    ids.mug = await product('Supplier mug')
+    ids.front = await photo(ids.kurta, 0, 'Front of the kurta')
+    ids.back = await photo(ids.kurta, 1, 'Back, with the pocket')
+    ids.detail = await photo(ids.kurta, 2, null)
+    ids.lampPhoto = await photo(ids.lamp, 0, 'The lamp, off')
+    ids.mugPhoto = await photo(ids.mug, 0, 'A mug')
+    // A version shows one of its product's photos (D12): S the front, M the third.
+    await db.sql`update product_version set photo_asset_id = ${ids.front} where product_id = ${ids.kurta} and sku = 'KU-S'`
+    await db.sql`update product_version set photo_asset_id = ${ids.detail} where product_id = ${ids.kurta} and sku = 'KU-M'`
+  })
+
+  it('adds the template’s image and image alt columns to the file', async () => {
+    const { head } = await table('owner')
+    expect(head.slice(head.indexOf('stock'), head.indexOf('stock') + 3)).toEqual(['stock', 'image', 'image alt'])
+  })
+
+  it('writes every photo in its order with its alt text, a version’s own photo on its row, and the rest as rows of their own', async () => {
+    const { rows, col } = await table('owner', { search: 'kurta' })
+    const kurta = rows.filter((r) => r[col('handle')] === 'kurta')
+    // S shows the front; the back is a row of its own, in order; M shows the detail.
+    expect(kurta.map((r) => [r[col('sku')], r[col('image')], r[col('image alt')]])).toEqual([
+      ['KU-S', link(ids.front), 'Front of the kurta'],
+      ['', link(ids.back), 'Back, with the pocket'],
+      ['KU-M', link(ids.detail), ''],
+    ])
+    // The product's own columns stay on its first row only.
+    expect(kurta.map((r) => r[col('name')])).toEqual(['Kurta', '', ''])
+  })
+
+  it('includes a hidden product’s photos, and leaves a product without photos blank', async () => {
+    const hidden = await table('owner', { filter: 'hidden' })
+    expect(hidden.rows.map((r) => [r[hidden.col('handle')], r[hidden.col('image')], r[hidden.col('image alt')]])).toEqual([['hidden-lamp', link(ids.lampPhoto), 'The lamp, off']])
+    const none = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${t.storeA1}, 'Plain', 'plain', 'visible') returning id`
+    expect(none).toHaveLength(1)
+    const all = await table('owner', { search: 'plain' })
+    expect(all.rows.map((r) => [r[all.col('image')], r[all.col('image alt')]])).toEqual([['', '']])
+    await db.sql`delete from product where id = ${none[0]?.id ?? ''}`
+  })
+
+  it('reads back through the importer: every photo, in order, with its alt text, and the same versions', async () => {
+    const { csv } = await table('owner', { search: 'kurta' })
+    const plan = planImport(csv, { currency: 'INR', languages: ['hi-IN'], manualCurrencies: ['USD'], supplier: false }) as ImportPlan
+    expect(plan.problems).toEqual([])
+    const [kurta] = plan.products
+    expect(kurta?.photos.map((x) => [x.url, x.alt])).toEqual([
+      [link(ids.front), 'Front of the kurta'],
+      [link(ids.back), 'Back, with the pocket'],
+      [link(ids.detail), null],
+    ])
+    expect(kurta?.input.versions.map((v) => v.sku)).toEqual(['KU-S', 'KU-M'])
+  })
+
+  it('holds only a supplier’s own products’ photos in its file', async () => {
+    const { csv } = await table('supplier')
+    expect(csv).toContain(link(ids.mugPhoto))
+    for (const other of [ids.front, ids.back, ids.detail, ids.lampPhoto]) expect(csv).not.toContain(other)
+    expect((await table('otherSupplier')).csv).not.toContain(ids.mugPhoto)
   })
 })
