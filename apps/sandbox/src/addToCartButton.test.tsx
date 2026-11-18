@@ -62,10 +62,10 @@ describe('the Classic Add to cart button while adding', () => {
     expect(screen.getByRole('status').textContent).toBe("We couldn't add that. Try again.")
   })
 
-  it('has its words in the theme’s content, and a spinner that stops turning under reduced motion', () => {
+  it('has its words in the theme’s content, and no spinner under reduced motion, where a ring that cannot turn would look broken', () => {
     expect(words['shop.product.adding']).toBe('Adding…')
     const css = readFileSync(themeFile('src/theme/styles/shop.module.css'), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ')
     expect(css).toMatch(/\.spinner \{[^}]*animation: spin [^}]*\}/)
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.spinner \{ animation: none; \} \}/)
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.spinner \{ display: none; \} \}/)
   })
 })

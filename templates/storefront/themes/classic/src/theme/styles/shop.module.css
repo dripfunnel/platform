@@ -535,7 +535,7 @@
   cursor: default;
 }
 
-/* "Adding…" on the button while the answer is awaited (#1292): a ring that turns, still under reduced motion. */
+/* "Adding…" on the button while the answer is awaited (#1292): a ring that turns. Under reduced motion it is not drawn, since a ring that cannot turn looks broken and the words say it. */
 .spinner {
   display: inline-block;
   width: 16px;
@@ -555,7 +555,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spinner {
-    animation: none;
+    display: none;
   }
 }
 
