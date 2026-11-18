@@ -312,6 +312,10 @@ it (`settings`, so the Owner; refused to a partner support session). Staff imper
 entry `store.setup_step_skipped` names the step and `skipped` or `undone`, nothing else. The merchant mobile app's
 `PortalHome` keeps its old list.
 
+**Changed on #1585 (2026-11-18)**: the portal's checklist no longer lists "Choose how shoppers pay" or "Choose how you
+ship": new stores start with Cash on delivery (India) and a flat rate of 0 (#1406). Only the logo step keeps Skip. The API's
+`home.setup` payments and shipping fields and their skip are unchanged and no longer read by the portal.
+
 **Built (store categories, 2026-11-16, not in the prototype)**: "Choose what your shop sells" comes after the locale line
 and before "Add your first product", the Owner's only (`home.setup.category`, null for any other seat; the Manager's note
 now names it). **Choose** opens a searchable picker of DripFunnel's categories in place (type to filter; the same picker in Settings › Catalogue) (`shopCategory`, `chooseShopCategory`,
