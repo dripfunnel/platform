@@ -66,13 +66,19 @@ const templateRows: readonly (readonly [string, string, string, string])[] = har
   ? [
       ['classic', 'Classic', 'Traditional & ethnic', 'Calm neutral colours and serif headings. A banner carousel, search in the header and collection spotlights.'],
       ['baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.'],
+      ['fashion', 'Thread', 'Fashion & apparel', 'Clean editorial layout with big portrait photos, a lookbook hero and new arrivals up front.'],
+      ['jewelry', 'Aurum', 'Jewellery', 'Warm ivory, gold accents and elegant serif type. A still, centred hero and arched collection tiles.'],
+      ['beauty', 'Glow', 'Beauty & personal care', 'Soft blush colours, rounded shapes and friendly type. A split hero, a daily routine and favourites.'],
+      ['grocery', 'Basket', 'Food & grocery', 'Bright, friendly and quick to browse. Categories first, big search, compact grids and clear prices.'],
+      ['home', 'Nest', 'Home & living', 'Earthy tones, generous photos and a warm serif. A full-width hero, rooms to shop and a photo collage.'],
+      ['electronics', 'Volt', 'Electronics & gadgets', 'Crisp and modern on a dark stage. Square category cards, a product spotlight and clear prices.'],
     ]
   : []
 
 const unstarted = (state: StorefrontState) => state === 'brand' || state === 'gallery' || state === 'noSite'
 
 export const sampleTemplates = (state: StorefrontState): StorefrontTemplate[] =>
-  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.ai`, current: !unstarted(state) && state !== 'creating' && key === 'classic' }))
+  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.ai`, current: !unstarted(state) && state !== 'creating' && key === 'classic', forCategory: false }))
 
 export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
   if (!harness || unstarted(state)) return { status: 'not_started', template: null, live: null, draft: null, lastPublish: null, publishing: null }

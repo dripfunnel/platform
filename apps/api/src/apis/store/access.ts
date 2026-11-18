@@ -23,6 +23,7 @@ import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import type { StoreBillingStripe, StripeApi } from '#integrations/stripe/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
+import type { CodeChannelCheck } from '#saas/portalCodes/index'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -39,7 +40,7 @@ export interface StoreContext extends Record<string, unknown> {
   host?: string
   /** Connect Shopify's app, or null where none is set up (CATALOG K7). */
   shopify?: ShopConnect | null
-  /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
+  /** The stores' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached. */
   couriers?: CourierDirectory | null
   /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
   billing?: (StripeApi & StoreBillingStripe) | null
@@ -48,6 +49,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** Which channels reach a number (ACCESS.md §4): the brand's and My profile's `codeChannels`, and the phone method's code; none where unset. */
+  codeChannels?: CodeChannelCheck | null
   /** DNS for checking a merchant's webhook address (SSRF, AGENTS.md "Security"); null where none can be asked. */
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */

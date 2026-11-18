@@ -1,0 +1,102 @@
+{
+  "signIn": {
+    "title": "Sign in",
+    "lead": "Sign in to follow your orders and use your saved addresses.",
+    "action": "New here? Create an account"
+  },
+  "register": {
+    "title": "Create an account",
+    "lead": "An account keeps your orders and addresses in one place.",
+    "action": "Already have an account? Sign in"
+  },
+  "verify": {
+    "title": "Check your email",
+    "lead": "We sent you a code to confirm your email address."
+  },
+  "forgotPassword": {
+    "title": "Forgot your password?",
+    "lead": "We will email you a link to set a new one.",
+    "action": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "lead": "Choose a new password for your account.",
+    "action": "Back to sign in"
+  },
+  "account": {
+    "title": "Your account",
+    "lead": "Your orders and addresses in one place.",
+    "orders": "Your orders",
+    "addresses": "Your addresses"
+  },
+  "addresses": {
+    "title": "Your addresses",
+    "lead": "The addresses you ship to."
+  },
+  "orders": {
+    "title": "Your orders",
+    "lead": "Every order you have placed with us."
+  },
+  "order": {
+    "title": "Your order",
+    "lead": "Where your order is and what is in it."
+  },
+  "policy": {
+    "eyebrow": "Policies",
+    "title": "Our policies",
+    "lead": "The terms that apply when you shop with us.",
+    "terms": "Terms of sale",
+    "privacy": "Privacy policy",
+    "shipping": "Delivery",
+    "returns": "Returns and refunds",
+    "legal": "Legal notice",
+    "ask": "Questions about this policy? Get in touch and we will answer."
+  },
+  "notFound": {
+    "title": "We can’t find that page",
+    "lead": "The link may be old, or the page may have been taken down.",
+    "action": "Go to the home page",
+    "search": "Search the shop"
+  },
+  "degraded": {
+    "title": "We will be back soon",
+    "lead": "The shop is closed for now. Please come back later."
+  },
+  "about": {
+    "title": "About us",
+    "first": "Write a few lines about who you are and why you started.",
+    "second": "Tell shoppers what you make, how you make it and what you care about."
+  },
+  "contact": {
+    "title": "Get in touch",
+    "lead": "Questions about an order or anything else? Write to us and we will reply.",
+    "email": "Email",
+    "phone": "Phone",
+    "visit": "Visit"
+  },
+  "content": {
+    "loading": "Loading the page",
+    "failed": "We couldn't load this page",
+    "questions": "Questions",
+    "contact": "Write to us",
+    "email": "Email {email} and we'll reply within a working day.",
+    "phone": "Or call {phone}."
+  },
+  "blog": {
+    "eyebrow": "Journal",
+    "title": "From the journal",
+    "tagged": "Posts about {tag}",
+    "all": "All posts",
+    "loading": "Loading the posts",
+    "failed": "We couldn't load the posts",
+    "empty": "Nothing here yet",
+    "emptyLead": "New posts will show up here.",
+    "older": "Older posts",
+    "loadingPost": "Loading the post",
+    "failedPost": "We couldn't load this post",
+    "back": "← Journal",
+    "by": "by {author}",
+    "tags": "Tags",
+    "olderFailed": "We couldn't load older posts. Try again."
+  }
+}

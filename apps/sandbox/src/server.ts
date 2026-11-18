@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { inlineHashes, studioCsp, studioFramePage } from '@dripfunnel/storefront-core'
 import { compareVersions, coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
-import { isRepoPath, isRefreshedPath, isThemePath } from './paths'
+import { isRepoPath, isRefreshedPath, isThemeMediaPath, isThemePath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
 
 // The sandbox's operations (storefront AI-STUDIO §2 "Container"): only the store's Durable Object talks to it, over the
@@ -11,13 +11,30 @@ import { Workspace, NotLoaded } from './workspace'
 const slotPattern = /^[a-z0-9-]{1,64}$/
 const maxJson = 8 * 1024 * 1024
 const maxBundle = 64 * 1024 * 1024
+// A template's images: core's 20 MB of them, as base64 (ARCHITECTURE §3.4 "Images").
+const maxTemplate = 32 * 1024 * 1024
 
+// A template's own images arrive as base64, and only they do (ARCHITECTURE §3.4 "Images").
 const loadFilesSchema = z.strictObject({
-  files: z.array(z.strictObject({ path: z.string().refine(isRepoPath), content: z.string().max(1024 * 1024) })).max(2000),
+  files: z
+    .array(
+      z
+        .strictObject({ path: z.string().refine(isRepoPath), content: z.string().max(3 * 1024 * 1024), encoding: z.literal('base64').optional() })
+        .refine((f) => (f.encoding === 'base64') === isThemeMediaPath(f.path) && (f.encoding === 'base64' || f.content.length <= 1024 * 1024)),
+    )
+    .max(2000),
   message: z.string().min(1).max(2000),
 })
 const changeSchema = z.strictObject({
   files: z.array(z.strictObject({ path: z.string().max(512), content: z.string().max(1024 * 1024).nullable() })).max(500),
+  message: z.string().min(1).max(2000),
+  context: z.unknown(),
+})
+const image = z.strictObject({ path: z.string().refine(isThemeMediaPath), content: z.string().max(3 * 1024 * 1024) })
+const templateSchema = z.strictObject({
+  files: changeSchema.shape.files,
+  media: z.array(image).max(100),
+  previous: z.array(z.strictObject({ path: z.string().refine(isThemeMediaPath), sha256: z.string().regex(/^[0-9a-f]{64}$/) })).max(100),
   message: z.string().min(1).max(2000),
   context: z.unknown(),
 })
@@ -69,10 +86,10 @@ const read = async (req: IncomingMessage, limit: number): Promise<Buffer> => {
   return Buffer.concat(chunks)
 }
 
-const json = async <S extends z.ZodType>(req: IncomingMessage, schema: S): Promise<z.infer<S>> => {
+const json = async <S extends z.ZodType>(req: IncomingMessage, schema: S, limit = maxJson): Promise<z.infer<S>> => {
   let body: unknown
   try {
-    body = JSON.parse((await read(req, maxJson)).toString('utf8'))
+    body = JSON.parse((await read(req, limit)).toString('utf8'))
   } catch {
     throw new HttpError(400, 'The body is not JSON.')
   }
@@ -150,6 +167,10 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
       const body = await json(req, changeSchema)
       return send(res, 200, await inTurn(slot, () => ws().change(body.files, body.message, asContext(body.context))))
     }
+    if (method === 'POST' && op === 'template') {
+      const body = await json(req, templateSchema, maxTemplate)
+      return send(res, 200, await inTurn(slot, () => ws().applyTemplate(body, body.message, asContext(body.context))))
+    }
     if (method === 'POST' && op === 'undo') {
       const body = await json(req, undoSchema)
       return send(res, 200, await inTurn(slot, () => ws().undo(body.commit, body.message, asContext(body.context))))
@@ -170,6 +191,11 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
     if (method === 'POST' && op === 'take') {
       const body = await json(req, takeSchema)
       return send(res, 200, await inTurn(slot, () => ws().takeLive(body.from, body.onto, asContext(body.context))))
+    }
+    if (method === 'GET' && op === 'media') {
+      const at = url.searchParams.get('at') ?? ''
+      if (!/^[0-9a-f]{40}$/.test(at)) throw new HttpError(400, 'Name a commit by its full id.')
+      return send(res, 200, await inTurn(slot, () => ws().mediaAt(at)))
     }
     if (method === 'GET' && op === 'theme') {
       const at = url.searchParams.get('at')

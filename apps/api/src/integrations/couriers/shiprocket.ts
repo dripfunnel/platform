@@ -1,16 +1,17 @@
 import { z } from 'zod'
-import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type BookedLabel, type CourierHook, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
+import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type BookedLabel, type LoginCheck, type CourierHook, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
+import { logEvent } from '#core/log'
 import { fromDecimalRounded, toMajor } from '#core/money'
 import { sameSecret } from '#core/secrets'
 import { courierCall, fetchLabel } from './request'
 
-// A partner's Shiprocket account (THIRD-PARTY-ACCESS §3.2, §4): a dedicated API user's email and password, exchanged
+// A store's Shiprocket account (THIRD-PARTY-ACCESS §3.2, §4; #1489): a dedicated API user's email and password, exchanged
 // for a token on each quote, since the Worker keeps nothing between requests. Domestic India only.
 
 export interface ShiprocketCredentials {
   email: string
   password: string
-  /** The token the partner set on its Shiprocket webhook, which tracking hooks carry (#275 stores it). */
+  /** The token the merchant set on its Shiprocket webhook, which tracking hooks carry. */
   webhookToken?: string | null
 }
 
@@ -42,6 +43,22 @@ const logIn = async ({ email, password, fetchImpl = fetch }: ShiprocketCredentia
 const days = (value: number | string | null | undefined): number | null => {
   const n = typeof value === 'string' ? Number.parseInt(value, 10) : value
   return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < 100 ? n : null
+}
+
+/** Whether a login works, asked once and never retried: a merchant waits on it when connecting (#1489). */
+export const shiprocketCheck = async ({ email, password, fetchImpl = fetch }: { email: string; password: string; fetchImpl?: typeof fetch }, signal?: AbortSignal): Promise<LoginCheck> => {
+  try {
+    await logIn({ email, password, fetchImpl }, signal, false)
+    return 'ok'
+  } catch (error) {
+    if (error instanceof CourierRejected) return 'rejected'
+    if (error instanceof CourierUnavailable) {
+      // Why it didn't answer (no reply, a status, no token), so a merchant's "didn't answer" can be traced; never the login.
+      logEvent({ event: 'courier_login_check', api: 'store', code: error.message })
+      return 'unavailable'
+    }
+    throw error
+  }
 }
 
 export const shiprocketQuote = async ({ email, password, fetchImpl = fetch }: ShiprocketCredentials & { fetchImpl?: typeof fetch }, parcel: Parcel, signal?: AbortSignal): Promise<CourierRate | null> => {

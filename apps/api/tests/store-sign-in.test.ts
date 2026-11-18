@@ -1,5 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
@@ -11,6 +11,8 @@ import { createUserSession, setStoreCookie, storeCookieName } from '#auth/storeS
 import { codeAt, stepAt } from '#auth/totp'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { codeChannelsFor } from '#saas/portalCodes/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -54,7 +56,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => clock, allowAttempt: async () => true, ...overrides })
+const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => clock, allowAttempt: async () => true, codeChannels: testCodeChannels, ...overrides })
 
 // No sign-in leads to enrolment now; a session held there is what a team that requires 2-factor will use (ACCESS.md §14.4).
 const heldAtEnrolment = (userId: string) => withSystemScope(db.sql, (tx) => createUserSession(tx, { id: userId, partnerId: t.partnerA }, clock, { stage: 'enrol' }))
@@ -73,7 +75,7 @@ const gql = async (source: string, cookie: string, headers: Record<string, strin
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const request = new Request(`https://${partnerId === t.partnerA ? host : hostB}/api/`, { headers: { cookie: `${storeCookieName}=${cookie}`, ...headers } })
   const standing = await resolveStoreStanding(db.sql, request, partnerId, clock, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => clock }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, codeChannels: testCodeChannels, now: () => clock }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as ShellData | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -85,6 +87,9 @@ interface ShellData {
   storeState?: { support?: unknown } & Record<string, unknown>
   switchStore?: unknown
 }
+
+// The partner's WhatsApp is off unless a test turns it on; its SMS is on through DripFunnel's account (support/codeChannels).
+const textOnly = { whatsapp: false, sms: true }
 
 const lastSmsCode = async (to: string) => {
   const [row] = await db.sql<{ payload: { vars: { code: string } } }[]>`select payload from outbox where kind = 'sms' and payload->>'to' = ${to} order by created_at desc limit 1`
@@ -223,8 +228,8 @@ describe('the second factor', () => {
   it('texts a code for SMS 2-factor, through the outbox with the partner’s name, and accepts it once', async () => {
     await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
     const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
-    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms' })
-    expect((await post('/api/auth/send-code', {}, res.cookie)).body).toEqual({ ok: true, hint: '•••• 2113' })
+    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: textOnly })
+    expect((await post('/api/auth/send-code', {}, res.cookie)).body).toEqual({ ok: true, hint: '•••• 2113', channel: 'sms', codeChannels: textOnly })
     const [queued] = await db.sql<{ payload: { message: string; brand: string; expiresAt: string } }[]>`select payload from outbox where kind = 'sms' order by created_at desc limit 1`
     expect(queued?.payload).toMatchObject({ message: 'code.second_factor', brand: 'Northstar Shops' })
     const code = await lastSmsCode('+919845022113')
@@ -284,7 +289,7 @@ describe('an Owner enrolling by SMS', () => {
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
     const res = { cookie: await heldAtEnrolment(owner) }
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '0161 555' }, res.cookie)).body).toEqual({ ok: false, code: 'INVALID_PHONE' })
-    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550199' }, res.cookie)).body).toEqual({ ok: true, hint: '•••• 0199' })
+    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550199' }, res.cookie)).body).toEqual({ ok: true, hint: '•••• 0199', channel: 'sms', codeChannels: textOnly })
     const done = await post('/api/auth/enrol-second-factor', { method: 'sms', code: await lastSmsCode('+16145550199') }, res.cookie)
     expect(done.body['backupCodes']).toHaveLength(10)
     const [row] = await db.sql<{ two_factor_method: string; phone: string }[]>`select two_factor_method, phone from "user" where id = ${owner}`
@@ -538,5 +543,133 @@ describe('the same code arriving twice at once', () => {
     const code = await codeAt(secret, stepAt(clock))
     const answers = await Promise.all([first.cookie, second.cookie].map(async (c) => (await post('/api/auth/second-factor', { code }, c)).body['ok']))
     expect(answers.filter((ok) => ok === true)).toHaveLength(1)
+  })
+})
+
+describe('portal codes by WhatsApp first, SMS on request after 20 seconds (#1506)', () => {
+  const both = { whatsapp: true, sms: true }
+  const switches = (partnerId: string, s: { whatsapp?: boolean; sms?: boolean }) =>
+    db.sql`update partner set whatsapp_enabled = coalesce(${s.whatsapp ?? null}::boolean, whatsapp_enabled), sms_enabled = coalesce(${s.sms ?? null}::boolean, sms_enabled) where id = ${partnerId}`
+  afterEach(async () => {
+    await db.sql`update partner set whatsapp_enabled = false, sms_enabled = true where id in (${t.partnerA}, ${t.partnerB})`
+  })
+
+  const phonePerson = async (email: string, phone: string, partnerId = t.partnerA, storeId = t.storeA1) => {
+    const id = await user(partnerId, email, 'Phone Person')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${storeId}, 'staff', 'active')`
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = ${phone} where id = ${id}`
+    return id
+  }
+
+  /** The newest code queued for a number, by either channel. */
+  const lastCodeSent = async (to: string) => {
+    const [row] = await db.sql<{ kind: string; partner_id: string; payload: { message: string; code?: string; vars?: { code: string } } }[]>`
+      select kind, partner_id, payload from outbox where kind in ('sms', 'whatsapp') and payload->>'to' = ${to} order by created_at desc limit 1`
+    return { kind: row?.kind, partnerId: row?.partner_id, message: row?.payload.message, code: row?.payload.code ?? row?.payload.vars?.code ?? '' }
+  }
+
+  it('tells the sign-in screen which channels are open, on the brand', async () => {
+    expect((await gql('{ brand { codeChannels { whatsapp sms } } }', '')).data?.['brand']).toEqual({ codeChannels: textOnly })
+    await switches(t.partnerA, { whatsapp: true })
+    expect((await gql('{ brand { codeChannels { whatsapp sms } } }', '')).data?.['brand']).toEqual({ codeChannels: both })
+    await switches(t.partnerA, { whatsapp: false, sms: false })
+    expect((await gql('{ brand { codeChannels { whatsapp sms } } }', '')).data?.['brand']).toEqual({ codeChannels: { whatsapp: false, sms: false } })
+  })
+
+  it('sends the code by WhatsApp first, by SMS only 20 seconds later, and accepts only the newest', async () => {
+    await switches(t.partnerA, { whatsapp: true })
+    const phone = '+919845000001'
+    const id = await phonePerson('wa.first@a.example', phone)
+    const res = await post('/api/auth/sign-in', { email: 'wa.first@a.example', password })
+    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: both })
+    expect((await post('/api/auth/send-code', {}, res.cookie)).body).toEqual({ ok: true, hint: '•••• 0001', channel: 'whatsapp', codeChannels: both })
+    const byWhatsApp = await lastCodeSent(phone)
+    expect(byWhatsApp).toMatchObject({ kind: 'whatsapp', message: 'code.portal' })
+    expect((await post('/api/auth/send-code', { channel: 'sms' }, res.cookie)).body).toEqual({ ok: false, code: 'TOO_SOON', seconds: 20 })
+    clock = new Date(clock.getTime() + 20_000)
+    expect((await post('/api/auth/send-code', { channel: 'sms' }, res.cookie)).body).toMatchObject({ ok: true, channel: 'sms' })
+    const byText = await lastCodeSent(phone)
+    expect(byText).toMatchObject({ kind: 'sms', message: 'code.second_factor' })
+    // A new send replaces the code before it, whichever channel either went by.
+    if (byWhatsApp.code !== byText.code) expect((await post('/api/auth/second-factor', { code: byWhatsApp.code }, res.cookie)).body).toMatchObject({ ok: false, code: 'WRONG_CODE' })
+    expect((await post('/api/auth/second-factor', { code: byText.code }, res.cookie)).body).toEqual({ ok: true })
+    // Each send's entry carries its channel, never the number or the code.
+    const entries = await db.sql<{ reason: string; raw: string }[]>`select reason, to_jsonb(a)::text as raw from activity_log a where actor_id = ${id} and action = 'person.code_sent' order by occurred_at, id`
+    expect(entries.map((e) => e.reason)).toEqual(['whatsapp', 'sms'])
+    const everything = (await db.sql<{ raw: string }[]>`select to_jsonb(a)::text as raw from activity_log a where actor_id = ${id}`).map((r) => r.raw).join()
+    expect(everything).not.toContain('9845000001')
+    for (const code of [byWhatsApp.code, byText.code]) expect(everything).not.toContain(code)
+  })
+
+  it('signs in with a code sent by WhatsApp, and refuses SMS while the partner’s SMS is off', async () => {
+    await switches(t.partnerA, { whatsapp: true, sms: false })
+    const phone = '+16145550301'
+    await phonePerson('wa.only@a.example', phone)
+    const res = await post('/api/auth/sign-in', { email: 'wa.only@a.example', password })
+    expect(res.body['codeChannels']).toEqual({ whatsapp: true, sms: false })
+    expect((await post('/api/auth/send-code', {}, res.cookie)).body['channel']).toBe('whatsapp')
+    clock = new Date(clock.getTime() + 20_000)
+    expect((await post('/api/auth/send-code', { channel: 'sms' }, res.cookie)).body).toEqual({ ok: false, code: 'CHANNEL_OFF' })
+    expect((await post('/api/auth/send-code', { channel: 'email' }, res.cookie)).body).toEqual({ ok: false, code: 'INVALID_INPUT' })
+    expect((await post('/api/auth/second-factor', { code: (await lastCodeSent(phone)).code }, res.cookie)).body).toEqual({ ok: true })
+  })
+
+  it('counts WhatsApp and SMS sends together: three in ten minutes', async () => {
+    await switches(t.partnerA, { whatsapp: true })
+    await phonePerson('wa.limit@a.example', '+16145550302')
+    const res = await post('/api/auth/sign-in', { email: 'wa.limit@a.example', password })
+    const sent = async (body: Record<string, string>) => {
+      const answer = (await post('/api/auth/send-code', body, res.cookie)).body
+      return answer['channel'] ?? answer['code']
+    }
+    const answers = [await sent({}), await sent({ channel: 'whatsapp' })]
+    clock = new Date(clock.getTime() + 20_000)
+    answers.push(await sent({ channel: 'sms' }), await sent({ channel: 'sms' }), await sent({}))
+    expect(answers).toEqual(['whatsapp', 'whatsapp', 'sms', 'RATE_LIMITED', 'RATE_LIMITED'])
+  })
+
+  it('with WhatsApp and SMS both off, signs a phone-method person in without a code, keeps the method, and asks again once a channel is back', async () => {
+    await switches(t.partnerA, { whatsapp: false, sms: false })
+    const id = await phonePerson('both.off@a.example', '+16145550303')
+    expect((await post('/api/auth/sign-in', { email: 'both.off@a.example', password })).body).toEqual({ ok: true, step: 'done' })
+    expect((await db.sql<{ two_factor_method: string }[]>`select two_factor_method from "user" where id = ${id}`)[0]?.two_factor_method).toBe('sms')
+    // Both are written in the sign-in's transaction, so they share a time: compared by action.
+    const entries = await db.sql<{ action: string; reason: string | null }[]>`select action, reason from activity_log where actor_id = ${id} order by action`
+    expect(entries).toEqual([
+      { action: 'person.second_factor_skipped', reason: 'phone_channels_off' },
+      { action: 'person.signed_in', reason: null },
+    ])
+    // An authenticator-app person still needs their code.
+    const appId = await user(t.partnerA, 'app.both.off@a.example', 'App Person')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${appId}, ${t.storeA1}, 'staff', 'active')`
+    await db.sql`update "user" set two_factor_method = 'app', two_factor_enrolled_at = now(), two_factor_secret_enc = ${await secrets.seal('JBSWY3DPEHPK3PXP')} where id = ${appId}`
+    expect((await post('/api/auth/sign-in', { email: 'app.both.off@a.example', password })).body).toEqual({ ok: true, step: 'second-factor', method: 'app' })
+    await switches(t.partnerA, { sms: true })
+    expect((await post('/api/auth/sign-in', { email: 'both.off@a.example', password })).body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: textOnly })
+  })
+
+  it('still asks for the code where the partner’s switches are on but nothing here can send it, and skips nothing', async () => {
+    const cannotSend = deps({ codeChannels: codeChannelsFor(null, async () => false) })
+    const id = await phonePerson('cannot.send@a.example', '+16145550306')
+    const res = await post('/api/auth/sign-in', { email: 'cannot.send@a.example', password }, '', cannotSend)
+    expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms', codeChannels: { whatsapp: false, sms: false } })
+    expect((await post('/api/auth/send-code', {}, res.cookie, cannotSend)).body).toEqual({ ok: false, code: 'CHANNEL_OFF' })
+    expect(await db.sql`select 1 from activity_log where actor_id = ${id} and action in ('person.second_factor_skipped', 'person.signed_in')`).toHaveLength(0)
+  })
+
+  it('sends by the host partner’s own channels only, never another partner’s', async () => {
+    await switches(t.partnerB, { whatsapp: true })
+    await phonePerson('isolated@a.example', '+16145550304')
+    const a = await post('/api/auth/sign-in', { email: 'isolated@a.example', password })
+    expect(a.body['codeChannels']).toEqual(textOnly)
+    expect((await post('/api/auth/send-code', {}, a.cookie)).body['channel']).toBe('sms')
+    expect(await lastCodeSent('+16145550304')).toMatchObject({ kind: 'sms', partnerId: t.partnerA })
+    await switches(t.partnerA, { whatsapp: true })
+    await switches(t.partnerB, { whatsapp: false })
+    const onB = deps({ partnerId: t.partnerB, host: hostB })
+    await phonePerson('isolated@b.example', '+16145550305', t.partnerB, t.storeB1)
+    const b = await post('/api/auth/sign-in', { email: 'isolated@b.example', password }, '', onB)
+    expect((await post('/api/auth/send-code', {}, b.cookie, onB)).body['channel']).toBe('sms')
+    expect(await lastCodeSent('+16145550305')).toMatchObject({ kind: 'sms', partnerId: t.partnerB })
   })
 })

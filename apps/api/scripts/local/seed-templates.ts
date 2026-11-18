@@ -10,7 +10,7 @@ import type { R2Bucket } from '@cloudflare/workers-types'
 import { resolveReleasedCore } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { amzDate, authorization } from '#integrations/ses/sigv4'
-import { isThemePath } from '#saas/storefronts/paths'
+import { isThemeMediaPath, isThemePath } from '#saas/storefronts/paths'
 import { assertLocalHost } from '../migrate/host-guard'
 
 // Writes the layout templates.ts reads into the sites bucket (storefront ARCHITECTURE §2.3), each theme's preview being
@@ -56,8 +56,8 @@ const target = remote
   ? { account: need('R2_STOREFRONT_ACCOUNT_ID'), keyId: need('R2_STOREFRONT_ACCESS_KEY_ID'), secret: need('R2_STOREFRONT_SECRET_ACCESS_KEY'), bucket: need('STOREFRONT_SITES_BUCKET') }
   : null
 const proxy = target ? null : await getPlatformProxy<{ STOREFRONT_SITES: R2Bucket }>({ environment: 'local' })
-const sha256Hex = (body: string) => createHash('sha256').update(body).digest('hex')
-const putRemote = async (t: NonNullable<typeof target>, key: string, body: string, contentType: string) => {
+const sha256Hex = (body: string | Uint8Array) => createHash('sha256').update(body).digest('hex')
+const putRemote = async (t: NonNullable<typeof target>, key: string, body: string | Uint8Array<ArrayBuffer>, contentType: string) => {
   const host = `${t.account}.r2.cloudflarestorage.com`
   const path = `/${t.bucket}/${key.split('/').map(encodeURIComponent).join('/')}`
   const headers = { host, 'content-type': contentType, 'x-amz-content-sha256': sha256Hex(body), 'x-amz-date': amzDate(new Date()) }
@@ -65,7 +65,7 @@ const putRemote = async (t: NonNullable<typeof target>, key: string, body: strin
   const response = await fetch(`https://${host}${path}`, { method: 'PUT', headers: { ...headers, authorization: signed }, body })
   if (!response.ok) throw new Error(`PUT ${key} answered ${response.status}: ${(await response.text()).slice(0, 300)}`)
 }
-const put = async (key: string, body: string, contentType = 'application/json') => {
+const put = async (key: string, body: string | Uint8Array<ArrayBuffer>, contentType = 'application/json') => {
   if (target) return putRemote(target, key, body, contentType)
   await proxy?.env.STOREFRONT_SITES.put(key, body, { httpMetadata: { contentType } })
 }
@@ -79,7 +79,13 @@ const keys = readdirSync(`${templates}themes`)
 try {
   for (const key of keys) {
     const root = `templates/storefront/themes/${key}/`
-    const files = tracked(root.slice(0, -1)).map((p) => ({ ...read(p), path: p.slice(root.length) })).filter((f) => isThemePath(f.path))
+    const paths = tracked(root.slice(0, -1)).map((p) => p.slice(root.length))
+    if (!paths.some(isThemePath)) throw new Error(`The ${key} theme has no files git tracks: git add templates/storefront/themes/${key} first.`)
+    // A theme image travels as base64 (templates.ts fileSchema, ARCHITECTURE §3.4 "Images").
+    const files = [
+      ...paths.filter(isThemePath).map((p) => ({ ...read(`${root}${p}`), path: p })),
+      ...paths.filter(isThemeMediaPath).map((p) => ({ path: p, content: readFileSync(`${repo}${root}${p}`).toString('base64'), encoding: 'base64' as const })),
+    ]
     const out = join(scratch, key)
     const built = await bundle(`${templates}themes/${key}`, out)
     if (!built.ok) throw new Error(`The ${key} theme's preview doesn't build: ${JSON.stringify(built.problems)}`)
@@ -87,7 +93,7 @@ try {
     await put(`${prefix}source.json`, JSON.stringify({ files }))
     const manifest = []
     for (const { path } of built.bundle.files) {
-      const body = readFileSync(join(out, path), 'utf8')
+      const body = new Uint8Array(readFileSync(join(out, path)))
       await put(`${prefix}preview/files/${path}`, body, contentTypes[extname(path)] ?? 'application/octet-stream')
       manifest.push({ path, sha256: sha256Hex(body) })
     }

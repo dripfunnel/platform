@@ -192,6 +192,21 @@ describe('the confirm dialog’s size (#1352)', () => {
   })
 })
 
+describe('the space above the confirm dialog’s text (#1500)', () => {
+  const Spaced = ({ spaced }: { spaced?: boolean }) => (
+    <ConfirmDialog open title="Add a note" target="" consequence="Only your team sees this." confirmLabel="Add" cancelLabel="Cancel" {...(spaced === undefined ? {} : { spaced })} onConfirm={() => undefined} onCancel={() => undefined} />
+  )
+  const body = () => document.querySelector('.df-dialog-body') as HTMLElement
+
+  it('is the usual space by default, and more only when asked', () => {
+    render(<Spaced />)
+    expect(body().className).toBe('df-dialog-body')
+    cleanup()
+    render(<Spaced spaced />)
+    expect(body().className).toBe('df-dialog-body df-dialog-body--spaced')
+  })
+})
+
 describe('where the confirm dialog puts the cursor, and Enter (#1470)', () => {
   const open = (extra: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) => {
     const onConfirm = vi.fn()

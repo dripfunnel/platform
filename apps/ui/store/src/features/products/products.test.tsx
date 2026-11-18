@@ -34,6 +34,9 @@ const editorApi = vi.hoisted(() => ({ loadProduct: vi.fn(), loadProductBasics: v
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), setStock: vi.fn() }))
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editorApi }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
+const sampleApi = vi.hoisted(() => ({ loadShopCategory: vi.fn(), addSampleCatalog: vi.fn(), loadHasOrders: vi.fn() }))
+vi.mock('../../api/shopCategory', () => ({ loadShopCategory: sampleApi.loadShopCategory, addSampleCatalog: sampleApi.addSampleCatalog }))
+vi.mock('../../api/home', async (actual) => ({ ...(await actual<typeof import('../../api/home')>()), loadHasOrders: sampleApi.loadHasOrders }))
 
 const { ProductList } = await import('./ProductList')
 const { Route: productsRoute } = await import('../../routes/_app/products')
@@ -361,6 +364,29 @@ describe('the Products list', () => {
     cleanup()
     await show(supplier)
     expect(screen.getByRole('heading', { name: words.supplierEmpty.title })).toBeTruthy()
+  })
+
+  it('offers a new store the sample catalog of what it sells, only before its first order', async () => {
+    const importer: Acting = { ...owner, permissions: [...owner.permissions, 'catalog.import'] }
+    const footwear = { id: 'c3', key: 'footwear', name: 'Footwear', sections: [], archived: false, hasSample: true }
+    api.loadProducts.mockResolvedValue({ rows: [], next: null, previous: null })
+    api.loadProductCounts.mockResolvedValue(counts({ all: 0, visible: 0, hidden: 0, pending: 0 }))
+    sampleApi.loadShopCategory.mockResolvedValue({ options: [footwear], current: footwear })
+    sampleApi.loadHasOrders.mockResolvedValue(false)
+    await show(importer)
+    await settle()
+    expect(screen.getByRole('button', { name: messages.sampleCatalog.add })).toBeTruthy()
+    cleanup()
+    sampleApi.loadHasOrders.mockResolvedValue(true)
+    await show(importer)
+    await settle()
+    expect(screen.queryByRole('button', { name: messages.sampleCatalog.add })).toBeNull()
+    cleanup()
+    sampleApi.loadHasOrders.mockResolvedValue(false)
+    sampleApi.loadShopCategory.mockResolvedValue({ options: [footwear], current: { ...footwear, hasSample: false } })
+    await show(importer)
+    await settle()
+    expect(screen.queryByRole('button', { name: messages.sampleCatalog.add })).toBeNull()
   })
 
   it('offers to clear a search that matches nothing', async () => {

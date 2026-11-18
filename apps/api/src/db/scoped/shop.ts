@@ -463,7 +463,8 @@ export const selectShopProductExtras = async (tx: ScopedSql, productId: string, 
     await tx<ShopProductExtrasRow[]>`
       select
         coalesce((select json_agg(json_build_object('id', o.id, 'name', ${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)},
-            'values', coalesce((select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'choice_name', tx`lower(v.name)`, 'name', tx`v.name`, language)}) order by v.position) from product_option_value v where v.option_id = o.id), '[]'::json)
+            'values', coalesce((select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'choice_name', tx`lower(v.name)`, 'name', tx`v.name`, language)}) order by v.position) from product_option_value v where v.option_id = o.id
+              and exists (select 1 from product_version_option_value ov join product_version pv on pv.id = ov.version_id where ov.value_id = v.id and pv.visibility = 'visible' and pv.deleted_at is null)), '[]'::json)
           ) order by o.position) from product_option o where o.product_id = p.id), '[]'::json) as options,
         coalesce((select json_agg(json_build_object('name', s.name, 'value', s.value, 'version_id', s.version_id) order by s.position) from product_spec s where s.product_id = p.id), '[]'::json) as specs,
         coalesce((select json_agg(h.text order by h.position) from product_highlight h where h.product_id = p.id), '[]'::json) as highlights,

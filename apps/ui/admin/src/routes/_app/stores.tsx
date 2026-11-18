@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { loadStoreCategories, englishName } from '../../api/storeCategories'
 import { createdWindows, loadStores, setupStates, storefrontStates, storeStatuses } from '../../api/stores'
 import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { cursorParam } from '../../features/common/cursorParam'
@@ -15,6 +16,7 @@ const storesSearch = z.object({
   storefront: optionalParam(z.enum(storefrontStates)),
   setup: optionalParam(z.enum(setupStates)),
   created: optionalParam(z.enum(createdWindows)),
+  category: idParam,
   q: searchParam,
   after: cursorParam,
   before: cursorParam,
@@ -24,7 +26,11 @@ export const Route = createFileRoute('/_app/stores')({
   validateSearch: storesSearch,
   loaderDeps: ({ search }) => search,
   // A phone shows Find a store instead (phoneView), which runs its own search.
-  loader: ({ deps: { after, before, ...filter } }) => unlessPhone(() => loadStores(filter, { after, before })),
+  loader: ({ deps: { after, before, ...filter } }) =>
+    unlessPhone(async () => {
+      const [page, categories] = await Promise.all([loadStores(filter, { after, before }), loadStoreCategories()])
+      return { ...page, categories: [...categories.filter((c) => !c.archivedAt), ...categories.filter((c) => c.archivedAt)].map((c) => ({ id: c.id, name: englishName(c) })) }
+    }),
   pendingComponent: StoresLoading,
   errorComponent: StoresRouteError,
   component: StoresScreen,

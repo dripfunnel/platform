@@ -1,5 +1,55 @@
 # @dripfunnel/storefront-core
 
+## 1.0.0
+
+### Major Changes
+
+- 5b5596b: A cart with an age-restricted product now asks "Before you order: please confirm you're 18 or over." at Review (#1443). New sealed `<AgeConfirmation needed checked onChange t />` (part `age`); `useCheckout()` gains `needsAgeConfirmation`, `ageConfirmed` and `confirmAge`, and `<PlaceOrder>` stays disabled, and `place()` sends nothing, until the box is ticked. The baseline checkout places it. A theme that doesn't place `<AgeConfirmation>` still gets the box: `<PlaceOrder>` draws it just above the button, so no store's checkout is locked out.
+  
+  To choose where it sits, a theme places `<AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} />` above its `<PlaceOrder>`; it renders nothing for a cart without an age-restricted product. Classic does this.
+  
+  This is a major (docs/code/ARCHITECTURE.md §5): a new box appears in every store's checkout for such a cart, and `<PlaceOrder>` is disabled until it is ticked, which changes a hook's documented behaviour and the stores' look. No store is locked out, since `<PlaceOrder>` draws the box for a theme that doesn't place it, but it reaches stores with these upgrade notes at the merchant's next publish.
+- 7390a31: A live page's header menu no longer changes after the page has loaded (#1481). `useMenu()` keeps the menu the page was built with and does not ask the Shop API for another (`useShopData` gains the `keepBuilt` option behind it), so a header shows the same menu from its first paint and on every reload; a menu change reaches the live site with the next publish. The preview and the studio still load the current menu.
+  
+  The Classic and Baseline themes now always draw their fixed links around the merchant's menu items. Classic's header is Home, Shop all, the items (or every collection while there are none), About and Contact; before, the merchant's first menu item replaced Shop all, About and Contact. Baseline always draws Shop, then the items, About and Contact. The phone menu draws the same links.
+  
+  This is a major (docs/code/ARCHITECTURE.md §5): a hook's documented behaviour changes and the header of every Classic and Baseline store changes. Upgrade notes (`coreUpgradeNotes`, numbered 0.14.1 until its release card renumbers it): codemods rewrite the header of a Classic or Baseline theme that still has the shipped markup, at the merchant's next publish; a theme that draws its own header places the fixed links around `menu.items` itself and draws nothing that depends on the menu changing after load. Market draws no merchant menu and does not change.
+- 146ce4a: The sealed `<Price>` no longer puts the word "Was" before the crossed-out compare-at price (#1357): it shows the old price struck through on its own, with no text for screen readers either. This changes how every store's price looks, so it is a major.
+  
+  Upgrade notes: no code change is needed. A theme that styles `::part(was)` keeps working; a theme or visual test that expects the text "Was {price}" next to the old price must drop it. The `price.was` message stays but is no longer used.
+- 9273f5b: A product whose version has Track stock off no longer says "In stock" on the live site (#1278): the starting themes (baseline, classic, market) show the stock line only when `useProduct().stock.available` is a number, which core already gives (null for an untracked version). `@dripfunnel/storefront-core` itself does not change; this entry carries the theme edit to stores that already have their own copy of a starting theme. A store's look changes (a line disappears for an untracked version), so it is a major, and it reaches a store at its merchant's next publish, with the release it rides in.
+  
+  Upgrade notes, for the release card's `coreUpgradeNotes` entry: in `src/theme/pages/ProductPage.tsx`, show the stock `<p role="status">` only when an option is still to choose or the chosen version's stock is tracked. This `replace` codemod makes that edit in a theme still holding a starting theme's text (it changes nothing in a file whose text differs; the migration agent gets the note instead). The new starting themes read exactly as the replacement does.
+  
+  ```
+  kind: replace
+  paths: ['src/theme/pages/ProductPage.tsx']
+  find:
+              <p className={styles.stock} role="status">
+                {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
+              </p>
+  replace:
+              {firstMissing || typeof page.stock?.available === 'number' ? (
+                <p className={styles.stock} role="status">
+                  {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
+                </p>
+              ) : null}
+  ```
+
+### Minor Changes
+
+- 8d04b08: A signed-in shopper can add or change their mobile number on Account › Your details, proved by a text code at the new number (#1404). `useAccount()` gains `phoneAllowed` (the shop signs in by mobile), `phoneCodeFor` (the number a code was sent to), `sendPhoneCode(to)`, `confirmPhone(code)` and `cancelPhone()`; a refusal shows as `error` with `of: 'phone'` (`CODE_REFUSED`, `RATE_LIMITED`, `METHOD_OFF`, …). The account keeps its old number until the code is proved, and a number another account holds is refused as a wrong code is. The baseline and Classic themes draw the control; a theme that doesn't keeps showing the number it has, and nothing breaks.
+- 9335c89: A product whose versions differ in price now gives a theme its highest price (#1330): `ProductCard`, `Product` and `ProductPage` gain `maxPrice` (null when the prices are equal, and on the page once a version is chosen), and the sealed `<Price>` takes an optional `to` that draws "{lowest} – {highest}" with one tax label and no compare-at price. `from` stays as it was; a theme that doesn't pass `to` looks exactly the same.
+- d04123f: A product's published A+ content (#1351): `useProduct().product.story` holds its modules in the merchant's order (banner, image and text, features, comparison, gallery, in the box, specifications, brand story, FAQ, video; a kind core doesn't know is left out), and `<ProductStory product={…} classes={…} />` from `./theme` draws them in a "More about this product" section, nothing when there are none. Optional: a theme that doesn't place it looks as before.
+
+### Patch Changes
+
+- 8c728a4: Buy now no longer adds a product again when the cart already holds it (#1359): it opens checkout with the line at the quantity it had, so Add to cart followed by Buy now gives one, not two. A gift card is still added each time. No code change is needed in a theme.
+- 4e14432: The 0.14.0 upgrade's "Size chart" link codemod (#1462) also finds a Classic product page whose stock line is #1278's, shown only when there is stock to say, and puts the link under the options there too (#1532). It runs once in either markup; a theme that changed that markup still places `<SizeChart chart={product.sizeChart} />` itself.
+- f06709c: The upgrade now puts the "Size chart" link under the options of a Classic product page that still has the shipped markup (#1462): the `coreUpgradeNotes` entry for 0.14.0 gains codemods that add `<SizeChart>` to `ProductPage.tsx` and its `.sizeLink` style to `product.module.css`. A store made before 0.14.0 never had the link, because an upgrade changes a theme file only through a codemod. A theme that changed that markup places `<SizeChart chart={product.sizeChart} />` itself.
+- 837a0f8: The order summary at checkout shows each line's picture in the studio's preview again (#1537). It asked for the picture at the shop's own address, which the studio frame can't reach without a cookie, so it showed as a broken image in every theme; it now addresses it under the frame's path, as `<Image>` does. Live sites and previews are unchanged.
+- 9422c15: The 0.14.0 upgrade note's `<ThemeImage>` example now includes the required `ratio` (#1428).
+
 ## 0.14.0
 
 ### Minor Changes

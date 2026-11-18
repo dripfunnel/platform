@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -223,6 +223,11 @@ against them before relying on it, and fix this document where they differ.
    Inventory). Most sellers have one warehouse, so the default is one number. More warehouses
    appear as an expansion. The merchant and each vendor have their own default warehouse; a
    product saved without choosing a warehouse goes to its owner's default. Say which one.
+   **A vendor with no warehouse of its own counts in the store's default one** (decided
+   2026-11-09 on #1353), shown by its name only: never its address, nor the merchant's or another
+   vendor's numbers there. It never has to add a warehouse before selling. Once it adds its own,
+   that is its default for new counts; what it counted in the store's stays and can still be
+   changed.
 10. **Stock tracking and "keep selling when out of stock"** are per version, inheriting a store
     default. Most sellers never touch them. Keep them under "More options". The engine must
     store both per version, with the store default.
@@ -714,7 +719,11 @@ depend on an engine capability whose release is not yet chosen.
 - A2. A guided first product: a short inline walkthrough that can be dismissed, not a modal tour.
 - A3. A setup checklist on Home ("Add 3 products · Create a collection · Set up shipping")
   linking into these screens.
-- A4. An optional sample product to explore, clearly marked, and removable in one click.
+- A4. An optional sample product to explore, clearly marked, and removable in one click (the provisioning
+  sample, SAAS §5 step 2). **Built 2026-11-16, alongside it: the store category's sample catalog** (DATA-MODEL
+  §7.2): 1 to 50 ordinary, visible products in 1 to 10 collections staff keep per category (admin FIRST-RELEASE §11b). While the store has no
+  order, "Add sample catalog" (`addSampleCatalog`, `catalog.import`, the merchant side only) starts the
+  ordinary import of it (K13a); once added it can't be added again.
 - A5. The first-save moment: "Your product is in your preview. View it", and when it reaches the
   live store (§3 fact 17); or explain why it isn't live yet (hidden, awaiting approval, missing
   details a selling market requires, not yet published).
@@ -1057,6 +1066,11 @@ with validation before any write, partial-failure reports, and translation and c
   neither read nor write a product's questions (§3 facts 49–57), and re-importing a product leaves
   its questions as they are. The template has no question columns, and the export says nothing of
   them. No card is planned for it.
+- K13a. **A sample catalog's import** (2026-11-16, A4): the same check as a spreadsheet, then it runs at once with no
+  review (decided 2026-11-16: existing SKUs skipped, stock to the default warehouse), its prices converted from the sample's currency (K11's rates; `RATE_MISSING` as any file).
+  Its photos are DripFunnel's copies, read from R2, never fetched again; it makes the sample's two
+  collections when it finishes, holding its products by SKU. No plan feature gates it: the store didn't choose
+  to import, though its products count toward the plan's product limit like any other.
 
 ### L. Vendors and approval (catalogue side)
 
@@ -1192,9 +1206,15 @@ with validation before any write, partial-failure reports, and translation and c
   - the legal information defaults (§3 fact 34).
 
   Each row shows whether the plan includes it.
-- P2. Store-type presets are offered at sign-up and editable in this tab (decided 2026-10-05 on #337): "Clothing" turns on size charts;
-  "Electronics" turns on specifications and warranty; "Food" turns on net quantity and best
-  before. Presets are only starting points.
+- P2. ~~Store-type presets~~ (decided 2026-10-05 on #337), replaced 2026-11-16 by the **store category**: "What does your
+  shop sell?" picks one of DripFunnel's list (DATA-MODEL §7.2), on Home's checklist or here. Each category names the
+  sections shops of its kind use; this tab offers the ones in the plan and still off ("Switch them on"), and the Owner
+  still presses Save sections. Choosing or changing a category never switches a section off.
+
+  | Decision | Rejected | Why |
+  |---|---|---|
+  | The category replaces the five hard-coded chips | Keeping both | Merchants would answer "what do you sell" twice, from two lists |
+  | Its sections are offered and confirmed | Applied on every change | A change would overwrite the merchant's own choices |
 - P3. **Included and on**: the section appears on the product form in its place (part C's
   order), collapsed and optional.
 - P4. **Included but turned off**: the section is absent from the product form. Settings is the

@@ -12,7 +12,7 @@ const shellRoute = getRouteApi('/_app')
 
 export const StoresScreen = () => {
   const page = storesRoute.useLoaderData()
-  const { partner, status, storefront, setup, created, q } = storesRoute.useSearch()
+  const { partner, status, storefront, setup, created, q, category } = storesRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
   const forced = useScreenState(storesStates, harnessEnabled)
   const navigate = storesRoute.useNavigate()
@@ -35,6 +35,7 @@ export const StoresScreen = () => {
     ...(storefront ? { storefront } : {}),
     ...(setup ? { setup } : {}),
     ...(created ? { created } : {}),
+    ...(category ? { category } : {}),
     ...(q ? { q } : {}),
   }
   // Loaded on a phone, until the shell reloads it for a wider screen.

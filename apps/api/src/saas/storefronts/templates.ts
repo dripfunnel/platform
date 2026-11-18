@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { lockedWorkflowFile } from '#integrations/github/oidc'
-import { coreVersionPattern, isRefreshedPath, isRepoPath, isThemePath } from './paths'
+import { coreVersionPattern, isRefreshedPath, isRepoPath, isThemeMediaPath, isThemePath } from './paths'
 
 // Where the Worker reads the templates (storefront ARCHITECTURE §2.3): the release workflow writes each core version's
 // skeleton, themes and prebuilt preview bundles under `templates/{core}/` in the sites bucket, then points
@@ -20,7 +20,10 @@ export class TemplateMissing extends Error {
 }
 
 const semver = z.string().regex(coreVersionPattern)
-const fileSchema = z.strictObject({ path: z.string().refine(isRepoPath), content: z.string() })
+// A theme image is its bytes as base64, and only an image is (ARCHITECTURE §3.4 "Images", `ThemeFile.encoding`).
+const fileSchema = z
+  .strictObject({ path: z.string().refine(isRepoPath), content: z.string(), encoding: z.literal('base64').optional() })
+  .refine((f) => (f.encoding === 'base64') === isThemeMediaPath(f.path))
 const sourceSchema = z.strictObject({ files: z.array(fileSchema).max(1000) })
 const manifestSchema = z.strictObject({ files: z.array(z.strictObject({ path: z.string().refine(isRepoPath), sha256: z.string().regex(/^[0-9a-f]{64}$/) })).min(1).max(2000) })
 
@@ -56,7 +59,7 @@ const skeletonOf = async (bucket: SitesBucket, core: string): Promise<RepoFiles>
 export const templateFiles = async (bucket: SitesBucket, core: string, template: string): Promise<{ skeleton: RepoFiles; theme: RepoFiles }> => {
   const skeleton = await skeletonOf(bucket, core)
   const theme = (await readJson(bucket, `${templateRoot(core, template)}source.json`, sourceSchema)).files
-  if (theme.length === 0 || !theme.every((f) => isThemePath(f.path))) throw new TemplateMissing(`the ${template} theme writes outside ARCHITECTURE §3.4's paths`)
+  if (!theme.some((f) => isThemePath(f.path)) || !theme.every((f) => isThemePath(f.path) || isThemeMediaPath(f.path))) throw new TemplateMissing(`the ${template} theme writes outside ARCHITECTURE §3.4's paths`)
   return { skeleton, theme }
 }
 

@@ -31,6 +31,8 @@ export interface PartnerDetailProps {
   onReload: () => void
   // The Activity tab, built by the screen with its filters in the page's URL.
   activity: ReactNode
+  // Admin's DripFunnel's-messaging switches, on the Overview tab (#1544).
+  messaging: ReactNode
 }
 
 export const PartnerLoading = () => (
@@ -47,10 +49,10 @@ export const PartnerError = ({ onRetry, details }: { onRetry: () => void; detail
 
 const Placeholder = ({ children }: { children: ReactNode }) => <div className="df-panel df-panel--wide">{children}</div>
 
-const TabContent = ({ partner, tab, onAction, onRecheck, onSetContract, onImpersonate, activity }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck' | 'onSetContract' | 'onImpersonate' | 'activity'> & { partner: Partner }) => {
+const TabContent = ({ partner, tab, onAction, onRecheck, onSetContract, onImpersonate, activity, messaging }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck' | 'onSetContract' | 'onImpersonate' | 'activity' | 'messaging'> & { partner: Partner }) => {
   switch (tab) {
     case 'overview':
-      return <OverviewTab partner={partner} onSetContract={onSetContract} />
+      return <OverviewTab partner={partner} onSetContract={onSetContract} messaging={messaging} />
     case 'stores':
       return (
         <Placeholder>
@@ -73,7 +75,7 @@ const TabContent = ({ partner, tab, onAction, onRecheck, onSetContract, onImpers
   }
 }
 
-export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onSetContract, onImpersonate, onReload, activity }: PartnerDetailProps) => {
+export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onSetContract, onImpersonate, onReload, activity, messaging }: PartnerDetailProps) => {
   if (forced === 'loading') return <PartnerLoading />
   if (forced === 'error') return <PartnerError onRetry={onReload} />
   if (!partner) {
@@ -96,7 +98,7 @@ export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRech
       {readOnly && <ReadOnlyNotice title={messages.partners.readOnly.title} body={messages.partners.readOnly.body} />}
       <PartnerHeader partner={partner} onAction={onAction} />
       <PartnerTabs partnerId={partner.id} current={tab} />
-      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} onSetContract={onSetContract} onImpersonate={onImpersonate} activity={activity} />
+      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} onSetContract={onSetContract} onImpersonate={onImpersonate} activity={activity} messaging={messaging} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { StoreFilter } from '../../api/stores'
 
-export const filterKeys = ['status', 'plan', 'created', 'storefront', 'near', 'q'] as const satisfies readonly (keyof StoreFilter)[]
+export const filterKeys = ['status', 'plan', 'category', 'created', 'storefront', 'near', 'q'] as const satisfies readonly (keyof StoreFilter)[]
 export type FilterKey = (typeof filterKeys)[number]
 
 // The filter is the part of the URL the list owns; the harness keys (`state`, `partner`) stay when it changes.

@@ -99,7 +99,7 @@ describe('the overview and the gallery', () => {
   })
 
   it('names "Start from scratch" as the prototype’s Custom, and an unknown key as itself', () => {
-    const list = [{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]
+    const list = [{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true, forCategory: false }]
     expect(templateName(list, 'linen')).toBe('Linen')
     expect(templateName(list, 'baseline')).toBe(words.overview.custom)
     expect(templateName(list, 'gone')).toBe('gone')

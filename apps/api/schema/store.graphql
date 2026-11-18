@@ -225,6 +225,7 @@ input BlogPostInput {
 type Brand {
   accentColor: String
   background: String
+  codeChannels: CodeChannels
   corner: String
   files: BrandFiles
   font: String
@@ -363,6 +364,11 @@ type CatalogueSettings {
   pricingCurrency: String
   translationLanguages: [String!]
   unitSystem: String
+}
+
+type CodeChannels {
+  sms: Boolean
+  whatsapp: Boolean
 }
 
 type Collection {
@@ -882,6 +888,9 @@ type HomeSales {
 }
 
 type HomeSetup {
+  brand: Boolean
+  brandSkipped: Boolean
+  category: Boolean
   collections: Boolean
   payments: Boolean
   paymentsSkipped: Boolean
@@ -1135,6 +1144,7 @@ type Mutation {
   addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
   addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
+  addSampleCatalog: ID
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
@@ -1159,9 +1169,10 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
+  chooseShopCategory(id: ID!): ShopCategory
   chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
-  connectCourier(provider: String!): String
+  connectCourier(email: String, password: String, provider: String!, webhookToken: String): String
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
@@ -1314,7 +1325,7 @@ type Mutation {
   setPricesIncludeTax(included: Boolean!): Boolean
   setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
-  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setSecondFactor(channel: String, code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setStoreAiFallback(on: Boolean!): Boolean
   setStoreAiSwitch(on: Boolean!): Boolean
@@ -2325,6 +2336,7 @@ input ProductsPatch {
 }
 
 type Profile {
+  codeChannels: CodeChannels
   email: String
   name: String
   passwordChangedAt: String
@@ -2456,6 +2468,7 @@ type Query {
   searchStockImages(page: Int!, query: String!): [StockPhoto!]
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
+  shopCategory: ShopCategoryChoice
   shopifyConnection: ShopifyConnection
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
@@ -2730,6 +2743,7 @@ type ScheduledPlanChange {
 
 type SecondFactorStep {
   backupCodes: [String!]
+  channel: String
   done: Boolean
   hint: String
   secret: String
@@ -2747,6 +2761,7 @@ input ServiceDetailsInput {
 }
 
 enum SetupStep {
+  brand
   payments
   shipping
 }
@@ -2776,6 +2791,7 @@ input ShipLineInput {
 }
 
 type ShippingCourier {
+  accountEmail: String
   labelSize: String
   lastTestResult: String
   lastTestedAt: String
@@ -2821,6 +2837,20 @@ type ShippingSettings {
   pickupHours: String
   revision: Int
   savedAt: String
+}
+
+type ShopCategory {
+  archived: Boolean
+  hasSample: Boolean
+  id: ID
+  key: String
+  name(language: String): String
+  sections: [String!]
+}
+
+type ShopCategoryChoice {
+  current: ShopCategory
+  options: [ShopCategory!]
 }
 
 type ShopifyConnection {
@@ -3410,6 +3440,7 @@ type StorefrontTemplate {
   current: Boolean
   demoUrl: String
   description: String
+  forCategory: Boolean
   key: String
   name: String
   tag: String

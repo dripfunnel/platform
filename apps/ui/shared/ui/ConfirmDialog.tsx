@@ -38,6 +38,8 @@ export interface ConfirmDialogProps {
   danger?: boolean
   // About 720 px instead of 540, for a pick whose longest choice is long (Invite a supplier's access); never wider than the screen.
   wide?: boolean
+  // A little more room between the title and the text under it, for a window with no bold line there.
+  spaced?: boolean
   // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
   children?: ReactNode
   // Why those fields won't do yet, or null once they will: confirm waits for them as it does for `input`.
@@ -62,6 +64,7 @@ export const ConfirmDialog = ({
   choices = [],
   danger = false,
   wide = false,
+  spaced = false,
   children,
   blocked = null,
   error = null,
@@ -141,7 +144,7 @@ export const ConfirmDialog = ({
       onClose={() => triggerRef.current?.focus()}
     >
       <h2 id={titleId}>{title}</h2>
-      <div id={bodyId} className="df-dialog-body">
+      <div id={bodyId} className={spaced ? 'df-dialog-body df-dialog-body--spaced' : 'df-dialog-body'}>
         {target !== '' && (
           <p>
             <strong>{target}</strong>

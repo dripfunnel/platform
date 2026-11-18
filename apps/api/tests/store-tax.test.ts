@@ -273,7 +273,9 @@ describe('Tax setup', () => {
     expect(after?.rates.find((r) => r.taxClassId === a?.taxClassId)?.rateBps).toBe(123)
     expect(after?.rates.find((r) => r.taxClassId === b?.taxClassId)?.rateBps).toBe(456)
     expect(after?.rates).toHaveLength(before?.rates.length ?? 0)
-    expect(await db.sql`select actor_id, target_id from activity_log where action = 'tax_rate.set' and target_id = ${before?.id ?? ''} order by occurred_at desc limit 1`).toEqual([{ actor_id: people.india, target_id: before?.id }])
+    expect(await db.sql`select actor_id, actor_label, target_id from activity_log where action = 'tax_rate.set' and target_id = ${before?.id ?? ''} order by occurred_at desc limit 1`).toEqual([
+      { actor_id: people.india, actor_label: 'Olivia <owner@jaipur.example>', target_id: before?.id },
+    ])
     // A category another zone already answers for in India: the home zone taking it would answer for the same place and category.
     const k = (await gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'india', { input: { name: 'Overlap test' } })).data?.['saveTaxClass'] as string
     await gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'india', { input: { name: 'India and UAE', countries: ['AE', 'IN'], rates: [{ taxClassId: k, rateBps: 500 }] } })

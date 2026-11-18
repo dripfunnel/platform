@@ -7,6 +7,7 @@ import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { handleDeliveryApp, matchDeliveryAppPath } from '#apis/admin/deliveryApp'
+import { handleSamplePhoto, matchSamplePhotoPath } from '#apis/admin/samplePhotos'
 import { deliveryApkPath, handleDeliveryApk } from '#apis/delivery/apk'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
@@ -63,15 +64,24 @@ import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/c
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
+import type { CourierDirectory } from '#core/couriers'
+import { storeCourierAccounts } from '#integrations/couriers/accounts'
+import { courierDirectory } from '#integrations/couriers/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localSmsCheck, localWhatsApp, localWhatsAppCheck } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
 import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
-import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
-import { smsDeliverer } from '#jobs/queues/deliverers/sms'
+import { expireUnsentWhatsAppCodes, ourWhatsAppFor, savedOurWhatsApp, whatsappAccountsFor, whatsappKind, whatsappSendsCodes, whatsappTemplates, type OurWhatsApp, type PartnerWhatsAppAccount, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { codeChannelsFor, type CodeChannelCheck } from '#saas/portalCodes/index'
+import type { WhatsAppSender } from '#core/whatsapp'
+import { checkMetaWhatsAppAccount, metaWhatsAppSender } from '#integrations/meta/index'
+import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
+import { msg91Sender } from '#integrations/msg91/index'
+import { twilioSender } from '#integrations/twilio/index'
+import { snsSender } from '#integrations/sns/index'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { localGoogleSignIn } from '#integrations/google/local'
@@ -158,6 +168,7 @@ import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
+import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
@@ -180,7 +191,8 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
+import { checkSmsAccount, expireUnsentSms, ourSmsFor, savedOurSmsRoutes, smsAccountsFor, smsDeliveryFor, smsKind, smsMessages, type OurSms, type OurSmsRoutes, type PartnerSmsAccounts } from '#saas/sms/index'
+import { createPlatformMessagingService } from '#saas/platformMessaging/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
 import { entryOf, resolveArea, type Area, type Entry } from './router'
@@ -269,17 +281,37 @@ const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | 
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
 
-// Locally (SMS_LOCAL) every partner has an account on each provider, whose texts the stand-in prints (#275 sets the real ones).
-const localSmsAccounts: PartnerSmsAccounts = {
-  forPartner: async (_, __, provider) =>
-    provider === 'msg91'
-      ? { provider, authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) }
-      : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+// DripFunnel's own SMS account per route, for the partners Admin enabled it for (#1543): locally (SMS_LOCAL) the stand-in's,
+// whose texts it prints, else the ones a Super admin saved in the admin console (saas/sms smsDeliveryFor).
+const localOurSms: OurSmsRoutes = {
+  india: { provider: 'msg91', authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) },
+  rest: { provider: 'twilio', accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+}
+const ourSmsOf = (config: Config, secrets: SecretBox | null): OurSms => ourSmsFor(config.SMS_LOCAL === '1' ? async () => localOurSms : savedOurSmsRoutes(secrets))
+const smsFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerSmsAccounts; senders: SmsSenders } | null => {
+  const local = config.SMS_LOCAL === '1'
+  const accounts = local ? smsAccountsFor(secrets, ourSmsOf(config, secrets)) : smsDeliveryFor(secrets)
+  if (!accounts) return null
+  const senders: SmsSenders = local ? { msg91: localSms, twilio: localSms, sns: localSms } : { msg91: (c) => msg91Sender(c), twilio: (c) => twilioSender(c), sns: (c) => snsSender(c) }
+  return { accounts, senders }
 }
 
-// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
-const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
-  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+// WhatsApp (#1504): locally (SMS_LOCAL) every partner has a number with every template, which the stand-in prints, and so
+// has DripFunnel's for partners Admin enabled it for (#1543); else the partner's own account on Meta or DripFunnel's,
+// wherever the Worker can open credentials (CREDENTIALS_KEK).
+const localWhatsAppAccount: PartnerWhatsAppAccount = { accessToken: 'local', businessAccountId: '00000', phoneNumberId: '00000', language: 'en', templates: Object.fromEntries(whatsappTemplates.map((m) => [m, m.replace('.', '_')])) }
+const localWhatsAppAccounts: PartnerWhatsAppAccounts = { forPartner: async () => localWhatsAppAccount }
+const ourWhatsAppOf = (config: Config, secrets: SecretBox | null): OurWhatsApp =>
+  ourWhatsAppFor(config.SMS_LOCAL === '1' ? async () => ({ settings: localWhatsAppAccount, open: async () => localWhatsAppAccount }) : savedOurWhatsApp(secrets))
+const whatsappFor = (config: Config, secrets: SecretBox | null): { accounts: PartnerWhatsAppAccounts; sender: (account: PartnerWhatsAppAccount) => WhatsAppSender } | null => {
+  if (config.SMS_LOCAL === '1') return { accounts: localWhatsAppAccounts, sender: localWhatsApp }
+  return secrets ? { accounts: whatsappAccountsFor(secrets, ourWhatsAppOf(config, secrets)), sender: (account) => metaWhatsAppSender(account) } : null
+}
+
+/** Which channels reach a portal code's number (ACCESS.md §4): SMS only through an account the `sms` deliverer can use. */
+const codeChannelsOf = (config: Config, secrets: SecretBox | null): CodeChannelCheck => {
+  const ourWhatsApp = ourWhatsAppOf(config, secrets)
+  return codeChannelsFor(smsFor(config, secrets)?.accounts ?? null, (tx, partnerId) => whatsappSendsCodes(tx, secrets, ourWhatsApp, partnerId))
 }
 
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
@@ -308,7 +340,7 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
+// (outbox-relay.ts); `sms` likewise until CREDENTIALS_KEK or SMS_LOCAL is set; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
@@ -316,6 +348,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
+  const sms = smsFor(config, secrets)
+  const whatsapp = whatsappFor(config, secrets)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
@@ -323,10 +357,10 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(sql, assets) } : {}),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
-    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, whatsapp?.accounts ?? null) } : {}),
     ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
-    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
-    ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
+    ...(whatsapp && ses ? { [whatsappKind]: whatsappDeliverer(sql, whatsapp.accounts, whatsapp.sender, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
+    ...(sms ? { [smsKind]: smsDeliverer(sql, sms.accounts, sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -450,11 +484,13 @@ const handleAdmin = async (
   }
 
   const deliveryAppRoute = matchDeliveryAppPath(url.pathname)
+  const samplePhotoRoute = matchSamplePhotoPath(url.pathname)
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
     if (deliveryAppRoute) return handleDeliveryApp(request, deliveryAppRoute, null)
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
+    if (samplePhotoRoute) return handleSamplePhoto(request, samplePhotoRoute, null, null)
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null, storeCategories: null, messaging: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -462,6 +498,12 @@ const handleAdmin = async (
     if (deliveryAppRoute) {
       const files = caller ? createDeliveryApp({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, files: env.ASSETS ?? null }) : null
       return handleDeliveryApp(request, deliveryAppRoute, files)
+    }
+    if (samplePhotoRoute) {
+      const categories = caller
+        ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
+        : null
+      return handleSamplePhoto(request, samplePhotoRoute, caller?.staff ?? null, categories)
     }
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
@@ -479,7 +521,22 @@ const handleAdmin = async (
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
       fleet: caller ? createFleetService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
+      storeCategories: caller
+        ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
+        : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
+      messaging: caller
+        ? createPlatformMessagingService({
+            sql,
+            staff: caller.staff,
+            facts: factsOf(request),
+            activity: activityLog,
+            secrets: await (secretsFor(config) ?? null),
+            checkSms: config.SMS_LOCAL === '1' ? localSmsCheck : checkSmsAccount,
+            checkWhatsApp: config.SMS_LOCAL === '1' ? localWhatsAppCheck : checkMetaWhatsAppAccount,
+            now: () => new Date(),
+          })
+        : null,
     })
   })
 }
@@ -521,6 +578,9 @@ const paymentsFor = (config: Config): PaymentWiring => {
   paymentsBuilt = { key, wiring }
   return wiring
 }
+
+/** Locally the stand-in for every store; elsewhere each store's own login, opened where a call to the courier goes out (#1489). */
+const couriersOf = (sql: postgres.Sql, config: Config, secrets: SecretBox | null): CourierDirectory => (config.COURIERS_LOCAL === '1' ? localCouriers() : courierDirectory(storeCourierAccounts(sql, secrets)))
 
 /** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
 const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
@@ -604,7 +664,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), ourSms: ourSmsOf(config, secrets), ourWhatsApp: ourWhatsAppOf(config, secrets), now: () => new Date() }))
   })
 }
 
@@ -645,12 +705,12 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (isStoreGooglePath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
+      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets), google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
     }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets) })
     }
     const facts = factsOf(request)
     if (machineCredentialOf(request) !== null) {
@@ -664,7 +724,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: couriersOf(sql, config, secrets), files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK, codeChannels: codeChannelsOf(config, secrets),
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
@@ -758,8 +818,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
     const limiter = env.SHOP_RATE_LIMITER
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
-    const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers }, async (key) => (await limiter.limit({ key })).success))
+    return withConnection(config.HYPERDRIVE, ctx, async (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers: couriersOf(sql, config, await (secretsFor(config) ?? null)) }, async (key) => (await limiter.limit({ key })).success))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
@@ -802,7 +861,8 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadToCart: async (key) => (env.UPLOAD_RATE_LIMITER ? (await env.UPLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadFromAddress: async (key) => (env.UPLOAD_ADDRESS_RATE_LIMITER ? (await env.UPLOAD_ADDRESS_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
+    const shopSecrets = await (secretsFor(config) ?? null)
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: couriersOf(sql, config, shopSecrets), payments: paymentsFor(config), secrets: shopSecrets, estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadToCart: async (key) => (env.UPLOAD_RATE_LIMITER ? (await env.UPLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadFromAddress: async (key) => (env.UPLOAD_ADDRESS_RATE_LIMITER ? (await env.UPLOAD_ADDRESS_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (isUploadPath(url.pathname)) return handleUpload(request, context, env.ASSETS ?? null)
@@ -1076,6 +1136,15 @@ const expireSms: CronJob = async (sql) => {
   if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
 }
 
+// Portal codes by WhatsApp unsent in time, as texts are above (#1506); cart reminders carry no expiry and are left.
+const expireWhatsAppCodes: CronJob = async (sql) => {
+  const expired = await withSystemScope(sql, (tx) => expireUnsentWhatsAppCodes(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+    logEvent({ event: 'whatsapp_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (expired > 0) logEvent({ event: 'whatsapp_expired', api: 'system', code: 'expired', count: expired })
+}
+
 const queueDomainChecks: CronJob = async (sql) => {
   const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
     logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -1272,7 +1341,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
+  '* * * * *': [sweepDeliveries, expireSms, expireWhatsAppCodes, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],

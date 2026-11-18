@@ -12,7 +12,7 @@ import { GiveUp, type Deliverer } from '../outbox-relay'
 
 const payload = z.object({ reminderId: z.uuid() }).strict()
 
-/** `whatsapp`: the partners' WhatsApp accounts, where any can be read (locally, or once #275 reads them); null sends every reminder by email. */
+/** `whatsapp`: the partners' WhatsApp accounts, where any can be read (locally, or with CREDENTIALS_KEK, #1504); null sends every reminder by email. */
 export const cartRemindDeliverer = (sql: postgres.Sql, suppressionKey: string, whatsapp: PartnerWhatsAppAccounts | null, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
     const parsed = payload.safeParse(effect.payload)

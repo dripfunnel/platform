@@ -223,6 +223,11 @@ export const personBackupCodesGenerated = (user: { id: string; partnerId: string
 export const personBackupCodeUsed = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('backup_code.used', 'security', user, request)
 export const personLocked = (user: { id: string; partnerId: string }, request: RequestFacts) => ({ ...personEntry('person.locked', 'security', user, request), result: 'denied' as const })
 export const personCodeRefused = (user: { id: string; partnerId: string }, request: RequestFacts, code: string) => ({ ...personEntry('person.second_factor_refused', 'security', user, request, code), result: 'denied' as const })
+// The channel a code went by, never the number or the code (LOGGING.md §3, #1506).
+export const personCodeSent = (user: { id: string; partnerId: string }, request: RequestFacts, channel: 'whatsapp' | 'sms') => personEntry('person.code_sent', 'security', user, request, channel)
+// A phone-method sign-in while neither WhatsApp nor SMS reaches the number (ACCESS.md §4).
+export const personSecondFactorSkipped = (user: { id: string; partnerId: string }, request: RequestFacts) =>
+  personEntry('person.second_factor_skipped', 'security', user, request, 'phone_channels_off')
 
 /** No account is named: the same entry whether the email exists or not (ACCESS.md §2). */
 export const personSignInRefused = (partnerId: string, request: RequestFacts, reason: 'invalid_credentials' | 'locked' | 'google_no_account' | 'google_refused'): ActivityEntry => ({

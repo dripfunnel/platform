@@ -91,11 +91,62 @@ describe('the order confirmation', () => {
     expect(again).toEqual([])
     expect(mail?.to).toEqual(['asha@example.com'])
     expect(mail?.from).toContain('Jaipur Looms')
-    expect(mail?.text).toContain('2 × Kurta, Red, M: ₹2,000.00')
+    expect(mail?.text).toContain('2 × Kurta (Red, M) — ₹2,000.00')
     expect(mail?.text).toContain('Total: ₹2,050.00')
-    expect(mail?.text).toContain('It goes to Asha Rao in Pune.')
+    expect(mail?.text).toContain('Delivery Address: Asha Rao, Pune')
     expect(mail?.text).toContain('Questions? Contact hello@jaipurlooms.example.')
     expect(await texts('JL-1')).toEqual([{ message: 'order.confirmed', to: '+919800000001', brand: 'Jaipur Looms', vars: { order: 'JL-1' } }])
+  })
+
+  describe('its wording (#1502)', () => {
+    // The email's own lines, in order, from the heading to the closing line (the layout's footer is left out).
+    const body = (text: string | undefined) => {
+      const lines = (text ?? '').split('\n').map((l) => l.trim()).filter((l) => l !== '')
+      return lines.slice(lines.indexOf('Thank You for Your Order!'), lines.indexOf('Thank you for shopping with us!') + 1)
+    }
+    const confirmed = async (number: string, o: Parameters<typeof order>[1] = {}, tweak?: (id: string) => Promise<unknown>) => {
+      const id = await order(number, { phone: null, ...o })
+      await tweak?.(id)
+      await confirm(id)
+      await relay()
+      return mailTo(`Your Jaipur Looms order ${number}`)[0]
+    }
+
+    it('thanks the shopper by first name and sets out the order, the payment and where it goes', async () => {
+      const mail = await confirmed('JL-30', { method: 'cod' }, async (id) => {
+        await db.sql`update order_line set name = 'Dining Table', version_name = 'XL', quantity = 1, line_total_amount = 400000 where order_id = ${id}`
+        await db.sql`update "order" set total_amount = 400000 where id = ${id}`
+      })
+      expect(body(mail?.text)).toEqual([
+        'Thank You for Your Order!',
+        'Hi Asha,',
+        'Your order #JL-30 has been successfully confirmed.',
+        'Order Summary',
+        '1 × Dining Table (XL) — ₹4,000.00',
+        'Total: ₹4,000.00',
+        'Payment: Cash on Delivery (COD)',
+        'Delivery Address: Asha Rao, Pune',
+        'We’ll notify you when your order is dispatched.',
+        'Thank you for shopping with us!',
+      ])
+    })
+
+    it('greets without a name and leaves the delivery line out when the order has no delivery address', async () => {
+      const mail = await confirmed('JL-31', {}, (id) => db.sql`update "order" set shipping_address = null where id = ${id}`)
+      expect(body(mail?.text)).toContain('Hi,')
+      expect(body(mail?.text).some((l) => l.startsWith('Delivery Address'))).toBe(false)
+    })
+
+    it('says a bank transfer, then the transfer note, and no payment line for an order paid online', async () => {
+      const transfer = body((await confirmed('JL-32', { method: 'bank_transfer' }))?.text)
+      expect(transfer.slice(transfer.indexOf('Payment: Bank transfer'), transfer.indexOf('Payment: Bank transfer') + 2)).toEqual(['Payment: Bank transfer', 'We’ll send it once your bank transfer arrives.'])
+      expect(body((await confirmed('JL-33'))?.text).some((l) => l.startsWith('Payment:'))).toBe(false)
+    })
+
+    it('names an item without a version by its name alone', async () => {
+      const mail = await confirmed('JL-34', {}, (id) => db.sql`update order_line set version_name = null where order_id = ${id}`)
+      expect(body(mail?.text)).toContain('2 × Kurta — ₹2,000.00')
+    })
   })
 
   it('lists a customised line’s answers under it, text escaped and files counted, never attached (#1371)', async () => {
@@ -127,7 +178,7 @@ describe('the order confirmation', () => {
     const phoneOnly = await order('JL-5', { email: null })
     await confirm(phoneOnly)
     await relay()
-    expect(mailTo('Your Jaipur Looms order JL-2')[0]?.text).toContain('You pay ₹2,050.00 when it arrives.')
+    expect(mailTo('Your Jaipur Looms order JL-2')[0]?.text).toContain('Payment: Cash on Delivery (COD)')
     expect(await texts('JL-2')).toEqual([])
     for (const n of ['JL-3', 'JL-4', 'JL-5']) expect(mailTo(`Your Jaipur Looms order ${n}`), n).toEqual([])
     expect((await texts('JL-3')).length + (await texts('JL-4')).length).toBe(0)
@@ -214,8 +265,8 @@ describe('the delivery news (#311)', () => {
     // As a label booked through the courier would be (migration 0130).
     await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-40', booked_at = now() where id = ${shipment}`
     const delivered = { providerRef: null, trackingNumber: 'AWB40', status: 'delivered' as const, at: new Date('2026-10-12T10:00:00Z') }
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [delivered])).toBe(1)
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ ...delivered, at: new Date('2026-10-12T11:00:00Z') }])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [delivered])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [{ ...delivered, at: new Date('2026-10-12T11:00:00Z') }])).toBe(1)
     await relay()
     const [mail, ...again] = mailTo('Your Jaipur Looms order JL-40 was delivered')
     expect(again).toEqual([])
@@ -229,7 +280,7 @@ describe('the delivery news (#311)', () => {
     const shipment = made.ok ? (made.value[0] ?? '') : ''
     await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-41', booked_at = now() where id = ${shipment}`
     await db.sql`insert into store_courier (store_id, provider, role, label_size, tracking_emails) values (${t.storeA1}, 'shiprocket', 'pricing', 'a6', false)`
-    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ providerRef: null, trackingNumber: 'AWB41', status: 'delivered', at: new Date() }])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, { partnerId: t.partnerA, storeId: t.storeA1 }, 'shiprocket', [{ providerRef: null, trackingNumber: 'AWB41', status: 'delivered', at: new Date() }])).toBe(1)
     expect(await db.sql`select 1 from outbox where kind = ${orderUpdateKind} and payload ->> 'event' = 'delivered' and payload ->> 'orderId' = ${id}`).toHaveLength(0)
     await db.sql`delete from store_courier where store_id = ${t.storeA1}`
   })

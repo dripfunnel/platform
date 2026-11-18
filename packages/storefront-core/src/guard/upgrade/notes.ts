@@ -34,6 +34,39 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '1.0.0',
+    kind: 'major',
+    security: false,
+    notes: [
+      'The header menu now always draws the fixed links around the merchant\'s own items (#1481): Home, Shop all, the items of `useMenu().items` (or, while there are none, the automatic list of collections), About and Contact. Before, the merchant\'s first menu item replaced Shop all, About and Contact. The phone menu draws the same links.',
+      '`useMenu` now keeps the menu a live page was built with and never asks the Shop API for another, so a header cannot change after the page has loaded and shows the same on every reload; a menu change reaches the live site with the next publish. The preview and the studio still load the current menu.',
+      'The codemods rewrite the header of a Classic or Baseline theme that still has the shipped markup. A theme that draws its own header places the fixed links around `menu.items` itself and draws nothing that depends on the menu changing after load.',
+      'A cart with an age-restricted product now asks for age confirmation at Review (#1443): `<PlaceOrder>` stays disabled until the box is ticked, and draws the box just above itself in a theme that doesn\'t place it, so no change is needed. To choose where it sits, place `<AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} />` above `<PlaceOrder>`; it renders nothing for other carts.',
+      'The sealed `<Price>` no longer puts the word "Was" before the crossed-out compare-at price (#1357). No code change is needed: a theme that styles `::part(was)` keeps working; a theme or visual test that expects the text "Was {price}" must drop it.',
+      'A product whose stock isn\'t tracked no longer says "In stock" (#1278): in `src/theme/pages/ProductPage.tsx`, show the stock `<p role="status">` only when an option is still to choose or `page.stock?.available` is a number. The last codemod makes that edit in a theme still holding a starting theme\'s text.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/Layout.tsx'],
+        find: '              <Link href="/" className={styles.navLink}>\n                {t(\'common.nav.home\')}\n              </Link>\n              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                <>\n                  <Link href="/collections/all/" className={styles.navLink}>\n                    {t(\'common.nav.shopAll\')}\n                  </Link>\n                  {collections.map((c) => (\n                    <Link key={c.id} href={c.href} className={styles.navLink}>\n                      {c.name}\n                    </Link>\n                  ))}\n                  <Link href="/about/" className={styles.navLink}>\n                    {t(\'common.nav.about\')}\n                  </Link>\n                  <Link href="/contact/" className={styles.navLink}>\n                    {t(\'common.nav.contact\')}\n                  </Link>\n                </>\n              )}\n            </nav>',
+        replace: '              <Link href="/" className={styles.navLink}>\n                {t(\'common.nav.home\')}\n              </Link>\n              <Link href="/collections/all/" className={styles.navLink}>\n                {t(\'common.nav.shopAll\')}\n              </Link>\n              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                collections.map((c) => (\n                  <Link key={c.id} href={c.href} className={styles.navLink}>\n                    {c.name}\n                  </Link>\n                ))\n              )}\n              <Link href="/about/" className={styles.navLink}>\n                {t(\'common.nav.about\')}\n              </Link>\n              <Link href="/contact/" className={styles.navLink}>\n                {t(\'common.nav.contact\')}\n              </Link>\n            </nav>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/Layout.tsx'],
+        find: '              {menu.items.length ? (\n                menu.items.map((item) => <NavItem key={item.id} item={item} />)\n              ) : (\n                <Link href="/collections/all/" className={styles.navLink}>\n                  {t(\'common.nav.shop\')}\n                </Link>\n              )}\n              <Link href="/about/" className={styles.navLink}>',
+        replace: '              <Link href="/collections/all/" className={styles.navLink}>\n                {t(\'common.nav.shop\')}\n              </Link>\n              {menu.items.map((item) => (\n                <NavItem key={item.id} item={item} />\n              ))}\n              <Link href="/about/" className={styles.navLink}>',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: '            <p className={styles.stock} role="status">\n              {firstMissing ? t(\'shop.product.choose\', { option: firstMissing.name }) : page.stock?.inStock ? t(\'shop.product.inStock\') : t(\'shop.product.outOfStock\')}\n            </p>',
+        replace: '            {firstMissing || typeof page.stock?.available === \'number\' ? (\n              <p className={styles.stock} role="status">\n                {firstMissing ? t(\'shop.product.choose\', { option: firstMissing.name }) : page.stock?.inStock ? t(\'shop.product.inStock\') : t(\'shop.product.outOfStock\')}\n              </p>\n            ) : null}',
+      },
+    ],
+  },
+  {
     version: '0.14.0',
     kind: 'minor',
     security: false,
@@ -54,6 +87,13 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
         paths: ['src/theme/pages/ProductPage.tsx'],
         find: '<Options page={page} />\n            <p className={styles.stock} role="status">',
         replace: '<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            <p className={styles.stock} role="status">',
+      },
+      // The same place in the markup #1278 shipped, where the stock line shows only when there is stock to say.
+      {
+        kind: 'replace',
+        paths: ['src/theme/pages/ProductPage.tsx'],
+        find: '<Options page={page} />\n            {firstMissing || ',
+        replace: '<Options page={page} />\n            <SizeChart chart={product.sizeChart} className={styles.sizeLink} />\n            {firstMissing || ',
       },
       {
         kind: 'replace',

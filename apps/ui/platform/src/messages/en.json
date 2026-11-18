@@ -635,6 +635,296 @@
         },
         "toasts": { "saved": "Google sign-in is on.", "off": "Google sign-in is off.", "failed": "That didn’t go through. Nothing was changed. Try again." }
       },
+      "whatsapp": {
+        "title": "WhatsApp",
+        "note": "Your own WhatsApp Business account on Meta’s Cloud API, so codes and cart reminders come from your number and name. While it’s on, merchants signing up are asked for a mobile number, and sign-up and sign-in codes go by WhatsApp first. The token is stored encrypted and never shown again; only its last 4 characters are.",
+        "loading": "Loading WhatsApp",
+        "error": { "title": "WhatsApp couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+        "none": "No account yet. Merchants signing up aren’t asked for a mobile number, and codes are texted.",
+        "noneOurs": "No account of your own yet. DripFunnel’s account sends while WhatsApp is on, from DripFunnel’s number and name.",
+        "available": "DripFunnel’s WhatsApp account is available to you. If DripFunnel turns it off for you, your own account sends or, without one, WhatsApp stops: sign-in codes are texted and cart reminders go by email. Your On or Off still decides whether WhatsApp is used.",
+        "sender": {
+          "label": "Sent by",
+          "own": "Your account",
+          "ours": "DripFunnel’s account",
+          "none": "No account"
+        },
+        "choiceDialog": {
+          "change": "Change who sends",
+          "title": "Whose account sends WhatsApp messages?",
+          "label": "Account",
+          "own": "Your account",
+          "ownHint": "Codes and cart reminders come from your number and name.",
+          "ownMissing": "Not set up yet: DripFunnel’s account sends until you set yours up.",
+          "ours": "DripFunnel’s account",
+          "oursHint": "Codes and cart reminders come from DripFunnel’s number and name. If DripFunnel turns it off for you, your own account sends, or none.",
+          "consequenceOwn": "Your account will send codes and cart reminders while WhatsApp is on.",
+          "consequenceNoOwn": "DripFunnel’s account keeps sending until you set up your own; then yours sends.",
+          "consequenceOurs": "DripFunnel’s account will send codes and cart reminders while WhatsApp is on, even once you have your own.",
+          "confirm": "Save"
+        },
+        "on": "On",
+        "off": "Off",
+        "businessAccountLabel": "WhatsApp Business Account ID",
+        "phoneNumberLabel": "Phone-number ID",
+        "tokenLabel": "Access token",
+        "languageLabel": "Template language",
+        "templatesLabel": "Templates",
+        "messages": {
+          "code.portal": "Portal codes (code.portal)",
+          "cart.reminder": "Cart reminder (cart.reminder)",
+          "cart.reminder_code": "Cart reminder with a discount code (cart.reminder_code)"
+        },
+        "notUsed": "Not used",
+        "statuses": { "ok": "Working", "untested": "Not checked", "rejected": "Rejected" },
+        "lastTested": "Last checked {when}",
+        "neverTested": "Never checked",
+        "rejectedNote": "Meta rejected this account at its last check, so WhatsApp stays off. Test it again once it’s fixed in Meta, or replace it.",
+        "needsCodeTemplate": "Turning on needs the code.portal template: name your approved authentication template, and Test until the account says Working.",
+        "setUp": "Set up WhatsApp",
+        "replace": "Replace account",
+        "test": "Test",
+        "testing": "Testing…",
+        "turnOn": "Turn on",
+        "turnOff": "Turn off",
+        "remove": "Remove",
+        "blocked": "Support can’t see or change WhatsApp while signed in as {user}. Only the partner’s Owners and Admins can.",
+        "dialog": {
+          "title": "WhatsApp Business account",
+          "target": "Your account on Meta’s Cloud API",
+          "consequence": "DripFunnel checks it with Meta before saving: the phone number, and each template you name, approved in this language. Nothing is sent. A token you replace stops working here at once.",
+          "save": "Check and save",
+          "businessAccountHint": "In WhatsApp Manager, under Account tools. Digits only.",
+          "phoneNumberHint": "In your Meta app, under WhatsApp › API setup. Digits only, not the phone number itself.",
+          "tokenHint": "A system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management. Meta shows it once; we never show it again.",
+          "languageHint": "The language your templates are approved in, as Meta writes it: en, en_US, hi.",
+          "templateHints": {
+            "code.portal": "Your approved authentication template with a Copy code button. Needed to turn WhatsApp on; blank texts the codes instead.",
+            "cart.reminder": "Register it word for word: “{{1}}: you left {{2}} in your cart. It’s saved for you: {{3}}”. Blank sends cart reminders by email.",
+            "cart.reminder_code": "Register it word for word: “{{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}}”. Blank sends these by email."
+          },
+          "incomplete": "Enter both IDs (digits from Meta), the token, a language such as en or en_US, and template names in lowercase letters, digits and underscores.",
+          "codeTemplateNeeded": "WhatsApp is on, so the code.portal template can’t be blank. Turn WhatsApp off first to save without it."
+        },
+        "onDialog": {
+          "title": "Turn on WhatsApp?",
+          "target": "WhatsApp on your portal",
+          "consequence": "Merchants signing up are asked for a mobile number, and sign-up and sign-in codes go by WhatsApp first, through your number and its code.portal template. While SMS is on, people can ask for a text instead.",
+          "consequenceOurs": "Merchants signing up are asked for a mobile number, and sign-up and sign-in codes go by WhatsApp first, through DripFunnel’s number. While SMS is on, people can ask for a text instead.",
+          "confirm": "Turn on WhatsApp"
+        },
+        "offDialog": {
+          "title": "Turn off WhatsApp?",
+          "target": "WhatsApp on your portal",
+          "consequence": "Merchants signing up won’t be asked for a mobile number, and sign-in codes will be texted. While SMS is off too, no codes are sent and people who use phone codes sign in without 2-factor. Cart reminders go by email. The account stays saved: turn it back on at any time.",
+          "confirm": "Turn off WhatsApp"
+        },
+        "removeDialog": {
+          "title": "Remove the WhatsApp account?",
+          "target": "Your WhatsApp Business account",
+          "consequence": "The token, IDs and template names are deleted here, and WhatsApp stays off until an account is set up again. Merchants signing up won’t be asked for a mobile number, and sign-in codes will be texted. While SMS is off too, no codes are sent and people who use phone codes sign in without 2-factor. Cart reminders go by email.",
+          "consequenceOurs": "The token, IDs and template names are deleted here. While WhatsApp is on, DripFunnel’s account sends your codes and cart reminders from now on.",
+          "confirm": "Remove account"
+        },
+        "problems": {
+          "token": "Meta refused the access token. Check it’s a system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management.",
+          "phone_number": "Meta refused the phone-number ID: it doesn’t exist, or the token can’t reach it.",
+          "business_account": "Meta refused the WhatsApp Business Account ID: it doesn’t exist, or the token can’t read its templates.",
+          "template": "Meta has no approved template “{name}” in {language} for {message}. Check its name, language and approval in WhatsApp Manager."
+        },
+        "refusals": {
+          "INVALID_INPUT": "Something in that isn’t in Meta’s shape. Check both IDs, the token, the language and the template names.",
+          "KEY_REJECTED": "Meta rejected the account.",
+          "PROVIDER_UNAVAILABLE": "Meta couldn’t be reached. Nothing was changed. Try again in a minute.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "There’s no WhatsApp account saved any more. Reload the page.",
+          "NO_ACCOUNT": "Set up a WhatsApp account before turning WhatsApp on.",
+          "NO_CODE_TEMPLATE": "Turning on needs the code.portal template, named and Working at the last check. Replace the account to name it, then Test.",
+          "DRIPFUNNEL_UNAVAILABLE": "DripFunnel’s account isn’t available to you any more. Nothing was changed. Reload the page."
+        },
+        "toasts": {
+          "saved": "WhatsApp account saved.",
+          "ok": "WhatsApp works: Meta accepted the number and every template.",
+          "rejected": "Meta rejected the WhatsApp account.",
+          "rejectedOff": "Meta rejected the WhatsApp account, so WhatsApp is off.",
+          "on": "WhatsApp is on.",
+          "off": "WhatsApp is off.",
+          "removed": "WhatsApp account removed.",
+          "chosenOwn": "Your account sends WhatsApp messages.",
+          "chosenOurs": "DripFunnel’s account sends WhatsApp messages.",
+          "failed": "That didn’t go through. Nothing was changed. Try again."
+        }
+      },
+      "sms": {
+        "title": "SMS",
+        "note": "Your own SMS accounts, so sign-in codes, order updates and rider invites go out under your sender name. Each secret is stored encrypted and never shown again; only its last 4 characters are.",
+        "fallback": "A route sends only through an account of yours: Indian numbers need MSG91, or AWS SNS with its DLT sender id, entity id and all seven template ids; other numbers need Twilio or AWS SNS. A route with none sends no texts.",
+        "available": "DripFunnel’s account is available to you: it sends any route you haven’t set up, and you can pick it for a route with Change. If DripFunnel turns it off for you, each route goes back to your own account or, without one, sends no texts.",
+        "loading": "Loading SMS",
+        "error": {
+          "title": "SMS couldn’t be loaded",
+          "body": "Nothing was changed. Try again.",
+          "retry": "Try again"
+        },
+        "on": "On",
+        "off": "Off",
+        "offNote": "SMS is off: no texts go to your merchants or their shoppers, through any account.",
+        "offRoute": "Nothing is sent while SMS is off",
+        "routes": {
+          "india": "India (+91)",
+          "rest": "Other countries"
+        },
+        "routeNumbers": {
+          "india": "Indian numbers",
+          "rest": "numbers outside India"
+        },
+        "sentByLine": "Sent by {who}",
+        "sentBy": {
+          "ours": "DripFunnel’s account",
+          "yours": "your {provider} account",
+          "none": "no account"
+        },
+        "unsent": "No account sends these, so no texts go",
+        "noneTo": "No texts will go to {numbers}: no account sends them.",
+        "change": "Change who sends to {route}",
+        "providers": {
+          "msg91": "MSG91",
+          "twilio": "Twilio",
+          "sns": "AWS SNS"
+        },
+        "serves": {
+          "msg91": "Sends to Indian numbers, with your DLT-approved templates.",
+          "twilio": "Sends to numbers outside India.",
+          "sns": "Sends to numbers outside India, and to Indian numbers once its DLT details are in."
+        },
+        "notSetUp": "Not set up.",
+        "secretLabels": {
+          "msg91": "Auth key",
+          "twilio": "Auth token",
+          "sns": "Secret access key"
+        },
+        "india": {
+          "complete": "India: the DLT details and all seven template ids are in.",
+          "incomplete": "India: no DLT details, so it doesn’t send to Indian numbers."
+        },
+        "statuses": {
+          "ok": "Working",
+          "untested": "Not tested",
+          "rejected": "Rejected"
+        },
+        "lastTested": "Last tested {when}",
+        "neverTested": "Never tested",
+        "rejectedNote": "{provider} rejected this account at its last test, but its routes still go through it. Fix it with {provider} and test again, replace it, or remove it so another account sends.",
+        "setUp": "Set up {provider}",
+        "replace": "Replace {provider}",
+        "test": "Test {provider}",
+        "testing": "Testing…",
+        "remove": "Remove {provider}",
+        "short": { "setUp": "Set up", "replace": "Replace", "test": "Test", "remove": "Remove", "change": "Change" },
+        "turnOn": "Turn on",
+        "turnOff": "Turn off",
+        "blockedAction": "Set up SMS",
+        "blocked": "Support can’t see or change SMS while signed in as {user}. Only the partner’s Owners and Admins can.",
+        "messages": {
+          "code.second_factor": "2-factor sign-in code (code.second_factor)",
+          "code.verify_phone": "Phone check code (code.verify_phone)",
+          "code.shopper_sign_in": "Shopper and rider sign-in code (code.shopper_sign_in)",
+          "order.confirmed": "Order confirmed (order.confirmed)",
+          "order.shipped": "Order shipped (order.shipped)",
+          "order.delivered": "Order delivered (order.delivered)",
+          "rider.invited": "Rider invite (rider.invited)"
+        },
+        "fields": {
+          "authKey": "Auth key",
+          "accountSid": "Account SID",
+          "authToken": "Auth token",
+          "messagingServiceSid": "Messaging service SID",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "region": "Region",
+          "senderId": "DLT sender id (header)",
+          "entityId": "DLT entity id"
+        },
+        "dialog": {
+          "title": "{provider} account",
+          "target": "Your own account with {provider}",
+          "consequence": "DripFunnel checks it with {provider} before saving, with one call that sends nothing. Every field is typed again on a replace, and the secret it replaces stops working here at once.",
+          "save": "Check and save",
+          "hints": {
+            "authKey": "In MSG91 under API › Auth key, with IP whitelisting off for it. 16 to 64 letters and digits.",
+            "accountSid": "On your Twilio console’s home page: AC and 32 characters.",
+            "authToken": "Next to the account SID: 32 characters.",
+            "messagingServiceSid": "Under Messaging › Services, with your sender in it: MG and 32 characters.",
+            "accessKeyId": "An IAM user’s key allowed sns:Publish: AKIA or ASIA and 16 more.",
+            "secretAccessKey": "Shown once by AWS when the key is made: 40 characters.",
+            "region": "Where SNS sends from, such as ap-south-1.",
+            "senderId": "Your DLT-registered header: 3 to 11 letters or digits.",
+            "entityId": "Your DLT principal entity id: digits only."
+          },
+          "templatesMsg91": "Each message’s MSG91 Flow id, all seven, each on your DLT-approved template.",
+          "indiaSns": "India, optional: your DLT sender id, entity id and all seven DLT template ids. Leave them all blank to send to numbers outside India only.",
+          "incomplete": {
+            "msg91": "Enter the auth key and all seven template ids (letters, digits, - and _).",
+            "twilio": "Enter the account SID (AC and 32 characters), the auth token (32) and the messaging service SID (MG and 32).",
+            "sns": "Enter the access key ID, the 40-character secret and a region such as ap-south-1. For India, fill the sender id, the entity id and all seven template ids, or leave them all blank."
+          }
+        },
+        "routeDialog": {
+          "title": "Who sends to {numbers}?",
+          "label": "Account",
+          "automatic": "Whichever is set up: {first}, else {second}",
+          "today": "Now: {who}",
+          "hints": {
+            "complete": "Set up for this route.",
+            "incomplete": "Saved, without India’s DLT details.",
+            "missing": "Not set up."
+          },
+          "ours": "DripFunnel’s account",
+          "oursHint": "Available from DripFunnel. If DripFunnel turns it off for you, texts to {numbers} go through your own account, or none go.",
+          "consequence": "Texts to {numbers} will go through {who}.",
+          "confirm": "Save"
+        },
+        "onDialog": {
+          "title": "Turn on SMS?",
+          "target": "SMS on your portal",
+          "consequence": "Texts go to your merchants and their shoppers again: sign-in codes by SMS, order updates and rider invites, each route through the account shown.",
+          "confirm": "Turn on SMS"
+        },
+        "offDialog": {
+          "title": "Turn off SMS?",
+          "target": "SMS on your portal",
+          "consequence": "No texts will go to your merchants or their shoppers: no sign-in codes by SMS, order updates or rider invites. While WhatsApp is off too, no codes are sent and people who use phone codes sign in without 2-factor. Your accounts stay saved: turn it back on at any time.",
+          "confirm": "Turn off SMS"
+        },
+        "removeDialog": {
+          "title": "Remove the {provider} account?",
+          "target": "Your {provider} account",
+          "deleted": "Its secret and details are deleted here.",
+          "route": "Texts to {numbers} will go through {who}.",
+          "none": "It sends no route now, so no text changes.",
+          "confirm": "Remove account"
+        },
+        "refusals": {
+          "INVALID_INPUT": "Something in that isn’t in {provider}’s shape. Check each field.",
+          "TEMPLATES_INCOMPLETE": "India needs all seven template ids. For an AWS SNS account that sends outside India only, leave India’s fields blank.",
+          "ACCOUNT_INCOMPLETE": "Your {provider} account can’t send there yet. Set it up with India’s DLT details first.",
+          "KEY_REJECTED": "{provider} rejected these details. Check them in your {provider} account.",
+          "PROVIDER_UNAVAILABLE": "{provider} couldn’t be reached. Nothing was changed. Try again in a minute.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "There’s no {provider} account saved any more. Reload the page.",
+          "DRIPFUNNEL_UNAVAILABLE": "DripFunnel’s account isn’t available for this route any more. Nothing was changed. Reload the page."
+        },
+        "toasts": {
+          "saved": "{provider} account saved.",
+          "ok": "{provider} works: it accepted the account.",
+          "rejected": "{provider} rejected the account.",
+          "route": "Texts to {numbers} go through {who}.",
+          "on": "SMS is on.",
+          "off": "SMS is off.",
+          "removed": "{provider} account removed.",
+          "failed": "That didn’t go through. Nothing was changed. Try again."
+        }
+      },
       "title": "AI accounts",
       "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
       "loading": "Loading your AI accounts",
@@ -1009,10 +1299,12 @@
     "loading": "Loading stores",
     "tableLabel": "Stores",
     "newestFirst": "Newest first",
+    "noCategory": "—",
     "columns": {
       "store": "Store",
       "owner": "Owner",
       "plan": "Plan",
+      "category": "Category",
       "status": "Status",
       "sales": "Sales last month",
       "storefront": "Storefront",
@@ -1074,6 +1366,8 @@
       "anyStatus": "Any status",
       "plan": "Plan",
       "anyPlan": "Any plan",
+      "category": "Category",
+      "anyCategory": "Any category",
       "created": "Created",
       "anyTime": "Any time",
       "month": "This month",

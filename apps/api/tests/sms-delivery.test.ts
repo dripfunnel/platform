@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SmsRefused, SmsUnavailable, type OutgoingSms, type SmsSender } from '#core/sms'
+import { routeProviders, SmsRefused, SmsUnavailable, type OutgoingSms, type SmsSender } from '#core/sms'
 import { withSystemScope } from '#db/scoped/index'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
@@ -25,9 +25,9 @@ afterAll(async () => {
   await db?.drop()
 })
 
-/** Each partner's accounts, as #275 will read them; partner B has none. */
+/** Each partner's accounts, the first one serving the route; partner B has none. */
 const accountsOf = (byPartner: Record<string, PartnerSmsAccount[]>): PartnerSmsAccounts => ({
-  forPartner: async (_tx, partnerId, provider) => byPartner[partnerId]?.find((a) => a.provider === provider) ?? null,
+  forPartner: async (_tx, partnerId, route) => byPartner[partnerId]?.find((a) => (routeProviders[route] as readonly string[]).includes(a.provider)) ?? null,
 })
 
 const fakeSenders = () => {
@@ -44,7 +44,7 @@ const fakeSenders = () => {
       return { providerId: `p-${sent.length}` }
     },
   })
-  const senders: SmsSenders = { msg91: () => sender('msg91'), twilio: () => sender('twilio') }
+  const senders: SmsSenders = { msg91: () => sender('msg91'), twilio: () => sender('twilio'), sns: () => sender('sns') }
   return { senders, sent, failNext: (error: Error) => (next = error) }
 }
 
@@ -116,8 +116,8 @@ describe('texts through the outbox', () => {
     expect(sent).toEqual([])
     expect(counts).toMatchObject({ delivered: 0, dropped: 2 })
     expect(await pending()).toBe(0)
-    const rows = await db.sql<{ last_error: string; delivered_at: Date | null }[]>`select last_error, delivered_at from outbox where kind = 'sms' and last_error in ('no_twilio_account', 'no_dlt_template')`
-    expect(rows.map((r) => r.last_error).sort()).toEqual(['no_dlt_template', 'no_twilio_account'])
+    const rows = await db.sql<{ last_error: string; delivered_at: Date | null }[]>`select last_error, delivered_at from outbox where kind = 'sms' and last_error in ('no_rest_account', 'no_dlt_template')`
+    expect(rows.map((r) => r.last_error).sort()).toEqual(['no_dlt_template', 'no_rest_account'])
     expect(rows.every((r) => r.delivered_at === null)).toBe(true)
   })
 
@@ -172,6 +172,7 @@ describe('texts through the outbox', () => {
     const senders: SmsSenders = {
       msg91: (c) => ({ send: async (sms) => (used.push(`msg91:${c.authKey}:${sms.dlt?.templateId ?? ''}`), { providerId: 'm' }) }),
       twilio: (c) => ({ send: async () => (used.push(`twilio:${c.accountSid}`), { providerId: 't' }) }),
+      sns: (c) => ({ send: async () => (used.push(`sns:${c.accessKeyId}`), { providerId: 's' }) }),
     }
     const accounts = accountsOf({
       [t.partnerA]: [msg91, twilio],

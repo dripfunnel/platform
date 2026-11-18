@@ -118,10 +118,10 @@ export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loa
         </p>
       )}
       <div className="df-list-toolbar">
-        <StoreFilters filter={filter} plans={page.plans} onChange={onFilterChange} />
+        <StoreFilters filter={filter} plans={page.plans} categories={page.categories} onChange={onFilterChange} />
         <p className="df-muted">{words.newestFirst}</p>
       </div>
-      <FilterChips filter={filter} plans={page.plans} />
+      <FilterChips filter={filter} plans={page.plans} categories={page.categories} />
       {items.length === 0 ? (
         <EmptyState
           title={words.noMatch.title}

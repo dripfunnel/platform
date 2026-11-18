@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the partner's WhatsApp on Meta's Cloud API first, by SMS on request after 20 s; sign-up asks for a number only while the partner's WhatsApp is on, §2, §4). Before: 2026-11-12 (#1404: a signed-in shopper adds or changes their mobile number with a text code, §2.1). Before: 2026-11-09 (#1367: product customisation: a supplier's questions and its lines' answers, an extra's price sends an approved product back, answers and uploads hidden from support, the isolation rows, §7.1, §7.2, §8, §11.1). Before: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-17 (#1543: DripFunnel's SMS and WhatsApp, enabled per partner in the admin console, the partner choosing whose account sends; `messaging.read`, `messaging.manage`, `partners.messaging`; the decision row on a DripFunnel WhatsApp number, §1, §4, §5.4, §11.1). Before: 2026-11-17 (#1542: SMS counts as open on a route the partner's own account serves, with or without DripFunnel's, §4). Before: 2026-11-17 (#1531: a portal's ended staff-session card shows only in the tab that saw the session open, §8.3). Before: 2026-11-16 (#1529: `storeCategories.read` and `storeCategories.manage`, §5.4). Before: 2026-11-16 (with Gaurav: the both-off skip never reaches an authenticator-app person or a failed send, and a partner's Owner or Admin can therefore lift phone codes, accepted, §4 and its decision row). Before: 2026-11-16 (#1506: portal codes go by WhatsApp first and by SMS on request after 20 s, built; with both channels off a phone-method person signs in without 2-factor, logged as skipped, §4). Before: 2026-11-16 (#1504: the partner's WhatsApp account and switch under `integrations.write`, §5.3, refused to an impersonation, §8.1; On needs the approved `code.portal` template, decided with Gaurav, §4). Before: 2026-11-16 (#1017: the partner's SMS accounts and SMS switch under `integrations.write`, §5.3, and refused to an impersonation, §8.1, §8.3). Before: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the partner's WhatsApp on Meta's Cloud API first, by SMS on request after 20 s; sign-up asks for a number only while the partner's WhatsApp is on, §2, §4). Before: 2026-11-12 (#1404: a signed-in shopper adds or changes their mobile number with a text code, §2.1). Before: 2026-11-09 (#1367: product customisation: a supplier's questions and its lines' answers, an extra's price sends an approved product back, answers and uploads hidden from support, the isolation rows, §7.1, §7.2, §8, §11.1). Before: 2026-11-09 (#1344: staff impersonating and a support session that may write can do everything in a store but the person's sign-in, switching store, the Owner change, the shoppers and, for support, its own access; the studio frame opens in both, §8, §8.1, §8.3). Before: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -46,7 +46,7 @@ Last updated: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the 
 | **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper but its own lines' answers to a product's questions, §7.1) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
 | **Each supplier refunds its own items; the store can override; the override goes to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
 | **2-factor is optional for everyone, Owners included, and off by default** in the people pool (decided 2026-10-29 on #1008, reversing 2026-10-02's "required for Owners"): authenticator app or SMS, ten single-use backup codes, turned on and off in My profile (§2, §4). "Require 2-factor for the whole team" (§14.4) is not built | Required for Owners; required for everyone; nobody | The prototype still shows the Owner as required (its `enrol` view and the Owner wording in My profile); the docs win here (designs/INCOMPLETE-FEATURES.md). |
-| **A portal code goes by WhatsApp first, by SMS only when the person asks after 20 seconds; sign-up asks for a number only while the partner's WhatsApp is on** (decided 2026-11-16 with Gaurav, not built yet; §4, [SAAS.md](SAAS.md) §4.1) | SMS only (as built on #290); an automatic SMS switch on Meta's failure report; a DripFunnel WhatsApp number for partners without one; WhatsApp required before a partner goes Live | WhatsApp reaches merchants in India more reliably than DLT texts. The person chooses SMS, so nothing waits on Meta's delivery report. A partner without WhatsApp blocks nobody: sign-up skips the number, and a DripFunnel number would break the white label (#272). |
+| **A portal code goes by WhatsApp first, by SMS only when the person asks after 20 seconds; sign-up asks for a number only while the partner's WhatsApp is on** (decided 2026-11-16 with Gaurav, built on #1506; §4, [SAAS.md](SAAS.md) §4.1) | SMS only (as built on #290); an automatic SMS switch on Meta's failure report; a DripFunnel WhatsApp number for every partner without one; WhatsApp required before a partner goes Live; with both channels off, a backup code only, or no sign-in at all | WhatsApp reaches merchants in India more reliably than DLT texts. The person chooses SMS, so nothing waits on Meta's delivery report. A partner without WhatsApp blocks nobody: sign-up skips the number, and a DripFunnel number for everyone would break the white label (#272). **Reversed in part on 2026-11-17 by Gaurav (#1543)**: DripFunnel's own WhatsApp (and SMS) account may send for a partner Admin enables it for and that chooses it, or has none of its own; Admin enabling it starts nothing, the partner's own On still decides (THIRD-PARTY-ACCESS §4). With both channels off, a person on the phone method signs in without 2-factor (decided 2026-11-16 by Gaurav), so a partner's switch can't lock its merchants out; the skip never applies to the authenticator app or to a failed send, and each switch is audited. The partner's Owner or Admin can thereby lift phone codes for a merchant's Owner; accepted, as the partner already controls whether codes can reach a phone. |
 | **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02); a question's charge-setting fields count as a price (decided 2026-11-09 by Gaurav on #1367, §7.2) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those fields change what the shopper is sold and pays. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
 | **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-02 on #186's review with the prototype's modal, replacing the morning's "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
 
@@ -350,16 +350,56 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   left. **A person with 2-factor off, an Owner included, signs in with email and password alone** (decided 2026-10-29 on #1008, reversing 2026-10-02): a new Owner goes straight into the store after sign-up step 4, and a person turns it on or off in My profile › Two-step sign-in, with their password. The Store schema keeps `TwoFactor.required`, deprecated and always `false`, for released merchant mobile builds, which still select it; the app itself stopped in #1008, and the field can go once those builds are retired. Setting up shows the authenticator secret and the backup codes
   **once**, at creation, and never again (ui/README.md §3). Codes are rate-limited like
   passwords; a used backup code is spent in the same transaction that admits the session.
-- **How a portal code reaches a phone** (decided 2026-11-16 with Gaurav; not built yet, today every code is texted): the
-  sign-up number check, the code that sets up the phone method in My profile (`setSecondFactor`) and the 2-factor sign-in
-  code go **by WhatsApp first**, through the partner's own WhatsApp Business account on Meta's Cloud API, as its approved
-  authentication template ([THIRD-PARTY-ACCESS](../code/THIRD-PARTY-ACCESS.md) §4). The screen says the code went to
-  WhatsApp; after **20 seconds** it offers **Send again on WhatsApp** and, while the partner's SMS is on (its own account or
-  DripFunnel's, #1017), **Send by SMS instead**, which texts a new code. The person chooses: nothing switches on Meta's
-  delivery report. Both channels send the same 6-digit code under the limits
-  above, counted together. With the partner's WhatsApp off, sign-up skips the number ([SAAS.md](SAAS.md) §4.1) and the other
-  codes are texted as before. With the partner's SMS also turned off nothing reaches a phone: 2-factor offers only the
-  authenticator app, and a person already on the phone method signs in with a backup code until a channel is back on *(confirm)*.
+- **How a portal code reaches a phone** (decided 2026-11-16 with Gaurav, built on #1506): the sign-up number check, the
+  code that sets up the phone method in My profile (`setSecondFactor`, and `enrol-second-factor` for a held session) and the
+  2-factor sign-in code go **by WhatsApp first**, through the partner's own WhatsApp Business account on Meta's Cloud API,
+  or DripFunnel's where Admin enabled it for the partner and the partner chose it or has none (#1543),
+  as its approved authentication template `code.portal` ([THIRD-PARTY-ACCESS](../code/THIRD-PARTY-ACCESS.md) §4). The screen
+  says the code went to WhatsApp; after **20 seconds** it offers **Send again on WhatsApp** and, while SMS is open, **Send
+  by SMS instead**, which texts a new code through the account that serves the number's route: the partner's own, or
+  DripFunnel's where Admin enabled it and the partner chose it or has none of its own (#1543). The person chooses: nothing switches on Meta's delivery report. **WhatsApp On means codes go by
+  WhatsApp, so it needs the approved `code.portal` template** (built on #1504): On is refused unless the account that
+  would send carries it: its own saved account whose `code.portal` is named and whose last check says *Working*, or
+  DripFunnel's usable account where that is the one that sends (#1543); while On, a save without it is refused; and a check Meta
+  rejects turns WhatsApp off. With the partner's WhatsApp off, sign-up skips the number ([SAAS.md](SAAS.md) §4.1) and the
+  other codes are texted. **Built on #1506**:
+  - **The channels for a number.** WhatsApp is open while the partner's WhatsApp is on and the account that sends, its
+    own or DripFunnel's, names `code.portal` (#1543). SMS is open while the partner's SMS is on and an account serves the
+    number's route (`india` or `rest`): the partner's own, whatever state DripFunnel's is in (#1542), or DripFunnel's
+    where Admin enabled it for the partner and the partner chose it or has none of its own for the route (decided
+    2026-11-17 by Gaurav, built on #1543; THIRD-PARTY-ACCESS §4). With Admin's switch off, a partner without its own
+    account has neither channel, so its people on the phone method sign in without 2-factor (above). Both switches start
+    off for every partner, existing ones included (decided on #1543): from #1543's promote until staff enter DripFunnel's
+    accounts and switch a partner on, a partner that relied on DripFunnel's SMS is in that state, which is why prod.md
+    §6 has staff do it straight after the promote. Before a
+    number is known (the `brand`, sign-up's number step) they are the partner's: SMS counts as open when some route is
+    served (`saas/portalCodes`).
+  - **One send** (`apis/store/codes.ts`, its rule in `auth/storeCodes.ts`): `send-code`, `enrol-second-factor` (`sms`),
+    `setSecondFactor('sms')` and `sign-up/send-phone` each take an optional `channel`, `whatsapp` or `sms`; without one
+    the code goes by WhatsApp while it is open, else by SMS, so released app builds, which send none, keep working. A
+    closed channel is refused `CHANNEL_OFF`; `sms` within 20 s of a WhatsApp send for the same purpose is refused
+    `TOO_SOON` with the `seconds` left, by the server. Both channels send the same 6-digit code row
+    (`verification_code.channel`, `signup_text.channel`), and the limits above count them together; a new send replaces
+    the code before it, so only the newest works.
+  - **What the steps say**: sign-in's `second-factor` answer for the phone method, each send's answer, sign-up's store
+    step and `sign-up/resume` carry `codeChannels: { whatsapp, sms }`; a send's answer adds `channel` (where the code went)
+    and the number's last four (`hint`), never the number. The Store API's `brand` and `profile` have `codeChannels`, and
+    `SecondFactorStep` has `channel`.
+  - **With neither channel open** for a person's number, `setSecondFactor('sms')` is refused `CHANNEL_OFF`.
+  - **With the partner's WhatsApp and SMS both turned off**, a person already on the phone method **signs in without
+    2-factor** (decided 2026-11-16 by Gaurav), at sign-in, Google sign-in, reset and an accepted invitation alike: the full
+    session opens as for no 2-factor, the method is kept and applies again once either is turned on, and
+    `person.second_factor_skipped` (reason `phone_channels_off`) is logged with the sign-in (LOGGING.md §3). Only the
+    partner's two switches lift the code (#1524's review): where a switch is on but nothing can send (no account for the
+    number's route, or a Worker without SMS), the second factor is still asked for, and a backup code stands in. An
+    authenticator-app person is always asked for their code. Only the partner's Owner or Admin (`integrations.write`, never an
+    impersonation) turns a channel off, each switch in the partner's own activity log (`partner.sms_disabled`,
+    `partner.whatsapp_disabled`, including a check Meta rejects, LOGGING §3). So a partner's Owner or Admin can lift
+    phone codes for its merchants, Owners included, which they can't otherwise touch: accepted by Gaurav (2026-11-16),
+    since the partner already decides whether any code can reach a phone.
+  - **The `whatsapp` outbox row** for a code holds the number, the code and its expiry; the deliverer drops it once
+    expired, the cron sweeps one nobody sent in time, as for texts, and once it is sent or given up only the message kind
+    is left. Each send is logged as `person.code_sent` with its channel, never the number or the code.
 - **Where you're signed in**: a person lists their own sessions (device label, last used,
   this one marked) and may end **every other session at once**; ending one chosen session is
   not offered. [DATA-MODEL.md](DATA-MODEL.md) §3.3 owns the columns.
@@ -624,7 +664,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
-| `integrations.write` (add, test, default and remove an AI key; built on #275) | §14.5 | ✓ | ✓ | | | |
+| `integrations.write` (add, test, default and remove an AI key; built on #275. List, save, test and remove the SMS accounts, choose each route's provider and turn SMS on or off; built on #1017. Read, save, test and remove the WhatsApp account and turn WhatsApp on or off; built on #1504) | §14.5 | ✓ | ✓ | | | |
 
 The Billing menu is absent for Support and the Support menu for Finance and Read-only
 (FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,
@@ -674,6 +714,11 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `apps.manage`: register, list, suspend and restore private apps (#330; no console screen yet) | ✓ | | | | | |
 | `fleet.read`: core rollouts and each store's result, on the admin console's Rollouts page with its paused badge (SAAS §10, §13; #485, #1312) | ✓ | | | | ✓ | |
 | `fleet.manage`: start, pause, resume and roll back a core rollout, each with a reason (#485) | ✓ | | | | ✓ | |
+| `storeCategories.read`: the Store categories list (DATA-MODEL §7.2, admin FIRST-RELEASE §2) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `storeCategories.manage`: add, edit, archive and restore a store category, each with a reason | ✓ | | | | | |
+| `messaging.read`: DripFunnel's own SMS and WhatsApp accounts' status, never a secret (#1543, THIRD-PARTY-ACCESS §4) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `messaging.manage`: save, test and remove DripFunnel's SMS and WhatsApp accounts, set its SMS routes and its WhatsApp switch, each audited (#1543) | ✓ | | | | | |
+| `partners.messaging`: turn DripFunnel's SMS and WhatsApp on or off for a partner, with a reason (#1543; a Partner manager on its assigned partners only) | ✓ | ✓ | | | | |
 
 | Decision (#14) | Rejected | Why |
 |---|---|---|
@@ -968,7 +1013,12 @@ first platform's constructed view.
   supplier's mode (`supplier.shipping_mode_changed`) applies to orders placed afterwards, and
   open orders ship, show the customer and take returns as they did when placed, which the
   Supplier tab says before the change. **`to-shopper`**: the vendor ships lines of its own sub-orders from its own
-  warehouses, booking a courier or entering tracking. **`to-store`**: the vendor marks its lines
+  warehouses, booking a courier or entering tracking. **A supplier with no warehouse of its own
+  uses the store's default one, whatever its mode** (decided 2026-11-09 on #1353): it counts and
+  ships its own lines from it, by its name only, and returns of its lines come back to it. A
+  supplier that later adds its own warehouse makes that its default for new counts, returns and
+  shipping; stock already in the store's location stays, keeps selling, and can still be changed
+  and shipped from there. **`to-store`**: the vendor marks its lines
   as **sent to the store's default warehouse**, and the store ships the order; the sub-order's
   fulfilment is the store's. In both, every line and warehouse must carry the caller's
   `seller_id`. Still the highest-risk vendor write; it gets explicit tests even though the
@@ -983,8 +1033,8 @@ first platform's constructed view.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
-  (`to-store` lines and the merchant's own) or to the supplier's warehouse (`to-shopper`
-  lines). States `requested → received → refunded`, with `cancelled` while still requested.
+  (`to-store` lines and the merchant's own) or to the supplier's default warehouse (`to-shopper`
+  lines), which is the store's while the supplier has none of its own. States `requested → received → refunded`, with `cancelled` while still requested.
   Marking received is the store's. **Refunds are per line and grouped by owner**: the store
   refunds its own lines; **each supplier refunds its own lines**, up to their value, and the
   store is told. **The store may refund a supplier's lines itself**: that is an **override**,
@@ -1222,7 +1272,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   console offers to return to the open one, or to end it first.
 - **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
   Super admin may end it; only the staff member who started it may extend it.
-- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3), and payment or payout details; in a store, also connecting, finishing or disconnecting a payment gateway, where the shoppers' money is paid out, and switching to another store. Everything else in a store is open, so staff can set one up for its merchant: the store's own card for its plan, billing (closing the store included), the AI account, API keys, apps, webhooks, the store's data export, and the storefront with its studio frame and preview links (decided 2026-11-09 by Kshitij on #1344, reversing #1012's block on the AI account and credentials that outlive the session, and the storefront's; every write is logged as the user with the staff member on whose behalf, LOGGING.md §4). These resolvers
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3), payment or payout details, and the partner's SMS accounts and SMS switch, read included (#1017; a setup session may manage them); in a store, also connecting, finishing or disconnecting a payment gateway, where the shoppers' money is paid out, and switching to another store. Everything else in a store is open, so staff can set one up for its merchant: the store's own card for its plan, billing (closing the store included), the AI account, API keys, apps, webhooks, the store's data export, and the storefront with its studio frame and preview links (decided 2026-11-09 by Kshitij on #1344, reversing #1012's block on the AI account and credentials that outlive the session, and the storefront's; every write is logged as the user with the staff member on whose behalf, LOGGING.md §4). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
@@ -1293,6 +1343,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
   the member notice every 15 seconds and whenever the tab regains focus, and counts down
   locally from `expiresAt`; the console's strip and Sessions list read the same way. An end
   on either side shows on the other at its next read.
+  The ended card shows only in a tab that saw the session open; a tab opened later, while the
+  cookie remains, shows its page as if there were no session (#1531).
 - **Who sees which**: Super admin and Support see both kinds. A Partner manager sees setup
   sessions only, by their page, with no Impersonate menu, Users list or Sessions list.
 - **Built on #243** (the partner console's half, for a partner user's impersonation and a setup
@@ -1331,7 +1383,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     instead (decided on #243). An impersonation is also refused `setSecondFactorPolicy`, how the
     whole team signs in, which a setup session (the Owner's powers) may set (decided on #193), and
     `removePartnerDomain`: it takes down a live address merchants sign in at, which no
-    impersonated Owner should do for them, while adding or re-checking one can be undone (#429). In the team service, inviting an Owner, changing a role to or from
+    impersonated Owner should do for them, while adding or re-checking one can be undone (#429). An impersonation is refused every SMS field too, `smsAccounts`,
+    `saveSmsAccount`, `testSmsAccount`, `removeSmsAccount`, `setSmsRoute` and `setSmsEnabled` (#1017), and every WhatsApp field, `whatsAppAccount`, `saveWhatsAppAccount`, `testWhatsAppAccount`, `setWhatsAppEnabled` and `removeWhatsAppAccount` (#1504), which a setup session may use. In the team service, inviting an Owner, changing a role to or from
     Owner, or removing an Owner refuses both kinds with their codes.
   - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
     read only a partner user's cookie, so no staff session reaches them. Payment method and
@@ -1568,6 +1621,14 @@ builds the table must ship:
   tables returns nothing;
 - `promotion.include_customisation` is read and written by the merchant side only, as the rest of
   an offer.
+
+**Rows added with #1543** (DripFunnel's own SMS and WhatsApp; `tests/isolation.test.ts`, `tests/df-messaging.test.ts`):
+
+- no caller but the system reads `platform_credential` or `platform_messaging`, a hint or a route included: a partner,
+  staff, store or shopper caller selecting either is refused by the grant;
+- a partner reads Admin's two switches on its own row only, and writes neither; it never reads another partner's route or
+  WhatsApp choice;
+- a partner's text or WhatsApp message goes through its own account or DripFunnel's, never another partner's.
 
 ### 11.2 Structural tests
 

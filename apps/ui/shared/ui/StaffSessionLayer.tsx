@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ImpBanner, SessionEndCard, SessionNotice, type ImpBannerProps } from './ImpBanner'
 import { secondsLeft, sessionStateAt, type PortalStaffSession } from './staffSession'
 import { useNow, usePolling } from './usePolling'
@@ -19,18 +19,25 @@ export interface StaffSessionLayerProps {
   end: (id: string) => Promise<void>
   adminUrl: string
   copy: StaffSessionCopy
+  // Whether this tab has seen a session open, kept above the layer so a remount doesn't forget it.
+  seenOpen: boolean
+  onOpen: () => void
 }
 
 // The portal's view of a staff session, from the server's state rather than browser storage
 // (decided on #46): the staff member's bar, everyone else's notice, or the card once it is over.
-export const StaffSessionLayer = ({ loadCurrent, loadNotice, end, adminUrl, copy }: StaffSessionLayerProps) => {
+export const StaffSessionLayer = ({ loadCurrent, loadNotice, end, adminUrl, copy, seenOpen, onOpen }: StaffSessionLayerProps) => {
   const now = useNow()
   const mine = usePolling(loadCurrent)
   const others = usePolling(loadNotice)
   const [endFailed, setEndFailed] = useState(false)
   const session = mine.value
-  if (session) {
-    const state = sessionStateAt(session, now)
+  const state = session && sessionStateAt(session, now)
+  useEffect(() => {
+    if (state === 'open') onOpen()
+  }, [state, onOpen])
+  // The ended card is for the tab that was in the session; the cookie outlives it (ACCESS.md §8.3, #1531).
+  if (session && state && (state === 'open' || seenOpen)) {
     if (state !== 'open') {
       const over = copy.over({ ...session, state, endedBy: session.endedBy ?? 'expiry' })
       return <SessionEndCard title={over.title} body={over.body} action={{ label: copy.action, href: adminUrl }} />

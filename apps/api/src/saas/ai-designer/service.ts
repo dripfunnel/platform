@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { failureCode, logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
-import { insertDesignMessage, isOfferedTemplate, selectDesignState, selectOfferedTemplates, selectVersionHistory, type DesignStateRow, type NewMessage, type VersionHistoryRow } from '#db/scoped/design'
+import { insertDesignMessage, isOfferedTemplate, selectCategoryTemplate, selectDesignState, selectOfferedTemplates, selectVersionHistory, type DesignStateRow, type NewMessage, type VersionHistoryRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
@@ -74,6 +74,7 @@ export interface TemplateView {
   description: string
   demoUrl: string | null
   current: boolean
+  forCategory: boolean
 }
 
 export type DesignStatus = 'not_started' | 'creating' | 'create_failed' | 'not_published' | 'same_as_live' | 'unpublished_changes'
@@ -147,17 +148,18 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
 
   /** The gallery, with the template the draft (or else the live site) uses marked "Your current look". */
   const templates = async (): Promise<TemplateView[]> => {
-    const current = await withScope(sql, context, async (tx) => {
+    const { current, category } = await withScope(sql, context, async (tx) => {
       const s = await state(tx)
-      return s.draft_template ?? s.live_template ?? s.storefront_template
+      return { current: s.draft_template ?? s.live_template ?? s.storefront_template, category: await selectCategoryTemplate(tx, storeId) }
     })
-    return withSystemScope(sql, async (tx) =>
+    const list = await withSystemScope(sql, async (tx) =>
       Promise.all(
         (await selectOfferedTemplates(tx, shopDomain)).map(async (t) => {
-          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_host ? `https://${t.demo_host}` : null, current: t.key === current }
+          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_host ? `https://${t.demo_host}` : null, current: t.key === current, forCategory: t.key === category }
         }),
       ),
     )
+    return [...list.filter((t) => t.forCategory), ...list.filter((t) => !t.forCategory)]
   }
 
   /**

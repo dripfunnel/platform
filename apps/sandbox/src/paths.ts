@@ -12,6 +12,9 @@ const themePaths = [
 
 export const isThemePath = (path: string): boolean => themePaths.some((p) => p.test(path))
 
+/** One of the theme's own images (ARCHITECTURE §3.4 "Images"), as the API's saas/storefronts/paths.ts has it. */
+export const isThemeMediaPath = (path: string): boolean => /^src\/theme\/media\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}\.(?:png|jpg|jpeg|webp)$/.test(path)
+
 export const isThemeCode = (path: string): boolean => path.startsWith('src/theme/') && path.endsWith('.tsx')
 
 // A plain name, or a Next.js dynamic segment such as the template's theme-media/[name] (#1420).

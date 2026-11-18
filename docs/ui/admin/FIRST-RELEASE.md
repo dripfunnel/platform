@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -44,6 +44,8 @@ and store states).
 | 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | decided 2026-09-30 |
 | 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | decided 2026-09-30 |
 | 6a | **Rollouts** (§11a) | Super admin, Engineer on call | paused rollouts | decided on #1312 |
+| 6b | **Store categories** (§11b) | Everyone (Super admin edits) | none | decided 2026-11-16 |
+| 6c | **Platform settings** (§11c) | Everyone (Super admin edits) | none | decided 2026-11-17 (#1544) |
 | 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
 | 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
 | 9 | **Staff** | Super admin | none | decided 2026-09-30 |
@@ -106,7 +108,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 
 | Tab | Contents |
 |---|---|
-| **Overview** | Partner details and contacts, the contract (fee currency, other currencies, "Powered by" term, or "No contract yet"), state history, setup checklist with each item's status |
+| **Overview** | Partner details and contacts, the contract (fee currency, other currencies, "Powered by" term, or "No contract yet"), its AI keys' status, **DripFunnel's messaging** (§4.3), state history, setup checklist with each item's status |
 | **Stores** | This partner's stores (the Stores list, pre-filtered) |
 | **Branding** | Read-only preview of its look, words and "Powered by" setting |
 | **Domains** | Portal host and email sender domain (no shop wildcard: stores are at `{slug}.my-store.one`, #745): each with the expected DNS records and status, and "Re-check now" |
@@ -126,6 +128,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
 | **Resume** | Super admin | Reason (decided on #19) | Sign-ups open again |
+| **DripFunnel's SMS** / **DripFunnel's WhatsApp** on or off (#1544) | Super admin, Partner manager (its assigned partners) | Reason, shown in the partner's activity too | On: "Northstar may send texts through DripFunnel's SMS accounts on each route it has no account of its own for, and on any it picks DripFunnel's for; its own SMS switch still decides." Off: each route (or WhatsApp) it sends through DripFunnel's goes back to its own account or, without one, to none, its people on the phone method then signing in without 2-factor where neither channel reaches them; its choice is kept. Other roles see each switch's state, disabled with the reason. Both start off (THIRD-PARTY-ACCESS §4) |
 
 **Who may approve** (decided 2026-09-30). Two staff must be involved, except that a Super
 admin counts for both:
@@ -155,12 +158,13 @@ Across all partners.
 | Partner | Which partner it belongs to |
 | Owner | Name and email |
 | Plan | The partner's plan name |
+| Category | What the store sells (DATA-MODEL §7.2), or "—" until its Owner picks |
 | Status | Trial · Active · Past due · Suspended · Cancelled (SAAS.md §4.2), each unmistakable |
 | Storefront | AI storefront (live / building / failed) or "Own storefront" |
 | Domain | Live link, or the custom domain and its status |
 | Created | Date |
 
-Filters: partner, status, storefront state and created (last 7 or 30 days). The list also
+Filters: partner, status, storefront state, category and created (last 7 or 30 days). The list also
 takes a setup state (Done, Running, Failed, Stuck) from the URL, with no control of its own,
 so the Dashboard's setup links land on a filtered list. Search: name, code,
 domain, owner email. Saved in the URL so a filtered list can be shared. Newest first, paged
@@ -402,7 +406,7 @@ From CONSOLE-DESIGN §6, deliberately left out; each stays specified there:
 | M | A separate Domains menu (domains are tabs on partner and store pages) |
 | N, B2, B3 | Usage, costs, revenue |
 | Q | Announcements and incident banners |
-| R | Integrations, feature flags, platform ceilings, publish schedule |
+| R | Integrations other than messaging (R1's Messaging is built, §11c), feature flags, platform ceilings, publish schedule |
 | S | Data export and personal-data requests |
 
 ---
@@ -424,6 +428,52 @@ There is no prototype screen; it follows the Provisioning list and the store pag
   version goes back to the build it had before.
 - **Badge**: paused rollouts, on Rollouts.
 
+## 11b. Store categories
+
+What a shop sells (DATA-MODEL §7.2): the list each store's Owner picks from on Home and in Settings › Catalogue. Every role
+reads it (`storeCategories.read`); only a Super admin adds, edits, archives or restores (`storeCategories.manage`, ACCESS
+§5.4). There is no prototype screen; it follows the Rollouts list.
+
+- **List**: English name, key, the product page sections it offers, how many stores chose it; archived ones last, marked.
+- **Add / Edit**: an English name (required), optional translations (language code and name), and the sections. The key
+  comes from the English name once and never changes. Each takes a reason.
+- **Archive / Restore**: with a reason; Archive restates that the stores that chose it keep it and every other store's
+  picker loses it. Nothing is ever deleted.
+- **Sample catalog** (CATALOG-DESIGN K13a, DATA-MODEL §7.2): each row says "Sample: 6 products · 2 collections · INR ·
+  added <date>" or "No sample". No file is uploaded (decided 2026-11-16): where DripFunnel ships built-in data for the
+  category, a Super admin's **Add default sample** (or **Reset to default sample**) adds it with a reason, its photos copied
+  once; a refused check keeps the dialog open with its problems by line. Remove takes a reason and says stores that added it
+  keep their products.
+- **Sample editor** (decided 2026-11-16, not in the prototype): **View sample** (every role) or **Create sample** (Super admin)
+  opens `/categories/{id}/sample`: the products (photo, name, SKU, price, stock, shown, collections) and the collections.
+  A Super admin adds, edits and deletes products (1 to 50, each with a unique SKU), adds, renames and deletes collections
+  (1 to 10, each with a product), uploads a photo per product (stored once in DripFunnel's storage), and **Save changes**
+  sends the whole sample with a reason; refused lines are listed in place and a leave guard keeps unsaved edits.
+
+## 11c. Platform settings › Messaging
+
+The first screen of CONSOLE-DESIGN §R (R1), built on #1544 on #1543's API; there is no prototype screen. DripFunnel's own SMS and
+WhatsApp accounts, which partners use only where Admin switched them on for the partner (§4.3) and the partner chose them or has
+none of its own (THIRD-PARTY-ACCESS §4). Every role reads it (`messaging.read`); only a Super admin changes it (`messaging.manage`,
+ACCESS §5.4), and every other role sees "Status only". No one ever sees a secret: each comes back as its last four.
+
+- **SMS, routes**: India (+91) and Other countries, each with the account that sends it now ("Sent by DripFunnel's MSG91 account",
+  or "No account sends these") and the pick ("whichever is set up", or a provider). **Change** (once a route's provider has an
+  account) picks MSG91 or AWS SNS for India, Twilio or AWS SNS for the rest, or whichever is set up, restating which account will
+  send; an account that can't serve the route can't be picked.
+- **SMS, accounts**: one row each for MSG91, Twilio and AWS SNS: the routes it can send, its secret as "…abcd", *Working*, *Not
+  tested* or *Rejected*, when last tested, and for MSG91 and SNS whether India's DLT details and seven template ids are in. **Set
+  up** or **Replace** opens the provider's form (the partner console's fields, typed in full on every save, checked for each
+  provider's shapes before sending and by the provider before it is kept); **Test** checks it again; **Remove** restates which
+  account sends each of its routes next, or that partners relying on DripFunnel's then send no texts there.
+- **WhatsApp**: On or Off, the WhatsApp Business Account ID, phone-number ID, token as "…abcd", template language, each template's
+  name or "Not used", *Working*, *Not tested* or *Rejected* and the last check. **Set up WhatsApp** or **Replace account** (the
+  token typed again each time; while On, `code.portal` can't be blank), **Test** (naming what Meta refused; a rejection turns it
+  off), **Turn on** (only with `code.portal` named and *Working*, else it says why), **Turn off** and **Remove**, which restate that
+  every partner using it goes back to its own account or, without one, to no WhatsApp.
+- Every change but Test asks for a reason and is audited (LOGGING §4); each refusal is in words. States: loading, error, empty (no
+  account yet) and read-only (`?state=` `loading`, `error`, `empty`, `readonly`).
+
 ## 12. What the Admin API needs for this release
 
 For planning `apps/api/src/apis/admin`; names are *(proposed)*.
@@ -440,6 +490,8 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Staff | `staff(after, before)`. Built on #39: Super admin only (`staff.manage`); each member's role, last sign-in, `twoFactor` (on, off, notSignedIn), an open invitation's dates, and the actions with §10's refusals; `soleSuperAdmin` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite`. Built on #39: throttled like partner invitations (`RATE_LIMITED`), each logged with what changed; accepting is the link's SSO sign-in (ACCESS §6.3) |
 | Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
 | Rollouts | `coreRollouts(after)`, `coreRollout(id)`, `coreRolloutStores(id, state, after, before)` (built on #1312: each store's group, from version, state and error code, never the gate's report; `fleet.read`) | `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout`, `rollBackCoreRollout` (#485; `fleet.manage`, each with a reason) |
+| Store categories | `storeCategories` (each with its names per language, sections, store count, `hasDefaultSample` and `sample`) | `createStoreCategory(input, reason)`, `updateStoreCategory(id, input, reason)`, `archiveStoreCategory(id, archived, reason)`, `addDefaultStoreCategorySample(categoryId, reason)` (answers the category, or the built-in data's problems), `removeStoreCategorySample(categoryId, reason)`, `saveStoreCategorySampleItems(categoryId, input, reason)`; `storeCategorySample(categoryId)` reads it, and `POST /api/store-category-photos?category=` / `GET /api/store-category-photos/{category}/{sha}` upload and preview its photos |
+| Platform settings | `platformSms` (each route's pick and the account `serving` it; each account's provider, last four, status, last test and whether India's templates are complete), `platformWhatsApp` (On or Off and the account, never its token); `messaging.read`. `partnerDfMessaging(partnerId)` (the two switches; `partners.read`) | `savePlatformSmsAccount`, `testPlatformSmsAccount`, `removePlatformSmsAccount`, `setPlatformSmsRoute`, `savePlatformWhatsAppAccount`, `testPlatformWhatsAppAccount`, `setPlatformWhatsAppEnabled`, `removePlatformWhatsAppAccount` (`messaging.manage`; each but the tests with a reason; built on #1543, drawn on #1544); `setPartnerDfMessaging(partnerId, channel, enabled, reason)` (`partners.messaging`) |
 | Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40), paused rollouts (`pausedRollouts`, null without `fleet.read`, #1312) | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted

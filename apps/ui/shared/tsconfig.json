@@ -12,6 +12,7 @@
     "ui",
     "graphql",
     "format",
-    "search"
+    "search",
+    "messaging"
   ]
 }

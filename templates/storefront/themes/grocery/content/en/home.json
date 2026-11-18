@@ -1,0 +1,68 @@
+{
+  "hero": {
+    "eyebrow": "Shopping at {store}",
+    "title": "What do you need today?",
+    "lead": "Pick a category to start, or search for what's on your list.",
+    "search": "Find what you need",
+    "alt": "A wooden basket of tomatoes, courgettes, squash and red cabbage",
+    "all": "All products",
+    "allBody": "See everything"
+  },
+  "promos": {
+    "label": "Ways to shop",
+    "new": {
+      "eyebrow": "Just in",
+      "title": "New on the shelves",
+      "action": "Shop what's new"
+    },
+    "value": {
+      "eyebrow": "By price",
+      "title": "Start with the lowest prices",
+      "action": "Browse by price"
+    }
+  },
+  "newest": {
+    "title": "New in store",
+    "all": "See all"
+  },
+  "budget": {
+    "eyebrow": "By price",
+    "title": "Lowest prices first",
+    "all": "See all by price"
+  },
+  "story": {
+    "eyebrow": "About us",
+    "title": "About our store",
+    "body": "Tell shoppers who you are, what you stock and what makes your shop worth coming back to.",
+    "more": "How we work",
+    "alt": "A shopper carrying a red basket of carrots, celery and radishes"
+  },
+  "picks": {
+    "title": "More to explore",
+    "all": "Shop all"
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Checkout over an encrypted connection"
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow it from your account"
+    },
+    "save": {
+      "title": "Save your list",
+      "body": "Keep favourites in your wishlist"
+    },
+    "help": {
+      "title": "Questions?",
+      "body": "Write to us on Contact"
+    }
+  },
+  "signup": {
+    "title": "Shop faster next time",
+    "body": "Create an account to save your address, see past orders and follow each one.",
+    "action": "Create an account"
+  }
+}

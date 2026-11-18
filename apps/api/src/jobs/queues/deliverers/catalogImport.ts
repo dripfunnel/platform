@@ -21,7 +21,9 @@ import {
 } from '#engine/modules/catalog/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { fetchPublic } from '#integrations/http/publicFetch'
+import { withScope } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
+import { selectSamplePhotoKey } from '#db/scoped/storeCategories'
 import { activityLog } from '#saas/activity/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -99,16 +101,25 @@ export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | nu
   },
 })
 
-/** A photo is fetched from a public address only (publicFetch.ts) and stored as the importer's own file. */
+const readAsset = async (assets: AssetStore, key: string): Promise<{ ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; code: 'GONE' }> => {
+  const object = await assets.get(key)
+  return object ? { ok: true, bytes: new Uint8Array(await new Response(object.body).arrayBuffer()) } : { ok: false, code: 'GONE' }
+}
+
+/** A photo is fetched from a public address (publicFetch.ts), or a sample's copy, and stored as the importer's own file. */
 export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, now: () => Date = () => new Date(), fetchImpl?: typeof fetch): Deliverer => ({
   deliver: async (effect) => {
     const parsed = photoPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.photos: bad payload')
     const p = parsed.data
     const deps = catalogImportDeps(sql, p, effect, now)
+    // A sample import's photos are DripFunnel's copies (DATA-MODEL §7.2): only its job sets sampleCategoryId, and only that
+    // sample's own map can name an R2 key. Every other import's photo is fetched as before, with no extra query.
+    const sampleCategoryId = p.sampleCategoryId
     const fetchPhoto: PhotoFetch = async (url) => {
       if (!assets) return { ok: false, code: 'PHOTO_UNAVAILABLE' }
-      const got = await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
+      const key = sampleCategoryId ? await withScope(sql, deps.context, (tx) => selectSamplePhotoKey(tx, sampleCategoryId, url)) : null
+      const got = key ? await readAsset(assets, key) : await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
       if (!got.ok) return { ok: false, code: got.code === 'TOO_LARGE' ? 'PHOTO_REFUSED' : 'PHOTO_UNAVAILABLE' }
       const stored = await createAssetService({ sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(got.bytes)
       return stored.ok && stored.asset.kind === 'image' ? { ok: true, assetId: stored.asset.id } : { ok: false, code: 'PHOTO_REFUSED' }

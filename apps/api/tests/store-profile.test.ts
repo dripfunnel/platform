@@ -12,6 +12,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { codeAt, stepAt } from '#auth/totp'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -53,16 +54,16 @@ interface Result {
   code: string | undefined
 }
 
-const gql = async (source: string, cookie: string, partnerId = t.partnerA, codeCheck?: '0'): Promise<Result> => {
+const gql = async (source: string, cookie: string, partnerId = t.partnerA, codeCheck?: '0', at = now): Promise<Result> => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const request = new Request(`https://${partnerId === t.partnerA ? host : hostB}/api/`, { headers: { cookie: `${storeCookieName}=${cookie}` } })
-  const standing = await resolveStoreStanding(db.sql, request, partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, secrets, codeCheck, now: () => now }
+  const standing = await resolveStoreStanding(db.sql, request, partnerId, at, activityLog, facts)
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, secrets, codeCheck, codeChannels: testCodeChannels, now: () => at }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 
-const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, ...overrides })
+const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels, ...overrides })
 
 const confirm = async (token: string, d = deps()) => {
   const response = await handleStoreAuth(
@@ -312,5 +313,39 @@ describe('two-step sign-in', () => {
     expect((await gql('mutation { setSecondFactor(method: "off", password: "not it") { done } }', ownerCookie)).code).toBe('INVALID_CREDENTIALS')
     expect((await gql(`mutation { setSecondFactor(method: "off", password: "${password}") { done } }`, ownerCookie)).data?.['setSecondFactor']).toEqual({ done: true })
     expect(((await gql('{ profile { twoFactor { method backupCodesLeft required } } }', ownerCookie)).data?.['profile'])).toEqual({ twoFactor: { method: null, backupCodesLeft: 0, required: false } })
+  })
+})
+
+describe('the phone method’s code by WhatsApp first (#1506)', () => {
+  const later = new Date(now.getTime() + 20_000)
+  const start = (channel?: string) => `mutation { setSecondFactor(method: "sms", password: "${password}"${channel ? `, channel: "${channel}"` : ''}) { hint channel } }`
+
+  it('sends the set-up code by WhatsApp, by SMS 20 seconds later, and refuses the phone method while both channels are off', async () => {
+    const id = await person(t.partnerA, 'wa.profile@a.example')
+    await db.sql`update "user" set phone = '+919845000140' where id = ${id}`
+    const cookie = await sessionFor(id)
+    await db.sql`update partner set whatsapp_enabled = true where id = ${t.partnerA}`
+    try {
+      expect((await gql('{ profile { codeChannels { whatsapp sms } } }', cookie)).data?.['profile']).toEqual({ codeChannels: { whatsapp: true, sms: true } })
+      expect((await gql(start(), cookie)).data?.['setSecondFactor']).toEqual({ hint: '•••• 0140', channel: 'whatsapp' })
+      const [byWhatsApp] = await db.sql<{ payload: { message: string; code: string } }[]>`select payload from outbox where kind = 'whatsapp' and payload->>'to' = '+919845000140'`
+      expect(byWhatsApp?.payload.message).toBe('code.portal')
+      expect((await gql(start('sms'), cookie)).code).toBe('TOO_SOON')
+      expect((await gql(start('fax'), cookie, t.partnerA, undefined, later)).code).toBe('INVALID_INPUT')
+      expect((await gql(start('sms'), cookie, t.partnerA, undefined, later)).data?.['setSecondFactor']).toEqual({ hint: '•••• 0140', channel: 'sms' })
+      const [byText] = await db.sql<{ payload: { vars: { code: string } } }[]>`select payload from outbox where kind = 'sms' and payload->>'to' = '+919845000140'`
+      const done = await gql(`mutation { setSecondFactor(method: "sms", code: "${byText?.payload.vars.code ?? ''}") { done } }`, cookie, t.partnerA, undefined, later)
+      expect(done.data?.['setSecondFactor']).toEqual({ done: true })
+
+      await db.sql`update partner set whatsapp_enabled = false, sms_enabled = false where id = ${t.partnerA}`
+      const other = await person(t.partnerA, 'no.channels@a.example')
+      await db.sql`update "user" set phone = '+16145550141' where id = ${other}`
+      const otherCookie = await sessionFor(other)
+      expect((await gql('{ profile { codeChannels { whatsapp sms } } }', otherCookie)).data?.['profile']).toEqual({ codeChannels: { whatsapp: false, sms: false } })
+      expect((await gql(start(), otherCookie)).code).toBe('CHANNEL_OFF')
+      expect((await db.sql<{ two_factor_method: string | null }[]>`select two_factor_method from "user" where id = ${other}`)[0]?.two_factor_method).toBeNull()
+    } finally {
+      await db.sql`update partner set whatsapp_enabled = false, sms_enabled = true where id = ${t.partnerA}`
+    }
   })
 })

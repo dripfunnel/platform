@@ -1,4 +1,5 @@
 import SchemaBuilder from '@pothos/core'
+import type { OpenCodeChannels } from '#auth/storeCodes'
 import type { PageInfo } from '#core/paging'
 import type { PlanValue } from '#db/scoped/planKeys'
 import type { StoreContext } from './access'
@@ -30,6 +31,22 @@ export const pageInfoType = (builder: StoreBuilder) => {
   if (known) return known
   const made = definePageInfo(builder)
   pageInfos.set(builder, made)
+  return made
+}
+
+const channelTypes = new WeakMap<StoreBuilder, ReturnType<typeof defineCodeChannels>>()
+
+const defineCodeChannels = (builder: StoreBuilder) =>
+  builder.objectRef<OpenCodeChannels>('CodeChannels').implement({
+    fields: (t) => ({ whatsapp: t.exposeBoolean('whatsapp'), sms: t.exposeBoolean('sms') }),
+  })
+
+/** Which channels a portal code can go by (ACCESS.md §4): the brand's and My profile's. One per builder. */
+export const codeChannelsType = (builder: StoreBuilder) => {
+  const known = channelTypes.get(builder)
+  if (known) return known
+  const made = defineCodeChannels(builder)
+  channelTypes.set(builder, made)
   return made
 }
 

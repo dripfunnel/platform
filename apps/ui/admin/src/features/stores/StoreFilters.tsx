@@ -11,12 +11,13 @@ const createdOptions = createdWindows.map((created) => ({ value: created, label:
 export interface StoreFiltersProps {
   filter: StoreFilter
   partners: readonly { id: string; name: string }[]
+  categories?: readonly { id: string; name: string }[] | undefined
   onChange: (filter: StoreFilter) => void
 }
 
 // The prototype's four filters. `setup` has no control: it arrives only from the Dashboard's
 // links (decided on #20) and goes with Clear filters.
-export const StoreFilters = ({ filter, partners, onChange }: StoreFiltersProps) => (
+export const StoreFilters = ({ filter, partners, categories = [], onChange }: StoreFiltersProps) => (
   <form role="search" aria-label={words.filters.label} className="df-list-filters" onSubmit={(event) => event.preventDefault()}>
     <SearchField
       label={words.filters.search}
@@ -44,6 +45,13 @@ export const StoreFilters = ({ filter, partners, onChange }: StoreFiltersProps) 
       options={storefrontOptions}
       value={filter.storefront}
       onChange={(storefront) => onChange({ ...filter, storefront })}
+    />
+    <FilterSelect
+      label={words.filters.category}
+      anyLabel={words.filters.anyCategory}
+      options={categories.map((category) => ({ value: category.id, label: category.name }))}
+      value={filter.category}
+      onChange={(category) => onChange({ ...filter, category })}
     />
     <FilterSelect
       label={words.filters.created}

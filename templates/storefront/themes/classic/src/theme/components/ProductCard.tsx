@@ -16,8 +16,7 @@ export const ProductCard = ({ product }: { product: Card }) => {
       <span className={styles.cardRule} aria-hidden="true" />
       {product.price ? (
         <p className={styles.cardPrice}>
-          {product.from ? <span className={styles.from}>{t('shop.card.from')}</span> : null}
-          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />
+          <Price money={product.price} compareAt={product.compareAt} to={product.maxPrice} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />
         </p>
       ) : null}
       <Link href={product.href} className={styles.cardMore}>
