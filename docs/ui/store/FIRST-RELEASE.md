@@ -346,7 +346,7 @@ calls `chooseTemplate(key, keepWords: true)` with the category's own template (`
 `store_category.template_key`), else Classic, so a category given a template later needs no portal change. While the site
 is made the step says so and reads `storefront` every 5 s while Home is open; the Owner may leave and come back. Once made,
 **Open storefront** opens the studio to preview and publish; a refusal is said in place, and after `create_failed` the step
-offers Create again. It is done once a version is live, then opens Storefront. A read-only session's step only links
+offers Create again. If the storefront can't be read, the step stays and says so, with **Try again**. It is done once a version is live, then opens Storefront. A read-only session's step only links
 there. The Storefront page itself is unchanged.
 
 ---

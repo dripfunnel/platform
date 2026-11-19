@@ -138,7 +138,9 @@
         "template": "It starts from the {name} template. You can change it later.",
         "creating": "Your storefront is being created. Explore the rest of your shop meanwhile — this step updates when it’s ready.",
         "ready": "Your storefront is ready. Preview it in the studio and publish it when you’re happy.",
-        "failed": "We couldn’t set up your storefront. Nothing was kept, so you can try again."
+        "failed": "We couldn’t set up your storefront. Nothing was kept, so you can try again.",
+        "unavailable": "We couldn’t check your storefront just now.",
+        "retry": "Try again"
       },
       "done": "Done",
       "mark": "✓",

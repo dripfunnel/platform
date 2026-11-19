@@ -14,14 +14,14 @@ import { SampleCatalogAction } from '../common/SampleCatalogAction'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, moneyText } from '../orders/orderView'
 import { homeSample, homeStates, type HomeState } from './homeStates'
-import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, storefrontPhaseOf, tasksOf, type NumberCard, type SetupItem, type StorefrontSetup, type Task } from './homeView'
+import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, storefrontPhaseOf, tasksOf, type NumberCard, type SetupItem, type StorefrontPhase, type StorefrontSetup, type Task } from './homeView'
 import './home.css'
 
 const words = messages.home
 const shellRoute = getRouteApi('/_app')
 const creatingPollMs = 5_000
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; home: StoreHome; locale: StoreLocaleFacts | null; category?: ShopCategoryChoice | null; storefront?: StorefrontSetup | null }
+type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; home: StoreHome; locale: StoreLocaleFacts | null; category?: ShopCategoryChoice | null; storefront?: StorefrontSetup | null; siteFailed?: boolean }
 
 interface HomeSeat {
   supplier: boolean
@@ -77,8 +77,9 @@ export const Home = () => {
         if (mine !== latest.current) return
         if (!home) return setView({ kind: 'error' })
         // The storefront step lives in the checklist, so the site is read only while the checklist can show.
-        const site = seat.site && home.setup && !home.hasOrders ? await loadStorefrontSetup().catch(() => null) : null
-        if (mine === latest.current) setView({ kind: 'ready', home, locale, category: choice, storefront: site })
+        const wanted = seat.site && home.setup !== null && !home.hasOrders
+        const site = wanted ? await loadStorefrontSetup().catch(() => null) : null
+        if (mine === latest.current) setView({ kind: 'ready', home, locale, category: choice, storefront: site, siteFailed: wanted && site === null })
       },
       () => {
         if (mine === latest.current) setView({ kind: 'error' })
@@ -86,6 +87,12 @@ export const Home = () => {
     )
   }, [forced, sample, seat.supplier, seat.owner, seat.site])
   useEffect(load, [load])
+
+  // A failed first read keeps the step, with Try again reading only the site.
+  const retrySite = async () => {
+    const site = await loadStorefrontSetup()
+    setView((v) => (v.kind === 'ready' ? { ...v, storefront: site, siteFailed: false } : v))
+  }
 
   const setSite = useCallback((change: Partial<StorefrontSetup>) => setView((v) => (v.kind === 'ready' && v.storefront ? { ...v, storefront: { ...v.storefront, ...change } } : v)), [])
 
@@ -153,7 +160,7 @@ export const Home = () => {
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
       {view.kind === 'ready' && (
-        <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} storefront={view.storefront ?? null} seat={seat} onChoose={choose} brand={{ shopName: acting.store.name, onDone: brandAdded }} onCreateSite={createSite} />
+        <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} storefront={view.siteFailed ? 'unavailable' : (view.storefront ?? null)} seat={seat} onChoose={choose} brand={{ shopName: acting.store.name, onDone: brandAdded }} onCreateSite={createSite} onRetrySite={retrySite} />
       )}
     </div>
   )
@@ -163,11 +170,12 @@ interface HomeBodyProps {
   home: StoreHome
   locale: StoreLocaleFacts | null
   category: ShopCategoryChoice | null
-  storefront: StorefrontSetup | null
+  storefront: StorefrontSetup | 'unavailable' | null
   seat: HomeSeat
   onChoose: (id: string) => Promise<void>
   brand: BrandStepState
   onCreateSite: () => Promise<void>
+  onRetrySite: () => Promise<void>
 }
 
 interface BrandStepState {
@@ -175,11 +183,14 @@ interface BrandStepState {
   onDone: () => void
 }
 
-const HomeBody = ({ home, locale, category, storefront, seat, onChoose, brand, onCreateSite }: HomeBodyProps) => {
+const HomeBody = ({ home, locale, category, storefront, seat, onChoose, brand, onCreateSite, onRetrySite }: HomeBodyProps) => {
   const tasks = tasksOf(home)
   const setup = setupOf(home, seat.owner ? locale : null, category?.current?.name ?? null, storefront)
   // The first site needs what the shop sells (its template) and the logo and favicon (BRAND_NOT_READY).
-  const site = storefront && { setup: storefront, phase: storefrontPhaseOf(storefront, home.setup?.category === true && home.setup.brand === true), onCreate: onCreateSite }
+  const site: SiteStepState | null =
+    storefront === 'unavailable'
+      ? { setup: null, phase: 'unavailable', onCreate: onCreateSite, onRetry: onRetrySite }
+      : storefront && { setup: storefront, phase: storefrontPhaseOf(storefront, home.setup?.category === true && home.setup.brand === true), onCreate: onCreateSite, onRetry: onRetrySite }
   const numbers = numbersOf(home)
   return (
     <>
@@ -312,9 +323,10 @@ const setupLink = (key: SetupItem['key']) => {
 }
 
 interface SiteStepState {
-  setup: StorefrontSetup
-  phase: ReturnType<typeof storefrontPhaseOf>
+  setup: StorefrontSetup | null
+  phase: StorefrontPhase
   onCreate: () => Promise<void>
+  onRetry: () => Promise<void>
 }
 
 interface ChecklistProps {
@@ -381,7 +393,7 @@ const Checklist = ({ items, owner, categories, onChoose, sample, importer, brand
           if (item.key === 'storefront' && site && site.phase !== 'done')
             return (
               <li key={item.key} className="df-home-step df-home-step--choices">
-                <StorefrontStep label={label} site={site.setup} phase={site.phase} onCreate={site.onCreate} />
+                <StorefrontStep label={label} site={site.setup} phase={site.phase} onCreate={site.onCreate} onRetry={site.onRetry} />
               </li>
             )
           if (item.key === 'category' && !item.done && onChoose && categories.length > 0)

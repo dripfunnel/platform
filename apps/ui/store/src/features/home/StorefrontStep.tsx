@@ -9,13 +9,15 @@ const words = messages.home.setup.storefront
 
 interface StorefrontStepProps {
   label: string
-  site: StorefrontSetup
+  /** Null while the site couldn't be read (`unavailable`). */
+  site: StorefrontSetup | null
   phase: Exclude<StorefrontPhase, 'done'>
   onCreate: () => Promise<void>
+  onRetry: () => Promise<void>
 }
 
 /** "Create your storefront" (FIRST-RELEASE §5): the first site from the category's template, then the studio to publish it. */
-export const StorefrontStep = ({ label, site, phase, onCreate }: StorefrontStepProps) => {
+export const StorefrontStep = ({ label, site, phase, onCreate, onRetry }: StorefrontStepProps) => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const create = () => {
@@ -29,12 +31,24 @@ export const StorefrontStep = ({ label, site, phase, onCreate }: StorefrontStepP
       },
     )
   }
+  const retry = () => {
+    setBusy(true)
+    setError(null)
+    onRetry().then(
+      () => setBusy(false),
+      () => {
+        setBusy(false)
+        setError(words.unavailable)
+      },
+    )
+  }
   const note = {
     locked: words.locked,
-    ready: site.template ? fill(words.template, { name: site.template.name }) : null,
+    ready: site?.template ? fill(words.template, { name: site.template.name }) : null,
     failed: words.failed,
     creating: words.creating,
     open: words.ready,
+    unavailable: error ? null : words.unavailable,
   }[phase]
 
   return (
@@ -59,6 +73,10 @@ export const StorefrontStep = ({ label, site, phase, onCreate }: StorefrontStepP
           <Link className="df-button df-button--primary" to="/storefront" search={(prev) => ({ ...harnessSearch(prev), view: 'studio' as const })}>
             {words.open}
           </Link>
+        ) : phase === 'unavailable' ? (
+          <button type="button" className="df-button" disabled={busy} onClick={retry}>
+            {words.retry}
+          </button>
         ) : (
           <button type="button" className="df-button df-button--primary" disabled={phase === 'locked' || phase === 'creating' || busy} onClick={create}>
             {phase === 'creating' || busy ? words.creatingCta : words.create}

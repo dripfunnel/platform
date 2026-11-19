@@ -482,6 +482,34 @@ describe('the Home screen', () => {
       })
     })
 
+    it('keeps the step when the site can’t be read, and Try again reads it again', async () => {
+      api.loadHome.mockResolvedValue(ready)
+      brandApi.loadTemplates.mockResolvedValue([fashion])
+      brandApi.loadOverview.mockRejectedValueOnce(new Error('down')).mockResolvedValue(overview('not_started'))
+      await show(siteOwner)
+      expect(step().getByText(sf.unavailable)).toBeTruthy()
+      expect(step().getByText('4 of 6')).toBeTruthy()
+      await act(async () => {
+        fireEvent.click(step().getByRole('button', { name: sf.retry }))
+      })
+      await settle()
+      expect((step().getByRole('button', { name: sf.create }) as HTMLButtonElement).disabled).toBe(false)
+      expect(step().queryByText(sf.unavailable)).toBeNull()
+    })
+
+    it('says so again when Try again fails too', async () => {
+      api.loadHome.mockResolvedValue(ready)
+      brandApi.loadTemplates.mockResolvedValue([fashion])
+      brandApi.loadOverview.mockRejectedValue(new Error('down'))
+      await show(siteOwner)
+      await act(async () => {
+        fireEvent.click(step().getByRole('button', { name: sf.retry }))
+      })
+      await settle()
+      expect(step().getByRole('alert').textContent).toBe(sf.unavailable)
+      expect(step().getByRole('button', { name: sf.retry })).toBeTruthy()
+    })
+
     it('never reads the site once the store has an order, as the checklist is gone', async () => {
       api.loadHome.mockResolvedValue(busy)
       await show(siteOwner)

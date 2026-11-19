@@ -49,8 +49,8 @@ export const tasksOf = (home: StoreHome): Task[] => {
 
 export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand' | 'storefront'
 
-/** Where the store's first site is: waiting on the category and brand, ready to create, being made, failed, made, or published. */
-export type StorefrontPhase = 'locked' | 'ready' | 'creating' | 'failed' | 'open' | 'done'
+/** Where the store's first site is: waiting on the category and brand, ready to create, being made, failed, made, published, or not read. */
+export type StorefrontPhase = 'locked' | 'ready' | 'creating' | 'failed' | 'open' | 'done' | 'unavailable'
 
 /** What the storefront step reads (`storefront` and `storefrontTemplates`); the Owner's, who may publish. */
 export interface StorefrontSetup {
@@ -79,7 +79,7 @@ const countryName = (code: string) => new Intl.DisplayNames([locale], { type: 'r
  * The checklist, only the items the API gave this seat. The locale check has no "confirmed" fact in the API, so it
  * reads as done with what sign-up set, and "Change" opens Settings (decided on #326).
  */
-export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, categoryName: string | null = null, site: StorefrontSetup | null = null): SetupItem[] => {
+export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, categoryName: string | null = null, site: StorefrontSetup | 'unavailable' | null = null): SetupItem[] => {
   if (!home.setup || home.hasOrders) return []
   const items: SetupItem[] = []
   if (localeFacts?.country && localeFacts.currency && localeFacts.language)
@@ -92,7 +92,7 @@ export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, c
     if (done === null || done === undefined) continue
     items.push({ key, done, note: null })
   }
-  if (site) items.push({ key: 'storefront', done: site.published, note: null })
+  if (site) items.push({ key: 'storefront', done: site !== 'unavailable' && site.published, note: null })
   return items
 }
 
