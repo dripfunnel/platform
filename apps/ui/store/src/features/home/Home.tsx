@@ -1,23 +1,27 @@
-import { EmptyState, ErrorState, firstName, LoadingState, useScreenState } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, firstName, LoadingState, pollWhileVisible, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, Link } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { loadHome, loadLocaleFacts, skipSetupStep, type HomeOrder, type SkippableStep, type StoreHome, type StoreLocaleFacts } from '../../api/home'
+import { loadHome, loadLocaleFacts, type HomeOrder, type StoreHome, type StoreLocaleFacts } from '../../api/home'
 import { chooseShopCategory, loadShopCategory, type ShopCategoryChoice } from '../../api/shopCategory'
+import { chooseTemplate, loadOverview, loadTemplates } from '../../api/storefront'
+import { startingTemplate } from '../storefront/overviewView'
 import { BrandStep } from './BrandStep'
+import { StorefrontStep } from './StorefrontStep'
 import { SearchSelect } from '../common/SearchSelect'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { SampleCatalogAction } from '../common/SampleCatalogAction'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, moneyText } from '../orders/orderView'
 import { homeSample, homeStates, type HomeState } from './homeStates'
-import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, tasksOf, type NumberCard, type SetupItem, type Task } from './homeView'
+import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, storefrontPhaseOf, tasksOf, type NumberCard, type SetupItem, type StorefrontSetup, type Task } from './homeView'
 import './home.css'
 
 const words = messages.home
 const shellRoute = getRouteApi('/_app')
+const creatingPollMs = 5_000
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; home: StoreHome; locale: StoreLocaleFacts | null; category?: ShopCategoryChoice | null }
+type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; home: StoreHome; locale: StoreLocaleFacts | null; category?: ShopCategoryChoice | null; storefront?: StorefrontSetup | null }
 
 interface HomeSeat {
   supplier: boolean
@@ -26,16 +30,23 @@ interface HomeSeat {
   reports: boolean
   /** May import products (`catalog.import`): the products step's Import and sample catalog. */
   importer: boolean
+  /** May make the store's site (`storefront.read` and `publish`): the storefront step. */
+  site: boolean
   readOnly: boolean
 }
 
 const seatOf = (forced: HomeState | null, acting: { permissions: readonly string[]; seller: unknown }, readOnly: boolean): HomeSeat => {
-  if (forced === 'denied') return { supplier: true, owner: false, reports: false, importer: false, readOnly: false }
-  if (forced === 'manager' || forced === 'newManager') return { supplier: false, owner: false, reports: true, importer: true, readOnly: false }
-  if (forced === 'staff' || forced === 'newStaff') return { supplier: false, owner: false, reports: false, importer: false, readOnly: false }
-  if (forced) return { supplier: false, owner: true, reports: true, importer: true, readOnly: forced === 'readOnly' }
+  if (forced === 'denied') return { supplier: true, owner: false, reports: false, importer: false, site: false, readOnly: false }
+  if (forced === 'manager' || forced === 'newManager') return { supplier: false, owner: false, reports: true, importer: true, site: false, readOnly: false }
+  if (forced === 'staff' || forced === 'newStaff') return { supplier: false, owner: false, reports: false, importer: false, site: false, readOnly: false }
+  if (forced) return { supplier: false, owner: true, reports: true, importer: true, site: true, readOnly: forced === 'readOnly' }
   const has = (p: string) => acting.permissions.includes(p)
-  return { supplier: acting.seller !== null, owner: has('settings'), reports: has('reports.read'), importer: has('catalog.import'), readOnly }
+  return { supplier: acting.seller !== null, owner: has('settings'), reports: has('reports.read'), importer: has('catalog.import'), site: has('storefront.read') && has('publish'), readOnly }
+}
+
+const loadStorefrontSetup = async (): Promise<StorefrontSetup> => {
+  const [overview, templates] = await Promise.all([loadOverview(), loadTemplates()])
+  return { status: overview.status, published: overview.live !== null, template: startingTemplate(templates) }
 }
 
 const statusTone = { toShip: 'brand', partly: 'warning', shipped: 'success', refunded: 'muted', cancelled: 'muted' } as const
@@ -47,8 +58,8 @@ export const Home = () => {
   const sample = useMemo(() => homeSample(forced), [forced])
   const seat = useMemo(() => seatOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const [view, setView] = useState<View>({ kind: 'loading' })
-  const [skipFailed, setSkipFailed] = useState(false)
   const latest = useRef(0)
+  const navigate = useNavigate()
 
   const load = useCallback(() => {
     // Only the latest request answers: a slow first read never replaces a retry's.
@@ -61,24 +72,42 @@ export const Home = () => {
     // The locale check is a hint: when its read fails the checklist leaves it out rather than Home failing.
     const localeFacts = seat.owner ? loadLocaleFacts().catch(() => null) : Promise.resolve(null)
     const category = seat.owner ? loadShopCategory().catch(() => null) : Promise.resolve(null)
-    void Promise.all([loadHome(), localeFacts, category]).then(
-      ([home, locale, choice]) => {
-        if (mine === latest.current) setView(home ? { kind: 'ready', home, locale, category: choice } : { kind: 'error' })
+    const storefront = seat.site ? loadStorefrontSetup().catch(() => null) : Promise.resolve(null)
+    void Promise.all([loadHome(), localeFacts, category, storefront]).then(
+      ([home, locale, choice, site]) => {
+        if (mine === latest.current) setView(home ? { kind: 'ready', home, locale, category: choice, storefront: site } : { kind: 'error' })
       },
       () => {
         if (mine === latest.current) setView({ kind: 'error' })
       },
     )
-  }, [forced, sample, seat.supplier, seat.owner])
+  }, [forced, sample, seat.supplier, seat.owner, seat.site])
   useEffect(load, [load])
 
-  const skip = (step: SkippableStep, skipped: boolean) => {
-    setSkipFailed(false)
-    void (sample ? Promise.resolve() : skipSetupStep(step, skipped)).then(
-      () =>
-        setView((v) => (v.kind === 'ready' && v.home.setup ? { ...v, home: { ...v.home, setup: { ...v.home.setup, [`${step}Skipped`]: skipped } } } : v)),
-      () => setSkipFailed(true),
+  const setSite = useCallback((change: Partial<StorefrontSetup>) => setView((v) => (v.kind === 'ready' && v.storefront ? { ...v, storefront: { ...v.storefront, ...change } } : v)), [])
+
+  // While the site is being made, its status is read again until it is ready, as on the Storefront page.
+  const creating = view.kind === 'ready' && view.storefront?.status === 'creating' && !sample
+  useEffect(() => {
+    if (!creating) return
+    let asked = 0
+    return pollWhileVisible(
+      () => {
+        const ask = ++asked
+        loadOverview().then(
+          (overview) => ask === asked && setSite({ status: overview.status, published: overview.live !== null }),
+          () => undefined,
+        )
+      },
+      creatingPollMs,
+      { doc: document, win: window },
     )
+  }, [creating, setSite])
+
+  const createSite = async () => {
+    const template = view.kind === 'ready' ? view.storefront?.template : null
+    if (!template) return void navigate({ to: '/storefront', search: (prev) => harnessSearch(prev) })
+    setSite({ status: sample ? 'creating' : await chooseTemplate(template.key, true) })
   }
 
   const choose = async (id: string) => {
@@ -90,12 +119,7 @@ export const Home = () => {
     )
   }
 
-  // A logo makes the step done; it stays open on this visit so the favicon can follow.
-  const [brandOpen, setBrandOpen] = useState(false)
-  const logoAdded = () => {
-    setBrandOpen(true)
-    setView((v) => (v.kind === 'ready' && v.home.setup ? { ...v, home: { ...v.home, setup: { ...v.home.setup, brand: true, brandSkipped: false } } } : v))
-  }
+  const brandAdded = useCallback(() => setView((v) => (v.kind === 'ready' && v.home.setup ? { ...v, home: { ...v.home, setup: { ...v.home.setup, brand: true } } } : v)), [])
 
   const now = new Date()
   const timeZone = view.kind === 'ready' ? view.home.timeZone : Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -125,7 +149,9 @@ export const Home = () => {
       {seat.readOnly && <p className="df-home-readonly">{words.readOnly}</p>}
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
-      {view.kind === 'ready' && <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} seat={seat} onSkip={skip} onChoose={choose} skipFailed={skipFailed} brand={{ open: brandOpen, shopName: acting.store.name, onLogo: logoAdded }} />}
+      {view.kind === 'ready' && (
+        <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} storefront={view.storefront ?? null} seat={seat} onChoose={choose} brand={{ shopName: acting.store.name, onDone: brandAdded }} onCreateSite={createSite} />
+      )}
     </div>
   )
 }
@@ -134,22 +160,23 @@ interface HomeBodyProps {
   home: StoreHome
   locale: StoreLocaleFacts | null
   category: ShopCategoryChoice | null
+  storefront: StorefrontSetup | null
   seat: HomeSeat
-  onSkip: (step: SkippableStep, skipped: boolean) => void
   onChoose: (id: string) => Promise<void>
-  skipFailed: boolean
   brand: BrandStepState
+  onCreateSite: () => Promise<void>
 }
 
 interface BrandStepState {
-  open: boolean
   shopName: string
-  onLogo: () => void
+  onDone: () => void
 }
 
-const HomeBody = ({ home, locale, category, seat, onSkip, onChoose, skipFailed, brand }: HomeBodyProps) => {
+const HomeBody = ({ home, locale, category, storefront, seat, onChoose, brand, onCreateSite }: HomeBodyProps) => {
   const tasks = tasksOf(home)
-  const setup = setupOf(home, seat.owner ? locale : null, category?.current?.name ?? null)
+  const setup = setupOf(home, seat.owner ? locale : null, category?.current?.name ?? null, storefront)
+  // The first site needs what the shop sells (its template) and the logo and favicon (BRAND_NOT_READY).
+  const site = storefront && { setup: storefront, phase: storefrontPhaseOf(storefront, home.setup?.category === true && home.setup.brand === true), onCreate: onCreateSite }
   const numbers = numbersOf(home)
   return (
     <>
@@ -172,7 +199,18 @@ const HomeBody = ({ home, locale, category, seat, onSkip, onChoose, skipFailed, 
           <strong>{words.allClear.title}</strong> {words.allClear.body}
         </p>
       )}
-      {setup.length > 0 && <Checklist items={setup} owner={seat.owner} onSkip={seat.readOnly ? null : onSkip} skipFailed={skipFailed} categories={category?.options ?? []} onChoose={seat.readOnly ? null : onChoose} sample={category?.current?.hasSample === true} importer={seat.importer && !seat.readOnly} brand={seat.readOnly ? null : brand} />}
+      {setup.length > 0 && (
+        <Checklist
+          items={setup}
+          owner={seat.owner}
+          categories={category?.options ?? []}
+          onChoose={seat.readOnly ? null : onChoose}
+          sample={category?.current?.hasSample === true}
+          importer={seat.importer && !seat.readOnly}
+          brand={seat.readOnly ? null : brand}
+          site={seat.readOnly ? null : site}
+        />
+      )}
       {!home.hasOrders && setup.length === 0 && (
         <section className="df-home-card df-home-wait" aria-labelledby="df-home-wait">
           <h2 id="df-home-wait">{words.staffWait.title}</h2>
@@ -265,14 +303,20 @@ const setupLink = (key: SetupItem['key']) => {
       return { to: '/collections' } as const
     case 'brand':
       return { to: '/storefront', tab: 'settings' } as const
+    case 'storefront':
+      return { to: '/storefront', tab: 'design' } as const
   }
+}
+
+interface SiteStepState {
+  setup: StorefrontSetup
+  phase: ReturnType<typeof storefrontPhaseOf>
+  onCreate: () => Promise<void>
 }
 
 interface ChecklistProps {
   items: SetupItem[]
   owner: boolean
-  onSkip: ((step: SkippableStep, skipped: boolean) => void) | null
-  skipFailed: boolean
   categories: ShopCategoryChoice['options']
   /** Null for a read-only session: the step then opens Settings, as the others do. */
   onChoose: ((id: string) => Promise<void>) | null
@@ -281,9 +325,11 @@ interface ChecklistProps {
   importer: boolean
   /** Null for a read-only session: the step then opens Site settings. */
   brand: BrandStepState | null
+  /** Null for a read-only session: the step then opens Storefront. */
+  site: SiteStepState | null
 }
 
-const Checklist = ({ items, owner, onSkip, skipFailed, categories, onChoose, sample, importer, brand }: ChecklistProps) => {
+const Checklist = ({ items, owner, categories, onChoose, sample, importer, brand, site }: ChecklistProps) => {
   // Once the Owner said what the shop sells, the products step offers a way in: sample, import or by hand.
   const categoryChosen = items.some((i) => i.key === 'category' && i.done)
   const s = words.setup
@@ -300,17 +346,16 @@ const Checklist = ({ items, owner, onSkip, skipFailed, categories, onChoose, sam
       <ul className="df-home-steps">
         {items.map((item) => {
           const label = s[item.key].label
-          const cta = item.skipped ? null : item.key === 'category' && item.done ? s.category.change : item.done && item.key !== 'locale' ? s.done : s[item.key].cta
+          const cta = item.key === 'category' && item.done ? s.category.change : item.done && item.key !== 'locale' ? s.done : s[item.key].cta
           const body = (
             <>
               <span className="df-home-step-mark" aria-hidden="true">
-                {item.done ? s.mark : item.skipped ? s.skippedMark : ''}
+                {item.done ? s.mark : ''}
               </span>
               <span className="df-home-step-text">
                 <span className="df-home-step-label">
                   {label}
                   {item.done && <span className="df-visually-hidden"> {s.doneSuffix}</span>}
-                  {(item.skipped || item.optional) && <span className="df-home-step-tag">{item.skipped ? s.skipped : s.optional}</span>}
                 </span>
                 {item.note && <span className="df-home-step-note">{item.note}</span>}
               </span>
@@ -324,15 +369,16 @@ const Checklist = ({ items, owner, onSkip, skipFailed, categories, onChoose, sam
                 <ProductsStep label={label} sample={sample && importer} importer={importer} />
               </li>
             )
-          if (item.key === 'brand' && brand && !item.skipped && (!item.done || brand.open))
+          if (item.key === 'brand' && brand && !item.done)
             return (
               <li key={item.key} className="df-home-step df-home-step--choices">
-                <BrandStep label={label} done={item.done} shopName={brand.shopName} onLogo={brand.onLogo} />
-                {onSkip && !item.done && (
-                  <button type="button" className="df-button df-home-step-skip" aria-label={fill(s.skipFor, { step: label })} onClick={() => onSkip('brand', true)}>
-                    {s.skip}
-                  </button>
-                )}
+                <BrandStep label={label} shopName={brand.shopName} onDone={brand.onDone} />
+              </li>
+            )
+          if (item.key === 'storefront' && site && site.phase !== 'done')
+            return (
+              <li key={item.key} className="df-home-step df-home-step--choices">
+                <StorefrontStep label={label} site={site.setup} phase={site.phase} onCreate={site.onCreate} />
               </li>
             )
           if (item.key === 'category' && !item.done && onChoose && categories.length > 0)
@@ -342,7 +388,7 @@ const Checklist = ({ items, owner, onSkip, skipFailed, categories, onChoose, sam
               </li>
             )
           return (
-            <li key={item.key} className={`df-home-step${item.done ? ' df-home-step--done' : ''}${item.skipped ? ' df-home-step--skipped' : ''}`}>
+            <li key={item.key} className={`df-home-step${item.done ? ' df-home-step--done' : ''}`}>
               {link.to === '/products/$productId' ? (
                 <Link to={link.to} params={{ productId: 'new' }} search={(prev) => harnessSearch(prev)}>
                   {body}
@@ -360,20 +406,10 @@ const Checklist = ({ items, owner, onSkip, skipFailed, categories, onChoose, sam
                   {body}
                 </Link>
               )}
-              {onSkip && (item.optional || item.skipped) && (
-                <button type="button" className="df-button df-home-step-skip" aria-label={fill(item.skipped ? s.undoFor : s.skipFor, { step: label })} onClick={() => onSkip(item.key as SkippableStep, !item.skipped)}>
-                  {item.skipped ? s.undo : s.skip}
-                </button>
-              )}
             </li>
           )
         })}
       </ul>
-      {skipFailed && (
-        <p className="df-home-step-owner" role="alert">
-          {s.skipError}
-        </p>
-      )}
       {!owner && <p className="df-home-step-owner">{s.ownerNote}</p>}
       <p className="df-home-step-foot">{s.footer}</p>
     </section>

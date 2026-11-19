@@ -1,5 +1,6 @@
 import type { ApiMoney } from '../../api/orders'
 import type { StoreHome, StoreLocaleFacts } from '../../api/home'
+import type { StorefrontStatus, StorefrontTemplate } from '../../api/storefront'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { moneyText } from '../orders/orderView'
 
@@ -46,15 +47,29 @@ export const tasksOf = (home: StoreHome): Task[] => {
   return tasks
 }
 
-export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand'
+export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand' | 'storefront'
+
+/** Where the store's first site is: waiting on the category and brand, ready to create, being made, failed, made, or published. */
+export type StorefrontPhase = 'locked' | 'ready' | 'creating' | 'failed' | 'open' | 'done'
+
+/** What the storefront step reads (`storefront` and `storefrontTemplates`); the Owner's, who may publish. */
+export interface StorefrontSetup {
+  status: StorefrontStatus
+  published: boolean
+  template: StorefrontTemplate | null
+}
 
 export interface SetupItem {
   key: SetupKey
   done: boolean
   note: string | null
-  /** The logo step can be skipped by the Owner until done; a skipped one leaves the count (#719). */
-  optional: boolean
-  skipped: boolean
+}
+
+export const storefrontPhaseOf = (site: StorefrontSetup, prepared: boolean): StorefrontPhase => {
+  if (site.published) return 'done'
+  if (site.status === 'creating') return 'creating'
+  if (site.status === 'not_started' || site.status === 'create_failed') return !prepared ? 'locked' : site.status === 'create_failed' ? 'failed' : 'ready'
+  return 'open'
 }
 
 const languageName = (code: string) => new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
@@ -64,28 +79,25 @@ const countryName = (code: string) => new Intl.DisplayNames([locale], { type: 'r
  * The checklist, only the items the API gave this seat. The locale check has no "confirmed" fact in the API, so it
  * reads as done with what sign-up set, and "Change" opens Settings (decided on #326).
  */
-export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, categoryName: string | null = null): SetupItem[] => {
+export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null, categoryName: string | null = null, site: StorefrontSetup | null = null): SetupItem[] => {
   if (!home.setup || home.hasOrders) return []
   const items: SetupItem[] = []
   if (localeFacts?.country && localeFacts.currency && localeFacts.language)
-    items.push({ key: 'locale', done: true, optional: false, skipped: false, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
+    items.push({ key: 'locale', done: true, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
   // What the shop sells, the Owner's (DATA-MODEL §7.2): before products, as the sections it suggests shape them.
-  if (home.setup.category !== null) items.push({ key: 'category', done: home.setup.category, optional: false, skipped: false, note: home.setup.category ? categoryName : null })
+  if (home.setup.category !== null) items.push({ key: 'category', done: home.setup.category, note: home.setup.category ? categoryName : null })
   // No payments or shipping step: new stores start with Cash on delivery and a flat rate (#1406).
   for (const key of ['products', 'collections', 'brand'] as const) {
     const done = home.setup[key]
     if (done === null || done === undefined) continue
-    const brand = key === 'brand'
-    items.push({ key, done, note: null, optional: brand && !done, skipped: brand && !done && home.setup.brandSkipped === true })
+    items.push({ key, done, note: null })
   }
+  if (site) items.push({ key: 'storefront', done: site.published, note: null })
   return items
 }
 
-/** "X of Y": a skipped step is in neither number. */
-export const setupCount = (items: SetupItem[]): { done: number; total: number } => {
-  const counted = items.filter((i) => !i.skipped)
-  return { done: counted.filter((i) => i.done).length, total: counted.length }
-}
+/** "X of Y". */
+export const setupCount = (items: SetupItem[]): { done: number; total: number } => ({ done: items.filter((i) => i.done).length, total: items.length })
 
 export interface Delta {
   text: string

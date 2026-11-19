@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { uploadPhoto } from '../../api/productEditor'
 import { loadBrand, saveBrand } from '../../api/storefront'
 import { messages } from '../../messages'
@@ -10,13 +10,28 @@ type Which = 'logo' | 'favicon'
 
 /**
  * "Add your logo and favicon" on Home's checklist (FIRST-RELEASE §5): uploads into the storefront brand, keeping every
- * other brand field as saved. The brand needs a logo before a favicon (storefront_brand.logo_asset_id is required).
+ * other brand field as saved. The brand needs a logo before a favicon, and the step is done once it has both.
  */
-export const BrandStep = ({ label, done, shopName, onLogo }: { label: string; done: boolean; shopName: string; onLogo: () => void }) => {
+export const BrandStep = ({ label, shopName, onDone }: { label: string; shopName: string; onDone: () => void }) => {
   const id = useId()
   const [busy, setBusy] = useState<Which | null>(null)
-  const [added, setAdded] = useState<Record<Which, boolean>>({ logo: done, favicon: false })
+  const [added, setAdded] = useState<Record<Which, boolean>>({ logo: false, favicon: false })
   const [failed, setFailed] = useState(false)
+
+  // A logo added before (in Site settings, or on an earlier visit) lets the favicon follow at once.
+  useEffect(() => {
+    let current = true
+    loadBrand().then(
+      (b) => current && setAdded((a) => ({ logo: a.logo || Boolean(b?.logoAssetId), favicon: a.favicon || Boolean(b?.faviconAssetId) })),
+      () => undefined,
+    )
+    return () => {
+      current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (added.logo && added.favicon) onDone()
+  }, [added, onDone])
 
   const upload = async (which: Which, file: File) => {
     setBusy(which)
@@ -29,7 +44,6 @@ export const BrandStep = ({ label, done, shopName, onLogo }: { label: string; do
       if (!logoAssetId) throw new Error('NO_LOGO')
       await saveBrand(brandInputOf({ ...form, shopName: form.shopName.trim() || shopName, logoAssetId, ...(which === 'favicon' ? { faviconAssetId: stored.assetId } : {}) }))
       setAdded((a) => ({ ...a, [which]: true }))
-      if (which === 'logo') onLogo()
     } catch {
       setFailed(true)
     } finally {
@@ -57,9 +71,7 @@ export const BrandStep = ({ label, done, shopName, onLogo }: { label: string; do
 
   return (
     <div className="df-home-step-choices">
-      <span className="df-home-step-mark" aria-hidden="true">
-        {done ? messages.home.setup.mark : ''}
-      </span>
+      <span className="df-home-step-mark" aria-hidden="true" />
       <span className="df-home-step-text">
         <span className="df-home-step-label">{label}</span>
         <span className="df-home-step-note" role="status">

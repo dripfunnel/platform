@@ -116,7 +116,7 @@ export interface SetupRow {
   collections: boolean
   payments: boolean
   shipping: boolean
-  /** The storefront brand has a logo (storefront_brand, DATA-MODEL §7.8). */
+  /** The storefront brand has a logo and a favicon (storefront_brand, DATA-MODEL §7.8). */
   brand: boolean
   /** The steps the Owner skipped (store.setup_skipped): `payments`, `shipping` and/or `brand`. */
   skipped: string[]
@@ -130,7 +130,7 @@ export const selectSetup = async (tx: ScopedSql, storeId: string): Promise<Setup
       exists (select 1 from collection where store_id = ${storeId} and deleted_at is null) as collections,
       exists (select 1 from payment_provider_account where store_id = ${storeId} and status = 'live' and not paused_by_plan) as payments,
       exists (select 1 from store_shipping where store_id = ${storeId} and saved_at is not null) as shipping,
-      exists (select 1 from storefront_brand where store_id = ${storeId} and logo_asset_id is not null) as brand,
+      exists (select 1 from storefront_brand where store_id = ${storeId} and logo_asset_id is not null and favicon_asset_id is not null) as brand,
       (select to_jsonb(setup_skipped) from store where id = ${storeId}) as skipped
   `
   return row ?? { category: false, products: false, collections: false, payments: false, shipping: false, brand: false, skipped: [] }
