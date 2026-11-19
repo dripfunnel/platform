@@ -287,6 +287,7 @@ describe('The address search', () => {
     expect(maps.suggest).toHaveBeenCalledWith('viman', 'IN')
     expect(within(screen.getByRole('listbox', { name: 'Matching places' })).getByRole('option').textContent).toContain('Viman Nagar')
     expect(search().getAttribute('aria-expanded')).toBe('true')
+    expect(search().getAttribute('aria-controls')).toBe(screen.getByRole('listbox').id)
   })
 
   it('moves the pin to a chosen place and fills the address, leaving the name, phone and line 2', async () => {

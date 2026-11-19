@@ -269,7 +269,7 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
           autoComplete="off"
           aria-autocomplete="list"
           aria-expanded={options.length > 0}
-          aria-controls={`${id}-options`}
+          aria-controls={options.length > 0 ? `${id}-options` : undefined}
           aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined}
           placeholder={t('address.map.searchPlaceholder')}
           maxLength={200}
