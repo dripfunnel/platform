@@ -1,84 +1,124 @@
-import { Link } from '@tanstack/react-router'
+import { isHttps } from '@dripfunnel/shared/format'
 import { useState } from 'react'
-import { harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
 import { chooseRefusal } from '../storefront/overviewView'
+import { previewRefusal, publishRefusal } from '../storefront/studioRules'
 import type { StorefrontPhase, StorefrontSetup } from './homeView'
 
 const words = messages.home.setup.storefront
+const mark = messages.home.setup.mark
 
-interface StorefrontStepProps {
-  label: string
+export interface SiteStep {
   /** Null while the site couldn't be read (`unavailable`). */
-  site: StorefrontSetup | null
-  phase: Exclude<StorefrontPhase, 'done'>
+  setup: StorefrontSetup | null
+  phase: StorefrontPhase
   onCreate: () => Promise<void>
   onRetry: () => Promise<void>
+  /** The draft's signed preview link (PREVIEW §5 step 1). */
+  onPreview: () => Promise<string>
+  onPublish: () => Promise<void>
+  /** Why the last publish didn't go live, in plain words. */
+  refused: string | null
+  /** The running publish couldn't be read for a while; Check again reads it again. */
+  lost: boolean
+  onCheckAgain: () => void
 }
 
-/** "Create your storefront" (FIRST-RELEASE §5): the first site from the category's template, then the studio to publish it. */
-export const StorefrontStep = ({ label, site, phase, onCreate, onRetry }: StorefrontStepProps) => {
+/** "Create your storefront" (FIRST-RELEASE §5): the first site from the category's template, previewed and published from Home. */
+export const StorefrontStep = ({ label, site }: { label: string; site: SiteStep }) => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const create = () => {
+  const { setup, phase } = site
+  const act = (work: () => Promise<void>, refusal: (e: unknown) => string) => {
     setBusy(true)
     setError(null)
-    onCreate().then(
+    work().then(
       () => setBusy(false),
       (e: unknown) => {
         setBusy(false)
-        setError(chooseRefusal(e))
+        setError(refusal(e))
       },
     )
   }
-  const retry = () => {
-    setBusy(true)
+  // The tab opens on the click, before the link is signed, so no pop-up blocker stops it; it carries nothing back.
+  const preview = () => {
     setError(null)
-    onRetry().then(
-      () => setBusy(false),
-      () => {
-        setBusy(false)
-        setError(words.unavailable)
+    const tab = window.open('', '_blank')
+    if (tab) tab.opener = null
+    site.onPreview().then(
+      (link) => {
+        if (tab && isHttps(link)) tab.location.href = link
+        else tab?.close()
+      },
+      (e: unknown) => {
+        tab?.close()
+        setError(previewRefusal(e))
       },
     )
   }
+  const host = setup?.host ?? null
   const note = {
     locked: words.locked,
-    ready: site?.template ? fill(words.template, { name: site.template.name }) : null,
+    ready: setup?.template ? fill(words.template, { name: setup.template.name }) : null,
     failed: words.failed,
     creating: words.creating,
     open: words.ready,
+    publishing: site.lost ? words.lost : words.publishing,
+    done: host ? fill(words.live, { host }) : null,
     unavailable: error ? null : words.unavailable,
   }[phase]
+  const working = phase === 'creating' || (phase === 'publishing' && !site.lost)
+  const problem = error ?? (phase === 'open' ? site.refused : null)
 
   return (
     <div className="df-home-step-choices">
-      <span className="df-home-step-mark" aria-hidden="true" />
+      <span className="df-home-step-mark" aria-hidden="true">
+        {phase === 'done' ? mark : ''}
+      </span>
       <span className="df-home-step-text">
         <span className="df-home-step-label">{label}</span>
         {note && (
-          <span className="df-home-step-note" role={phase === 'creating' ? 'status' : undefined}>
-            {phase === 'creating' && <span className="df-home-step-spinner" aria-hidden="true" />}
+          <span className="df-home-step-note" role={working ? 'status' : undefined}>
+            {working && <span className="df-home-step-spinner" aria-hidden="true" />}
             {note}
           </span>
         )}
-        {error && (
+        {problem && (
           <span className="df-home-step-owner" role="alert">
-            {error}
+            {problem}
           </span>
         )}
       </span>
       <span className="df-home-step-actions">
-        {phase === 'open' ? (
-          <Link className="df-button df-button--primary" to="/storefront" search={(prev) => ({ ...harnessSearch(prev), view: 'studio' as const })}>
-            {words.open}
-          </Link>
+        {phase === 'done' ? (
+          host && (
+            <a className="df-button" href={`https://${host}`} target="_blank" rel="noopener noreferrer">
+              {words.viewLive}
+            </a>
+          )
+        ) : phase === 'open' || phase === 'publishing' ? (
+          <>
+            {setup?.previewReady && (
+              <button type="button" className="df-button" onClick={preview}>
+                {words.preview}
+              </button>
+            )}
+            {site.lost ? (
+              <button type="button" className="df-button" onClick={site.onCheckAgain}>
+                {words.checkAgain}
+              </button>
+            ) : (
+              <button type="button" className="df-button df-button--primary" disabled={phase === 'publishing' || busy} onClick={() => act(site.onPublish, publishRefusal)}>
+                {phase === 'publishing' || busy ? words.publishingCta : words.publish}
+              </button>
+            )}
+          </>
         ) : phase === 'unavailable' ? (
-          <button type="button" className="df-button" disabled={busy} onClick={retry}>
+          <button type="button" className="df-button" disabled={busy} onClick={() => act(site.onRetry, () => words.unavailable)}>
             {words.retry}
           </button>
         ) : (
-          <button type="button" className="df-button df-button--primary" disabled={phase === 'locked' || phase === 'creating' || busy} onClick={create}>
+          <button type="button" className="df-button df-button--primary" disabled={phase === 'locked' || phase === 'creating' || busy} onClick={() => act(site.onCreate, chooseRefusal)}>
             {phase === 'creating' || busy ? words.creatingCta : words.create}
           </button>
         )}
