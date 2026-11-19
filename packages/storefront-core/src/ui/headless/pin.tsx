@@ -49,14 +49,14 @@ const within = <T,>(ms: number, work: Promise<T>): Promise<T | null> => Promise.
 type Phase = 'loading' | 'open' | 'failed' | 'liveOnly'
 type Search = 'idle' | 'none' | 'unavailable'
 
-// Core's own look, in the sealed parts' tokens, adopted once as a stylesheet (the CSP allows no inline <style>). `:where()` gives
-// it no specificity, so a theme's rule for a `df-pin-*` class always wins.
+// Core's own look, in the sealed tokens only (ARCHITECTURE §3.5), adopted once as a stylesheet (the CSP allows no inline <style>);
+// `:where()` gives it no specificity, so a theme's rule for a `df-pin-*` class wins.
 const css = `:where(.df-pin-search){position:relative}
-:where(.df-pin-options){position:absolute;z-index:20;top:100%;left:0;right:0;max-height:17.5rem;overflow-y:auto;margin:0;padding:0;list-style:none;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor)}
+:where(.df-pin-options){position:absolute;z-index:20;top:100%;left:0;right:0;max-height:17.5rem;overflow-y:auto;margin:0;padding:0;list-style:none;background:var(--df-sealed-surface);color:var(--df-sealed-color,inherit);border:1px solid var(--df-sealed-muted,currentColor)}
 :where(.df-pin-option){padding:.5rem .75rem;cursor:pointer}
-:where(.df-pin-option[aria-selected=true]){background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,var(--df-sealed-surface,#fff))}
+:where(.df-pin-option[aria-selected=true]){background:color-mix(in srgb,currentColor 14%,transparent);box-shadow:inset 3px 0 0 currentColor}
 :where(.df-pin-map){border-radius:var(--df-sealed-radius,8px);overflow:hidden}
-:where(.df-pin-button){font:inherit;padding:.5rem 1rem;margin:.5rem 0;cursor:pointer;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor);border-radius:var(--df-sealed-radius,8px)}
+:where(.df-pin-button){font:inherit;padding:.5rem 1rem;margin:.5rem 0;cursor:pointer;background:var(--df-sealed-surface,transparent);color:var(--df-sealed-color,inherit);border:1px solid var(--df-sealed-muted,currentColor);border-radius:var(--df-sealed-radius,8px)}
 :where(.df-pin-status){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}`
 let sheet: CSSStyleSheet | null = null
 const style = () => {
