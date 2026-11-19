@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { Pin, Place } from '../../checkout/address'
 import type { Translate } from '../../platform/i18n/i18n'
 import { useOptionalStorefront } from '../../platform/store/context'
@@ -49,11 +49,22 @@ const within = <T,>(ms: number, work: Promise<T>): Promise<T | null> => Promise.
 type Phase = 'loading' | 'open' | 'failed' | 'liveOnly'
 type Search = 'idle' | 'none' | 'unavailable'
 
-// Neutral and in the system's own colours, so any theme reads it; a theme restyles it by the class names.
-const listStyle: CSSProperties = { position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: '17.5rem', overflowY: 'auto', margin: 0, padding: 0, listStyle: 'none', background: 'var(--df-sealed-surface,#fff)', color: 'var(--df-sealed-color,#1d1b18)', border: '1px solid var(--df-sealed-muted,currentColor)' }
-const buttonStyle: CSSProperties = { font: 'inherit', padding: '0.5rem 1rem', margin: '0.5rem 0', cursor: 'pointer', background: 'var(--df-sealed-surface,#fff)', color: 'var(--df-sealed-color,#1d1b18)', border: '1px solid var(--df-sealed-muted,currentColor)', borderRadius: 'var(--df-sealed-radius,8px)' }
-const hidden: CSSProperties = { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
-const optionStyle = (active: boolean): CSSProperties => ({ padding: '0.5rem 0.75rem', cursor: 'pointer', ...(active ? { background: 'var(--df-sealed-accent,currentColor)', color: 'var(--df-sealed-on-accent,#fff)' } : {}) })
+// Core's own look, in the sealed parts' tokens, adopted once as a stylesheet (the CSP allows no inline <style>). `:where()` gives
+// it no specificity, so a theme's rule for a `df-pin-*` class always wins.
+const css = `:where(.df-pin-search){position:relative}
+:where(.df-pin-options){position:absolute;z-index:20;top:100%;left:0;right:0;max-height:17.5rem;overflow-y:auto;margin:0;padding:0;list-style:none;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor)}
+:where(.df-pin-option){padding:.5rem .75rem;cursor:pointer}
+:where(.df-pin-option[aria-selected=true]){background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,#fff)}
+:where(.df-pin-map){border-radius:var(--df-sealed-radius,8px);overflow:hidden}
+:where(.df-pin-button){font:inherit;padding:.5rem 1rem;margin:.5rem 0;cursor:pointer;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor);border-radius:var(--df-sealed-radius,8px)}
+:where(.df-pin-status){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}`
+let sheet: CSSStyleSheet | null = null
+const style = () => {
+  if (sheet || typeof CSSStyleSheet === 'undefined' || !('adoptedStyleSheets' in document)) return
+  sheet = new CSSStyleSheet()
+  sheet.replaceSync(css)
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+}
 
 export type PinOnMapProps = {
   value: Pin | null
@@ -73,6 +84,7 @@ export type PinOnMapProps = {
  */
 export const PinOnMap = ({ value, onChange, address, country, t, locale, className }: PinOnMapProps) => {
   const storefront = useOptionalStorefront()
+  useEffect(style, [])
   const source = storefront?.store.mapFrame ?? null
   const mode = storefront?.mode ?? 'live'
   const id = useId()
@@ -261,7 +273,7 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
 
   return (
     <div>
-      <span className={['df-pin-search', className].filter(Boolean).join(' ')} style={{ position: 'relative' }}>
+      <span className={['df-pin-search', className].filter(Boolean).join(' ')}>
         <label htmlFor={`${id}-search`}>{t('address.map.search')}</label>
         <input
           id={`${id}-search`}
@@ -279,7 +291,7 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
           onKeyDown={searchKey}
         />
         {options.length > 0 ? (
-          <ul id={`${id}-options`} role="listbox" aria-label={t('address.map.suggestions')} className="df-pin-options" style={listStyle}>
+          <ul id={`${id}-options`} role="listbox" aria-label={t('address.map.suggestions')} className="df-pin-options">
             {options.map((o, i) => (
               <li
                 key={o.id}
@@ -287,7 +299,6 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
                 role="option"
                 aria-selected={i === active}
                 className="df-pin-option"
-                style={optionStyle(i === active)}
                 onMouseDown={(e) => {
                   e.preventDefault()
                   void choose(o)
@@ -304,17 +315,17 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
         <p id={`${id}-title`}>{t('address.map.title')}</p>
         <p id={`${id}-help`}>{t('address.map.help')}</p>
         {/* Sized here: the map's frame fills it. */}
-        <div ref={area} tabIndex={0} role="application" aria-label={t('address.map.title')} aria-describedby={`${id}-at`} onKeyDown={nudge} style={{ height: '18rem', borderRadius: 'var(--df-sealed-radius,8px)', overflow: 'hidden' }} />
+        <div ref={area} tabIndex={0} role="application" aria-label={t('address.map.title')} aria-describedby={`${id}-at`} onKeyDown={nudge} className="df-pin-map" style={{ height: '18rem' }} />
         {phase === 'loading' ? <small role="status">{t('address.map.loading')}</small> : null}
         {geolocation ? (
           <div>
-            <button type="button" style={buttonStyle} disabled={phase !== 'open' || locating === 'busy'} aria-busy={locating === 'busy'} onClick={locate}>
+            <button type="button" className="df-pin-button" disabled={phase !== 'open' || locating === 'busy'} aria-busy={locating === 'busy'} onClick={locate}>
               {locating === 'busy' ? t('address.map.locating') : t('address.map.locate')}
             </button>
           </div>
         ) : null}
         {locating === 'failed' ? <small role="alert">{t('address.map.locateFailed')}</small> : null}
-        <p id={`${id}-at`} aria-live="polite" style={hidden}>
+        <p id={`${id}-at`} aria-live="polite" className="df-pin-status">
           {value ? `${t('address.map.pinned')} (${where(value)})` : t('address.map.unpinned')}
         </p>
       </div>
