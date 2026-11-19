@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -612,6 +612,9 @@ tables.
     units, when a choice has a quantity) are the free ones.
 53. **Rules on answers.**
     - Every question is **optional by default**, or **required**.
+    - An optional pick-one list starts with nothing picked and adds no "None" of its own (the
+      merchant's own "No, thanks" is the only no); once a choice is picked, a **Clear** link
+      goes back to no answer (#1572).
     - A choice list has a **minimum and maximum** number of picks; a choice's quantity counts
       towards both.
     - Text has a **maximum length**, 100 by default and at most 500, counted as in fact 51; it
@@ -1488,7 +1491,7 @@ property". Prices appear only when the merchant asks for one.
   chips are in D2: each with its name, an optional photo (F's uploader, one photo), the
   **Available** switch, and "Shoppers can pick more than one of this, up to [N]" (U7). Under the
   rows, "How many can they pick?": **Pick one** (the default, shown to the shopper as radio
-  buttons) or **Pick up to [N]**, with "at least [M]" shown only for a maximum above 1. The
+  buttons, with nothing picked at first and, when optional, a Clear link after a pick) or **Pick up to [N]**, with "at least [M]" shown only for a maximum above 1. The
   Required switch sets the minimum to 1; a minimum above 1 makes it required. The form refuses a
   minimum above the maximum, in words ("They must pick at least 4 but can pick only 3").
 - U5. **Text form**: the question, optional help text, **Single line** or **Paragraph**, the

@@ -319,20 +319,100 @@ describe('answers in the order summary at review', () => {
 })
 
 describe('the modal’s last rules', () => {
-  it('clears an optional pick-one answer with None', async () => {
-    rememberQuestions({ id: 'p6', name: 'Card', versionIds: ['v-n'], questions: [{ ...base, id: 'q-n', kind: 'CHOICE', label: 'Envelope', choices: [choice('c-red', 'Red', 0)] }] })
-    const asked = shopAnswering(() => quote(500))
-    render(
-      <Provided client={client()}>
-        <AddToCart versionId="v-n">Add</AddToCart>
-      </Provided>,
-    )
-    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
-    const modal = await waitFor(() => inside())
-    expect(modal.getByRole('radio', { name: 'None' })).toHaveProperty('checked', true)
-    await act(async () => void fireEvent.click(modal.getByRole('radio', { name: /Red/ })))
-    await act(async () => void fireEvent.click(modal.getByRole('radio', { name: 'None' })))
-    await waitFor(() => expect(asked.at(-1)?.variables['answers']).toEqual([]))
+  describe('an optional pick-one question (#1572)', () => {
+    const wrap: Question = { ...base, id: 'q-g', kind: 'CHOICE', label: 'Would you like gift wrapping?', choices: [choice('c-no', 'No, thanks', 0), choice('c-yes', 'Yes, gift wrap it', 4900)] }
+    const priced = (a: { query: string; variables: Record<string, unknown> }) => {
+      if (!a.query.includes('customisationQuote')) return { data: { addToCart: { cartToken: 't', cart: cartOf([line('v-g', 1)]) } } }
+      return quote(((a.variables['answers'] as unknown[]) ?? []).length === 0 ? 1000 : 1049)
+    }
+    const open = async (questionsHere: Question[]) => {
+      rememberQuestions({ id: 'p-g', name: 'Frock', versionIds: ['v-g'], questions: questionsHere })
+      const asked = shopAnswering(priced)
+      render(
+        <Provided client={client()}>
+          <AddToCart versionId="v-g">Add</AddToCart>
+        </Provided>,
+      )
+      await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+      return { asked, modal: await waitFor(() => inside()) }
+    }
+
+    it('offers only the merchant’s choices, with nothing picked and no Clear', async () => {
+      const { modal } = await open([wrap])
+      expect(modal.getAllByRole('radio').map((r) => r.closest('label')?.querySelector('span')?.textContent)).toEqual(['No, thanks', 'Yes, gift wrap it'])
+      expect(modal.queryByRole('radio', { name: 'None' })).toBeNull()
+      expect(modal.getAllByRole('radio').every((r) => (r as HTMLInputElement).checked === false)).toBe(true)
+      expect(modal.queryByRole('button', { name: /^Clear/ })).toBeNull()
+    })
+
+    it('shows Clear once a choice is picked, and Clear goes back to no answer and takes its extra off the Total', async () => {
+      const { asked, modal } = await open([wrap])
+      await modal.findByText('$10.00')
+      await act(async () => void fireEvent.click(modal.getByRole('radio', { name: /Yes, gift wrap it/ })))
+      await modal.findByText('$10.49')
+      const clear = modal.getByRole('button', { name: 'Clear: Would you like gift wrapping?' })
+      expect(clear.textContent).toBe('Clear')
+      await act(async () => void fireEvent.click(clear))
+      expect(modal.getAllByRole('radio').every((r) => (r as HTMLInputElement).checked === false)).toBe(true)
+      expect(modal.queryByRole('button', { name: /^Clear/ })).toBeNull()
+      await modal.findByText('$10.00')
+      expect(asked.filter((a) => a.query.includes('customisationQuote')).at(-1)?.variables['answers']).toEqual([])
+    })
+
+    it('adds to the cart with no answer', async () => {
+      const done = vi.fn()
+      rememberQuestions({ id: 'p-g', name: 'Frock', versionIds: ['v-g'], questions: [wrap] })
+      const asked = shopAnswering(priced)
+      render(
+        <Provided client={client()}>
+          <AddToCart versionId="v-g" onDone={done}>
+            Add
+          </AddToCart>
+        </Provided>,
+      )
+      await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+      const modal = await waitFor(() => inside())
+      await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
+      await waitFor(() => expect(done).toHaveBeenCalledWith(true))
+      expect(asked.find((a) => a.query.includes('addToCart'))?.variables).toMatchObject({ versionId: 'v-g', answers: [] })
+    })
+
+    it('has no Clear on a required question or a multi-pick one', async () => {
+      const { modal } = await open([
+        { ...wrap, id: 'q-r', label: 'Required one', required: true },
+        { ...wrap, id: 'q-m', label: 'Pick a few', maxPicks: 2 },
+      ])
+      await act(async () => void fireEvent.click(modal.getAllByRole('radio', { name: /Yes, gift wrap it/ })[0] as HTMLElement))
+      await act(async () => void fireEvent.click(modal.getAllByRole('checkbox', { name: /Yes, gift wrap it/ })[0] as HTMLElement))
+      expect(modal.queryByRole('button', { name: /^Clear/ })).toBeNull()
+    })
+
+    it('shows the same on Edit for a cart line: its pick ticked with Clear, the other choices unticked, no None', async () => {
+      const wrapped = viewCart(
+        cartOf([
+          {
+            ...line('v-g', 1),
+            id: 'line-g',
+            problem: null,
+            answers: [{ questionId: 'q-g', question: wrap.label, kind: 'CHOICE', text: null, per: 'ITEM', amount: usd(4900), choices: [{ choiceId: 'c-yes', label: 'Yes, gift wrap it', quantity: 1, free: 0 }], uploads: [] }],
+          } as ReturnType<typeof line>,
+        ]) as never,
+      ).lines[0]
+      if (!wrapped) throw new Error('no line')
+      shopAnswering((a) => (a.query.includes('query Questions') ? { data: { product: { name: 'Frock', questions: [wrap].map((q) => ({ ...q, choices: q.choices.map((c) => ({ ...c, photo: null })) })) } } } : priced(a)))
+      render(
+        <Provided client={client()}>
+          <EditAnswers line={wrapped} />
+        </Provided>,
+      )
+      await act(async () => void fireEvent.click(await screen.findByRole('button', { name: /Edit your choices/ })))
+      const modal = await waitFor(() => inside())
+      expect(modal.queryByRole('radio', { name: 'None' })).toBeNull()
+      expect(modal.getByRole('radio', { name: /Yes, gift wrap it/ })).toHaveProperty('checked', true)
+      expect(modal.getByRole('radio', { name: /No, thanks/ })).toHaveProperty('checked', false)
+      await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Clear: Would you like gift wrapping?' })))
+      expect(modal.getByRole('radio', { name: /Yes, gift wrap it/ })).toHaveProperty('checked', false)
+    })
   })
 
   it('never keeps a file removed while it was still uploading, and takes it back', async () => {
