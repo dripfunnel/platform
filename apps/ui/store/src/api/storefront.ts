@@ -151,6 +151,7 @@ export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
   (await query('{ storefrontTemplates { key name tag description demoUrl current forCategory } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
 
 export const scratchTemplate = 'baseline'
+export const classicTemplate = 'classic'
 
 /** The first choice starts making the store's site (`creating`); a later one changes the draft. Answers the new status. */
 export const chooseTemplate = async (key: string, keepWords: boolean): Promise<StorefrontStatus> =>

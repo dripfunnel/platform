@@ -19,6 +19,7 @@ input[type=number]{font:inherit;width:72px;min-height:44px;padding:0 8px;border:
 [part~=error],[part~=problem]{color:var(--df-sealed-error,#b42318)}
 [part~=total]{display:flex!important;justify-content:space-between;gap:16px;font-weight:700;font-size:max(15px,1.1em)!important}
 [part~=actions]{display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+[part~=clear]{justify-self:start;min-height:24px;padding:0;font:inherit;font-size:max(12px,.875em)!important;border:0;background:transparent;color:inherit;text-decoration:underline;cursor:pointer}
 [part~=files]{display:grid!important;gap:6px;list-style:none;padding:0}
 [part~=primary]{background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,#fff);border-color:var(--df-sealed-accent,currentColor)}
 :focus-visible,label[part~=button]:has(input:focus-visible){outline:2px solid var(--df-sealed-focus,currentColor)!important;outline-offset:2px!important}

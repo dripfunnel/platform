@@ -237,12 +237,15 @@ describe('skipping an optional setup step', () => {
     expect((await stored())[t.storeB1]).toEqual([])
   })
 
-  it('skips the logo and favicon step, which is done once the storefront has a logo', async () => {
+  it('skips the logo and favicon step, which is done once the storefront has both', async () => {
     expect((await gql('mutation { skipSetupStep(step: brand, skipped: true) }', 'fresh')).data).toEqual({ skipSetupStep: true })
     expect(await setupOf()).toMatchObject({ brand: false, brandSkipped: true })
     await gql('mutation { skipSetupStep(step: brand, skipped: false) }', 'fresh')
-    const [logo] = await db.sql<{ id: string }[]>`insert into asset (store_id, kind, r2_key, mime, bytes, checksum) values (${t.storeB1}, 'image', ${`stores/${t.storeB1}/assets/${crypto.randomUUID()}.png`}, 'image/png', 10, ${'a'.repeat(64)}) returning id`
-    await db.sql`insert into storefront_brand (store_id, logo_asset_id) values (${t.storeB1}, ${logo?.id ?? ''})`
+    const image = async () =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, kind, r2_key, mime, bytes, checksum) values (${t.storeB1}, 'image', ${`stores/${t.storeB1}/assets/${crypto.randomUUID()}.png`}, 'image/png', 10, ${'a'.repeat(64)}) returning id`)[0]?.id ?? ''
+    await db.sql`insert into storefront_brand (store_id, logo_asset_id) values (${t.storeB1}, ${await image()})`
+    expect(await setupOf()).toMatchObject({ brand: false, brandSkipped: false })
+    await db.sql`update storefront_brand set favicon_asset_id = ${await image()} where store_id = ${t.storeB1}`
     expect(await setupOf()).toMatchObject({ brand: true, brandSkipped: false })
     await db.sql`delete from storefront_brand where store_id = ${t.storeB1}`
   })

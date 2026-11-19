@@ -240,13 +240,6 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                     </p>
                   )}
                 </div>
-                {/* An optional pick-one list offers "None": a radio can't be unticked (fact 53). */}
-                {q.kind === 'CHOICE' && q.maxPicks === 1 && !q.required && q.minPicks === 0 && (
-                  <label part="choice">
-                    <input type="radio" name={q.id} {...invalid} checked={!(a?.choices ?? []).some((x) => x.quantity > 0)} onChange={() => set(q.id, { choices: [] })} />
-                    <span>{t('customise.none')}</span>
-                  </label>
-                )}
                 {q.kind === 'CHOICE' &&
                   q.choices.map((c) => {
                     const picked = a?.choices?.find((x) => x.choiceId === c.id)?.quantity ?? 0
@@ -268,6 +261,21 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                       </label>
                     )
                   })}
+                {/* A radio can't be unticked, so an optional pick-one list offers Clear once something is picked (fact 53). */}
+                {q.kind === 'CHOICE' && q.maxPicks === 1 && !q.required && q.minPicks === 0 && (a?.choices ?? []).some((x) => x.quantity > 0) && (
+                  <button
+                    type="button"
+                    part="clear"
+                    aria-label={t('customise.clearNamed', { name: q.label })}
+                    onClick={(event) => {
+                      // The button goes with the answer; focus moves to the list so a keyboard user isn't dropped (WCAG 2.4.3).
+                      event.currentTarget.closest('fieldset')?.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus()
+                      set(q.id, { choices: [] })
+                    }}
+                  >
+                    {t('customise.clear')}
+                  </button>
+                )}
                 {q.kind === 'TEXT' && (
                   <>
                     {q.multiline ? (
