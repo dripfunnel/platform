@@ -54,7 +54,7 @@ type Search = 'idle' | 'none' | 'unavailable'
 const css = `:where(.df-pin-search){position:relative}
 :where(.df-pin-options){position:absolute;z-index:20;top:100%;left:0;right:0;max-height:17.5rem;overflow-y:auto;margin:0;padding:0;list-style:none;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor)}
 :where(.df-pin-option){padding:.5rem .75rem;cursor:pointer}
-:where(.df-pin-option[aria-selected=true]){background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,#fff)}
+:where(.df-pin-option[aria-selected=true]){background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,var(--df-sealed-surface,#fff))}
 :where(.df-pin-map){border-radius:var(--df-sealed-radius,8px);overflow:hidden}
 :where(.df-pin-button){font:inherit;padding:.5rem 1rem;margin:.5rem 0;cursor:pointer;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#1d1b18);border:1px solid var(--df-sealed-muted,currentColor);border-radius:var(--df-sealed-radius,8px)}
 :where(.df-pin-status){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}`
