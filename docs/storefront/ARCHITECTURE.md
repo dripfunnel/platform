@@ -931,8 +931,8 @@ their own cards.
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
   need their host added to the store's analytics settings.
 - **The pages with the address form** (built `checkout/` and `account/` files, `isMapsPage`) add one source and nothing
-  else: the hooks host in `frame-src` (`mapsFrameOrigin`, set when the environment has a Maps key), for "Pin on map"'s
-  frame (#814). Google Maps needs `'unsafe-eval'` and no Trusted Types, so it runs only in that frame, under the frame
+  else: the hooks host in `frame-src` (`mapsFrameOrigin`, set when the environment has a Maps key), for the address form's
+  map frame (#814, #1615). Google Maps needs `'unsafe-eval'` and no Trusted Types, so it runs only in that frame, under the frame
   page's own CSP, sandboxed and on another origin; the store's pages keep every wall above (decided 2026-10-21 on #814).
 - **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
   build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a

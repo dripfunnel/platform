@@ -262,6 +262,20 @@ describe('The map for a new address', () => {
     expect(saved).toEqual({ latitude: 5, longitude: 5 })
   })
 
+  it('never moves over an address the shopper types while the browser is still asking', async () => {
+    const { load, maps } = fakeMaps()
+    mapsLoader.current = load
+    const ask = vi.fn()
+    geolocate(ask)
+    await show({ blank: true })
+    fireEvent.change(field('Address'), { target: { value: '12 MG Road' } })
+    fireEvent.change(field('City'), { target: { value: 'Pune' } })
+    const answer = ask.mock.calls[0]?.[0] as PositionCallback
+    answer({ coords: { latitude: 12.97, longitude: 77.59 } } as GeolocationPosition)
+    expect(maps.draw).toHaveBeenCalledTimes(1)
+    expect(saved).toBeNull()
+  })
+
   it('stays where it started, with no message, when the browser won’t say where the shopper is', async () => {
     const { load, maps } = fakeMaps()
     mapsLoader.current = load

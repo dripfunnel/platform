@@ -168,7 +168,7 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
       if (now.value || now.address || !navigator.geolocation) return
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
-          if (gone || touched.current || latest.current.value) return
+          if (gone || touched.current || latest.current.value || latest.current.address) return
           const here = { latitude: coords.latitude, longitude: coords.longitude }
           setAt(here)
           maps.draw(element, here, 17, dropped)

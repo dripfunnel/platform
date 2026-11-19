@@ -341,11 +341,11 @@ storefront ARCHITECTURE §2.1), and merchants and suppliers may pin a warehouse 
 (#815), through the same map frame, so the portal never holds the key. One platform key per environment,
 not per store or partner. **Decided on #1609 (2026-11-19):** the warehouse form shows its map as soon as it opens (#815 loaded
 Google only when the map was opened), and a search box above the map suggests places as it is typed in, through Places Autocomplete (#815 left
-autocomplete out). Typing in the address fields does not search. Both run in the same frame; the list page still loads no Google.
+autocomplete out). Typing in the address fields does not search. Both run in the same frame; the list page still loads no Google. **Decided on #1615 (2026-11-19):** the storefront's address form (checkout and My addresses) does the same, with the same search through the same frame, in place of #814's "Pin on map" button.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API, and the Places API (New) for the warehouse form's address search | Project | — | #814, #1609 |
+| **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API, and the Places API (New) for the address search (the warehouse form's and the storefront's) | Project | — | #814, #1609 |
 | **Browser API key**, one per environment | Loads the map in the shopper's browser, so it is public by design. **Restricted by referrer** to the hooks host (`https://hooks.<host>/*`; locally `https://hooks.localhost/*`): Google is loaded only inside the map frame, whose page sends its origin as the referrer, so no store domain needs listing. Also **restricted by API** (Maps JavaScript API, Geocoding API and, since #1609, Places API (New) only), with a daily quota (decided 2026-10-22 on #814) | `AIza…` (public) | Worker variable `GOOGLE_MAPS_BROWSER_KEY`; only the map frame's page on the hooks host carries it (`hooks.<host>/maps/pin`), never the Shop API, a build or a repo | #814 |
 
 **Built on #858 (api/DELIVERY.md §7):** own delivery adds a **server key** restricted to the Routes API (**API restriction: Routes API only**, no application restriction since a Worker has no
