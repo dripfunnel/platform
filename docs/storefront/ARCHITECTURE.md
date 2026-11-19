@@ -312,7 +312,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   checking with zod everything it says (decided 2026-10-21 on #814). It opens with the form, above the fields, with a
   search box that lists matching places (`suggest` and `select`, within the form's country, after a 250 ms pause). It starts at the saved pin, the
   address Google finds, or, for a new address with nothing typed, where the browser says the shopper is (never over a pin or typed address; a refusal is silent; #1615). The pin moves by
-  dragging, the arrow keys, a search result or **Use my location** (asked for only when pressed), its point read out as text, and is saved as soon as it is set. The address Google
+  dragging, the arrow keys, a search result or **Use my location** (the browser is asked when it is pressed, and once when a new address opens, as above), its point read out as text, and is saved as soon as it is set. The address Google
   finds there replaces Address, City, State and Postal code and sets the country when the shop sells there, never Name, Phone or Apartment, and nothing from a country the shop doesn't sell to (`fillFromPlace`,
   decided on #1615). If the frame or Google fails to load, the page's CSP refuses the frame (a build published before the shop
   had a map key), or it says nothing in 15 s, it hides
