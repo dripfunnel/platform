@@ -122,6 +122,8 @@
     "back": "← Journal",
     "by": "by {author}",
     "tags": "Tags",
-    "olderFailed": "We couldn't load older posts. Try again."
+    "olderFailed": "We couldn't load older posts. Try again.",
+    "loadingMore": "Loading more posts…",
+    "showing": "{count, plural, one {Showing # post} other {Showing # posts}}"
   }
 }

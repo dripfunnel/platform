@@ -646,6 +646,31 @@
   }
 }
 
+.loadingMore {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingSpinner {
+    display: none;
+  }
+}
+
 .noticeActions .primary,
 .noticeActions .secondary {
   align-self: auto;
