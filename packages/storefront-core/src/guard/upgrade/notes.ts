@@ -37,7 +37,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
   // the release card gives it the number of the release that ships it (§7.1).
   {
     version: '2.0.1',
-    kind: 'patch',
+    kind: 'major',
     security: false,
     notes: [
       'The starting themes draw a skeleton while a page loads (#1598): grey blocks in the page\'s own layout instead of a "Loading …" line, with a lighter band of the page colour sweeping across them every 1.6 seconds (none when the shopper asks for reduced motion). The cart shows line rows beside its summary, checkout its step cards beside the order summary, the order, account, orders and wishlist their rows and cards, the product page its picture and details, the blog and content pages their cards and lines, a collection a title bar until its name arrives, and a listing a row of grey product cells while more products load. Each view keeps its "Loading …" words for screen readers, as a hidden heading or label.',
