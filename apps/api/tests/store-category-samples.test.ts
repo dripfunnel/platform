@@ -91,7 +91,7 @@ const relay = async () => {
   for (let round = 0; round < 20; round++) {
     const counts = await relayDue(
       db.sql,
-      { 'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now), 'import.photos': importPhotosDeliverer(db.sql, r2, lookup, () => now, fakeFetch) },
+      { 'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now), 'import.photos': importPhotosDeliverer(db.sql, r2, lookup, { now: () => now, fetchImpl: fakeFetch }) },
       { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) },
     )
     if (Object.values(counts).every((n) => n === 0)) return

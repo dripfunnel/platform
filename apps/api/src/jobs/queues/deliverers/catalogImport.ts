@@ -20,6 +20,8 @@ import {
   type PhotoFetch,
 } from '#engine/modules/catalog/index'
 import type { DnsLookup } from '#integrations/dns/doh'
+import { shopAssetPath } from '#apis/shop/catalog'
+import { fetchLocal, localLink } from '#integrations/http/localFetch'
 import { fetchPublic } from '#integrations/http/publicFetch'
 import { withScope } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
@@ -106,8 +108,15 @@ const readAsset = async (assets: AssetStore, key: string): Promise<{ ok: true; b
   return object ? { ok: true, bytes: new Uint8Array(await new Response(object.body).arrayBuffer()) } : { ok: false, code: 'GONE' }
 }
 
+export interface PhotoDeliveryOptions {
+  now?: () => Date
+  fetchImpl?: typeof fetch
+  /** DNS_LOCAL: a `*.localhost` link to a public asset is read from the local Worker (localFetch.ts). */
+  localPhotos?: boolean
+}
+
 /** A photo is fetched from a public address (publicFetch.ts), or a sample's copy, and stored as the importer's own file. */
-export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, now: () => Date = () => new Date(), fetchImpl?: typeof fetch): Deliverer => ({
+export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, { now = () => new Date(), fetchImpl, localPhotos = false }: PhotoDeliveryOptions = {}): Deliverer => ({
   deliver: async (effect) => {
     const parsed = photoPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.photos: bad payload')
@@ -119,7 +128,12 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
     const fetchPhoto: PhotoFetch = async (url) => {
       if (!assets) return { ok: false, code: 'PHOTO_UNAVAILABLE' }
       const key = sampleCategoryId ? await withScope(sql, deps.context, (tx) => selectSamplePhotoKey(tx, sampleCategoryId, url)) : null
-      const got = key ? await readAsset(assets, key) : await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
+      const local = localPhotos ? localLink(url, shopAssetPath) : null
+      const got = key
+        ? await readAsset(assets, key)
+        : local
+          ? await fetchLocal(local, { maxBytes: maxPhotoBytes, timeoutMs: 3_500, ...(fetchImpl ? { fetchImpl } : {}) })
+          : await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
       if (!got.ok) return { ok: false, code: got.code === 'TOO_LARGE' ? 'PHOTO_REFUSED' : 'PHOTO_UNAVAILABLE' }
       const stored = await createAssetService({ sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(got.bytes)
       return stored.ok && stored.asset.kind === 'image' ? { ok: true, assetId: stored.asset.id } : { ok: false, code: 'PHOTO_REFUSED' }
