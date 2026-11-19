@@ -667,6 +667,29 @@ describe('the Home screen', () => {
         expect((step().getByRole('button', { name: sf.publishingCta }) as HTMLButtonElement).disabled).toBe(true)
         expect(studioApi.loadPublishRun).toHaveBeenCalledWith('r9')
       })
+
+      it('says when the publish can’t be read, and Check again reads it and follows it to done', async () => {
+        await made()
+        studioApi.publishDesign.mockResolvedValue('r1')
+        studioApi.loadPublishRun.mockRejectedValue(new ApiError('FORBIDDEN', 'x'))
+        await act(async () => {
+          fireEvent.click(publishButton())
+        })
+        await settle()
+        expect(step().getByText(sf.lost)).toBeTruthy()
+        expect(step().queryByRole('status')).toBeNull()
+        expect(step().queryByRole('button', { name: sf.publish })).toBeNull()
+
+        studioApi.loadPublishRun.mockResolvedValue(run('live'))
+        brandApi.loadOverview.mockResolvedValue(overview('same_as_live', firstLive))
+        brandApi.loadDomains.mockResolvedValue(freeAddress)
+        await act(async () => {
+          fireEvent.click(step().getByRole('button', { name: sf.checkAgain }))
+        })
+        await settle()
+        expect(studioApi.loadPublishRun).toHaveBeenCalledTimes(2)
+        expect(step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` }).getAttribute('href')).toBe('https://kesari.my-store.one')
+      })
     })
 
     it('is not on a seat that can’t publish, which never reads the site', async () => {
