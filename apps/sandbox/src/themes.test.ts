@@ -6,7 +6,7 @@ import { chromium, type Browser, type Locator, type Page } from 'playwright-core
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { coreRoutes, routeAddresses, themeRoutesSchema } from '@dripfunnel/storefront-core'
-import { catalogueSnapshotSchema, validateTheme, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { catalogueSnapshotSchema, gateWidths, pageBudgets, validateTheme, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from './gate/bundle'
 import { overBudget, weigh } from './gate/budgets'
 import { buildSite } from './publish/build'
@@ -485,6 +485,41 @@ describe.each(keys)('the %s theme', (key) => {
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics })
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
     expect(report.passed).toBe(true)
+  })
+
+  // #713: unthrottled, the page paints its loading state before the offline Shop API answers, as on a fast runner.
+  it('keeps the home page still when the Shop API answers nothing', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-still`)
+    const repo = join(root, `${key}-still-repo`)
+    cpSync(dir, repo, { recursive: true })
+    const built = await buildSite({ repo, theme: themeFiles(key), snapshot, runtimeDir: runtime, out, work: join(root, `${key}-still-work`) })
+    if (!built.ok) throw new Error(JSON.stringify(built.report))
+    const site = join(out, 'site')
+    const origin = 'https://shop.northstar.example'
+    const context = await browser.newContext({ viewport: { width: gateWidths[0], height: 900 }, isMobile: true, hasTouch: true })
+    await context.addInitScript(() => {
+      const m = { cls: 0 }
+      Object.defineProperty(window, '__dfShift', { value: m })
+      new PerformanceObserver((l) => l.getEntries().forEach((e) => (m.cls += (e as PerformanceEntry & { value?: number }).value ?? 0))).observe({ type: 'layout-shift', buffered: true })
+    })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(shopFixture(snapshot, [])(route.request().postData() ?? '')) })
+      const file = (await fileFor([site], url.pathname)) ?? (/\.[a-z0-9]+$/.test(url.pathname) ? null : await fileFor([site], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      const type = file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : file.rel.endsWith('.html') ? 'text/html' : null
+      return route.fulfill({ status: 200, body: file.bytes, ...(type ? { contentType: type } : {}) })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await page.waitForTimeout(1000)
+      expect((await page.evaluate('window.__dfShift.cls')) as number).toBeLessThan(pageBudgets.cls)
+    } finally {
+      await context.close()
+    }
   })
 })
 

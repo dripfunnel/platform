@@ -41,7 +41,6 @@ export const home = {
   image: clsx('block w-full h-full object-cover'),
   link: clsx('pb-1 border-b border-ink text-ink text-[12px] font-semibold tracking-[0.16em] uppercase no-underline whitespace-nowrap focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),
   marquee: clsx('overflow-hidden bg-highlight text-highlight-ink'),
-  marqueeLoading: clsx('h-11 bg-highlight'),
   marqueeItem: clsx('px-5 flex items-center gap-x-5 text-[13px] font-semibold tracking-[0.12em] uppercase whitespace-nowrap after:content-[""] after:block after:w-1 after:h-1 after:rounded-full after:bg-current after:opacity-70'),
   marqueeTrack: clsx('box-border w-[min(100%,1240px)] mx-auto py-3 px-4 flex flex-wrap justify-center gap-y-2 min-[900px]:px-8'),
   plus: clsx('w-7 h-7 [fill:none] [stroke:currentcolor] [stroke-width:1.5]'),

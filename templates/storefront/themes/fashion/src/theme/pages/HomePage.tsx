@@ -74,7 +74,6 @@ export const HomePage = () => {
       <h1 className={styles.pageTitle}>{store.name}</h1>
       <HeroCarousel />
 
-      {loading ? <div className={styles.marqueeLoading} aria-hidden="true" /> : null}
       {collections.length ? (
         <div className={styles.marquee} aria-hidden="true">
           <div className={styles.marqueeTrack}>
@@ -87,16 +86,10 @@ export const HomePage = () => {
         </div>
       ) : null}
 
-      {loading || collections.length ? (
+      {/* #713: nothing above the story while loading, so an empty answer moves nothing. */}
+      {collections.length ? (
         <nav aria-label={t('home.categories.title')}>
-          <ul className={styles.bubbles} aria-busy={loading ? 'true' : undefined}>
-            {loading
-              ? [0, 1, 2, 3, 4].map((i) => (
-                  <li key={i}>
-                    <span className={styles.bubblePicture} />
-                  </li>
-                ))
-              : null}
+          <ul className={styles.bubbles}>
             {collections.map((c) => (
               <li key={c.id}>
                 <Link href={c.href} className={styles.bubble}>
@@ -119,7 +112,7 @@ export const HomePage = () => {
         </nav>
       ) : null}
 
-      {newest.status === 'loading' || newest.products.length ? (
+      {newest.products.length ? (
         <section>
           <div className={styles.head}>
             <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} accent={t('home.newest.accent')} />
@@ -127,7 +120,7 @@ export const HomePage = () => {
               {t('home.newest.all')} <Arrow />
             </Link>
           </div>
-          {newest.status === 'loading' ? <RailPlaceholder label={t('shop.listing.loading')} /> : <Rail products={newest.products} label={t('home.newest.label')} />}
+          <Rail products={newest.products} label={t('home.newest.label')} />
         </section>
       ) : null}
 

@@ -28,7 +28,7 @@ const Grid = ({ products, wide }: { products: readonly Card[]; wide: boolean }) 
 
 export const HomePage = () => {
   const { store, t } = useStorefront()
-  const { collections, status } = useCollections({ first: 5 })
+  const { collections } = useCollections({ first: 5 })
   const newest = useProducts({ sort: 'newest', first: 6 })
   const picks = useProducts({ sort: 'best-selling', first: 4 })
 
@@ -55,7 +55,8 @@ export const HomePage = () => {
         </div>
       </section>
 
-      {status === 'loading' || collections.length ? (
+      {/* #713: nothing above the story while loading, so an empty answer moves nothing. */}
+      {collections.length ? (
         <section className={styles.section}>
           <div className={styles.head}>
             <Heading eyebrow={t('home.rooms.eyebrow')} title={t('home.rooms.title')} />
@@ -63,35 +64,25 @@ export const HomePage = () => {
               {t('home.rooms.all')} <Arrow />
             </Link>
           </div>
-          {status === 'loading' ? (
-            <ul className={styles.rooms} aria-busy="true" aria-label={t('shop.listing.loading')}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <li key={i} className={styles.room}>
-                  <span className={styles.roomLink} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <ul className={styles.rooms}>
-              {collections.map((c) => (
-                <li key={c.id} className={styles.room}>
-                  <Link href={c.href} className={styles.roomLink}>
-                    {c.image ? <Image image={c.image} alt="" ratio={1.5} sizes="(min-width: 900px) 50vw, 100vw" className={styles.roomImage} /> : null}
-                    <span className={styles.roomCopy}>
-                      <span className={styles.roomName}>{c.name}</span>
-                      <span className={styles.roomMore}>
-                        {t('home.rooms.explore')} <Arrow />
-                      </span>
+          <ul className={styles.rooms}>
+            {collections.map((c) => (
+              <li key={c.id} className={styles.room}>
+                <Link href={c.href} className={styles.roomLink}>
+                  {c.image ? <Image image={c.image} alt="" ratio={1.5} sizes="(min-width: 900px) 50vw, 100vw" className={styles.roomImage} /> : null}
+                  <span className={styles.roomCopy}>
+                    <span className={styles.roomName}>{c.name}</span>
+                    <span className={styles.roomMore}>
+                      {t('home.rooms.explore')} <Arrow />
                     </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      {newest.status === 'loading' || newest.products.length ? (
+      {newest.products.length ? (
         <section className={styles.section}>
           <div className={styles.head}>
             <Heading eyebrow={t('home.newest.eyebrow')} title={t('home.newest.title')} />
@@ -99,7 +90,7 @@ export const HomePage = () => {
               {t('home.newest.all')} <Arrow />
             </Link>
           </div>
-          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={6} list={styles.gridThree} cell={styles.cell} /> : <Grid products={newest.products} wide={false} />}
+          <Grid products={newest.products} wide={false} />
         </section>
       ) : null}
 
