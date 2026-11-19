@@ -1,40 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { fillFromPlace, type AddressDraft, type Place } from './address'
 
-const empty: AddressDraft = { name: 'Asha Rao', line1: '', line2: '', city: '', region: '', postalCode: '', country: 'IN', phone: '' }
+const empty: AddressDraft = { name: 'Asha Rao', line1: '', line2: '', city: '', region: '', postalCode: '', country: 'IN', phone: '+91 98765 43210' }
 const camp: Place = { line1: 'Fashion Street, Camp', city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN' }
 const vimanNagar: Place = { line1: 'Mhada Colony, Viman Nagar', city: 'Pune', region: 'Maharashtra', postalCode: '411014', country: 'IN' }
 
 describe('fillFromPlace', () => {
-  it('fills every empty field from the address at the pin, and remembers what it wrote', () => {
-    expect(fillFromPlace(empty, camp, ['IN'])).toEqual({
-      draft: { ...empty, line1: 'Fashion Street, Camp', city: 'Pune', region: 'Maharashtra', postalCode: '411001' },
-      filled: { line1: 'Fashion Street, Camp', city: 'Pune', region: 'Maharashtra', postalCode: '411001' },
-    })
+  it('fills line 1, city, region and postal code from the address at the pin', () => {
+    expect(fillFromPlace(empty, camp, ['IN'])).toEqual({ ...empty, line1: 'Fashion Street, Camp', city: 'Pune', region: 'Maharashtra', postalCode: '411001' })
   })
 
-  it('replaces what the map wrote when the pin moves, and clears a part the new point has none of', () => {
-    const first = fillFromPlace(empty, camp, ['IN'])
-    const moved = fillFromPlace(first.draft, { ...vimanNagar, region: null }, ['IN'], first.filled)
-    expect(moved.draft).toEqual({ ...empty, line1: 'Mhada Colony, Viman Nagar', city: 'Pune', region: '', postalCode: '411014' })
+  it('replaces what was typed, and clears a part the new point has none of (#1615)', () => {
+    const typed = { ...empty, line1: 'Flat 4, 12 MG Road', city: 'Poona', region: 'MH', postalCode: '411001' }
+    expect(fillFromPlace(typed, { ...vimanNagar, region: null }, ['IN'])).toEqual({ ...typed, line1: 'Mhada Colony, Viman Nagar', city: 'Pune', region: '', postalCode: '411014' })
   })
 
-  it('never replaces what the shopper typed, including a field the map filled and the shopper then changed', () => {
-    const first = fillFromPlace({ ...empty, city: 'Poona' }, camp, ['IN'])
-    expect(first.draft.city).toBe('Poona')
-    const edited = { ...first.draft, line1: 'Flat 4, 12 MG Road' }
-    const moved = fillFromPlace(edited, vimanNagar, ['IN'], first.filled)
-    expect(moved.draft).toMatchObject({ line1: 'Flat 4, 12 MG Road', city: 'Poona', postalCode: '411014' })
+  it('never touches the name, the phone or address line 2', () => {
+    const typed = { ...empty, line2: 'Near the temple' }
+    expect(fillFromPlace(typed, camp, ['IN'])).toMatchObject({ name: 'Asha Rao', phone: '+91 98765 43210', line2: 'Near the temple' })
   })
 
-  it('takes the country only when none is chosen and the store sells there', () => {
-    expect(fillFromPlace({ ...empty, country: '' }, camp, ['IN']).draft.country).toBe('IN')
-    expect(fillFromPlace({ ...empty, country: '' }, camp, ['US']).draft).toEqual({ ...empty, country: '' })
+  it('sets the country of the pin when the shop sells there, even when another was chosen', () => {
+    expect(fillFromPlace({ ...empty, country: '' }, camp, ['IN']).country).toBe('IN')
+    expect(fillFromPlace({ ...empty, country: 'US' }, camp, ['IN', 'US']).country).toBe('IN')
   })
 
-  it('fills nothing from a pin in another country than the one chosen, or from no answer, and forgets nothing', () => {
-    const filled = { city: 'Pune' }
-    expect(fillFromPlace({ ...empty, country: 'US' }, camp, ['IN', 'US'], filled)).toEqual({ draft: { ...empty, country: 'US' }, filled })
-    expect(fillFromPlace(empty, null, ['IN'], filled)).toEqual({ draft: empty, filled })
+  it('fills nothing from a country the shop does not sell to, or from no answer', () => {
+    expect(fillFromPlace({ ...empty, country: '' }, camp, ['US'])).toEqual({ ...empty, country: '' })
+    expect(fillFromPlace({ ...empty, country: 'US' }, camp, ['US'])).toEqual({ ...empty, country: 'US' })
+    expect(fillFromPlace(empty, null, ['IN'])).toEqual(empty)
   })
 })

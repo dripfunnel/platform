@@ -18,18 +18,18 @@ const Fields = ({ start, errors = {} }: { start: AddressDraft; errors?: Paramete
 describe('AddressFields', () => {
   it('asks for a country when none is chosen, and says so when it is missing', () => {
     render(<Fields start={addressDraft(null, '')} errors={{ country: 'required' }} />)
-    const select = screen.getByLabelText('Country') as HTMLSelectElement
+    const select = screen.getByLabelText('Country *') as HTMLSelectElement
     expect(select.value).toBe('')
     expect([...select.options].map((o) => o.textContent)).toEqual(['Choose a country', 'United States', 'India'])
     expect(screen.getByRole('alert').textContent).toBe('Fill this in.')
     fireEvent.change(select, { target: { value: 'IN' } })
-    expect(screen.getByLabelText('PIN code')).toBeTruthy()
+    expect(screen.getByLabelText('PIN code *')).toBeTruthy()
     expect([...select.options].map((o) => o.value)).toEqual(['US', 'IN'])
   })
 
   it('names the fields each country needs, and which are optional', () => {
     render(<Fields start={addressDraft(null, 'US')} />)
-    expect(screen.getByLabelText('ZIP code')).toBeTruthy()
+    expect(screen.getByLabelText('ZIP code *')).toBeTruthy()
     expect(screen.getByText('Apartment, floor, landmark').parentElement?.textContent).toContain('Optional')
   })
 })

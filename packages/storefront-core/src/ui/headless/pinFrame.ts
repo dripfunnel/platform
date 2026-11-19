@@ -12,6 +12,8 @@ const pinSchema = z.object({ latitude: z.number().finite().min(-90).max(90), lon
 const part = z.string().max(200).nullable()
 const placeSchema = z.object({ line1: part, city: part, region: part, postalCode: z.string().max(20).nullable(), country: z.string().regex(/^[A-Z]{2}$/) })
 
+const suggestionsSchema = z.array(z.object({ id: z.string().min(1).max(300), main: z.string().max(300), secondary: z.string().max(300) })).max(8)
+
 export const frameMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready') }),
   z.object({ type: z.literal('failed') }),
@@ -61,6 +63,8 @@ export const frameMaps: MapsLoader = (source, element, title, signal) =>
       },
       find: (address, country) => ask({ type: 'find', address, country }, pinSchema.nullable()),
       place: (at) => ask({ type: 'place', at }, placeSchema.nullable()),
+      suggest: (text, country) => ask({ type: 'suggest', text, country }, suggestionsSchema.nullable()),
+      select: (id) => ask({ type: 'select', choice: id }, pinSchema.nullable()),
       close,
     }
     const fail = () => {
