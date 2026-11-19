@@ -799,11 +799,16 @@ describe.each(['classic', ...fromBaseline])('the %s theme’s lists on the live 
         await items(page).last().evaluate((el) => window.scrollTo(0, Math.max(0, el.getBoundingClientRect().bottom + window.scrollY - window.innerHeight - 100)))
         await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
         await noButton(page)
-        for (let i = 0; i < 6 && (await items(page).count()) < list.all; i += 1) {
-          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-          await page.waitForTimeout(300)
-        }
-        await expect.poll(() => items(page).count()).toBe(list.all)
+        // Keeps scrolling while it waits, so a slow last page on CI is still asked for and awaited (#1637).
+        await expect
+          .poll(
+            async () => {
+              await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+              return items(page).count()
+            },
+            { timeout: 15_000, interval: 300 },
+          )
+          .toBe(list.all)
         const asked = state.asked.length
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
         await page.waitForTimeout(500)
