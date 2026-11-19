@@ -70,6 +70,12 @@
   font-weight: 700;
 }
 
+.df-customers-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
 .df-customer-card {
   margin: 0;
   padding: 0;
