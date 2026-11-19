@@ -33,17 +33,34 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
-  // Numbered for the first release after 2.0.0: it only has to fall between a store's version and the release it goes to, and
-  // the release card gives it the number of the release that ships it (§7.1).
+  // #1606: 2.0.0 ships #1490's sign-in pages and #1598's loading skeletons, with both cards' codemods.
   {
-    version: '2.0.1',
+    version: '2.0.0',
     kind: 'major',
     security: false,
     notes: [
+      'The sign-in, create-account and reset-password pages no longer guess the store\'s sign-in ways (#1490): `useSignIn()` now says `waysKnown`, false from the first draw of a live page until the Shop API has answered, and a theme draws only its heading until then, so the tabs and fields appear once, from the store\'s setting, and never jump (before, an email-only form was drawn first and the Mobile number tab or form popped in afterwards).',
+      '`ways` itself is unchanged (email only until the answer, both on a preview), so a theme that does not read `waysKnown` draws as it always did. A theme that draws its own sign-in view adds `if (!s.waysKnown) return <section><h1>{title}</h1></section>` after its preview check.',
+      'The codemods add that check to the shipped sign-in view of the Classic, Baseline, Beauty, Electronics, Fashion, Grocery, Home and Jewelry themes; a theme that changed the view places it itself.',
       'The starting themes draw a skeleton while a page loads (#1598): grey blocks in the page\'s own layout instead of a "Loading …" line, with a lighter band of the page colour sweeping across them every 1.6 seconds (none when the shopper asks for reduced motion). The cart shows line rows beside its summary, checkout its step cards beside the order summary, the order, account, orders and wishlist their rows and cards, the product page its picture and details, the blog and content pages their cards and lines, a collection a title bar until its name arrives, and a listing a row of grey product cells while more products load. Each view keeps its "Loading …" words for screen readers, as a hidden heading or label.',
       'No theme has to change. The codemods rewrite each loading block of a Baseline, Classic or category theme that still has the shipped markup, and add the skeleton classes to its shop styles, the `shimmer` keyframes (in `theme.css` with `--animate-shimmer`, or in Classic\'s shop and product modules) (`skeletonText`, `skeletonShort`, `skeletonTitle`, `skeletonPhoto`, `skeletonCover`, `skeletonDot`, `skeletonButton` and `srOnly`), `loadingPicture` to its product styles and `orderRow` to its account styles, and lets `ProductGrid` draw placeholder cells after its products (`placeholders`). A theme that draws its own loading states keeps them; to match, draw blocks in the theme\'s soft colour shaped like the loaded page, sweep them with the same keyframes, and keep the loading words for screen readers.',
+      'Themes may show that Add to cart is working (#1292): `<AddToCart>` and `<BuyNow>` accept a function as their children, which gets `{ busy }` from the press until the engine answers, and the button carries `aria-busy` while busy. A plain child works as before.',
+      'The validator lets a theme do more (2026-11-12): words and numbers may be written in the code (checked for invented prices, stock, urgency, ratings and countdowns as content is), any CSS or motion property may animate, more elements and attributes, `lucide-react` icons, Google Fonts listed in `theme.css`, and larger page budgets (200 KB JavaScript, 120 KB CSS, gzipped). A theme that passed before still passes.',
+      'Core\'s `<SizeChart>` window has a cm | in switch (#1571); no theme has to change.',
     ].join('\n'),
     codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/SignInView.tsx'],
+        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
+        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/SignInView.tsx'],
+        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
+        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
+      },
       {
         kind: 'replace',
         paths: ['src/theme/components/interactive/CartView.tsx'],
@@ -283,32 +300,6 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
         paths: ['src/theme/styles/theme.css'],
         find: '  --picture-alt: linear-gradient(160deg, #f4eee3, #e6d8c0);\n}\n',
         replace: '  --picture-alt: linear-gradient(160deg, #f4eee3, #e6d8c0);\n  --animate-shimmer: shimmer 1.6s linear infinite;\n}\n\n@keyframes shimmer {\n  0% {\n    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) 150% 0 / 200% 100% var(--color-soft);\n  }\n  40%,\n  100% {\n    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) -50% 0 / 200% 100% var(--color-soft);\n  }\n}\n',
-      },
-    ],
-  },
-  // Numbered for the next major after 1.0.0: it only has to fall between a store's version and the release it goes to, and
-  // the release card gives it the number of the release that ships it (§7.1).
-  {
-    version: '2.0.0',
-    kind: 'major',
-    security: false,
-    notes: [
-      'The sign-in, create-account and reset-password pages no longer guess the store\'s sign-in ways (#1490): `useSignIn()` now says `waysKnown`, false from the first draw of a live page until the Shop API has answered, and a theme draws only its heading until then, so the tabs and fields appear once, from the store\'s setting, and never jump (before, an email-only form was drawn first and the Mobile number tab or form popped in afterwards).',
-      '`ways` itself is unchanged (email only until the answer, both on a preview), so a theme that does not read `waysKnown` draws as it always did. A theme that draws its own sign-in view adds `if (!s.waysKnown) return <section><h1>{title}</h1></section>` after its preview check.',
-      'The codemods add that check to the shipped sign-in view of the Classic, Baseline, Beauty, Electronics, Fashion, Grocery, Home and Jewelry themes; a theme that changed the view places it itself.',
-    ].join('\n'),
-    codemods: [
-      {
-        kind: 'replace',
-        paths: ['src/theme/components/interactive/SignInView.tsx'],
-        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
-        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.\n',
-      },
-      {
-        kind: 'replace',
-        paths: ['src/theme/components/interactive/SignInView.tsx'],
-        find: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
-        replace: '  if (s.previewOnly) {\n    return (\n      <section className={styles.auth}>\n        <h1 className={styles.title}>{title}</h1>\n        <p className={styles.alert} role="status">\n          {t(\'shop.account.preview\')}\n        </p>\n        <Link href="/" className={shop.secondary}>\n          {t(\'shop.order.keepShopping\')}\n        </Link>\n      </section>\n    )\n  }\n\n  // The store\'s setting isn\'t known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).\n  if (!s.waysKnown) {\n    return (\n      <section className={styles.auth} aria-busy="true">\n        <h1 className={styles.title}>{title}</h1>\n      </section>\n    )\n  }\n\n  const byPhone = purpose === \'signIn\' && (channel === \'phone\' || !s.ways.email)\n',
       },
     ],
   },

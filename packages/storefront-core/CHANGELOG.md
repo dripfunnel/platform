@@ -1,5 +1,33 @@
 # @dripfunnel/storefront-core
 
+## 2.0.0
+
+### Major Changes
+
+- 48d987e: The upgrade brings the starting themes' loading skeletons to existing stores (#1598). The release notes gain codemods that rewrite each loading block of a Baseline, Classic or category theme still holding the shipped markup (cart, checkout, order, account, orders, wishlist, product, collection title, blog, content and the "Loading more products" line) into grey blocks shaped like the loaded page, with a band of the page colour sweeping across them every 1.6 seconds, and add the skeleton classes and the `shimmer` keyframes to the theme's styles (`theme.css`; Classic: its shop and product styles). Core's reduced-motion rule leaves the blocks plain, and a theme that draws its own loading states is left as it is. No change to the package's behaviour or API. Major because every store's look changes (docs/code/ARCHITECTURE.md §5), so it reaches a live store at its merchant's next publish. It replaces the two patch changesets #1599 and #1603 added.
+- 8e098d8: The sign-in, create-account and reset-password pages can draw their form once (#1490). `useSignIn()` now returns `waysKnown`: false from the first draw of a live page until the Shop API has answered which ways the store signs shoppers in by, true after, at once on a preview (which never asks), and when the store can't be asked (`ways` is then email only, so no page waits for ever). A theme draws only its heading while it is false, so the tabs and fields appear once, from the store's setting, instead of an email form first and the Mobile number tab or form popping in afterwards.
+  
+  `ways` is unchanged (email only until the answer, both on a preview), so a theme that doesn't read `waysKnown` draws as it always did. This is a major (docs/code/ARCHITECTURE.md §5) because the upgrade codemods change what a store's sign-in pages draw while they load; a major reaches a live store at its merchant's next publish, not in the upgrade bot's waves (storefront ARCHITECTURE §7).
+  
+  The Classic, Baseline, Beauty, Electronics, Fashion, Grocery, Home and Jewelry themes read it. Upgrade notes (`coreUpgradeNotes`, numbered 2.0.0 until its release card renumbers it): codemods add the check to the shipped sign-in view of a store made from any of them; a theme that changed that view places `if (!s.waysKnown) return <section><h1>{title}</h1></section>` after its preview check itself. Market has no sign-in view.
+
+### Minor Changes
+
+- c297994: A theme can now tell that Add to cart is working (#1292). `<AddToCart>` and `<BuyNow>` accept a function as their children, which gets `{ busy }` (true from the press until the engine answers), and their button carries `aria-busy` while busy, so a theme can show "Adding…", for example `<AddToCart versionId={id}>{({ busy }) => (busy ? t('shop.product.adding') : t('shop.product.add'))}</AddToCart>`. Nothing else about the buttons changes: they are disabled while busy as before, and a plain child works as it did. This is a minor (docs/code/ARCHITECTURE.md §5): new behaviour, backward-compatible, no theme has to change.
+  
+  The starting Classic theme uses it, with a spinner that is not drawn under reduced motion (the words say it) and its words in `content/en/shop.json` (`shop.product.adding`); a store made before this keeps its button as it is, since an upgrade changes a theme file only through a codemod and this card has none.
+- 2a571fc: `storeCsp` takes a fourth argument, `fonts`, and names Google's font hosts (fonts.googleapis.com and fonts.gstatic.com) only when it is true, so a store whose theme lists no Google font keeps them out of its CSP. The guard exports `fontsIn`, which reads the families listed in `theme.css`. The default is false; a caller building a CSP for a theme that lists fonts passes `fontsIn(themeCss).length > 0`.
+- 7f87d08: The validator lets a theme do more of what a designer asks (2026-11-12): words and numbers may be written in the code as well as in content files, while every literal text in the code is now checked for invented prices, stock, urgency, ratings and countdowns exactly as content is; any CSS or motion property may animate (motion's values still written out); more elements and attributes (`label`, `code`, `pre`, `progress`, `meter`, SVG text, masks, clip paths and filters); `lucide-react` icons; Google Fonts listed in `theme.css`'s `@theme { --google-fonts: 'Bebas Neue'; }`, with the CSP letting fonts.googleapis.com and fonts.gstatic.com load; and the page budgets rise to 200 KB of JavaScript and 120 KB of CSS, gzipped. The rule ids `code/text-in-string`, `jsx/text-literal` and `css/animated-property` no longer exist. A theme that passed before still passes; no code change is needed. Loading Google Fonts sends each shopper's IP address to Google, so a store that lists fonts may need to disclose it.
+- dd3e57b: The Size chart window has a cm | in switch (#1571). It opens in the unit the merchant saved the chart in, and the shopper can switch to the other, both ways. Lengths and ranges convert cm ↔ in (× or ÷ 2.54, rounded to one decimal); a weight column (a name that says weight, kg or lb) converts kg ↔ lb (× or ÷ 2.2046) and its name follows ("Baby weight (kg)" ↔ "Baby weight (lb)"). Sizes, size systems and words stay as typed, the line under the table follows the switch, and switching back gives the merchant's own numbers. The window shows no switch for a chart whose unit isn't `cm` or `in`.
+  
+  New messages `sizeChart.switch`, `sizeChart.switch.cm` and `sizeChart.switch.in`. This is a minor (docs/code/ARCHITECTURE.md §5): new behaviour inside a core component, backward-compatible, no theme has to change.
+- 7f87d08: The studio frame now tells the portal when a section of the theme throws (`df-studio:problem` with the section's name, never the error), so the studio can say the page couldn't show instead of leaving a blank preview. Each catch is posted, a repeat after a hot reload too. Nothing changes on a live or preview site, and no code change is needed in a theme.
+
+### Patch Changes
+
+- 8cead5c: Dependencies only (#1511). `zod` is raised to `^4.6.7`, which fixes a high-severity advisory in the range below `4.6.6`. The storefront template's `next` pin goes from `^16.3.6` to `^16.4.6`, which fixes 2 critical advisories (remote code execution in the image optimizer and in `use cache`) and 2 high ones; a store repo picks it up through the upgrade bot with this release. No change to the package's behaviour or API.
+- fb58e39: The 2.0.1 upgrade note's text drops escapes lint rejects (#1598); the note reads the same. No change to the package's behaviour or API.
+
 ## 1.0.0
 
 ### Major Changes
