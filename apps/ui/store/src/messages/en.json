@@ -3383,6 +3383,7 @@
       "removeLanguageBody": "Your translations are kept but won’t show. Add it back any time to show them again.",
       "removeLanguage": "Remove",
       "addLanguage": "+ Add a language",
+      "noLanguagesLeft": "No more languages to add",
       "saveLanguages": "Save languages",
       "savedLanguages": "Languages saved",
       "cancel": "Cancel",
