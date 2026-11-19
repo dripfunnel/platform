@@ -142,11 +142,11 @@ export const registerOrders = (builder: StoreBuilder) => {
     const caller = actingCaller(ctx)
     return createFulfilmentService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
   }
-  // Booking and pickups go through the store's partner's couriers (THIRD-PARTY-ACCESS §4).
+  // Booking and pickups go through the store's own couriers (THIRD-PARTY-ACCESS §4).
   const labels = async (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
-    const couriers = ctx.couriers ? await ctx.couriers.forPartner(caller.person.partnerId) : null
+    const couriers = ctx.couriers ? await ctx.couriers.forStore(caller.context.storeId) : null
     return createFulfilmentService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now, couriers, files: ctx.files ?? null })
   }
   const money = (amount: string | null, currency: string) => (amount === null ? null : { amount, currency })

@@ -3,7 +3,7 @@ import type { Deps } from './deps'
 import { EdgeAnswerInvalid, parseLiveHost, type LiveHost } from './edge'
 import { route } from './index'
 import { lookupSeconds } from './live'
-import { depsWith, fakeCache, fakeEdge, fakeSites, type Clock, type FakeEdge } from './testSupport'
+import { depsWith, fakeApi, fakeCache, fakeEdge, fakeSites, type Clock, type FakeApi, type FakeEdge } from './testSupport'
 
 // Card #317: a storefront host's live site (storefront LIVE-SHOP.md §5).
 
@@ -34,6 +34,7 @@ const objects = {
 
 let clock: Clock
 let edge: FakeEdge
+let api: FakeApi
 let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
@@ -44,11 +45,12 @@ beforeEach(async () => {
   vi.unstubAllGlobals()
   clock = { at: 1_000_000 }
   edge = fakeEdge()
+  api = fakeApi()
   edge.hosts.set(hostA, store(storeA, build1))
   edge.hosts.set(hostB, store(storeB, buildB))
   cache = fakeCache(clock)
   sites = fakeSites(objects)
-  ;({ deps, settle } = await depsWith({ edge, sites: sites.sites, cache: cache.cache, clock }))
+  ;({ deps, settle } = await depsWith({ edge, api, sites: sites.sites, cache: cache.cache, clock }))
 })
 
 const get = async (href: string, init: RequestInit = {}) => {
@@ -168,16 +170,18 @@ describe('the live site', () => {
     expect(cache.keys().filter((k) => k.includes('/__df/redirects/'))).toEqual([])
   })
 
-  it('sends /shop-api/* and /delivery-api/* to the API, keeping the caller’s host', async () => {
+  it('sends /shop-api/* and /delivery-api/* to the API’s default fetch, keeping the caller’s host, and never through the unplaced StorefrontEdge (#1292)', async () => {
     await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
     await get(`https://${hostA}/delivery-api/`, { method: 'POST', body: '{}' })
-    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
+    expect(api.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
+    expect(edge.forwarded).toEqual([])
   })
 
   it('sends the delivery app download to the API, and nothing else under /app', async () => {
     await get(`https://${hostA}/app/delivery.apk`)
     await get(`https://${hostA}/app/other.apk`)
-    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/app/delivery.apk`])
+    expect(api.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/app/delivery.apk`])
+    expect(edge.forwarded).toEqual([])
   })
 
   it('keeps a portal host’s routing when no store holds the host', async () => {
@@ -208,7 +212,7 @@ describe('the live site', () => {
     expect(await text(`https://${own}/about/`)).toBe('A about')
     await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
     await get(`https://${hostA}/delivery-api/`, { method: 'POST', body: '{}' })
-    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
+    expect(api.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
   })
 
   it('takes a lookup with no primary address as no redirect, and refuses one that isn’t a plain host', () => {

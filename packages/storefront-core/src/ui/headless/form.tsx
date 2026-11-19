@@ -1,7 +1,7 @@
 'use client'
 
-import { memo, useId, useRef, useState, type ReactNode } from 'react'
-import { addressFields, fillFromPlace, type AddressDraft, type MapFilled, type AddressField, type FieldProblem } from '../../checkout/address'
+import { Fragment, memo, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { addressFields, fillFromPlace, type AddressDraft, type AddressField, type FieldProblem } from '../../checkout/address'
 import { countryOptions, joinPhone, splitPhone } from '../../checkout/phone'
 import type { Translate } from '../../platform/i18n/i18n'
 import { PinOnMap } from './pin'
@@ -46,19 +46,36 @@ export type TextFieldProps = Styled & {
   /** What's wrong with it, in the theme's words; the field is marked invalid while it is set. */
   error?: string | null | undefined
   maxLength?: number
+  /** Takes focus when it appears, for a field that opens after the shopper pressed something (WCAG 2.4.3). */
+  autoFocus?: boolean
+  /** Marks the field required for a screen reader (`aria-required`), and for the eye when `requiredMark` is given. */
+  required?: boolean
+  /** The theme's mark for a required field, shown after the label. */
+  requiredMark?: string | undefined
+}
+
+/** Moves focus into the field it is given on mount, when asked. */
+const useFocusOnMount = (wanted: boolean | undefined) => {
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (wanted) input.current?.focus()
+  }, [wanted])
+  return input
 }
 
 /** A labelled text field with its hint and its error, each tied to it for screen readers. */
-export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, className }: TextFieldProps) => {
+export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, className }: TextFieldProps) => {
   const id = useId()
+  const input = useFocusOnMount(autoFocus)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
   return (
     <span className={className}>
       <label htmlFor={id}>
         {label}
+        {required && requiredMark ? <span aria-hidden="true"> {requiredMark}</span> : null}
         {note ? <small> {note}</small> : null}
       </label>
-      <input id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
+      <input ref={input} id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (
         <small id={`${id}-error`} role="alert">
@@ -90,8 +107,9 @@ const CountryOptions = memo(({ locale, chosen }: { locale: string; chosen: strin
 )
 
 /** A mobile number as a country code dropdown and the number; it hands back one value, `+` and the code first. */
-export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, className, groupClassName }: PhoneFieldProps) => {
+export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, autoFocus, className, groupClassName }: PhoneFieldProps) => {
   const id = useId()
+  const input = useFocusOnMount(autoFocus)
   const [picked, setPicked] = useState<string | null>(null)
   const split = splitPhone(value, picked ?? country)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
@@ -113,7 +131,7 @@ export const PhoneField = ({ label, value, onChange, country, codeLabel, locale,
           {split.country ? null : <option value="">+</option>}
           <CountryOptions locale={locale} chosen={split.country} />
         </select>
-        <input id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
+        <input ref={input} id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
       </span>
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (
@@ -154,28 +172,42 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
   phoneClassName?: string
 }) => {
   const id = useId()
-  const mapFilled = useRef<MapFilled>({})
   const names = new Intl.DisplayNames([locale], { type: 'region' })
   const problem = (p: FieldProblem | undefined) => (p === 'required' ? t('address.required') : p === 'invalid' ? t('address.invalid') : null)
+  const countryField = (
+    <span className={fieldClassName}>
+            <label htmlFor={id}>
+              {t('address.country')}
+              <span aria-hidden="true"> {t('address.requiredMark')}</span>
+            </label>
+            <select id={id} value={value.country} aria-required autoComplete="shipping country" aria-invalid={errors.country ? true : undefined} aria-describedby={errors.country ? `${id}-error` : undefined} onChange={(e) => onChange({ ...value, country: e.target.value })}>
+              {value.country ? null : <option value="">{t('address.chooseCountry')}</option>}
+              {(countries.includes(value.country) || !value.country ? countries : [value.country, ...countries]).map((c) => (
+                <option key={c} value={c}>
+                  {names.of(c) ?? c}
+                </option>
+              ))}
+            </select>
+            {errors.country ? (
+              <small id={`${id}-error`} role="alert">
+                {problem(errors.country)}
+              </small>
+            ) : null}
+          </span>
+  )
   return (
     <div className={className}>
-      <span className={fieldClassName}>
-        <label htmlFor={id}>{t('address.country')}</label>
-        <select id={id} value={value.country} autoComplete="shipping country" aria-invalid={errors.country ? true : undefined} aria-describedby={errors.country ? `${id}-error` : undefined} onChange={(e) => onChange({ ...value, country: e.target.value })}>
-          {value.country ? null : <option value="">{t('address.chooseCountry')}</option>}
-          {(countries.includes(value.country) || !value.country ? countries : [value.country, ...countries]).map((c) => (
-            <option key={c} value={c}>
-              {names.of(c) ?? c}
-            </option>
-          ))}
-        </select>
-        {errors.country ? (
-          <small id={`${id}-error`} role="alert">
-            {problem(errors.country)}
-          </small>
-        ) : null}
-      </span>
-      {addressFields(value.country).map((f) =>
+      <PinOnMap
+        value={value.pin ?? null}
+        onChange={(pin, place) => onChange({ ...fillFromPlace(value, place ?? null, countries), pin })}
+        address={[value.line1, value.line2, value.city, value.region, value.postalCode].map((p) => p.trim()).filter(Boolean).join(', ')}
+        country={value.country}
+        t={t}
+        locale={locale}
+        className={fieldClassName}
+      />
+      {addressFields(value.country).map((f) => {
+        const input =
         f.field === 'phone' ? (
           <PhoneField
             key={f.field}
@@ -196,27 +228,24 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
             key={f.field}
             label={t(f.label)}
             note={f.optional ? t('address.optional') : undefined}
+            required={!f.optional}
+            requiredMark={t('address.requiredMark')}
             value={value[f.field]}
             autoComplete={f.autoComplete}
             error={problem(errors[f.field])}
             onChange={(v) => onChange({ ...value, [f.field]: v })}
             className={fieldClassName}
           />
-        ),
-      )}
-      <PinOnMap
-        value={value.pin ?? null}
-        onChange={(pin, place) => {
-          const { draft, filled } = fillFromPlace(value, place ?? null, countries, mapFilled.current)
-          mapFilled.current = filled
-          onChange({ ...draft, pin })
-        }}
-        address={[value.line1, value.line2, value.city, value.region, value.postalCode].map((p) => p.trim()).filter(Boolean).join(', ')}
-        country={value.country}
-        t={t}
-        locale={locale}
-        className={fieldClassName}
-      />
+        )
+        return f.field === 'postalCode' ? (
+          <Fragment key={f.field}>
+            {input}
+            {countryField}
+          </Fragment>
+        ) : (
+          input
+        )
+      })}
     </div>
   )
 }

@@ -1,0 +1,72 @@
+{
+  "hero": {
+    "eyebrow": "Latest additions",
+    "title": "Find the tech",
+    "accent": "that fits your day.",
+    "lead": "Everything in the shop, all in one place.",
+    "shop": "Shop the newest",
+    "all": "Browse everything",
+    "spotlight": "In the spotlight",
+    "alt": "The corner of a dark mechanical keyboard with a red escape key"
+  },
+  "categories": {
+    "eyebrow": "Browse",
+    "title": "Shop by category",
+    "all": "All products"
+  },
+  "newest": {
+    "eyebrow": "Just landed",
+    "title": "Latest additions",
+    "all": "View all"
+  },
+  "spotlight": {
+    "eyebrow": "Spotlight",
+    "body": "One product from the range, up close. Open it for photos and every detail.",
+    "view": "View product",
+    "more": "See all by price"
+  },
+  "promos": {
+    "sound": {
+      "eyebrow": "Browse",
+      "title": "See the whole range.",
+      "action": "Shop all",
+      "alt": "White wireless headphones on a white background"
+    },
+    "light": {
+      "eyebrow": "Just in",
+      "title": "Find something new.",
+      "action": "Shop new in",
+      "alt": "A smart bulb glowing pink and blue"
+    }
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Checkout over an encrypted connection"
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow it from your account"
+    },
+    "save": {
+      "title": "Save for later",
+      "body": "Keep a wishlist of what you like"
+    },
+    "help": {
+      "title": "Questions?",
+      "body": "Write to us on Contact"
+    }
+  },
+  "picks": {
+    "eyebrow": "Keep browsing",
+    "title": "More to explore",
+    "all": "Shop all"
+  },
+  "signup": {
+    "eyebrow": "Your account",
+    "title": "Track orders, keep a wishlist and check out faster.",
+    "body": "Create an account and pick up where you left off.",
+    "action": "Create an account"
+  }
+}

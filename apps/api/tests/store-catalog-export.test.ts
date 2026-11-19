@@ -7,6 +7,8 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { deleteExpiredCatalogExports, failDeadCatalogExports, selectCatalogExport } from '#db/scoped/catalogExports'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { buildCatalogExport } from '#engine/modules/catalog/index'
+import { planImport, type ImportPlan } from '#engine/modules/catalog/importFile'
+import { parseCsv } from '#core/csv'
 import type { TenantContext } from '#core/tenancy'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
@@ -19,6 +21,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const now = new Date('2026-10-06T09:00:00Z')
+const shopDomain = 'my-store.example'
 type Who = 'owner' | 'staff' | 'supplier' | 'otherSupplier' | 'bOwner'
 const people: Record<Who, string> = { owner: '', staff: '', supplier: '', otherSupplier: '', bOwner: '' }
 const cookies: Record<Who, string> = { owner: '', staff: '', supplier: '', otherSupplier: '', bOwner: '' }
@@ -62,13 +65,13 @@ const create = async (who: Who, input: Record<string, unknown>) => {
 }
 const inr = (amount: string, compareAtAmount?: string) => ({ currency: 'INR', amount, ...(compareAtAmount ? { compareAtAmount } : {}) })
 
-type Job = { id: string; kind: string; state: string; rows: number | null; truncated: boolean; csv: string | null; expiresAt: string | null }
+type Job = { id: string; kind: string; state: string; rows: number | null; products: number | null; truncated: boolean; csv: string | null; expiresAt: string | null }
 const ask = async (who: Who, kind: 'products' | 'stock', filter?: Record<string, unknown>) => {
   const result = await gql('mutation E($k: CatalogExportKind!, $f: CatalogExportFilterInput) { requestCatalogExport(kind: $k, filter: $f) }', who, { k: kind, f: filter })
   return { id: result.data?.['requestCatalogExport'] as string | undefined, code: result.code }
 }
-const job = async (who: Who, id: string) => (await gql('query J($id: ID!) { catalogExport(id: $id) { id kind state rows truncated csv expiresAt } }', who, { id })).data?.['catalogExport'] as Job | null
-const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+const job = async (who: Who, id: string) => (await gql('query J($id: ID!) { catalogExport(id: $id) { id kind state rows products truncated csv expiresAt } }', who, { id })).data?.['catalogExport'] as Job | null
+const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now, shopDomain) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
 const exported = async (who: Who, kind: 'products' | 'stock', filter?: Record<string, unknown>) => {
   const { id } = await ask(who, kind, filter)
   expect(id).toBeDefined()
@@ -133,9 +136,9 @@ describe('product exports', () => {
     await relay()
     const done = await job('owner', id ?? '')
     const lines = (done?.csv ?? '').split('\n')
-    expect(lines[0]).toBe('handle,name,description,type,visible,option1 name,option1 value,option2 name,option2 value,option3 name,option3 value,sku,barcode,price,compare at price,cost,weight grams,stock,name:hi-IN,description:hi-IN,price:USD')
-    expect(lines).toContain(`kurta,Kurta,"'=cotton, handloomed",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,कुर्ता,,15.99`)
-    expect(lines).toContain('kurta,,,,,,M,,,,,KU-M,,1299.50,,,,0,,,')
+    expect(lines[0]).toBe('handle,name,description,type,visible,option1 name,option1 value,option2 name,option2 value,option3 name,option3 value,sku,barcode,price,compare at price,cost,weight grams,stock,image,image alt,name:hi-IN,description:hi-IN,price:USD')
+    expect(lines).toContain(`kurta,Kurta,"'=cotton, handloomed",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,,,कुर्ता,,15.99`)
+    expect(lines).toContain('kurta,,,,,,M,,,,,KU-M,,1299.50,,,,0,,,,,')
     // The merchant side's file holds its suppliers' products, never another store's.
     expect(done?.csv).toContain('MUG')
     expect(done?.csv).toContain('BOWL')
@@ -173,6 +176,47 @@ describe('product exports', () => {
     expect(mine.lines.slice(1).map((l) => l.split(',')[1])).toEqual(['Supplier mug'])
     expect(mine.csv).not.toContain('KU-S')
     expect(mine.csv).not.toContain('BOWL')
+  })
+})
+
+describe('the products and versions of an export (#1445)', () => {
+  it('records both counts: the filter’s products, a supplier’s own, and none for a stock export', async () => {
+    expect(await exported('owner', 'products')).toMatchObject({ products: 4, rows: 5 })
+    expect(await exported('owner', 'products', { filter: 'hidden' })).toMatchObject({ products: 1, rows: 1 })
+    expect(await exported('staff', 'products', { search: 'kurta' })).toMatchObject({ products: 1, rows: 2 })
+    expect(await exported('supplier', 'products')).toMatchObject({ products: 1, rows: 1 })
+    expect((await exported('owner', 'stock')).products).toBeNull()
+  })
+
+  it('shows them in the recent list too, to the one who asked only', async () => {
+    const { id } = await ask('owner', 'products', { filter: 'hidden' })
+    await relay()
+    const recent = (await gql('{ catalogExports { id rows products } }', 'owner')).data?.['catalogExports'] as { id: string; rows: number; products: number | null }[]
+    expect(recent.find((e) => e.id === id)).toEqual({ id, rows: 1, products: 1 })
+    const others = (await gql('{ catalogExports { id } }', 'supplier')).data?.['catalogExports'] as { id: string }[]
+    expect(others.map((e) => e.id)).not.toContain(id)
+  })
+})
+
+describe('the product counts (#1445)', () => {
+  const counts = async (who: Who) => (await gql('{ productCounts { all hidden versions hiddenVersions } }', who)).data?.['productCounts']
+
+  it('count versions beside products, the hidden products’ own apart, and a supplier’s own products only', async () => {
+    expect(await counts('owner')).toEqual({ all: 4, hidden: 1, versions: 5, hiddenVersions: 1 })
+    expect(await counts('supplier')).toEqual({ all: 1, hidden: 0, versions: 1, hiddenVersions: 0 })
+    expect(await counts('bOwner')).toEqual({ all: 1, hidden: 0, versions: 1, hiddenVersions: 0 })
+  })
+
+  it('count a product with no versions as one, and leave out a removed version', async () => {
+    const bare = (await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility, product_type) values (${t.storeA1}, 'Bare', 'bare', 'hidden', 'service') returning id`)[0]?.id ?? ''
+    await db.sql`update product_version set deleted_at = now() where sku = 'KU-M' and store_id = ${t.storeA1}`
+    try {
+      expect(await counts('owner')).toEqual({ all: 5, hidden: 2, versions: 5, hiddenVersions: 2 })
+    } finally {
+      await db.sql`update product_version set deleted_at = null where sku = 'KU-M' and store_id = ${t.storeA1}`
+      await db.sql`delete from product where id = ${bare}`
+    }
+    expect(await counts('owner')).toEqual({ all: 4, hidden: 1, versions: 5, hiddenVersions: 1 })
   })
 })
 
@@ -283,5 +327,121 @@ describe('who reads an export', () => {
     expect(await state()).toEqual({ state: 'queued', expires_at: null })
     await expect(deliverer.deliver(effect(defaultRelayOptions.maxAttempts), AbortSignal.timeout(5000))).rejects.toThrow()
     expect(await state()).toEqual({ state: 'failed', expires_at: new Date(now.getTime() + 60 * 60 * 1000) })
+  })
+})
+
+// Bug #1561: the products file carries each product's photos in the template's `image` and `image alt` columns, as links the
+// importer can fetch, so a product moved to another store keeps them (CATALOG-DESIGN K8, K6).
+describe('photos in the products file (#1561)', () => {
+  const ids = { kurta: '', lamp: '', mug: '', front: '', back: '', detail: '', lampPhoto: '', mugPhoto: '' }
+  let origin = ''
+  const photo = async (productId: string, position: number, alt: string | null) => {
+    const [asset] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position, alt) values (${productId}, ${t.storeA1}, ${asset?.id ?? ''}, ${position}, ${alt})`
+    return asset?.id ?? ''
+  }
+  const link = (asset: string) => `${origin}/shop-api/assets/${asset}`
+  const table = async (who: Who, filter?: Record<string, unknown>) => {
+    const done = await exported(who, 'products', filter)
+    const rows = parseCsv(done.csv ?? '') ?? []
+    const head = rows[0] ?? []
+    const col = (name: string) => head.indexOf(name)
+    return { head, rows: rows.slice(1), col, csv: done.csv ?? '' }
+  }
+
+  beforeAll(async () => {
+    const [slug] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    origin = `https://${slug?.slug ?? ''}.${shopDomain}`
+    const product = async (name: string) => (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA1} and name = ${name}`)[0]?.id ?? ''
+    ids.kurta = await product('Kurta')
+    ids.lamp = await product('Hidden lamp')
+    ids.mug = await product('Supplier mug')
+    ids.front = await photo(ids.kurta, 0, 'Front of the kurta')
+    ids.back = await photo(ids.kurta, 1, 'Back, with the pocket')
+    ids.detail = await photo(ids.kurta, 2, null)
+    ids.lampPhoto = await photo(ids.lamp, 0, 'The lamp, off')
+    ids.mugPhoto = await photo(ids.mug, 0, 'A mug')
+    // A version shows one of its product's photos (D12): S the front, M the third.
+    await db.sql`update product_version set photo_asset_id = ${ids.front} where product_id = ${ids.kurta} and sku = 'KU-S'`
+    await db.sql`update product_version set photo_asset_id = ${ids.detail} where product_id = ${ids.kurta} and sku = 'KU-M'`
+  })
+
+  it('adds the template’s image and image alt columns to the file', async () => {
+    const { head } = await table('owner')
+    expect(head.slice(head.indexOf('stock'), head.indexOf('stock') + 3)).toEqual(['stock', 'image', 'image alt'])
+  })
+
+  it('writes every photo in its order with its alt text, a version’s own photo on its row, and the rest as rows of their own', async () => {
+    const { rows, col } = await table('owner', { search: 'kurta' })
+    const kurta = rows.filter((r) => r[col('handle')] === 'kurta')
+    // S shows the front; the back is a row of its own, in order; M shows the detail.
+    expect(kurta.map((r) => [r[col('sku')], r[col('image')], r[col('image alt')]])).toEqual([
+      ['KU-S', link(ids.front), 'Front of the kurta'],
+      ['', link(ids.back), 'Back, with the pocket'],
+      ['KU-M', link(ids.detail), ''],
+    ])
+    // The product's own columns stay on its first row only.
+    expect(kurta.map((r) => r[col('name')])).toEqual(['Kurta', '', ''])
+  })
+
+  it('includes a hidden product’s photos, and leaves a product without photos blank', async () => {
+    const hidden = await table('owner', { filter: 'hidden' })
+    expect(hidden.rows.map((r) => [r[hidden.col('handle')], r[hidden.col('image')], r[hidden.col('image alt')]])).toEqual([['hidden-lamp', link(ids.lampPhoto), 'The lamp, off']])
+    const none = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${t.storeA1}, 'Plain', 'plain', 'visible') returning id`
+    expect(none).toHaveLength(1)
+    const all = await table('owner', { search: 'plain' })
+    expect(all.rows.map((r) => [r[all.col('image')], r[all.col('image alt')]])).toEqual([['', '']])
+    await db.sql`delete from product where id = ${none[0]?.id ?? ''}`
+  })
+
+  it('reads back through the importer: every photo, in order, with its alt text, and the same versions', async () => {
+    const { csv } = await table('owner', { search: 'kurta' })
+    const plan = planImport(csv, { currency: 'INR', languages: ['hi-IN'], manualCurrencies: ['USD'], supplier: false }) as ImportPlan
+    expect(plan.problems).toEqual([])
+    const [kurta] = plan.products
+    expect(kurta?.photos.map((x) => [x.url, x.alt])).toEqual([
+      [link(ids.front), 'Front of the kurta'],
+      [link(ids.back), 'Back, with the pocket'],
+      [link(ids.detail), null],
+    ])
+    expect(kurta?.input.versions.map((v) => v.sku)).toEqual(['KU-S', 'KU-M'])
+  })
+
+  it('counts the photo rows against the cap: a product whose rows don’t fit is left out whole, and the note names the rows kept', async () => {
+    const scope: TenantContext = { caller: { kind: 'person', userId: people.owner, sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const { id } = await ask('owner', 'products', { search: 'kurta' })
+    const built = (max: number) =>
+      withScope(db.sql, scope, async (tx) => {
+        const row = await selectCatalogExport(tx, t.storeA1, id ?? '')
+        if (!row) throw new Error('no job')
+        return buildCatalogExport(tx, row, max, (asset) => link(asset))
+      })
+    // Kurta is two versions and a photo of its own: three rows, though only two versions.
+    expect(await built(3)).toMatchObject({ rows: 3, products: 1, truncated: false })
+    const cut = await built(2)
+    expect(cut).toMatchObject({ rows: 0, products: 0, truncated: true })
+    expect(cut.csv.split('\n').at(-1)).toBe('Only the first 0 rows are included; narrow the filter to see the rest.')
+  })
+
+  it('leaves the image columns empty for a store with no public host, and keeps the alt text', async () => {
+    const { id } = await ask('owner', 'products', { search: 'kurta' })
+    await relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql, () => now, null) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    const done = await job('owner', id ?? '')
+    expect(done?.state).toBe('done')
+    const rows = parseCsv(done?.csv ?? '') ?? []
+    const head = rows[0] ?? []
+    const kurta = rows.slice(1).filter((r) => r[head.indexOf('handle')] === 'kurta')
+    expect(kurta.map((r) => [r[head.indexOf('image')], r[head.indexOf('image alt')]])).toEqual([
+      ['', 'Front of the kurta'],
+      ['', 'Back, with the pocket'],
+      ['', ''],
+    ])
+  })
+
+  it('holds only a supplier’s own products’ photos in its file', async () => {
+    const { csv } = await table('supplier')
+    expect(csv).toContain(link(ids.mugPhoto))
+    for (const other of [ids.front, ids.back, ids.detail, ids.lampPhoto]) expect(csv).not.toContain(other)
+    expect((await table('otherSupplier')).csv).not.toContain(ids.mugPhoto)
   })
 })

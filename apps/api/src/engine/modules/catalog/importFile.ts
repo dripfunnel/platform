@@ -1,7 +1,7 @@
 import { parseCsv } from '#core/csv'
 import { convert, fromMajor } from '#core/money'
 import { sanitiseDescription } from './richText'
-import { cleanProduct, invalidInputOf, maxOptions, maxPhotos, productTypes, slugFrom, type CatalogRefusal, type ProductInput, type VersionInput } from './rules'
+import { cleanProduct, invalidInputOf, maxOptions, productTypes, slugFrom, type CatalogRefusal, type ProductInput, type VersionInput } from './rules'
 
 // A spreadsheet of products as the import reads it (CATALOG K1–K3, K10, K11): our own export's columns or
 // Shopify's product CSV, rows grouped by handle into products, each checked as a save would check it.
@@ -71,8 +71,10 @@ export interface PlannedProduct {
   stock: (number | null)[]
   /** With an inventory file: the same, per Shopify location, in place of `stock`. */
   stockAt?: Record<string, (number | null)[]>
-  /** In the file's order, each with the line it's on, for a fetch that fails (K6). */
+  /** In the file's order, each with the line it's on, for a fetch that fails (K6). Those past the 20th are spares for one that fails (#1348). */
   photos: { url: string; alt: string | null; line: number }[]
+  /** The run's, once it queued the product's first 20: the next spare in `photos` not yet tried. */
+  spare?: number
   translations: Record<string, { name?: string; description?: string }>
 }
 
@@ -105,6 +107,8 @@ export interface PlanOptions {
   expect?: ImportSource
   /** The file's prices are in `from`, not the pricing currency: converted at these rates, units per euro (CATALOG fact 26). */
   convert?: { from: string; perEuroFrom: string; perEuroTo: string; on: string }
+  /** A category's sample (DATA-MODEL §7.2): its `sample-photo:` refs are photos too, resolved from R2 by the photo job. */
+  samplePhotos?: boolean
 }
 
 type Field =
@@ -379,7 +383,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     const place = (r: { cells: string[] }) => Number(at(r, 'imagePosition')) || 0
     const allPhotos = lines
       .toSorted((a, b) => place(a) - place(b))
-      .filter((r) => /^https?:\/\//i.test(at(r, 'image')) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
+      .filter((r) => (/^https?:\/\//i.test(at(r, 'image')) || (o.samplePhotos === true && at(r, 'image').startsWith('sample-photo:'))) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
       .map((r) => ({ url: at(r, 'image'), alt: at(r, 'imageAlt') || null, line: r.line }))
     const translations = Object.fromEntries(
       [...languages].map(([language, columns]) => {
@@ -397,11 +401,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     // A photo the photo job couldn't carry is left out on its own line; the product still goes in (K6).
     const fits = (p: (typeof allPhotos)[number]) => p.url.length <= importLimits.photoUrl && (p.alt?.length ?? 0) <= importLimits.photoAlt
     for (const p of allPhotos.filter((x) => !fits(x))) flag(p.line, p.url.length > importLimits.photoUrl ? 'image' : 'imageAlt', 'PHOTO_TOO_LONG')
-    const carried = allPhotos.filter(fits)
-    // The product comes in with its first photos; the ones past the limit are said, not dropped unseen.
-    const extra = carried[maxPhotos]
-    if (extra) problems.push({ line: extra.line, column: labelOf('image'), code: 'TOO_MANY_PHOTOS' })
-    products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos: carried.slice(0, maxPhotos), translations })
+    products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos: allPhotos.filter(fits), translations })
   }
   return { source, products, problems, refused, refusedLines, refusedHandles, ...(o.convert ? { conversion: { from: o.convert.from, to: o.currency, on: o.convert.on } } : {}) }
 }

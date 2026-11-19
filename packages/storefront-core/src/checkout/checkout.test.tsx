@@ -452,6 +452,50 @@ describe('the sole delivery option', () => {
 })
 
 // Card #1105 (checkout part): checkout asks the Shop API only what it needs.
+describe('a cart with an age-restricted product (#1443)', () => {
+  const aged = cartOf([line('v1', 1)], { email: 'maya@example.com', shippingAddress: address, shippingOption: 'flat', shippingOptions: [], checkoutStep: 'pay', readyToPay: true, needsAgeConfirmation: true })
+  const answeringAged = () =>
+    shop('test', (a) => {
+      if (a.query.includes('placeOrder') || a.query.includes('paymentOptions') || a.query.includes('confirmPayment') || a.query.includes('payOrder')) return undefined
+      return a.query.includes('checkout {') ? { data: { checkout: aged } } : { data: { cart: aged } }
+    })
+  const placed = (asked: Asked[]) => asked.filter((a) => a.query.includes('placeOrder'))
+  const toReview = async () => {
+    await act(async () => undefined)
+    act(() => page.choosePayment('cod'))
+    await act(async () => void (await page.review()))
+  }
+
+  it('asks for the confirmation, and places nothing until it is given', async () => {
+    const asked = answeringAged()
+    mount()
+    await toReview()
+    expect(page.needsAgeConfirmation).toBe(true)
+    expect(page.ageConfirmed).toBe(false)
+    await act(async () => void (await page.place()))
+    expect(placed(asked)).toHaveLength(0)
+  })
+
+  it('sends the confirmation with the order once it is given', async () => {
+    const asked = answeringAged()
+    mount()
+    await toReview()
+    act(() => page.confirmAge(true))
+    await act(async () => void (await page.place()))
+    expect(placed(asked).map((a) => a.variables)).toEqual([{ provider: 'cod', ageConfirmed: true }])
+    expect(assign).toHaveBeenCalledWith('/order/o-1/')
+  })
+
+  it('asks for nothing, and sends nothing extra, for a cart without one', async () => {
+    const asked = shop()
+    mount()
+    await toReview()
+    expect(page.needsAgeConfirmation).toBe(false)
+    await act(async () => void (await page.place()))
+    expect(placed(asked).map((a) => a.variables)).toEqual([{ provider: 'cod' }])
+  })
+})
+
 describe('the calls checkout makes', () => {
   const names = (asked: readonly Asked[]) => asked.map((a) => a.query.split(' ')[1])
 

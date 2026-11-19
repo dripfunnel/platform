@@ -2,10 +2,10 @@ import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
-import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
+import type { Browser, BrowserContext, Frame, Page, Route } from 'playwright-core'
 import { consentStorageKey, pageHeaders, settleMs, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
-import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateTheme, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { budgetedRoutes, edgeCases, fontsIn, gateWidths, pageName, runGate, themeCssPath, validateTheme, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
 import { checkedPages, fileOf, itemFacts, languagePrefix, plan, type PlannedPage } from './pages'
@@ -72,9 +72,9 @@ const allFiles = async (root: string, prefix = ''): Promise<string[]> =>
 
 /** Each HTML file's CSP header (ARCHITECTURE §3.5), from the store's sources and the file's own inline hashes. */
 /** Each built page's headers, its CSP among them, as the build's manifest will carry them. */
-export const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
+export const headersOf = async (root: string, snapshot: CatalogueSnapshot, fonts = false) => {
   const pages = await Promise.all((await allFiles(root)).filter((f) => f.endsWith('.html')).sort().map(async (path) => ({ path, html: await readFile(join(root, path), 'utf8') })))
-  return pageHeaders(pages, (hashes, path) => storeCsp(snapshot.csp, hashes, path))
+  return pageHeaders(pages, (hashes, path) => storeCsp(snapshot.csp, hashes, path, fonts))
 }
 
 /** What a page asked for and was answered; `reading` holds each body still being read, awaited before the totals. */
@@ -128,7 +128,40 @@ const settled = async (page: Page, net: Network) => {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await page.waitForTimeout(settle)
   await page.evaluate(() => window.scrollTo(0, 0))
-  for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) net.errors.push(`It tried to reach ${origin}, which its content security policy refused.`)
+  for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) {
+    const said = `It tried to reach ${origin}, which its content security policy refused.`
+    if (!net.errors.includes(said)) net.errors.push(said)
+  }
+}
+
+const navigating = /Execution context was destroyed|Frame was detached/i
+const reads = 3
+
+/**
+ * A page that navigates while it is read has no state to read yet: wait until the new page has committed and loaded, then read
+ * it again, up to three reads. The wait starts from a listener set before the read, so a retry never runs on the old page, which
+ * the browser reports as destroyed before the new one has committed. A page that keeps moving is that page's failure (#1539),
+ * never an exception that ends the whole check.
+ */
+const whenStill = async <T>(page: Page, net: Network, read: () => Promise<T>): Promise<T | null> => {
+  for (let attempt = 0; attempt < reads; attempt += 1) {
+    let moved: () => void = () => undefined
+    const committed = new Promise<void>((resolve) => (moved = resolve))
+    const listen = (frame: Frame) => frame === page.mainFrame() && moved()
+    page.on('framenavigated', listen)
+    try {
+      return await read()
+    } catch (e) {
+      if (!(e instanceof Error) || !navigating.test(e.message)) throw e
+      // A frame that was only detached never commits another document, so the wait is bounded.
+      await Promise.race([committed, page.waitForTimeout(navigationMs)])
+      await page.waitForLoadState('networkidle', { timeout: navigationMs }).catch(() => undefined)
+    } finally {
+      page.off('framenavigated', listen)
+    }
+  }
+  net.errors.push('It kept navigating while loading.')
+  return null
 }
 
 /** How long a page may take to settle; one that never does (a script polling forever) fails, never the whole step. */
@@ -184,11 +217,14 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
   try {
     await wire(page, served, s, { assets }, net)
     await open(page, `${served.origin}${p.path}`, net)
-    await settled(page, net)
-    const seen = await mainSeen(page)
-    const wide = await overflows(page)
-    const broken = axe ? ((await page.evaluate(`${axe};axe.run(document,{runOnly:{type:'tag',values:${JSON.stringify(axeTags)}},resultTypes:['violations']}).then(r=>r.violations.map(v=>v.id))`)) as string[]) : []
-    const shot = await page.screenshot()
+    const read = (await whenStill(page, net, async () => {
+      await settled(page, net)
+      const seen = await mainSeen(page)
+      const wide = await overflows(page)
+      const broken = axe ? ((await page.evaluate(`${axe};axe.run(document,{runOnly:{type:'tag',values:${JSON.stringify(axeTags)}},resultTypes:['violations']}).then(r=>r.violations.map(v=>v.id))`)) as string[]) : []
+      return { seen, wide, broken, shot: await page.screenshot() }
+    })) ?? { seen: false, wide: false, broken: [], shot: Buffer.alloc(0) }
+    const { seen, wide, broken, shot } = read
     const sealed = sealedWords(net.reports, p)
     if (p.route === 'home' || p.route === 'checkout') sealed.push(...(await firstVisit(c, served, s, assets, p)))
     return { visit: { path: p.path, route: p.route, width, errors: net.errors, sealed, axe: broken, mainSeen: seen, overflow: wide, diff: null }, shot }
@@ -338,9 +374,12 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       const found = asset ? await fileFor([live], asset) : null
       return found ? answerAsset(route, found) : route.abort('blockedbyclient')
     })
-    await open(page, `${served.origin}${path}`, network())
-    await settled(page, network())
-    return await page.screenshot()
+    const net = network()
+    await open(page, `${served.origin}${path}`, net)
+    return await whenStill(page, net, async () => {
+      await settled(page, net)
+      return page.screenshot()
+    })
   } finally {
     await context.close()
   }
@@ -354,11 +393,12 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const routes = routesOf(input.theme)
   const pages = checkedPages(plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue))
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
-  const headers = await headersOf(site, s)
+  const fonts = fontsIn(input.theme.find((f) => f.path === themeCssPath)?.content ?? '').length > 0
+  const headers = await headersOf(site, s, fonts)
   const served = await serveFolders([site], (rel) => headers[rel]?.['content-security-policy'] ?? null)
   const cases = edgeCases(s)
   const edgeRoots = cases.map((_, n) => join(input.out, edgeFolder(n)))
-  const edgeHeaders = await Promise.all(edgeRoots.map((root, n) => headersOf(root, cases[n]?.snapshot ?? s)))
+  const edgeHeaders = await Promise.all(edgeRoots.map((root, n) => headersOf(root, cases[n]?.snapshot ?? s, fonts)))
   const edgeServed = await Promise.all(edgeRoots.map((root, n) => serveFolders([root, site], (rel) => edgeHeaders[n]?.[rel]?.['content-security-policy'] ?? null)))
   const liveServed = input.live ? await serveFolders([input.live], () => null) : null
   // Without JavaScript the CSP is bypassed, so every request the page makes reaches the routing that refuses and records it.
@@ -375,7 +415,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         for (const result of done) {
           if (!result) continue
           const before = input.live && liveServed ? await liveShot(browser, liveServed, input.live, s, result.visit.path, width) : null
-          visits.push({ ...result.visit, diff: before ? await difference(blank, result.shot, before) : null })
+          visits.push({ ...result.visit, diff: before && result.shot.length > 0 ? await difference(blank, result.shot, before) : null })
         }
       } finally {
         await c.returning.close()

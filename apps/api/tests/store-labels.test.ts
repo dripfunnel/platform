@@ -35,8 +35,10 @@ const label = (request: LabelRequest): BookedLabel => ({
   pickup: request.pickup === 'scheduled' ? { ref: 'PU-1', date: '2026-10-12' } : null,
 })
 const couriers: CourierDirectory = {
-  forPartner: async () => ({
+  check: async () => 'ok',
+  forStore: async () => ({
     accounts: new Set(['shiprocket'] as const),
+    connectable: new Set(['shiprocket'] as const),
     gateway: {
       quote: async () => null,
       book: async (provider, request) => {
@@ -304,6 +306,10 @@ describe('a supplier books its own labels', () => {
     await db.sql`update seller set label_account = 'own' where id = ${t.sellerA1First}`
     expect((await book('drop', id, places.drop, [{ id: scarf, quantity: 1 }])).code).toBe('OWN_LABELS')
     await db.sql`update seller set label_account = 'store' where id = ${t.sellerA1First}`
+    // With no location of its own a supplier ships from the store's, but never books a label with the store's address (#1353).
+    await db.sql`update warehouse set deleted_at = now() where id in (${places.drop}, ${places.bare})`
+    expect((await book('drop', id, places.main, [{ id: scarf, quantity: 1 }])).code).toBe('NO_ADDRESS')
+    await db.sql`update warehouse set deleted_at = null where id in (${places.drop}, ${places.bare})`
     const stole = await lineOf(id, versions.stole)
     expect((await book('hub', id, places.hub, [{ id: stole, quantity: 1 }])).code).toBe('INVALID_INPUT')
     // Handed over, the store ships the stole on: with its own line that is two parts, so two parcels.

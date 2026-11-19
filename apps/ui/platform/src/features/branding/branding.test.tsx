@@ -144,12 +144,37 @@ describe('Branding', () => {
       expect(textOf(html)).toContain(words.look.noFile)
     })
 
+    it('says Upload on a tile with no file and Replace on one with a file, and Upload again once the file is removed', async () => {
+      const tile = (html: string, file: BrandFile) => {
+        const start = html.indexOf(`<strong>${words.look.files[file]}</strong>`)
+        return textOf(html.slice(start, html.indexOf('</li>', start)))
+      }
+      const label = (html: string, text: string, file: BrandFile) => html.includes(`aria-label="${text.replace('{file}', words.look.files[file])}"`)
+      const set = await withFiles({ mark: 'partners/p/brand/m.png', appIcon: 'partners/p/brand/icon.png' })
+      for (const file of ['mark', 'appIcon'] as const) {
+        expect(tile(set, file)).toContain(`${words.look.replace}${words.look.remove}`)
+        expect(label(set, words.look.replaceLabel, file)).toBe(true)
+        expect(label(set, words.look.uploadLabel, file)).toBe(false)
+      }
+      for (const file of ['logoLight', 'logoDark', 'favicon', 'appIconForeground', 'splash'] as const) {
+        expect(tile(set, file)).toContain(words.look.noFile + words.look.upload)
+        expect(tile(set, file)).not.toContain(words.look.replace)
+        expect(label(set, words.look.uploadLabel, file)).toBe(true)
+        expect(label(set, words.look.replaceLabel, file)).toBe(false)
+      }
+      const removed = await withFiles({ mark: '', appIcon: '' })
+      expect(tile(removed, 'mark')).toContain(words.look.noFile + words.look.upload)
+      expect(label(removed, words.look.uploadLabel, 'appIcon')).toBe(true)
+      expect(removed).not.toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.mark)}"`)
+    })
+
     it('groups the mobile app images under Mobile app, PNG only, each with what it must be', async () => {
       const html = await withFiles({ appIcon: 'partners/p/brand/icon.png' })
       const app = html.slice(html.indexOf('id="brand-app-group"'))
       expect(textOf(app)).toContain(words.look.appGroup)
       for (const file of ['appIcon', 'appIconForeground', 'splash'] as const) {
-        expect(app).toMatch(new RegExp(`<input type="file" accept="image/png"[^>]*aria-label="${words.look.replaceLabel.replace('{file}', words.look.files[file])}"`))
+        const label = file === 'appIcon' ? words.look.replaceLabel : words.look.uploadLabel
+        expect(app).toMatch(new RegExp(`<input type="file" accept="image/png"[^>]*aria-label="${label.replace('{file}', words.look.files[file])}"`))
         expect(textOf(app)).toContain(words.look.appHints[file])
       }
       expect(app).toContain(`class="df-brand-thumb" src="${url('partners/p/brand/icon.png')}"`)

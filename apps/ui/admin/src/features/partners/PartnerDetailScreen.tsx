@@ -14,6 +14,8 @@ import { ContractDialog } from './ContractDialog'
 import { deniedPartner, partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
+import { partnerMessagingManagers } from '../../api/messaging'
+import { DfMessagingPanel } from './DfMessagingPanel'
 
 const partnerRoute = getRouteApi('/_app/partners_/$partnerId')
 const shellRoute = getRouteApi('/_app')
@@ -91,6 +93,9 @@ export const PartnerDetailScreen = () => {
         onSetContract={() => setEditingContract(true)}
         onImpersonate={(id) => partner && sessions.impersonate(id, { email: partner.team.find((person) => person.id === id)?.email ?? '', partner: partner.id })}
         onReload={() => void router.invalidate()}
+        messaging={
+          partner && <DfMessagingPanel key={partner.id} partner={partner} mayChange={partnerMessagingManagers.includes(me.role) && forced !== 'readonly'} onToast={setToast} />
+        }
         activity={
           partner && (
             <ActivityTab

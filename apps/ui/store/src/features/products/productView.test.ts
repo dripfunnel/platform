@@ -60,7 +60,7 @@ describe('a Products list row in words (CatList)', () => {
   })
 
   it('sums up the whole catalogue from the API’s counts, never the page’s rows', () => {
-    const counts = { all: 120, visible: 100, hidden: 20, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 30, outOfStock: 4 }
+    const counts = { all: 120, visible: 100, hidden: 20, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 30, outOfStock: 4, versions: 150, hiddenVersions: 25 }
     expect(summaryOf(counts, false)).toBe('120 products · 30 from suppliers · 4 out of stock')
     expect(summaryOf({ ...counts, fromSuppliers: 0 }, false)).toBe('120 products · 4 out of stock')
     expect(summaryOf(counts, true)).toBe('120 products · 1 waiting for approval · 0 sent back')

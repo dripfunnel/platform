@@ -48,6 +48,7 @@ const Row = ({ store, billing }: { store: StoreRow; billing: BillingColumn | nul
         <NearNote near={store.near} />
       </div>
     </td>
+    <td>{store.category?.name ?? words.noCategory}</td>
     <td>
       <div className="df-stack">
         <StoreStatusPill state={store.state} />

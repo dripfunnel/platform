@@ -1,5 +1,5 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { scratchTemplate, type StorefrontDomains, type StorefrontOverview, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
+import { classicTemplate, scratchTemplate, type StorefrontDomains, type StorefrontOverview, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 
@@ -24,6 +24,10 @@ export const rolledBackNotice = ({ lastPublish, live }: StorefrontOverview): str
   const reasons: Record<string, string | undefined> = words.overview.rolledBackReasons
   return fill(words.studio.publish.rolledBack, { number: String(live.number), reason: reasons[lastPublish.error ?? ''] ?? words.studio.publish.rolledBackFallback })
 }
+
+/** A first site starts from the category's own template (store_category.template_key), else Classic. */
+export const startingTemplate = (templates: readonly StorefrontTemplate[]): StorefrontTemplate | null =>
+  templates.find((t) => t.forCategory) ?? templates.find((t) => t.key === classicTemplate) ?? null
 
 /** "Start from scratch" reads as the prototype's "Custom" once it is the store's look. */
 export const templateName = (templates: readonly StorefrontTemplate[], key: string | null): string =>

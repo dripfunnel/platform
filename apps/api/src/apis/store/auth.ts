@@ -15,7 +15,7 @@ import { clearStaffCookie, endStoreStaffSession, staffCookieName } from '#auth/s
 import { storeOriginAllowed, storeSessionId, wantsBodySession } from '#auth/storeCredential'
 import { lockMs, minutesUntil } from '#auth/partnerCode'
 import { verifyPassword } from '#auth/password'
-import { hashBackupCode, maxSmsCodesPer10Min, newBackupCodes, phoneHint } from '#auth/storeCodes'
+import { codeChannels, hashBackupCode, newBackupCodes } from '#auth/storeCodes'
 import {
   clearStoreCookie,
   completeUserSession,
@@ -28,7 +28,6 @@ import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { isE164 } from '#core/sms'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
-  countCodesSince,
   recordUserGoodCode,
   replaceBackupCodes,
   selectSignInCandidate,
@@ -38,7 +37,7 @@ import {
   type UserSecondFactor,
 } from '#db/scoped/userSignIn'
 import { admit, admitted, withSession, type OpenedSession, type StoreAuthDeps } from './admission'
-import { brandName, checkTextedCode, countWrong, textCode } from './codes'
+import { brandName, checkTextedCode, countWrong, sendPersonCode, type CodeSent } from './codes'
 import { confirmEmailChange } from './emailChange'
 import { sendSignupPhoneCode, signupCookieName, signupStore, startSignup, verifySignupEmail, verifySignupPhone } from './signup'
 import { createAnotherStore, newStoreOptions } from './newStore'
@@ -79,9 +78,12 @@ export const isStoreAuthPath = (pathname: string): boolean => Object.values(path
 
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), remember: z.boolean().optional() })
 const codeInput = z.strictObject({ code: z.string().max(32) })
+// `channel` is optional so released app builds, which send none, keep working (ACCESS.md §4).
+const channel = z.enum(codeChannels).optional()
+const sendInput = z.strictObject({ channel })
 const enrolInput = z.discriminatedUnion('method', [
   z.strictObject({ method: z.literal('app'), code: z.string().max(16).optional() }),
-  z.strictObject({ method: z.literal('sms'), phone: z.string().max(20).optional(), code: z.string().max(16).optional() }),
+  z.strictObject({ method: z.literal('sms'), phone: z.string().max(20).optional(), code: z.string().max(16).optional(), channel }),
 ])
 
 // The routes that open, finish or end a session, which the mobile app calls with no Origin (ACCESS.md §4).
@@ -114,7 +116,7 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   // Per address, per host: one partner's portal never spends another's attempts.
   if (facts.ip === null || !(await deps.allowAttempt(`store:${deps.host}:ip:${facts.ip}`))) return refuse({ code: 'RATE_LIMITED' })
   if (url.pathname === paths.signIn) return signIn(request, deps, facts)
-  if (url.pathname === paths.sendCode) return sendSignInCode(deps, facts, sessionId)
+  if (url.pathname === paths.sendCode) return sendSignInCode(request, deps, facts, sessionId)
   if (url.pathname === paths.secondFactor) return secondFactor(request, deps, facts, sessionId)
   if (url.pathname === paths.backupCode) return backupCode(request, deps, facts, sessionId)
   if (url.pathname === paths.invitation) return lookUpStoreInvitation(request, deps)
@@ -126,7 +128,7 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   const signup = readCookie(request.headers.get('cookie'), signupCookieName)
   if (url.pathname === paths.signUp) return startSignup(request, deps)
   if (url.pathname === paths.signUpEmail) return verifySignupEmail(request, deps, signup)
-  if (url.pathname === paths.signUpStore) return signupStore(request, deps, signup)
+  if (url.pathname === paths.signUpStore) return signupStore(request, deps, facts, signup)
   if (url.pathname === paths.signUpPhone) return sendSignupPhoneCode(request, deps, signup)
   if (url.pathname === paths.signUpVerifyPhone) return verifySignupPhone(request, deps, facts, signup)
   const inSupport = readCookie(request.headers.get('cookie'), staffCookieName) !== null
@@ -171,20 +173,31 @@ const pendingSecondFactor = async (tx: ScopedSql, deps: StoreAuthDeps, sessionId
   return pending && state ? { pending, state } : null
 }
 
-/** Texts the sign-in code to the person's own number; answers the same hint whether or not a text went. */
-const sendSignInCode = async (deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null): Promise<Response> => {
+/** The send's body; none at all, as before #1506, asks for the default channel. */
+const readSendInput = async (request: Request): Promise<z.infer<typeof sendInput> | null> => {
+  const text = await request.text().catch(() => null)
+  if (text === null) return null
+  try {
+    const parsed = sendInput.safeParse(text.trim() === '' ? {} : JSON.parse(text))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}
+
+/** Sends the sign-in code to the person's own number, by the channel asked for or the default (ACCESS.md §4). */
+const sendSignInCode = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null): Promise<Response> => {
+  const input = await readSendInput(request)
+  if (!input) return refuse({ code: 'INVALID_INPUT' })
   const now = deps.now()
-  const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | { hint: string }> => {
+  const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | CodeSent> => {
     const found = await pendingSecondFactor(tx, deps, sessionId, now)
     if (!found || found.state.two_factor_method !== 'sms' || !found.state.phone) return { code: 'INVALID_CREDENTIALS' }
     const { state } = found
-    const phone = found.state.phone
     if (state.locked_until && state.locked_until > now) return { code: 'LOCKED', minutes: minutesUntil(state.locked_until, now) }
-    if ((await countCodesSince(tx, state.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
-    await textCode(tx, deps.partnerId, state.id, phone, 'sign_in', now)
-    return { hint: phoneHint(phone) }
+    return sendPersonCode(tx, { ...deps, facts }, { id: state.id, partnerId: state.partner_id, phone: found.state.phone }, 'sign_in', input.channel, now)
   })
-  return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, hint: outcome.hint })
+  return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, ...outcome })
 }
 
 const secondFactor = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null): Promise<Response> => {
@@ -292,10 +305,10 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
     if (input.code === undefined) {
       const phone = input.phone?.trim() ?? ''
       if (!isE164(phone)) return { code: 'INVALID_PHONE' }
-      if ((await countCodesSince(tx, state.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
+      const sent = await sendPersonCode(tx, { ...deps, facts }, { id: state.id, partnerId: state.partner_id, phone }, 'enrol_phone', input.channel, now)
+      if ('code' in sent) return sent
       await setPendingEnrolment(tx, sessionId, { phone })
-      await textCode(tx, deps.partnerId, state.id, phone, 'enrol_phone', now)
-      return { hint: phoneHint(phone) }
+      return { ...sent }
     }
     if (!pending.pendingPhone) return { code: 'INVALID_CREDENTIALS' }
     const checked = await checkTextedCode(tx, state.id, 'enrol_phone', input.code, now, deps.codeCheck)

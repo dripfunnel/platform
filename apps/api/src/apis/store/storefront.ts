@@ -41,6 +41,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   BUILD_GONE: 'That version can’t be restored any more.',
   NOTHING_LIVE: 'Publish your design first.',
   NOTHING_WAITING: 'Your live site is already up to date.',
+  FAILED: 'The AI couldn’t finish that. Try again.',
   NO_PRESSES_LEFT: 'You’ve used this month’s Publish now presses. Your changes go live with the next automatic publish.',
   SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
 }
@@ -81,6 +82,8 @@ export const registerStorefront = (builder: StoreBuilder) => {
       demoUrl: t.exposeString('demoUrl', { nullable: true }),
       // "Your current look".
       current: t.exposeBoolean('current'),
+      // The store category's starting template, listed first; a first visit skips the gallery for it (#1537).
+      forCategory: t.exposeBoolean('forCategory'),
     }),
   })
 

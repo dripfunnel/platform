@@ -243,6 +243,45 @@ describe('A+ content: owners', () => {
   })
 })
 
+describe('A video in a story (#1448)', () => {
+  // A file's size is the asset row's, its length is read from the bytes: the same two checks as a product's video (#1401).
+  const video = async (bytes: Uint8Array<ArrayBuffer>, declared = bytes.byteLength) => {
+    files += 1
+    const key = `stores/${t.storeA1}/assets/00000000-0000-4000-8000-${String(files).padStart(12, '0')}.mp4`
+    bucket.set(key, bytes)
+    return (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${key}, 'video', 'video/mp4', ${declared}, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+  }
+  const withVideo = (assetId: string) => [{ id: 'v', kind: 'video', title: 'Film', video: { assetId } }]
+  const stored = async (productId: string) =>
+    ((await gql('query Q($id: ID!) { productStory(productId: $id) { modules { id video { assetId url } } } }', 'owner', { id: productId })).data?.['productStory'] as { modules: { video: { assetId: string | null; url: string | null } | null }[] }).modules[0]?.video
+
+  it('saves a video within 30 seconds and 4 MB, and gives it back as the module’s video', async () => {
+    await db.sql`insert into store_feature (store_id, key, enabled, updated_at) values (${t.storeA1}, 'video', true, ${now}) on conflict (store_id, key) do update set enabled = true`
+    const id = await video(mp4Of(20, 3 * 1024 * 1024))
+    const p = await product('owner', 'Film tee')
+    expect((await saveStory('owner', p, 0, withVideo(id))).story?.revision).toBe(1)
+    expect(await stored(p)).toEqual({ assetId: id, url: null })
+  })
+
+  it('refuses one longer than 30 seconds or bigger than 4 MB, however it was uploaded, and saves nothing', async () => {
+    const p = await product('owner', 'Long film tee')
+    expect((await saveStory('owner', p, 0, withVideo(await video(mp4Of(120))))).code).toBe('VIDEO_LIMIT')
+    expect((await saveStory('owner', p, 0, withVideo(await video(mp4Of(10, 10 * 1024 * 1024))))).code).toBe('VIDEO_LIMIT')
+    expect(await storyOf('owner', p)).toMatchObject({ revision: 0, modules: [] })
+  })
+
+  it('doesn’t read a video again that the story already holds, and takes a link instead', async () => {
+    const p = await product('owner', 'Linked film tee')
+    const id = await video(mp4Of(5))
+    const first = await saveStory('owner', p, 0, withVideo(id))
+    expect(first.story?.revision).toBe(1)
+    bucket.delete((await db.sql<{ r2_key: string }[]>`select r2_key from asset where id = ${id}`)[0]?.r2_key ?? '')
+    expect((await saveStory('owner', p, 1, withVideo(id))).story?.revision).toBe(2)
+    expect((await saveStory('owner', p, 2, [{ id: 'v', kind: 'video', title: 'Film', video: { url: 'https://www.youtube.com/watch?v=abc' } }])).story?.revision).toBe(3)
+    expect(await stored(p)).toEqual({ assetId: null, url: 'https://www.youtube.com/watch?v=abc' })
+  })
+})
+
 describe('Files a story shows', () => {
   it('stay their owner’s when a photo or video of another owner’s product names them', async () => {
     await db.sql`insert into store_feature (store_id, key, enabled, updated_at) values (${t.storeA1}, 'video', true, ${now}) on conflict (store_id, key) do update set enabled = true`

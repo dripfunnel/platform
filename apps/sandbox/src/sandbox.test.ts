@@ -163,10 +163,12 @@ describe('the sandbox server', () => {
     expect((await fetch(`${base}/slots/store-b/draft?at=main`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })).status).toBe(400)
   })
 
-  it('serves the preview files of the current bundle with their hashes, never core', async () => {
+  it('serves the preview files of the current bundle with their hashes, core’s runtime under assets/core/ beside them', async () => {
     const preview = (await call('GET', '/slots/store-a/preview')).body as { id: string; files: { path: string; sha256: string }[] }
-    expect(preview.files.map((f) => f.path)).toContain('index.html')
-    expect(preview.files.every((f) => /^[0-9a-f]{64}$/.test(f.sha256) && !f.path.startsWith('assets/core/'))).toBe(true)
+    const paths = preview.files.map((f) => f.path)
+    expect(paths).toContain('index.html')
+    expect(paths).toEqual(expect.arrayContaining(['assets/core/boot.js', 'assets/core/react.js', 'assets/core/theme.js']))
+    expect(preview.files.every((f) => /^[0-9a-f]{64}$/.test(f.sha256))).toBe(true)
   })
 
   it('holds no more stores than its slots, and refuses a path that climbs out of the repo', async () => {

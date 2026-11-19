@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lockedWorkflowFile } from '#integrations/github/oidc'
 import { fakeSites, putText } from '../../../tests/support/sites'
-import { currentCore, skeletonRefresh, templateFiles } from './templates'
+import { currentCore, skeletonRefresh, templateFiles, TemplateMissing } from './templates'
 
 describe('skeletonRefresh', () => {
   let sites = fakeSites()
@@ -48,5 +48,27 @@ describe('templateFiles', () => {
     await putText(sites, 'templates/1.4.0/skeleton.json', JSON.stringify({ files: skeleton }))
     await putText(sites, 'templates/1.4.0/themes/baseline/source.json', JSON.stringify({ files: [{ path: 'routes.json', content: '{}' }] }))
     expect((await templateFiles(sites, '1.4.0', 'baseline')).skeleton.map((f) => f.path)).toContain('src/app/theme-media/[name]/route.dev.ts')
+  })
+
+  describe('a theme’s own images (ARCHITECTURE §3.4 "Images")', () => {
+    const image = { path: 'src/theme/media/hero.webp', content: Buffer.from([0x52, 0x49, 0x46, 0x46]).toString('base64'), encoding: 'base64' }
+    const seeded = async (theme: unknown[]) => {
+      const sites = fakeSites()
+      await putText(sites, 'templates/1.4.0/skeleton.json', JSON.stringify({ files: [lockedWorkflowFile, 'package.json'].map((path) => ({ path, content: '' })) }))
+      await putText(sites, 'templates/1.4.0/themes/fashion/source.json', JSON.stringify({ files: theme }))
+      return templateFiles(sites, '1.4.0', 'fashion')
+    }
+
+    it('carries an image as base64 beside the theme’s text', async () => {
+      expect((await seeded([{ path: 'routes.json', content: '{}' }, image])).theme).toEqual([{ path: 'routes.json', content: '{}' }, image])
+    })
+
+    it.each([
+      ['an image without its encoding', [{ path: 'routes.json', content: '{}' }, { path: image.path, content: image.content }]],
+      ['an encoding on a code path', [{ path: 'routes.json', content: 'e30=', encoding: 'base64' }]],
+      ['images and no theme', [image]],
+    ])('refuses %s as a release it doesn’t know', async (_, theme) => {
+      await expect(seeded(theme)).rejects.toThrow(TemplateMissing)
+    })
   })
 })

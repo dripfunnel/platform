@@ -7,7 +7,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, type BuildOutcome, type BuildPage, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, type BuildOutcome, type BuildPage, closeEndedSockets, defaultStudioCapacity, frameClosed, heldRuns, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -63,6 +63,7 @@ export const studioSessionClass = (connect: Connect) =>
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
     private opening: Promise<StudioState> | null = null
     private hub = liveHub(this.ctx.storage, () => this.ctx.getWebSockets(liveTag), () => Date.now())
+    private held = heldRuns({ list: (options) => this.ctx.storage.list(options), put: (entries) => this.ctx.storage.put(entries), delete: (keys) => this.ctx.storage.delete(keys) }, () => Date.now())
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
     private async ownStore(storeId: string): Promise<void> {
@@ -200,6 +201,21 @@ export const studioSessionClass = (connect: Connect) =>
     /** Stop: reaches the running change without waiting in its turn. */
     async cancel(storeId: string): Promise<boolean> {
       return (await this.runnerFor(storeId)).cancel()
+    }
+
+    async hold(storeId: string, run: string, input: unknown): Promise<void> {
+      await this.ownStore(storeId)
+      await this.held.hold(run, input)
+    }
+
+    async take(storeId: string, run: string): Promise<unknown> {
+      await this.ownStore(storeId)
+      return this.held.take(run)
+    }
+
+    async drop(storeId: string, run?: string): Promise<boolean> {
+      await this.ownStore(storeId)
+      return this.held.drop(run)
     }
 
     /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */

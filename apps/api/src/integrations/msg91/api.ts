@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { SmsRefused, smsTimeoutMs, SmsUnavailable, type OutgoingSms, type SmsSender } from '#core/sms'
+import { SmsRefused, smsTimeoutMs, SmsUnavailable, type OutgoingSms, type SmsAccountCheck, type SmsSender } from '#core/sms'
 
-// A partner's own MSG91 account (THIRD-PARTY-ACCESS §2.8, §8.3): DLT-registered templates sent
+// DripFunnel's or a partner's own MSG91 account (THIRD-PARTY-ACCESS §2.8, §8.3): DLT-registered templates sent
 // through the Flow API, so India's operators deliver them. Free text is never sent.
 
 export interface Msg91Credentials {
@@ -42,3 +42,19 @@ export const msg91Sender = ({ authKey, fetchImpl = fetch }: Msg91Credentials & {
     throw new SmsRefused(error.success && error.data.code !== undefined ? `msg91_${String(error.data.code)}` : `msg91_${response.status}`)
   },
 })
+
+/** Whether MSG91 takes the auth key, by reading the transactional route's balance: nothing is sent (#1017). */
+export const checkMsg91Account = async ({ authKey, fetchImpl = fetch }: Msg91Credentials & { fetchImpl?: typeof fetch }): Promise<SmsAccountCheck> => {
+  let response: Response
+  try {
+    // The balance API takes the key only in its query string; the address is never logged.
+    response = await fetchImpl(`https://control.msg91.com/api/balance.php?${new URLSearchParams({ authkey: authKey, type: '4' }).toString()}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(smsTimeoutMs) })
+  } catch {
+    return 'unavailable'
+  }
+  if (response.status === 401 || response.status === 403) return 'rejected'
+  if (!response.ok) return 'unavailable'
+  // A refused key comes back as 200 too, as "Invalid authkey" or `type: error`; a good one is the balance.
+  const body = await response.text().catch(() => '')
+  return /invalid|authentication|"type"\s*:\s*"error"/i.test(body) ? 'rejected' : 'ok'
+}

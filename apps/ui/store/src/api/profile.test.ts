@@ -12,16 +12,18 @@ const answering = (data: unknown) => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the profile API', () => {
-  const step = { secret: null, uri: null, hint: '•••• 1234', done: false, backupCodes: null }
+  const step = { secret: null, uri: null, hint: '•••• 1234', done: false, backupCodes: null, channel: 'whatsapp' }
 
   it('starts a method with the password and confirms it with the code alone', async () => {
     const sent = answering({ setSecondFactor: step })
-    const { confirmSecondFactor, startSecondFactor, turnOffSecondFactor } = await import('./profile')
+    const { confirmSecondFactor, resendSecondFactorCode, startSecondFactor, turnOffSecondFactor } = await import('./profile')
     await startSecondFactor('sms', 'pw')
+    await resendSecondFactorCode('pw', 'sms')
     await confirmSecondFactor('sms', '123456')
     await turnOffSecondFactor('pw')
     expect(sent.map((s) => s.variables)).toEqual([
       { method: 'sms', password: 'pw' },
+      { method: 'sms', password: 'pw', channel: 'sms' },
       { method: 'sms', code: '123456' },
       { method: 'off', password: 'pw' },
     ])

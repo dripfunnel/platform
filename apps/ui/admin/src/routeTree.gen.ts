@@ -14,12 +14,14 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
+import { Route as AppCategoriesRouteImport } from './routes/_app/categories'
 import { Route as AppCustomersRouteImport } from './routes/_app/customers'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppImpersonateRouteImport } from './routes/_app/impersonate'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
 import { Route as AppRolloutsRouteImport } from './routes/_app/rollouts'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
@@ -30,6 +32,7 @@ import { Route as AppPartnersPartnerIdRouteImport } from './routes/_app/partners
 import { Route as AppPartnersNewRouteImport } from './routes/_app/partners_.new'
 import { Route as AppRolloutsRolloutIdRouteImport } from './routes/_app/rollouts_.$rolloutId'
 import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
+import { Route as AppCategoriesCategoryIdSampleRouteImport } from './routes/_app/categories_.$categoryId_.sample'
 import { Route as AppImpersonateSessionsSessionIdRouteImport } from './routes/_app/impersonate_.sessions_.$sessionId'
 
 const AppRoute = AppRouteImport.update({
@@ -53,6 +56,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
 const AppApprovalsRoute = AppApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCategoriesRoute = AppCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCustomersRoute = AppCustomersRouteImport.update({
@@ -83,6 +91,11 @@ const AppProvisioningRoute = AppProvisioningRouteImport.update({
 const AppRolloutsRoute = AppRolloutsRouteImport.update({
   id: '/rollouts',
   path: '/rollouts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStaffRoute = AppStaffRouteImport.update({
@@ -135,6 +148,12 @@ const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
   path: '/stores/$storeId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCategoriesCategoryIdSampleRoute =
+  AppCategoriesCategoryIdSampleRouteImport.update({
+    id: '/categories_/$categoryId_/sample',
+    path: '/categories/$categoryId/sample',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppImpersonateSessionsSessionIdRoute =
   AppImpersonateSessionsSessionIdRouteImport.update({
     id: '/impersonate_/sessions_/$sessionId',
@@ -146,12 +165,14 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
+  '/categories': typeof AppCategoriesRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
   '/rollouts': typeof AppRolloutsRoute
+  '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -162,18 +183,21 @@ export interface FileRoutesByFullPath {
   '/partners/new': typeof AppPartnersNewRoute
   '/rollouts/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/categories/$categoryId/sample': typeof AppCategoriesCategoryIdSampleRoute
   '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
+  '/categories': typeof AppCategoriesRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
   '/rollouts': typeof AppRolloutsRoute
+  '/settings': typeof AppSettingsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -184,6 +208,7 @@ export interface FileRoutesByTo {
   '/partners/new': typeof AppPartnersNewRoute
   '/rollouts/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/categories/$categoryId/sample': typeof AppCategoriesCategoryIdSampleRoute
   '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRoutesById {
@@ -192,12 +217,14 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_app/activity': typeof AppActivityRoute
   '/_app/approvals': typeof AppApprovalsRoute
+  '/_app/categories': typeof AppCategoriesRoute
   '/_app/customers': typeof AppCustomersRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/impersonate': typeof AppImpersonateRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
   '/_app/rollouts': typeof AppRolloutsRoute
+  '/_app/settings': typeof AppSettingsRoute
   '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
@@ -209,6 +236,7 @@ export interface FileRoutesById {
   '/_app/partners_/new': typeof AppPartnersNewRoute
   '/_app/rollouts_/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
+  '/_app/categories_/$categoryId_/sample': typeof AppCategoriesCategoryIdSampleRoute
   '/_app/impersonate_/sessions_/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
@@ -217,12 +245,14 @@ export interface FileRouteTypes {
     | '/'
     | '/activity'
     | '/approvals'
+    | '/categories'
     | '/customers'
     | '/dashboard'
     | '/impersonate'
     | '/partners'
     | '/provisioning'
     | '/rollouts'
+    | '/settings'
     | '/staff'
     | '/states'
     | '/stores'
@@ -233,18 +263,21 @@ export interface FileRouteTypes {
     | '/partners/new'
     | '/rollouts/$rolloutId'
     | '/stores/$storeId'
+    | '/categories/$categoryId/sample'
     | '/impersonate/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/activity'
     | '/approvals'
+    | '/categories'
     | '/customers'
     | '/dashboard'
     | '/impersonate'
     | '/partners'
     | '/provisioning'
     | '/rollouts'
+    | '/settings'
     | '/staff'
     | '/states'
     | '/stores'
@@ -255,6 +288,7 @@ export interface FileRouteTypes {
     | '/partners/new'
     | '/rollouts/$rolloutId'
     | '/stores/$storeId'
+    | '/categories/$categoryId/sample'
     | '/impersonate/sessions/$sessionId'
   id:
     | '__root__'
@@ -262,12 +296,14 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/activity'
     | '/_app/approvals'
+    | '/_app/categories'
     | '/_app/customers'
     | '/_app/dashboard'
     | '/_app/impersonate'
     | '/_app/partners'
     | '/_app/provisioning'
     | '/_app/rollouts'
+    | '/_app/settings'
     | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
@@ -279,6 +315,7 @@ export interface FileRouteTypes {
     | '/_app/partners_/new'
     | '/_app/rollouts_/$rolloutId'
     | '/_app/stores_/$storeId'
+    | '/_app/categories_/$categoryId_/sample'
     | '/_app/impersonate_/sessions_/$sessionId'
   fileRoutesById: FileRoutesById
 }
@@ -324,6 +361,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApprovalsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/categories': {
+      id: '/_app/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof AppCategoriesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/customers': {
       id: '/_app/customers'
       path: '/customers'
@@ -364,6 +408,13 @@ declare module '@tanstack/react-router' {
       path: '/rollouts'
       fullPath: '/rollouts'
       preLoaderRoute: typeof AppRolloutsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/staff': {
@@ -436,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStoresStoreIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/categories_/$categoryId_/sample': {
+      id: '/_app/categories_/$categoryId_/sample'
+      path: '/categories/$categoryId/sample'
+      fullPath: '/categories/$categoryId/sample'
+      preLoaderRoute: typeof AppCategoriesCategoryIdSampleRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/impersonate_/sessions_/$sessionId': {
       id: '/_app/impersonate_/sessions_/$sessionId'
       path: '/impersonate/sessions/$sessionId'
@@ -449,12 +507,14 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppApprovalsRoute: typeof AppApprovalsRoute
+  AppCategoriesRoute: typeof AppCategoriesRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppImpersonateRoute: typeof AppImpersonateRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
   AppRolloutsRoute: typeof AppRolloutsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
@@ -465,18 +525,21 @@ interface AppRouteChildren {
   AppPartnersNewRoute: typeof AppPartnersNewRoute
   AppRolloutsRolloutIdRoute: typeof AppRolloutsRolloutIdRoute
   AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
+  AppCategoriesCategoryIdSampleRoute: typeof AppCategoriesCategoryIdSampleRoute
   AppImpersonateSessionsSessionIdRoute: typeof AppImpersonateSessionsSessionIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppApprovalsRoute: AppApprovalsRoute,
+  AppCategoriesRoute: AppCategoriesRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppImpersonateRoute: AppImpersonateRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
   AppRolloutsRoute: AppRolloutsRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
@@ -487,6 +550,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPartnersNewRoute: AppPartnersNewRoute,
   AppRolloutsRolloutIdRoute: AppRolloutsRolloutIdRoute,
   AppStoresStoreIdRoute: AppStoresStoreIdRoute,
+  AppCategoriesCategoryIdSampleRoute: AppCategoriesCategoryIdSampleRoute,
   AppImpersonateSessionsSessionIdRoute: AppImpersonateSessionsSessionIdRoute,
 }
 

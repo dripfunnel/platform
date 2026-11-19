@@ -213,29 +213,52 @@
   color: var(--df-color-text);
   text-decoration: none;
 }
-.df-home-step-skip {
-  flex: none;
-  min-height: 32px;
+.df-home-step-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--df-space-3);
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.df-home-step-picker {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding: 10px 0;
+}
+.df-home-step-picker-label {
+  flex-basis: 100%;
   font-size: 13px;
-  font-weight: 400;
 }
-.df-home-step-tag {
-  margin-left: var(--df-space-2);
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.df-home-step-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid var(--df-color-border);
+  border-top-color: var(--df-color-link);
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: df-home-spin 0.8s linear infinite;
 }
-.df-home-step--skipped .df-home-step-label {
-  color: var(--df-color-muted);
+@keyframes df-home-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-.df-home-step--skipped .df-home-step-mark {
-  border-style: dashed;
-  color: var(--df-color-muted);
+@media (prefers-reduced-motion: reduce) {
+  .df-home-step-spinner {
+    animation: none;
+  }
 }
 
 .df-home-step-mark {
@@ -447,4 +470,54 @@ a.df-home-number:hover {
     grid-row: 1;
     grid-column: 3;
   }
+}
+.df-home-step-choices {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: 10px 0;
+}
+.df-home-step-choices .df-home-step-text {
+  flex: 1 1 200px;
+}
+.df-home-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}
+.df-home-step-actions .df-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--df-space-3);
+  color: var(--df-color-text);
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.df-home-step-choices .df-home-step-note a {
+  display: inline;
+  padding: 0;
+  color: var(--df-color-link);
+  font-weight: 600;
+}
+.df-home-step-actions .df-sample-failure {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+.df-home-step-upload {
+  cursor: pointer;
+}
+.df-home-step-upload--off {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.df-home-step-upload:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
 }

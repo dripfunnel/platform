@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-11-11 (#1359: Buy now no longer adds a version the cart already holds, §2.1). Before: 2026-11-11 (#1416: the upgrade bot's commit refreshes a store repo's template files from its new core, §2.2, §7, §7.1). Before: 2026-11-11 (#1415: a live push's images are copied into Storefront › Assets, §3.4). Before: 2026-11-11 (#1414: a clone's `next dev` maps a CSS Module's `url()` asset id and `url(media/…)`, §3.4). Before: 2026-11-11 (#1405: a theme's own images in `src/theme/media/`, `ThemeImage`, §2.1, §3.4). Before: 2026-11-10 (#1326: the product page's size chart, `<SizeChart>`, §2.1). Before: 2026-11-10 (#1395: the page weight budget is 1,200 KB until #1396, §9). Before: 2026-11-10 (#1391: `<PriceRange>` loads in its own chunk, §2.1). Before: 2026-11-10 (#1372: the customisation modal built, `<LineAnswers>` and `<EditAnswers>`, §3.5). Before: 2026-11-10 (#1385: a listing's price range, `<PriceRange>` and `useLoadOnScroll`, §2.1). Before: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-11-19 (#1570: Account › Orders and the Blog load on scroll like the product grids, and the 2.1.0 upgrade note brings all three to existing stores, §2.1, §7.1). Before: 2026-11-19 (#1615: the address form's map opens with the form, with a search box, §2.1). Before: 2026-11-19 (#1572: the customisation modal adds no "None" to an optional pick-one question; a Clear button after a pick, §3.5). Before: 2026-11-19 (#1606: core 2.0.0 carries the skeleton codemods, §2.1 "Loading"). Before: 2026-11-18 (#1598: the starting themes draw their loading states as skeletons, and core 2.0.1 brings them to existing stores, §2.1 "Loading"). Before: 2026-11-18 (#1490: `useSignIn`'s `waysKnown`, so the sign-in pages draw their form once, §3). Before: 2026-11-18 (#1563: Google's font hosts are in a store's CSP only when its theme lists a family, §3.4, §3.5). Before: 2026-11-17 (#1537: a template's own images reach the store's repo and come with Change template, §3.4 "Images"; the category themes, §2.3). Before: 2026-11-17 (#1481: the header menu keeps its fixed links, and `useMenu` keeps the menu a page was built with, §3, §7.1). Before: 2026-11-16 (the store summary carries the store category, §6.2). Before: 2026-11-13 (a sample site measured, its pictures copied into Assets, §6.2). Before: 2026-11-13 (the design rules relaxed: words in code with claims still checked, any property may animate, more elements, `lucide-react` icons, Google Fonts by `--google-fonts`, budgets 200 KB JS and 120 KB CSS, §3.4, §3.5, §9). Before: 2026-11-12 (#1404: `useAccount` adds or changes the mobile number, §2.1). Before: 2026-11-12 (#1443: the age confirmation at Review, a sealed part, §2.1, §3.5). Before: 2026-11-12 (the sample site in up to 4 slices, and a whole-shop redesign like it answered with a plan, §6.2). Before: 2026-11-11 (#1359: Buy now no longer adds a version the cart already holds, §2.1). Before: 2026-11-11 (#1416: the upgrade bot's commit refreshes a store repo's template files from its new core, §2.2, §7, §7.1). Before: 2026-11-11 (#1415: a live push's images are copied into Storefront › Assets, §3.4). Before: 2026-11-11 (#1414: a clone's `next dev` maps a CSS Module's `url()` asset id and `url(media/…)`, §3.4). Before: 2026-11-11 (#1405: a theme's own images in `src/theme/media/`, `ThemeImage`, §2.1, §3.4). Before: 2026-11-10 (#1326: the product page's size chart, `<SizeChart>`, §2.1). Before: 2026-11-10 (#1395: the page weight budget is 1,200 KB until #1396, §9). Before: 2026-11-10 (#1391: `<PriceRange>` loads in its own chunk, §2.1). Before: 2026-11-10 (#1372: the customisation modal built, `<LineAnswers>` and `<EditAnswers>`, §3.5). Before: 2026-11-10 (#1385: a listing's price range, `<PriceRange>` and `useLoadOnScroll`, §2.1). Before: 2026-11-09 (#1367, proposed: the customisation modal, a sealed component, and Edit on a customised cart line, §2.1, §3.2, §3.5). Before: 2026-11-06 (#1310: `useCheckout`'s `canKeepAddress` and `saveAddress(address, keep)`, §2.1). Before: 2026-11-05 (#1296: `navigate()` keeps a `#fragment` out of the path and scrolls to it, §2.1). Before: 2026-11-05 (#1216: `<RichText>` and `platform/text` show a product's description, a plain core component rather than a sealed one, §2.1, §3.4). Before: 2026-11-05 (#1244: a product's picture is its own photo, the validator's `jsx/product-image`, §3.4; `store_photos`, §6.2). Before: 2026-11-05 (#1245: themes may animate scroll, layout, colour, shadow, clip-path and masks; `animate` only on the component's own element; core keeps reduced motion for motion and CSS, §2.1, §3.4). Before: 2026-11-05 (#1240: the fast gate warm per slot, each streamed file pre-checked, and the CSS-only and class-only lanes, §6.2). Before: 2026-11-05 (#1243: questions or a plan instead of edits for a vague request, and a build's page as a change, §6.2). Before: 2026-11-05 (#1239: the baseline theme on Tailwind class constants, classic and market on CSS Modules, §2.3). Before: 2026-11-05 (#1241: the studio's size, stops and placement decided, §6.2 and the open questions). Before: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -99,7 +99,7 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `account`, `authentication`, `orders` | Sign-up, verification, sign-in, password reset, profile, addresses, order history, order detail and tracking. |
 | `pricing` | `Money`, `Stock`, `Rating` and `Badge` as **opaque branded types** only core's hooks return; the price display: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it, crossed out on its own (no "Was" before it, #1357). |
 | `ui/headless` | Unstyled, accessible behaviour components the theme skins: variant picker, quantity stepper, cart drawer state, address form (country-aware fields), payment element host, facet filter, pagination, locale and currency pickers, search overlay. |
-| `sealed` | The **sealed components** (§3.5): the price with its tax label, the payment element, legal and compliance notices, the consent banner, the preview banner, the brand's "Powered by" line, breadcrumbs, the order summary at review and the customisation modal (#1367). |
+| `sealed` | The **sealed components** (§3.5): the price with its tax label, the payment element, legal and compliance notices, the consent banner, the preview banner, the brand's "Powered by" line, breadcrumbs, the order summary at review, the customisation modal (#1367) and the age confirmation (#1443). |
 | `contracts` | The TypeScript interfaces and route manifest the theme must satisfy (§3), and `routes.json`'s schema. |
 | `guard` | The **validator** (§3.4) and the **gate suites** (§4.2) the sandbox runs, exported as `./guard`. |
 | `testing` | The contract checks, exported as `./testing`. |
@@ -121,7 +121,13 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 
 *The browse behaviour as built on #307* *(decided there)*:
 - **The browse hooks** in `./theme`: `useProduct`, `useCollection`, `useCollections`, `useSearch`, `useProducts` and
-  `useListing` (`products`, `collections`, `search`), and `useMenu`, the merchant's menu (Catalogue › Menu).
+  `useListing` (`products`, `collections`, `search`), and `useMenu`, the merchant's menu (Catalogue › Menu). *Decided on #1481:*
+  `useMenu` keeps the menu a live page was built with and never asks the Shop API for another (`useShopData`'s `keepBuilt`),
+  so a header shows one menu from its first paint and on every reload, and a menu change reaches the live site with the next
+  publish (SAAS §9.1); the preview and the studio load the current menu. The starting themes' header always draws **Home**,
+  **Shop all**, the merchant's items (every collection while there are none), **About** and **Contact** (Baseline has no
+  Home link, and Market draws no merchant menu); an upgrade brings a store made before it the same header through its
+  codemods (§7.1).
 - **Best sellers and offers, live** *(core 0.10.0, #1242)*: `useProducts({ sort: 'best-selling' })` lists the store's
   best sellers, units sold over the last 90 days as the platform ranks them hourly (the Shop API's `BEST_SELLING`); a
   listing's own sorts (`SortKey`, the address's `sort`) are unchanged. `useOffers()` answers the store's **automatic**
@@ -142,15 +148,18 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   per page however many components ask it, and only the latest question's answer is kept. *Since #1011* a live page
   built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
   them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
-  one if that fails. The preview and the studio get no answers and load as before.
+  one if that fails. The preview and the studio get no answers and load as before. *Since #1598* the starting themes
+  (all but Market) draw that state as a skeleton in the page's own layout, a band of the page colour sweeping across it (none under reduced motion), its loading words kept for screen readers; core's
+  2.0.0 codemods bring it to a store still holding the shipped markup (§7.1).
 - **The address is the state**: `filter` (each chosen facet value's id, repeated), `price` (`min-max-CUR` in that currency's minor units, either end
   empty, and none in another currency; the Shop API's `minPrice` and `maxPrice`), `sort` (`featured`, `newest`,
   `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
   characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. While that
   page loads, the listing keeps the facets it last had for the same collection or search, so a theme's filters stay on
   screen and only the products reload. 24 products a
-  page, and `fetchMore` appends the next in place; `useLoadOnScroll` calls it as an element after the grid nears the screen,
-  and stops at a page that failed until the theme's retry. The starting themes load on scroll only, with no "Load more" button;
+  page, and `fetchMore` appends the next in place; `useLoadOnScroll` calls it as an element after the grid comes within about one screen (800 px) of the screen,
+  so the next page is usually there before the shopper reaches the end, and stops at a page that failed until the theme's retry. Any list with a `fetchMore`-like function
+  can use it: `{ fetchMore, hasMore, loadingMore, moreFailed }` is all it reads (#1570, the Orders and the Blog below). The starting themes load on scroll only, with no "Load more" button;
   keyboard users scroll with the arrow keys, Page Down or Space (decided 2026-11-10, Kshitij, #1385). `priceBounds` gives a price filter its ends, kept like the facets while
   a new choice loads, and `<PriceRange>` (`ui/headless`) draws it, from its own chunk, fetched by the first page that shows it
   (`import()`, #1391), so no other page pays for it in its budget (§9): built HTML has no slider until it loads, which the
@@ -164,8 +173,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   from the shared `--df-sealed-font`, `-color`, `-muted`, `-surface`, `-radius` and `-backdrop` the theme already sets. Its code and styles are
   in their own chunk, fetched on the first click (`import()`, as `<PriceRange>`), so no page pays for it in its budget (§9); only
   the link is in built HTML. Its words are core's (`sizeChart.*`); the unit shows as "Measurements are in centimetres/inches" and
-  nothing for another value. The starting themes place it under the options. Not built:
-  the cm/inches switch, fit notes, how to measure and model info (CATALOG-DESIGN R12), which the Shop API already returns.
+  nothing for another value. The starting themes place it under the options. The window has a **cm | in** switch (#1571) that opens in the
+  chart's saved `unit`: lengths and ranges convert × or ÷ 2.54, a weight column (a name that says weight, kg or lb) kg ↔ lb × or ÷ 2.2046 with
+  its name following, each rounded to one decimal, from the saved numbers so switching back is exact; sizes, size systems and words stay as typed,
+  and the unit line follows. The portal's `inUnit` is the same rule. Not built: fit notes, how to measure and model info (CATALOG-DESIGN R12), which the Shop API already returns.
 - **A product's A+ content** (#1351, core minor): `useProduct().product.story` holds the modules the merchant published, in
   their order, as the Shop API's `story` gives them (CATALOG-DESIGN A+ content), and `storyTemplate`. Core decodes each with zod:
   a kind it doesn't know, or a module with nothing to show (a banner with no picture, a comparison of fewer than two products), is left out,
@@ -255,6 +266,13 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   *Since #1310:* `canKeepAddress` is true for a signed-in shopper, and `saveAddress(address, true)` also saves the
   address to their account (`useAccount`'s, the default when they have none) unless it holds that place already; a refusal
   shows on the account and never holds up checkout. Themes offer it as "Save this address to my account", ticked.
+- **The age confirmation** (decided 2026-11-12 on #1443): when a product in the cart has "Ask shoppers to confirm their age"
+  ticked (CATALOG-DESIGN §3 fact 43), the cart's `needsAgeConfirmation` is true and Review shows the sealed
+  `<AgeConfirmation>` (part `age`), a tick box "Before you order: please confirm you're 18 or over." asked once per order. `<PlaceOrder>`
+  stays disabled, and `place()` sends nothing, until it is ticked; the order is then placed with `ageConfirmed: true`. The same
+  age for every store, with no date of birth or ID. A theme places it above Place order, always: it renders nothing for a cart
+  that doesn't need it. A theme that doesn't gets it anyway: `<PlaceOrder>` draws it just above the button when none is on the page. The engine refuses an unconfirmed order
+  (`AGE_CONFIRMATION_REQUIRED`) whatever the page does, and the order records when it was confirmed.
 - **Placing**: `placeOrder` with the chosen way to pay. Cash on delivery and a bank transfer go straight to the order's page;
   a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:
   Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
@@ -287,17 +305,18 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   tied to it), `PhoneField` (a mobile number as a country code dropdown, starting in the store's or the address's country,
   and the number, handed back as E.164 with no spaces; `checkout/phone.ts` holds the calling codes), `Choices` (radio
   buttons, each option's content the theme's) and `AddressFields` (the country's fields with
-  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` ends with
-  **"Pin on map"** (`ui/headless/pin.tsx`, #814), an optional point saved with the address as `latitude` and `longitude`:
+  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` starts with the map
+  (`ui/headless/pin.tsx`, #814, #1615), an optional point saved with the address as `latitude` and `longitude`:
   the Shop API's `store.mapFrame` shows it, and none hides it. The map is **a frame of its own** on the hooks host
   (`https://<HOOKS_HOST>/maps/pin`, the API's `hooks/mapFrame.ts`, which holds the key, THIRD-PARTY-ACCESS §2.12): Google
   runs there under that page's CSP, never the store's, and core's `ui/headless/pinFrame.ts` talks to it by `postMessage`,
-  checking with zod everything it says (decided 2026-10-21 on #814). It loads only when the shopper taps it, starting at the saved pin or the address Google finds; the pin moves by
-  dragging, the arrow keys or **Use my location** (the browser's own location, asked for only when pressed; decided
-  2026-10-21 on #814), its point read out as text. Confirm saves the pin and leaves the map open; the address Google
-  finds at the pin fills the fields still empty, and on a later pin replaces what it filled, never one typed, and nothing from another country (`fillFromPlace`,
-  decided 2026-10-21 on #814). If the frame or Google fails to load, the page's CSP refuses the frame (a build published before the shop
-had a map key), or it says nothing in 15 s, it hides
+  checking with zod everything it says (decided 2026-10-21 on #814). It opens with the form, above the fields, with a
+  search box that lists matching places (`suggest` and `select`, within the form's country, after a 250 ms pause). It starts at the saved pin, the
+  address Google finds, or, for a new address with nothing typed, where the browser says the shopper is (never over a pin or typed address; a refusal is silent; #1615). The pin moves by
+  dragging, the arrow keys, a search result or **Use my location** (the browser is asked when it is pressed, and once when a new address opens, as above), its point read out as text, and is saved as soon as it is set. The address Google
+  finds there replaces Address, City, State and Postal code and sets the country when the shop sells there, never Name, Phone or Apartment, and nothing from a country the shop doesn't sell to (`fillFromPlace`,
+  decided on #1615). If the frame or Google fails to load, the page's CSP refuses the frame (a build published before the shop
+  had a map key), or it says nothing in 15 s, it hides
   and the form works as before; on a preview or in the studio frame it asks Google for nothing and says why.
 - **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
   look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and
@@ -311,11 +330,17 @@ had a map key), or it says nothing in 15 s, it hides
   code with a name and a password creates an account, and with a password alone sets a new one. Core checks the email,
   number, 6-digit code and a password of at least 10 characters first, keeps the session token (for the visit only
   without "Keep me signed in") and goes on to `?next=` when it is a page of this shop, else `/account/`. On a preview or
-  in the studio frame it asks nothing and answers `NOT_IN_PREVIEW`. Until the shop's `signInOptions` answers, it counts
-  the shop as email only, so a way the shop turned off never shows and then disappears; a preview shows both (#1173).
+  in the studio frame it asks nothing and answers `NOT_IN_PREVIEW`. Until the shop's `signInOptions` answers, `waysKnown` is
+  false and a theme draws only its heading, then the form once, from the setting, so nothing changes in front of the
+  shopper *(decided on #1490)*; `ways` stays email only meanwhile, for a theme that doesn't read `waysKnown`, and a
+  preview knows both ways at once (#1173). An upgrade adds the check to a store's own sign-in view (§7.1). A store with no
+  setting at all signs nobody in (ACCESS §4), which is not changed: every store has a row, from its creation or the backfill.
 - **The account**: **`useAccount`** reads the signed-in shopper's details, addresses and the store's countries;
   `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
-  again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
+  again, the mobile number (#1404: `phoneAllowed` when the shop signs in by mobile, then `sendPhoneCode(to)`, which texts a code
+  to the new number, and `confirmPhone(code)`, which saves it once the code is right and reads the account again; `phoneCodeFor`
+  is the number a code waits for, `cancelPhone` drops it, a refusal is `error` with `of: 'phone'`, and the account keeps its
+  number until then), and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
   `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. **`useOrders`** (#813)
   is the account's list: the Shop API's `orderHistory` (at most 50 a page, ui/store/FIRST-RELEASE), the signed-in
   customer's own, with the guest orders a sign-in linked to it (api/ACCESS.md §2.1), newest first, asked 20 at a time with `loadMore`, each `OrderRow` its number, day, item count, payment and total; `empty` with none, and `signedOut`
@@ -389,13 +414,21 @@ Decided on #316:
 
 ### 2.3 Templates
 
-Classic, "Start from scratch" and, until #1218, Market live in this repo as complete starting themes,
+Classic, "Start from scratch", the category themes (#1537) and, until #1218, Market live in this repo as complete starting themes,
 `templates/storefront/themes/{key}/` (`src/theme/**`, `content/**`, `routes.json`, a
 `template.json` with the name, description and demo store) *(path confirmed on #486)*.
 
 *As built on #486* *(decided there)*:
-- The keys are `classic` (added after #486, from a published store's theme with its store-specific words, collection slugs and asset ids taken out) and `baseline` ("Start from scratch", the D1 look), and the gallery lists them in that order, then `market` until #1218 deletes it. `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
+- The keys are `classic` (added after #486, from a published store's theme with its store-specific words, collection slugs and asset ids taken out) and `baseline` ("Start from scratch", the D1 look), and the gallery lists them in that order, then the rest by key (`market` until #1218 deletes it). `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
   `storefront_template` rows (DATA-MODEL §7.8) mirror it.
+- *Category themes (#1537):* `fashion` (Thread), `jewelry` (Aurum), `beauty` (Glow), `grocery` (Basket), `home` (Nest)
+  and `electronics` (Volt), each built from baseline and
+  styled as it is (Tailwind class constants, below), with its own header, product card, home page and photos in
+  `src/theme/media/` (§3.4 "Images"). Their words make no claim a store may not meet: the story bodies are placeholders.
+- *Category templates (#1537):* a store category may name a starting template (`store_category.template_key`, DATA-MODEL §7.2).
+  The gallery lists it first (`StorefrontTemplate.forCategory`) and a first site starts from it without the gallery
+  (store FIRST-RELEASE, Storefront). Mapped: `fashion_apparel` → `fashion`, `jewelry` → `jewelry`, `beauty_personal_care` →
+  `beauty`, `food_grocery` → `grocery`, `home_living` → `home`, `electronics_gadgets` → `electronics`; every other category none.
 - `linen`, `concrete`, `bloom`, `circuit` and `atelier` were deleted on #1212 with their rows (migration 0381). A store that started from one keeps its key and its own theme; one that never built has no template files on a core released after that.
 - Words are in English only, the one language the seed stores offer: the validator refuses words in a language the
   store doesn't offer (`files/locale-not-offered`) as firmly as missing ones, so a store in other languages gets
@@ -457,8 +490,8 @@ Classic, "Start from scratch" and, until #1218, Market live in this repo as comp
   signing in works on the live shop. The account: "Hello, {name}", Sign out, Your details (the name to edit, the email
   and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
   `/account/orders/{id}/` is the order page headed by its number. *Orders, as built on #813*: D1's rows at
-  `/account/orders/` (number, day · items, the order page's status pill, total), each opening its order, Load more for the
-  next 20, and loading, failed (Try again), "No orders yet" and signed-out (to sign in with `?next=`) states; the pill is
+  `/account/orders/` (number, day · items, the order page's status pill, total), each opening its order, the
+  next 20 loading as the end of the list nears the screen (#1570: "Loading more orders…" with a spinner, a failure with Try again as its only button, "Showing N orders" announced politely, nothing at the end), and loading, failed (Try again), "No orders yet" and signed-out (to sign in with `?next=`) states; the pill is
   payment's until the Shop API gives an order's delivery. D1's Messages, Gift cards, Downloads and Your data wait for the
   Shop API (and #324 for gift cards and downloads).
 - *Baseline's product kinds as built on #324 (part 1)*, from D1's "Product · gift card", "· download" and "· service": a
@@ -471,7 +504,7 @@ Classic, "Start from scratch" and, until #1218, Market live in this repo as comp
 - *Baseline's content pages and blog as built on #324 (part 2)*, from D1's FAQ, Journal and Journal post: a content page is
   its title and blocks (a heading, paragraphs, an image, questions that open to their answers, product cards, and for the contact form block
   the store's email and phone to write to); the Journal
-  lists posts as cards (cover, date, title, excerpt) with "Older posts", `?tag=` narrowing it; a post has "← Journal", its date
+  lists posts as cards (cover, date, title, excerpt), the next page loading as the end nears the screen like Orders (#1570), `?tag=` narrowing it; a post has "← Journal", its date
   and author, title, cover, blocks and tag links. Loading, failed (Try again), not found and empty states.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
@@ -537,7 +570,7 @@ in ST 0, and until then those addresses get the theme's 404. The validator check
 the blog's page and the posts' fallback built once they are. The build writes a page for each of the store's content paths
 (the snapshot's `usedPaths`) in every language, and the posts share one client-rendered page as products do. In the preview,
 one lower-case segment that is no core segment nor a custom page is a content page, and the page says so when the store has
-none there. Core's hooks: `useContentPage`, `useBlog` (twelve at a time, newest first, `?tag=`, `loadMore`) and
+none there. Core's hooks: `useContentPage`, `useBlog` (twelve at a time, newest first, `?tag=`, `loadMore`, `more`, `loadingMore`, `loadMoreFailed`, which `useLoadOnScroll` takes) and
 `useBlogPost`, the blocks decoded to `heading`, `text`, `image`, `faq`, `products` and `form` (a block of another kind is
 dropped), and `useProductCards(slugs)` for a products block (one request for up to 24). The contact form block has nowhere to
 send yet (the Shop API takes no message), so the baseline shows "Write to us" with the store's contact email and phone. `seoFor` describes a post as an Article (headline,
@@ -622,15 +655,21 @@ each address (`apps/sandbox/src/gate/media.ts`); a clone's `next dev` serves `sr
 through the skeleton's dev-only route (`src/app/theme-media/[name]/route.dev.ts`), so ThemeImage shows there, and so
 does a CSS `url(media/…)` (#1414, "CSS" below). The AI's own paths above don't include `media/`: the sandbox refuses a
 studio change that adds, changes or removes an image (`studio/media-not-allowed`), and a design publish, which
-replaces only those paths, leaves the pushed images in place. Once a push is live, each of its images the store's
+replaces only those paths, leaves the pushed images in place. One exception (#1537): a template brings its own images
+(its `source.json` holds them as base64), with the new store's first commit and with "Change template", whose sandbox
+operation (`applyTemplate`) takes them from the sites bucket, never from the model, and replaces only the old template's
+images matched by checksum; a pushed image of the same name with other bytes refuses the change (`studio/media-conflict`),
+and the caps above refuse, never trim. Undo puts back the draft's own earlier images. A publish then sends `main` each
+image whose git blob it doesn't hold, and removes one only while `main` still holds the bytes the draft removed. Once a push is live, each of its images the store's
 Storefront › Assets doesn't hold yet is copied there as the merchant's own file, which the studio can then pick; the
 theme keeps naming `media/<name>` (LIVE-SHOP §4 "A push to `main`" step 7; #1415).
 
 **Code** (type-aware, using the TypeScript checker):
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
   API), relative paths inside `src/theme`, and the library allowlist: `motion` (only inside
-  `components/interactive/`, loaded lazily; its scroll, layout, presence, spring and stagger APIs since #1245) and `clsx` (decided 2026-10-08 on #470; each
-  addition goes into the sandbox image). Tailwind v4 (`tailwindcss`, pinned exactly by core, #1239) is on the list as
+  `components/interactive/`, loaded lazily; its scroll, layout, presence, spring and stagger APIs since #1245), `clsx` (decided 2026-10-08 on #470; each
+  addition goes into the sandbox image) and, since 2026-11-12, `lucide-react`'s icons, bundled into the theme so only
+  those used load (the sandbox's `bundledModules`). Tailwind v4 (`tailwindcss`, pinned exactly by core, #1239) is on the list as
   the build's CSS compiler, never imported by a theme. No dynamic `import()` or `require`, no `import.meta`, no
   `document.currentScript` and no other way to learn a script's own URL: core's chunk loader is
   the only code that handles chunk URLs, which inside the studio frame carry the session id.
@@ -678,13 +717,13 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   element typed `any` would escape these checks. An element (an event's target included) is never cast or handed to a type that
   isn't an element, the walking names are refused on any value, and a computed key must be written
   out or typed as a list of names.
-- **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
-  from an allowlist on each. No `style` attribute (motion's own `style` only with the properties "CSS" lets animate),
+- **JSX**: elements from an allowlist of layout, text, table and SVG elements (widened 2026-11-12 with `label`, `code`,
+  `pre`, `progress`, `meter`, `cite` and the like, and SVG text, masks, clip paths, patterns and filters), and attributes
+  from an allowlist on each. No `style` attribute (motion's own `style` with values written out),
   no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
   banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
-  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only what "CSS" lets animate, in camelCase,
-  with motion's own transform names (`x`, `y`, `scale`, `rotate`, …) and its path drawing (`pathLength`,
-  `pathOffset`); `layout` and `layoutId` animate by transform, so they pass (#1245).
+  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name any property since 2026-11-12, with values
+  written out, never worked out at run time (`jsx/animated-property`); `layout` and `layoutId` pass (#1245).
 - **Commerce types**: a value is never cast to `Money`, `Stock`, `Rating` or `Badge` (#481): they
   come only from core's hooks.
 - **Product pictures** (#1244, `jsx/product-image`): a product's picture is its own photo, `<Image image={product.photo}>`.
@@ -695,12 +734,11 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   Two cases the static check can't tell apart stay with the AI's rules (§6.2): a picture on the product page drawn
   outside such a function (from `useProduct()` in the page itself, where a banner is allowed), and a Tailwind class
   reading a custom property that an ancestor's module class sets to a `url()`.
-- **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
-  variables, lists, lookups and the theme's own functions; numbers rendered as written; values
-  given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
-  string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
-  Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
-  and any copied brand field are refused too.
+- **Words** (relaxed 2026-11-12): words and numbers may be written in the code, in JSX text, attributes and strings,
+  as well as in `content/{language}/*.json` (a shop in more than one language keeps them there, so each language gets
+  them). Every literal piece of text in the code is read for **invented claims** exactly as content is
+  (`content/price`, `content/scarcity`, `content/urgency`, `content/rating`, `content/countdown`, `guard/claims.ts`), and
+  any address (`https:`, `//`, `javascript:`, `url(`) and any copied brand field are still refused.
 - **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, or is typed as
   a list of written names (`const slides = ['hero.one', 'hero.two'] as const`), and each name is checked like a
   written key; `t` isn't passed on as another type, and every key exists in every language the store offers.
@@ -709,14 +747,15 @@ As built on #480 *(decided there, the stricter reading where the list above is s
 **CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
 module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids and, since #1405, the theme's own images; no selector naming a core
-class or a `df-` element; `z-index` below core's layer; animation only of `transform` (and its `translate`,
-`scale` and `rotate`), `opacity`, `filter`, the paint-only colour properties (`color`, `background`, `background-color`,
-`border-color`, `outline-color`, `text-decoration-color`, `fill`, `stroke`), and since #1245 `background-position`,
-`background-size`, `box-shadow`, `text-shadow`, `clip-path`, `mask-position`, `mask-size` and `stroke-dashoffset`, never
-one that moves layout: `width`, `height`, `top`, `left`, `right`, `bottom`, `inset`, `margin*`, `padding*`, `gap`,
-`font-size`, `line-height`, `letter-spacing` and grid tracks stay refused, since they stutter and shift the page on
-phones, and the message says to get the same look with transform or `clip-path`. The same list holds in a CSS Module,
-in `theme.css`'s `@keyframes`, in what Tailwind writes for a class (`transition-[height]` is refused) and in motion.
+class or a `df-` element; `z-index` below core's layer. **Any property may animate** (relaxed 2026-11-12; until then only
+transform, opacity, filter and paint), in a CSS Module, `theme.css`'s `@keyframes`, Tailwind's classes and motion,
+`transition: all` included; motion's values are still written out, never worked out at run time
+(`jsx/animated-property`), and `animate()` still acts only on the theme's own elements (`code/animate-target`).
+**Fonts** (decided 2026-11-12): a theme lists Google fonts in `theme.css`'s `@theme { --google-fonts: 'Bebas Neue'; }`,
+from core's list (`guard/fonts.ts`, with each family's weights), and core puts one `@import` of fonts.googleapis.com
+first in the stylesheet; §3.5's CSP lets `fonts.googleapis.com` styles and `fonts.gstatic.com` fonts load. *Note:*
+loading them sends each shopper's IP address to Google, which data-protection law (GDPR, DPDP) may require the
+merchant to disclose or ask consent for; a store that lists none loads none, and its CSP names neither host (§3.5, decided 2026-11-18).
 **Scroll-driven animation** is allowed (#1245): `animation-timeline` with `scroll()` and `view()`, `scroll-timeline`,
 `view-timeline` and `animation-range`, so parallax and reveals need no JavaScript. Reduced motion is core's (§2.1): a
 theme needn't write its own `prefers-reduced-motion` rule, and can't undo core's. As built on #480 *(decided there)*: `url()` names a media id from the
@@ -821,6 +860,8 @@ their own cards.
     holds its session, AI-STUDIO §8).
   - `./testing` checks presence in a page's HTML (`pageProblems`) and visibility in a rendered
     page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
+- **The age confirmation** (#1443, part `age`, at least 160×24 px): the tick box above, sealed so a theme can't remove or
+  reword it; its words are core's message `checkout.age.confirm`.
 - **The customisation modal** (decided 2026-11-09 on #1367; built on #1372, part `customise`): the
   questions a product asks before it goes in the cart (CATALOG-DESIGN §3 facts 49–57), a sealed
   component because it is commerce, in AGENTS.md's sealed list. Built on #1372: `AddToCart` and `BuyNow` know a product's
@@ -849,8 +890,8 @@ their own cards.
   - **Minimum size** (`minimumSize`): 280×160 px, measured on the open dialog; the self-check runs
     each time it opens.
   - **What it renders**: the questions in the merchant's order, each with its text, help and
-    "Required" or "Optional"; a choice list as radio buttons when its maximum is 1 (with "None"
-    first when it is optional, as a radio can't be unticked), else checkboxes with a number field
+    "Required" or "Optional"; a choice list as radio buttons when its maximum is 1 (none picked
+    at first, and a "Clear" button after a pick when it is optional, as a radio can't be unticked), else checkboxes with a number field
     on a choice that has a quantity; an unavailable choice, or one whose extra isn't sold in the
     cart's currency, greyed with "Not available" and not selectable; "Pick up to", "Pick at least"
     and "The first 2 are free" where they apply; text as one line or a paragraph, with its example
@@ -880,7 +921,8 @@ their own cards.
 - **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
   consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
-  hosts; images from the store's media, the payment providers and those analytics hosts (Meta
+  hosts; styles and fonts also from Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`, §3.4 "Fonts", since
+  2026-11-12), only on a store whose theme lists a family (since 2026-11-18); images from the store's media, the payment providers and those analytics hosts (Meta
   Pixel sends by image request); fonts from the store's build; `form-action` only the store and
   the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
   with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
@@ -890,8 +932,8 @@ their own cards.
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
   need their host added to the store's analytics settings.
 - **The pages with the address form** (built `checkout/` and `account/` files, `isMapsPage`) add one source and nothing
-  else: the hooks host in `frame-src` (`mapsFrameOrigin`, set when the environment has a Maps key), for "Pin on map"'s
-  frame (#814). Google Maps needs `'unsafe-eval'` and no Trusted Types, so it runs only in that frame, under the frame
+  else: the hooks host in `frame-src` (`mapsFrameOrigin`, set when the environment has a Maps key), for the address form's
+  map frame (#814, #1615). Google Maps needs `'unsafe-eval'` and no Trusted Types, so it runs only in that frame, under the frame
   page's own CSP, sandboxed and on another origin; the store's pages keep every wall above (decided 2026-10-21 on #814).
 - **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
   build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a
@@ -919,9 +961,10 @@ their own cards.
   before.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
   - **`default-src 'none'`**, so every directive not listed below is closed;
-  - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
-    origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
-    build's style hashes (so the studio's page has no inline script);
+  - `script-src` and `connect-src` are `'self'` only: the frame's own origin, which means
+    `/__studio/{session}/`, its `/shop-api` and its WebSocket; `style-src` and `font-src` are `'self'` with the
+    build's style hashes, plus `fonts.googleapis.com` and `fonts.gstatic.com` for §3.4's Google Fonts since 2026-11-12
+    (so the studio's page has no inline script);
   - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
     core's `<Video>`), never another party's;
   - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
@@ -1211,9 +1254,11 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 
 - **The model's working context**: the store's theme files (or the parts the change touches),
   core's theme API and the rules of §3.4, the page and screen size the merchant is looking at,
-  their last four requests, **the store summary**, and, when given, the merchant's image or a
-  screenshot of the sample site. *Built on #1242* (`saas/ai-designer/summary.ts`, `db/scoped/storeSummary.ts`):
-  - **The store summary**, in every prompt: the store's name, city and country, languages, currencies, whether prices
+  their last four requests with the AI's replies and what each changed, **the store summary**, and, when given, the merchant's image or the
+  sample site, screenshotted top down in up to 4 screen-tall slices (`integrations/cloudflare/screenshot.ts`: one
+  image of a whole page would shrink unreadably; a slice past the page's end is one flat colour and is dropped). *Built on #1242* (`saas/ai-designer/summary.ts`, `db/scoped/storeSummary.ts`):
+  - **The store summary**, in every prompt: the store's name, city and country, what it sells (its store category's
+    English name, DATA-MODEL §7.2; the rules let it set the layout, imagery and tone, never content), languages, currencies, whether prices
     include tax, delivery (free never, always or over an amount; a flat charge; pickup; couriers), the live payment
     methods, the brand (tagline, description, voice; colours only as a hint), how many products and collections, the
     first 30 collections (name, slug, products, whether it has an image), the 10 best sellers and 5 top collections by
@@ -1235,20 +1280,26 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     'best-selling' })` when the store has best sellers), to give tiles to the collections it has (`useCollections`), to
     take palette hints from its photos, and to show a banner only for a real offer, through `useOffers()`; never a
     product, price, rating, collection, offer, discount, sales figure or city in theme code or content (§3.4).
+- **A studio change runs as an agent** (decided 2026-11-12, [AI-STUDIO.md](AI-STUDIO.md) §4 step 2 "The agent"): it reads
+  the files it needs, edits them with the edits below, checks them with the sandbox, can picture a page, and finishes
+  with whole files for the gate. The one-answer form below is what core upgrades still use.
 - **The answer is edits, not whole files** (decided 2026-11-04 on #1238): for a file the theme has, a list of exact
   search-and-replace edits, each search found **exactly once** in the file as it is (edits to one file apply in order);
   a new file is sent whole; a deleted file is named (`{path, delete: true}`). The reply is read with a strict schema, so
-  an unknown field makes it no usable answer. A whole file for a path the theme has is still taken as a replacement.
+  an unknown field makes it no usable answer, which is repaired like a gate failure from what was wrong with its shape
+  (`answer/shape`), never taken as nothing to change. A whole file for a path the theme has is still taken as a replacement.
+  An answer in words with no JSON object is asked for once more, outside a repair; if it is words again, they are
+  shown as the AI's reply and nothing changes, so the merchant sees why (`saas/ai-designer/model.ts`).
   The runner (`saas/studio/patches.ts`) applies the edits to the theme it holds and gives the sandbox whole files, as
   before; an edit whose search is missing, repeated or empty, or names a file that isn't there, is a problem like the
   gate's (`patch/not-found`, `patch/not-unique`, `patch/empty-search`, `patch/missing-file`, naming the file, the edit
-  and why), sent back to the model with no sandbox run, and counts as one of the three repairs. A repair answers the
+  and why), sent back to the model with no sandbox run, and counts as one of the five repairs (three until 2026-11-12). A repair answers the
   whole change again as edits against the same theme, never on top of a failed answer.
 - **The prompt's order, for the cache** (#1238): core's rules (the system prompt, the same for every store), then the
   shop and its summary (rebuilt at most every 10 minutes), then the theme's files sorted by path (new with each change),
   each ending a cached prefix (Anthropic's `cache_control`; OpenAI caches the same prefix itself). Everything that
-  changes per request comes after them: the merchant's image and the screenshot, the worked carousel when the request
-  asks for one, the no-photo-tools note, the page and device, the last four requests, a repair's last answer and
+  changes per request comes after them: the merchant's image and the sample's slices, the worked carousel when the request
+  asks for one, the no-photo-tools note, the page and device, the last four requests with the AI's replies, a repair's last answer and
   errors, and the request. The shop goes before the theme because it changes less often, so a new theme still reads
   the rules and the shop from the cache. The first ask and its repairs offer the same tools on every turn (a repair's
   calls are refused, a call past a limit is answered with it), so a repair reads the whole prefix from the cache.
@@ -1256,16 +1307,17 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   ask may be answered `{"questions":[{text, options}], reply}` (at most 3, 2 to 4 options each, written from the store
   summary) or `{"plan":{header, footer, pages:[{page, title, sections}]}, reply}` (home first, at most 6 pages of 1 to 6
   sections) instead of edits, each read with a strict schema (`saas/ai-designer/plan.ts`). The rules say when: a short or
-  vague request for a new look with facts missing (the mood, what the home page leads with, the language); a clear request is
-  changed at once. A build's page and a repair add, after the cached prefix, that it may not ask, and an answer of questions
+  vague request for a new look with facts missing (the mood, what the home page leads with, the language), and a request for
+  the whole shop to look like a sample site, whose plan lists that site's sections top down; a clear request is changed at once. A build's page and a repair add, after the cached prefix, that it may not ask, and an answer of questions
   there is no usable answer. The plan from the answers, and a changed plan, is a call of its own (`planRules`, the shop and
   summary as its cached context). **Each page of a build** is a change like any other, its request (after the prefix) naming
   the page of how many, its sections, the whole plan, the first request and the answers; the header and footer go with home.
 - **A sample site** is fetched as a screenshot by the platform (public addresses only, the
-  rules of `../ARCHITECTURE.md` §7), never by the container. The AI takes its layout, spacing,
-  colour and mood, **never its logo, photos or words**.
+  rules of `../ARCHITECTURE.md` §7), never by the container, and *since 2026-11-13* measured too: its fonts, colours,
+  sections and pictures (AI-STUDIO §8). The AI takes its layout, spacing, type and colours, **never its logo or words**,
+  and its pictures only as the copies the platform made into the store's Assets, never on a product.
 - **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
-  the byte budgets (§9) and the content checks. On failure the model gets the exact errors
+  the byte budgets (§9), the content checks and, on the full lane, one render of every page (AI-STUDIO §4 step 3). On failure the model gets the exact errors
   and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown
   its last answer's files as it sent them (its edits, #1238), so it corrects them rather than rewriting blind (#1083).
   Decided 2026-11-04 on #1240 (`apps/sandbox/src/gate/`, `saas/studio/streamed.ts`):
@@ -1412,8 +1464,8 @@ decides whether to tighten them)*:
 | Largest Contentful Paint (lab) | ≤ 2.0 s | Google's "good" is 2.5 s at p75 in the field |
 | Cumulative Layout Shift (lab) | ≤ 0.05 | Google's "good" is 0.1 |
 | Total Blocking Time (lab); Interaction to Next Paint (field) | ≤ 150 ms; ≤ 200 ms | 200 ms is Google's "good" INP |
-| JavaScript on first load, gzipped | ≤ 90 KB (checkout excluded) | |
-| CSS, gzipped | ≤ 50 KB | |
+| JavaScript on first load, gzipped | ≤ 200 KB (checkout excluded; 90 KB until 2026-11-12) | |
+| CSS, gzipped | ≤ 120 KB (50 KB until 2026-11-12) | |
 | The main image at phone width | ≤ 200 KB | |
 | Page weight on phones | ≤ 1,200 KB for now (#1395, to unblock the dev deploy; back to 1 MB on #1396); video capped separately | |
 

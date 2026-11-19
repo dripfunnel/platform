@@ -143,14 +143,15 @@ export type StorefrontOverview = z.infer<typeof overviewSchema>
 export const loadOverview = async (): Promise<StorefrontOverview> =>
   (await query('{ storefront { status template live { number publishedAt template portalOrigin } draft { template changedAt previewReady } lastPublish { state error version finishedAt } publishing } }', z.object({ storefront: overviewSchema }))).storefront
 
-const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
+const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean(), forCategory: z.boolean() })
 export type StorefrontTemplate = z.infer<typeof templateSchema>
 
 /** Classic first, then "Start from scratch" (`baseline`). */
 export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
-  (await query('{ storefrontTemplates { key name tag description demoUrl current } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
+  (await query('{ storefrontTemplates { key name tag description demoUrl current forCategory } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
 
 export const scratchTemplate = 'baseline'
+export const classicTemplate = 'classic'
 
 /** The first choice starts making the store's site (`creating`); a later one changes the draft. Answers the new status. */
 export const chooseTemplate = async (key: string, keepWords: boolean): Promise<StorefrontStatus> =>

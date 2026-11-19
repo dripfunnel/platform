@@ -4,7 +4,8 @@ import './states.css'
 export interface ConfirmChoice {
   key: string
   label: string
-  options: readonly { value: string; label: string }[]
+  // A `hint` on any option shows the choice as boxes with a line under each, as radios; `confirmLabel` is the button's label while that option is picked.
+  options: readonly { value: string; label: string; hint?: string; confirmLabel?: string }[]
   initial: string
   error: (picked: string, all: Readonly<Record<string, string>>) => string | null
   // Shown only while this holds for the other picks, such as a target plan once "move" is picked.
@@ -14,6 +15,7 @@ export interface ConfirmChoice {
 export interface ConfirmDialogProps {
   open: boolean
   title: string
+  // Empty when the title and the line under it say it all.
   target: string
   // A function when the consequence depends on the value typed or picked, as a new trial end does.
   consequence: string | ((value: string, choices: Readonly<Record<string, string>>) => string)
@@ -34,6 +36,10 @@ export interface ConfirmDialogProps {
   // Picks from short lists, such as a role, or a plan and when it applies (#116). `error` says why a pick won't do, or null.
   choices?: readonly ConfirmChoice[]
   danger?: boolean
+  // About 720 px instead of 540, for a pick whose longest choice is long (Invite a supplier's access); never wider than the screen.
+  wide?: boolean
+  // A little more room between the title and the text under it, for a window with no bold line there.
+  spaced?: boolean
   // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
   children?: ReactNode
   // Why those fields won't do yet, or null once they will: confirm waits for them as it does for `input`.
@@ -57,6 +63,8 @@ export const ConfirmDialog = ({
   input,
   choices = [],
   danger = false,
+  wide = false,
+  spaced = false,
   children,
   blocked = null,
   error = null,
@@ -66,6 +74,9 @@ export const ConfirmDialog = ({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
+  const valueRef = useRef<HTMLInputElement>(null)
+  const reasonRef = useRef<HTMLTextAreaElement>(null)
+  const typedRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
   const bodyId = useId()
   const reasonId = useId()
@@ -89,6 +100,7 @@ export const ConfirmDialog = ({
   const choiceErrors = shown.map((choice) => choice.error(picks[choice.key] ?? '', picks))
   const failingChoice = choiceErrors.findIndex((error) => error !== null)
   const canConfirm = !confirmed && blocked === null && !reasonMissing && !typedMismatch && inputError === null && failingChoice === -1
+  const confirmText = shown.flatMap((choice) => choice.options.filter((option) => option.value === picks[choice.key] && option.confirmLabel !== undefined))[0]?.confirmLabel ?? confirmLabel
   const blockedBy = blocked !== null ? blockedId : reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : failingChoice >= 0 ? `${choicesId}-${failingChoice}-error` : undefined
 
   useEffect(() => {
@@ -102,11 +114,18 @@ export const ConfirmDialog = ({
       setPicked({})
       setConfirmed(false)
       dialog.showModal()
-      cancelRef.current?.focus()
+      // The first text box when there is one, so typing starts at once; otherwise Cancel, so Enter never confirms by accident (#1470).
+      const first = valueRef.current ?? reasonRef.current ?? typedRef.current ?? cancelRef.current
+      first?.focus()
     } else if (!open && dialog.open) {
       dialog.close()
     }
   }, [open])
+
+  const confirm = () => {
+    setConfirmed(true)
+    onConfirm(reason ? reasonText.trim() : null, input ? value : null, picks)
+  }
 
   useEffect(() => {
     if (error !== null) setConfirmed(false)
@@ -115,7 +134,7 @@ export const ConfirmDialog = ({
   return (
     <dialog
       ref={dialogRef}
-      className="df-dialog"
+      className={wide ? 'df-dialog df-dialog--wide' : 'df-dialog'}
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={(event) => {
@@ -125,10 +144,12 @@ export const ConfirmDialog = ({
       onClose={() => triggerRef.current?.focus()}
     >
       <h2 id={titleId}>{title}</h2>
-      <div id={bodyId} className="df-dialog-body">
-        <p>
-          <strong>{target}</strong>
-        </p>
+      <div id={bodyId} className={spaced ? 'df-dialog-body df-dialog-body--spaced' : 'df-dialog-body'}>
+        {target !== '' && (
+          <p>
+            <strong>{target}</strong>
+          </p>
+        )}
         <p>{typeof consequence === 'function' ? consequence(value, picks) : consequence}</p>
         {notes && notes.length > 0 && (
           <ul className="df-dialog-notes">
@@ -148,6 +169,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={reasonId}>{reason.label}</label>
           <textarea
+            ref={reasonRef}
             id={reasonId}
             required
             rows={3}
@@ -165,6 +187,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={inputId}>{input.label}</label>
           <input
+            ref={valueRef}
             id={inputId}
             type={input.type}
             autoComplete={input.type === 'password' ? 'current-password' : undefined}
@@ -174,6 +197,11 @@ export const ConfirmDialog = ({
             aria-describedby={inputError !== null ? inputErrorId : undefined}
             value={value}
             onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (canConfirm) confirm()
+            }}
           />
           {inputError !== null && (
             <p id={inputErrorId} className="df-field-hint">
@@ -185,6 +213,26 @@ export const ConfirmDialog = ({
       {shown.map((choice, index) => {
         const error = choiceErrors[index] ?? null
         const id = `${choicesId}-${index}`
+        if (choice.options.some((option) => option.hint !== undefined))
+          return (
+            <fieldset key={choice.key} className="df-field df-choice-set">
+              <legend className="df-visually-hidden">{choice.label}</legend>
+              {choice.options.map((option) => (
+                <label key={option.value} className="df-choice-card">
+                  <input type="radio" name={id} value={option.value} checked={picks[choice.key] === option.value} onChange={() => setPicked((current) => ({ ...current, [choice.key]: option.value }))} />
+                  <span>
+                    <strong>{option.label}</strong>
+                    {option.hint !== undefined && <span className="df-field-hint">{option.hint}</span>}
+                  </span>
+                </label>
+              ))}
+              {error !== null && (
+                <p id={`${id}-error`} className="df-field-hint">
+                  {error}
+                </p>
+              )}
+            </fieldset>
+          )
         return (
           <div key={choice.key} className="df-field">
             <label htmlFor={id}>{choice.label}</label>
@@ -213,6 +261,7 @@ export const ConfirmDialog = ({
         <div className="df-field">
           <label htmlFor={typedId}>{typeToConfirm.label}</label>
           <input
+            ref={typedRef}
             id={typedId}
             type="text"
             required
@@ -241,12 +290,9 @@ export const ConfirmDialog = ({
           className={danger ? 'df-button df-button--danger' : 'df-button df-button--primary'}
           disabled={!canConfirm}
           aria-describedby={blockedBy}
-          onClick={() => {
-            setConfirmed(true)
-            onConfirm(reason ? reasonText.trim() : null, input ? value : null, picks)
-          }}
+          onClick={confirm}
         >
-          {confirmLabel}
+          {confirmText}
         </button>
       </div>
     </dialog>

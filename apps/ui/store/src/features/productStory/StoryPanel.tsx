@@ -3,6 +3,9 @@ import { uploadPhoto } from '../../api/productEditor'
 import type { StoryGap } from '../../api/story'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { AssetVideo } from '../common/AssetVideo'
+import { uploadCheckedVideo } from '../common/videoUpload'
+import { isVideoFile } from '../common/videoLength'
 import { ProductSearch } from '../common/ProductSearch'
 import { maxBoxItems, maxCompared, maxFeatures, maxGallery, type DraftModule, type DraftPhoto } from './storyDraft'
 
@@ -14,6 +17,68 @@ export type ModuleChange = (change: (m: DraftModule) => DraftModule) => void
 const gapText = (gaps: readonly StoryGap[], field: string) => (gaps.some((g) => g.field === field) ? ((words.gapFields as Record<string, string>)[field] ?? null) : null)
 
 const Problem = ({ text }: { text: string | null }) => (text ? <span className="df-story-problem">{text}</span> : null)
+
+/** An A+ Video block's video: an upload of the product video's size and length (#1401) or a link, each replacing the other (#1448). */
+const VideoField = ({ m, set, disabled, gaps }: { m: DraftModule; set: (change: Partial<DraftModule>) => void; disabled: boolean; gaps: readonly StoryGap[] }) => {
+  const input = useRef<HTMLInputElement>(null)
+  const urlId = useId()
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<{ file: File; message: string } | null>(null)
+  const send = async (file: File) => {
+    setBusy(true)
+    setFailed(null)
+    const result = await uploadCheckedVideo(file)
+    setBusy(false)
+    if (result.ok) set({ videoAssetId: result.assetId, videoUrl: '' })
+    else setFailed({ file, message: result.message })
+  }
+  return (
+    <div className="df-story-field">
+      <label htmlFor={urlId}>{panel.video}</label>
+      <input id={urlId} type="url" maxLength={500} placeholder={panel.videoPlaceholder} value={m.videoUrl} readOnly={disabled || busy} onChange={(e) => (setFailed(null), set({ videoUrl: e.target.value, videoAssetId: null }))} />
+      {m.videoAssetId && <AssetVideo className="df-story-video" url={`/api/assets/${m.videoAssetId}`} label={panel.videoUploaded} placeholder={panel.videoUploaded} />}
+      {!disabled && (
+        <span className="df-story-row">
+          <button type="button" className="df-button" disabled={busy} onClick={() => input.current?.click()}>
+            {busy ? messages.editor.photos.uploading : m.videoAssetId ? panel.videoReplace : panel.videoUpload}
+          </button>
+          {m.videoAssetId && (
+            <button type="button" className="df-story-link" onClick={() => set({ videoAssetId: null })}>
+              {panel.videoRemove}
+            </button>
+          )}
+          <input
+            ref={input}
+            className="df-visually-hidden"
+            type="file"
+            accept="video/mp4,video/webm"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file && isVideoFile(file)) void send(file)
+              else if (file) setFailed({ file, message: messages.editor.photos.videoRefused.UNSUPPORTED_TYPE })
+              e.target.value = ''
+            }}
+          />
+        </span>
+      )}
+      {failed && (
+        <span className="df-story-problem" role="alert">
+          {failed.message}{' '}
+          <button type="button" className="df-story-link" onClick={() => void send(failed.file)}>
+            {panel.videoRetry}
+          </button>{' '}
+          <button type="button" className="df-story-link" onClick={() => setFailed(null)}>
+            {panel.videoRemove}
+          </button>
+        </span>
+      )}
+      <span className="df-story-hint">{panel.videoHint}</span>
+      <Problem text={gapText(gaps, 'video')} />
+    </div>
+  )
+}
 
 /** A photo uploaded, shown, described (required to publish, Q7) and removed. */
 const PhotoField = ({ photo, label, onChange, disabled, altPlaceholder, gaps }: { photo: DraftPhoto; label: string; onChange: (p: DraftPhoto) => void; disabled: boolean; altPlaceholder: string; gaps: readonly StoryGap[] }) => {
@@ -239,14 +304,7 @@ export const StoryPanel = ({
           </div>
         ))}
       {(m.kind === 'specs' || m.kind === 'faq') && <p className="df-story-hint">{fill(panel.fromProduct, { what: m.kind === 'specs' ? panel.fromSpecs : panel.fromFaqs })}</p>}
-      {m.kind === 'video' && (
-        <div className="df-story-field">
-          <label htmlFor={bodyId}>{panel.video}</label>
-          <input id={bodyId} type="url" maxLength={500} placeholder={panel.videoPlaceholder} value={m.videoUrl} readOnly={disabled} onChange={(e) => set({ videoUrl: e.target.value })} />
-          <span className="df-story-hint">{panel.videoHint}</span>
-          <Problem text={gapText(gaps, 'video')} />
-        </div>
-      )}
+      {m.kind === 'video' && <VideoField m={m} set={set} disabled={disabled} gaps={gaps} />}
     </aside>
   )
 }

@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -223,6 +223,11 @@ against them before relying on it, and fix this document where they differ.
    Inventory). Most sellers have one warehouse, so the default is one number. More warehouses
    appear as an expansion. The merchant and each vendor have their own default warehouse; a
    product saved without choosing a warehouse goes to its owner's default. Say which one.
+   **A vendor with no warehouse of its own counts in the store's default one** (decided
+   2026-11-09 on #1353), shown by its name only: never its address, nor the merchant's or another
+   vendor's numbers there. It never has to add a warehouse before selling. Once it adds its own,
+   that is its default for new counts; what it counted in the store's stays and can still be
+   changed.
 10. **Stock tracking and "keep selling when out of stock"** are per version, inheriting a store
     default. Most sellers never touch them. Keep them under "More options". The engine must
     store both per version, with the store default.
@@ -502,7 +507,15 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     `(release: decide)`; show the effect on the storefront ("Not available in your country").
 43. **Age-restricted products** (alcohol, tobacco and vapes, knives in the UK, some games or
     videos) need a flag that makes the storefront ask for age confirmation or verification at
-    checkout `(release: decide)`. Which categories require it varies by country.
+    checkout. Which categories require it varies by country. **Decided 2026-11-12 on #1443:** a
+    product's "Ask shoppers to confirm their age" makes **Review and place order** show a tick box,
+    "Before you order: please confirm you're 18 or over.", when the cart holds such a product; Place
+    order stays disabled until it is ticked, once per order. No date of birth, no ID, no setting: the
+    same age for every store. The server checks it too: `placeOrder` takes `ageConfirmed`, refuses
+    with `AGE_CONFIRMATION_REQUIRED` without it (for every caller, the shop app included until it
+    asks), and the order records when it was confirmed (`order.age_confirmed_at`). The Shop API's
+    cart carries `needsAgeConfirmation`. Classic places the box; any other checkout gets it drawn by Place order; storefront
+    ARCHITECTURE §2.1, §3.5. Verification (ID, date of birth) and other ages stay `(release: decide)`.
 44. **Barcodes (GTIN / UPC / EAN / ISBN) are per version.** Google Shopping and marketplaces
     require them for most branded goods. Validate the check digit (in the UI and in the
     engine). Let handmade or own-brand products say "This product has no barcode".
@@ -560,7 +573,8 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     different tax rules (EU and UK digital VAT is charged where the shopper lives). The engine's
     product type (PLATFORM-PROMPT §3.3) covers physical, digital, services and gift cards, all in
     the first release (FIRST-RELEASE §1). Design the "What are you selling?" choice
-    (Physical · Digital · Service · Gift card).
+    (Physical · Digital · Service · Gift card). Once a product is saved as a physical item the choice is
+    locked to it (#1459); a new product, or a saved download, service or gift card, can still pick any kind.
 
 ### Questions the shopper answers (product customisation)
 
@@ -598,6 +612,9 @@ tables.
     units, when a choice has a quantity) are the free ones.
 53. **Rules on answers.**
     - Every question is **optional by default**, or **required**.
+    - An optional pick-one list starts with nothing picked and adds no "None" of its own (the
+      merchant's own "No, thanks" is the only no); once a choice is picked, a **Clear** link
+      goes back to no answer (#1572).
     - A choice list has a **minimum and maximum** number of picks; a choice's quantity counts
       towards both.
     - Text has a **maximum length**, 100 by default and at most 500, counted as in fact 51; it
@@ -705,7 +722,11 @@ depend on an engine capability whose release is not yet chosen.
 - A2. A guided first product: a short inline walkthrough that can be dismissed, not a modal tour.
 - A3. A setup checklist on Home ("Add 3 products · Create a collection · Set up shipping")
   linking into these screens.
-- A4. An optional sample product to explore, clearly marked, and removable in one click.
+- A4. An optional sample product to explore, clearly marked, and removable in one click (the provisioning
+  sample, SAAS §5 step 2). **Built 2026-11-16, alongside it: the store category's sample catalog** (DATA-MODEL
+  §7.2): 1 to 50 ordinary, visible products in 1 to 10 collections staff keep per category (admin FIRST-RELEASE §11b). While the store has no
+  order, "Add sample catalog" (`addSampleCatalog`, `catalog.import`, the merchant side only) starts the
+  ordinary import of it (K13a); once added it can't be added again.
 - A5. The first-save moment: "Your product is in your preview. View it", and when it reaches the
   live store (§3 fact 17); or explain why it isn't live yet (hidden, awaiting approval, missing
   details a selling market requires, not yet published).
@@ -794,12 +815,23 @@ depend on an engine capability whose release is not yet chosen.
   shoes US / UK / EU / JP / CM, jeans W×L, and ring sizes US / UK / EU.
 - D3. The version count is previewed before generating ("This makes 12 versions"). Up to 3
   options and 100 versions (decided 2026-10-05 on #337), and a clear message at the version limit.
+  The first time a product without choices gets versions, **Create versions** asks first (#1450):
+  "Create 3 versions?" with "Each version gets its own price, starting at $15.00, and its own stock,
+  starting at 0. The 10 in stock now won't carry over." (the last sentence only when there is stock to
+  lose). Cancel changes nothing; **Update versions** never asks, as existing versions keep their price and
+  stock. Versions still start at the first price and at stock 0.
 - D4. A generated versions table showing each combination's price, stock, SKU, photo and
   visibility, with "Apply to all" for price and stock, and per-choice apply ("All XL:
   $34.99"). **Built (#1117, #1182)**: **Set values for all…** sets Price, Compare-at price, What it
   costs you and Stock on every version made; Stock sets the count at the table's location (it
   doesn't add to it) and shows only where the Stock column is editable. An empty field keeps each
   version's own value.
+  - **Currency beside each price box (decided 2026-11-09 on #1349, wording corrected 2026-11-13):** the Price
+    column's boxes have the store's pricing currency written outside the box, on its left, and each
+    hand-priced currency's boxes have that currency, exactly as the single-version Price field draws it (the
+    same muted code and gap); only the number is in the box. The code is decoration: each box keeps its own
+    name ("Price of S / Sand"). Every box keeps the width it had, so a store with hand-priced currencies may
+    scroll the table sideways at desktop width, as it already does on a phone.
 - D5. Remove combinations that don't exist ("We don't make Red in XL") and add them back later.
 - D6. Add a choice later (e.g. XXL). Only the new versions appear, pre-filled from a sibling.
 - D7. Remove a choice. Confirm which versions go, say they cannot be undone, and say that past
@@ -811,8 +843,11 @@ depend on an engine capability whose release is not yet chosen.
 - D10. Rename an option or a choice ("Red" → "Maroon") without touching stock or prices.
 - D11. Reorder options and choices. This changes the order the shopper sees.
 - D12. Per-version photo ("Show this photo when Red is picked"), usually set per colour rather
-  than per version. Built on #1117 as one photo per version; "Photo for all {colour}" waits for a
-  photo shared by several versions (`product_photo_asset_key` allows one).
+  than per version. Built on #1117 as one upload per version; #1460 made it a pick from the product's own
+  photos (`product_version.photo_asset_id`), so one photo can serve several versions. The window
+  "Photo for {version}" shows every photo of the Photos section as a tile with "Used by N versions",
+  **Upload new photo** (added to Photos too) and **Use the main photo**. "Photo for all {colour}"
+  (one click for every version of a colour) is still to build.
 - D13. Per-version tax class, classification code, barcode and weight, defaulting from the
   product and overridable. For example, a children's size can be zero-rated in the UK while
   the adult sizes are not.
@@ -839,6 +874,14 @@ depend on an engine capability whose release is not yet chosen.
   version number or updated-at check on save).
 - E5. Changing the web address of a live product: warn that old links will break.
 - E6. Duplicate a product: "Copy of …", hidden by default, stock not copied (decided 2026-10-05 on #337).
+  The portal offers it (decided 2026-11-12 on #1446) as a **Duplicate** action in the "⋮" menu at the top of an open product, beside Delete,
+  and as a **Duplicate** action in the "⋮" menu on each row of the Products list (a button on a phone's card); not in the bulk bar. It shows for an existing
+  product to whoever may write products (a supplier for its own, whose copy stays its own and waits for approval where the
+  store asks for it), never on a new product or in a read-only store. The copy is named "Copy of {name}" (cut to the name
+  limit), is hidden, has no stock and no product codes, keeps the photos, choices, prices and listing, and gets its own
+  web address; it opens for editing with "Copy made — it's hidden, and stock starts at 0". At the plan's product limit it
+  says so and makes no copy. One click makes one copy. The copy is made from what is saved: on a page with unsaved
+  changes it asks first, and opening the copy then discards them.
 - E7. Hide vs delete. Hiding is the recommended action. Delete confirms, lists what happens to
   collections and past orders, and offers undo where possible.
 - E8. Bulk delete of many products, with progress and partial failure ("48 deleted, 2 could
@@ -853,6 +896,11 @@ depend on an engine capability whose release is not yet chosen.
 
 - F1. Drag-and-drop or tap to upload several at once, and use the phone camera.
 - F2. Progress per photo, retry on failure, and continue editing while uploads finish.
+  - **The count (decided 2026-11-09 on #1348):** "{n} of 20 photos" counts only photos that have
+    uploaded. One still uploading and a "Didn't upload" box don't count; the box stays, with Try again
+    and Remove. The limit still allows for photos uploading: the files taken at once, Add more and Try again
+    stop at uploaded + uploading, so a product never passes 20. "That's the most photos a product can have."
+    shows once 20 have uploaded.
 - F3. Reorder by dragging. The first photo is the main photo, and this is stated.
 - F4. Remove a photo, and choose from photos already uploaded.
 - F5. Alt text, auto-suggested and explained as "helps blind shoppers and Google".
@@ -958,10 +1006,28 @@ with validation before any write, partial-failure reports, and translation and c
   be said, with no warehouse used twice.
 - K6. Long-running import: a progress bar, and permission to leave the page, with a
   notification when done and partial-failure reporting (e.g. image URLs that 404).
+  - **A product's photos (decided 2026-11-09 on #1348):** a product gets up to 20 photos that
+    **downloaded**, in the file's order. The 21st photo and later are spares: when one of the first 20
+    fails, the next spare is tried at its place, until the product has 20 or the spares run out; photos
+    are still fetched in parallel. A failed photo is listed on its line. A photo is reported as left out
+    (`TOO_MANY_PHOTOS`, "the first 20 that download are imported") only when the product already has
+    20, once the run ends.
 - K7. Shopify connect: enter the store address, approve on Shopify, return, pick products with
   select-all, then import. Also handle a connection that failed or expired.
 - K8. Export all or the current filtered selection: long-running, with a download link and a
-  "recent exports" list.
+  "recent exports" list. The file has one row for each version, so the card counts products and versions
+  apart (decided 2026-11-12 on #1445): "Export all · 11 products, 13 versions", "Export hidden · 2 products, 3 versions"
+  (the hidden products' own versions), and each recent row "Products · 11 products, 13 versions", with the note
+  "One row for each version in the file." under the title. A product without choices is one version; a count of one
+  is singular ("1 product, 1 version"); a supplier sees its own products' counts only. The API's product counts give
+  `versions` and `hiddenVersions`, and each product export records its `products` beside its `rows`
+  (`catalog_export.products`, migration 0396).
+  The products file also carries the photos (decided on #1561): columns `image` and `image alt` after `stock`.
+  The first row of a product holds its main photo; each further photo gets a row of its own with only the handle
+  and the photo, and a version's photo sits on that version's row where the photo order allows. `image` is a link
+  `https://{store host}/shop-api/assets/{id}` that works for hidden products too, so the same file imports into
+  another store; a store with no public host exports the columns empty. The import reads the photos from any row
+  in file order and does not link a photo to a version again.
 - K9. Vendor import/export: allowed, their own products only (decided on #184).
 - K10. Multi-language: import and export translations as extra columns (`name:hi`,
   `description:hi`) (decided 2026-10-05 on #337).
@@ -1009,6 +1075,11 @@ with validation before any write, partial-failure reports, and translation and c
   neither read nor write a product's questions (§3 facts 49–57), and re-importing a product leaves
   its questions as they are. The template has no question columns, and the export says nothing of
   them. No card is planned for it.
+- K13a. **A sample catalog's import** (2026-11-16, A4): the same check as a spreadsheet, then it runs at once with no
+  review (decided 2026-11-16: existing SKUs skipped, stock to the default warehouse), its prices converted from the sample's currency (K11's rates; `RATE_MISSING` as any file).
+  Its photos are DripFunnel's copies, read from R2, never fetched again; it makes the sample's two
+  collections when it finishes, holding its products by SKU. No plan feature gates it: the store didn't choose
+  to import, though its products count toward the plan's product limit like any other.
 
 ### L. Vendors and approval (catalogue side)
 
@@ -1144,9 +1215,15 @@ with validation before any write, partial-failure reports, and translation and c
   - the legal information defaults (§3 fact 34).
 
   Each row shows whether the plan includes it.
-- P2. Store-type presets are offered at sign-up and editable in this tab (decided 2026-10-05 on #337): "Clothing" turns on size charts;
-  "Electronics" turns on specifications and warranty; "Food" turns on net quantity and best
-  before. Presets are only starting points.
+- P2. ~~Store-type presets~~ (decided 2026-10-05 on #337), replaced 2026-11-16 by the **store category**: "What does your
+  shop sell?" picks one of DripFunnel's list (DATA-MODEL §7.2), on Home's checklist or here. Each category names the
+  sections shops of its kind use; this tab offers the ones in the plan and still off ("Switch them on"), and the Owner
+  still presses Save sections. Choosing or changing a category never switches a section off.
+
+  | Decision | Rejected | Why |
+  |---|---|---|
+  | The category replaces the five hard-coded chips | Keeping both | Merchants would answer "what do you sell" twice, from two lists |
+  | Its sections are offered and confirmed | Applied on every change | A change would overwrite the merchant's own choices |
 - P3. **Included and on**: the section appears on the product form in its place (part C's
   order), collapsed and optional.
 - P4. **Included but turned off**: the section is absent from the product form. Settings is the
@@ -1188,7 +1265,7 @@ with validation before any write, partial-failure reports, and translation and c
   - "What's in the box"
   - specifications block (pulls from part S, never retyped)
   - brand story
-  - video *(plan-gated)*
+  - video *(plan-gated)*: an uploaded MP4 or WebM of at most 30 seconds and 4 MB, as a product's own video (S7), or a YouTube or Vimeo link, one replacing the other (#1448)
   - FAQ (pulls from part S)
 - Q3. Add, reorder by dragging, duplicate, delete a module, and a module limit per plan.
 - Q4. **Templates**: start from "Fashion", "Electronics", "Home" or "Beauty", pre-filled with
@@ -1236,7 +1313,8 @@ with validation before any write, partial-failure reports, and translation and c
   Waist, Length, Shoulder…). Add, remove and reorder rows and columns, and paste from Excel or
   Google Sheets.
 - R4. Units: cm or inches, defaulting from the store's unit system (§3 fact 39), with the other
-  computed automatically and a toggle for the shopper on the storefront. Ranges allowed
+  computed automatically and a toggle for the shopper on the storefront (opens in the saved unit; lengths
+  convert cm ↔ in and weight columns kg ↔ lb, in the portal's preview too, #1571). Ranges allowed
   ("38–40").
 - R5. **How to measure**: an illustration (from a library or uploaded) and short text per
   measurement. Optional fit notes ("Runs small — order one size up") and model info ("Model is
@@ -1295,7 +1373,9 @@ information (S4)**, which is configuration only.
   collection)". Vendors can pick only their own products.
 - S7. **Video**: upload or paste a YouTube link, with a poster image *(plan-gated; ask whether
   hosted or linked only)*. **Built so far (#1401):** one uploaded MP4 or WebM of at most 30 seconds and 4 MB,
-  added from Add more; the link box and the poster image are not built.
+  added from Add more; the link box and the poster image are not built. **Built on #1448:** an A+ Video block takes
+  the same upload (checked in the editor before uploading and by the server on save, `VIDEO_LIMIT`) or a YouTube or
+  Vimeo link, each replacing the other; still no poster image.
 - S8. **Warranty and returns**: per product, overriding the store policy (e.g. "No returns on
   underwear"). Consumer law sets floors that a seller cannot go below: the EU's 14-day
   withdrawal right and 2-year legal guarantee, and the UK's equivalents. A per-product override
@@ -1411,7 +1491,7 @@ property". Prices appear only when the merchant asks for one.
   chips are in D2: each with its name, an optional photo (F's uploader, one photo), the
   **Available** switch, and "Shoppers can pick more than one of this, up to [N]" (U7). Under the
   rows, "How many can they pick?": **Pick one** (the default, shown to the shopper as radio
-  buttons) or **Pick up to [N]**, with "at least [M]" shown only for a maximum above 1. The
+  buttons, with nothing picked at first and, when optional, a Clear link after a pick) or **Pick up to [N]**, with "at least [M]" shown only for a maximum above 1. The
   Required switch sets the minimum to 1; a minimum above 1 makes it required. The form refuses a
   minimum above the maximum, in words ("They must pick at least 4 but can pick only 3").
 - U5. **Text form**: the question, optional help text, **Single line** or **Paragraph**, the

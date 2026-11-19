@@ -91,7 +91,7 @@ describe('the full gate', () => {
     expect(failing(tax)).toEqual(['sealed', 'checkout'])
     expect(detail(tax, 'checkout')).toContain('cart page at 390 px hides a required part')
     expect(detail({ ...good, visits: onPage(visits, '/checkout/', (v) => (v.width === 390 ? { ...v, mainSeen: false } : v)) }, 'checkout')).toBe("The checkout page at 390 px can't be used: its main content is hidden, off screen or covered.")
-    expect(detail({ ...good, weights: onPage(good.weights, '/our-story/', (w) => ({ ...w, jsGzip: 120 * 1024 })) }, 'budgets')).toBe('Page /our-story/ loads 120.0 KB of JavaScript gzipped, over the 90.0 KB budget.')
+    expect(detail({ ...good, weights: onPage(good.weights, '/our-story/', (w) => ({ ...w, jsGzip: 220 * 1024 })) }, 'budgets')).toBe('Page /our-story/ loads 220.0 KB of JavaScript gzipped, over the 200.0 KB budget.')
     expect(detail({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, h1s: ['  '] })) }, 'no-js')).toBe("The home page's main heading is empty without JavaScript.")
   })
 

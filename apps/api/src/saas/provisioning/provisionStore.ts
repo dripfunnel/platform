@@ -11,7 +11,7 @@ import { stepsFor } from './stuck'
 export interface ProvisionInput {
   partnerId: string
   /** A new account from sign-up, or a signed-in person's own for their next store (#1136). */
-  owner: { name: string; email: string; passwordHash: string | null; phone: string } | { userId: string }
+  owner: { name: string; email: string; passwordHash: string | null; phone: string | null } | { userId: string }
   store: { name: string; code: string; country: string; currency: string }
 }
 

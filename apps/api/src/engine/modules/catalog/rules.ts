@@ -79,6 +79,8 @@ export interface VersionInput {
   continueSelling?: boolean | null | undefined
   /** The store's tax class (fact 37); left out keeps the version's, null is the store's default. */
   taxClassId?: string | null | undefined
+  /** One of the product's photos this version shows; left out keeps it, null is the main photo (#1460). */
+  photoAssetId?: string | null | undefined
 }
 
 export interface OptionInput {
@@ -90,7 +92,7 @@ export interface OptionInput {
 export interface PhotoInput {
   assetId: string
   alt?: string | null | undefined
-  /** The version it shows, by its place in `versions`; null for the whole product. */
+  /** Older clients: sets that version's `photoAssetId` when it names none; the photo stays a product photo. */
   version?: number | null | undefined
 }
 
@@ -179,6 +181,7 @@ export interface CleanVersion {
   trackStock: boolean | null
   continueSelling: boolean | null
   taxClassId: string | null | undefined
+  photoAssetId: string | null | undefined
 }
 
 export interface CleanOption {
@@ -190,7 +193,6 @@ export interface CleanOption {
 export interface CleanPhoto {
   assetId: string
   alt: string | null
-  version: number | null
 }
 
 export interface CleanProduct {
@@ -228,7 +230,7 @@ export const isVideoUrl = (value: string): boolean => {
   }
 }
 
-const cleanPhotos = (photos: readonly PhotoInput[], versionCount: number): CleanPhoto[] | CatalogRefusal => {
+const cleanPhotos = (photos: readonly PhotoInput[], versions: CleanVersion[]): CleanPhoto[] | CatalogRefusal => {
   if (photos.length > maxPhotos) return 'TOO_MANY_PHOTOS'
   const seen = new Set<string>()
   const clean: CleanPhoto[] = []
@@ -238,8 +240,10 @@ const cleanPhotos = (photos: readonly PhotoInput[], versionCount: number): Clean
     const alt = text(p.alt, 250)
     if (alt === false) return 'INVALID_PHOTO'
     const version = p.version ?? null
-    if (version !== null && (!Number.isInteger(version) || version < 0 || version >= versionCount)) return 'INVALID_PHOTO'
-    clean.push({ assetId: p.assetId.toLowerCase(), alt, version })
+    if (version !== null && (!Number.isInteger(version) || version < 0 || version >= versions.length)) return 'INVALID_PHOTO'
+    const chosen = version === null ? undefined : versions[version]
+    if (chosen && chosen.photoAssetId === undefined) chosen.photoAssetId = p.assetId.toLowerCase()
+    clean.push({ assetId: p.assetId.toLowerCase(), alt })
   }
   return clean
 }
@@ -349,6 +353,7 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
   if (barcode !== null && !isBarcode(barcode)) return 'INVALID_BARCODE'
   if (invalidVersionField(v)) return 'INVALID_INPUT'
   if (v.taxClassId != null && !isUuid(v.taxClassId)) return 'INVALID_INPUT'
+  if (v.photoAssetId != null && !isUuid(v.photoAssetId)) return 'INVALID_PHOTO'
   const sizes = [whole(v.weightGrams, 10_000_000), whole(v.lengthMm, 100_000), whole(v.widthMm, 100_000), whole(v.heightMm, 100_000)]
   const currencies = new Set<string>()
   const prices: CleanPrice[] = []
@@ -385,6 +390,7 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
     trackStock: v.trackStock ?? null,
     continueSelling: v.continueSelling ?? null,
     taxClassId: v.taxClassId === undefined ? undefined : v.taxClassId === null ? null : v.taxClassId.toLowerCase(),
+    photoAssetId: v.photoAssetId === undefined ? undefined : v.photoAssetId === null ? null : v.photoAssetId.toLowerCase(),
   }
 }
 
@@ -454,7 +460,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     versions.push(clean)
   }
 
-  const photos = input.photos === null || input.photos === undefined ? null : cleanPhotos(input.photos, versions.length)
+  const photos = input.photos === null || input.photos === undefined ? null : cleanPhotos(input.photos, versions)
   if (typeof photos === 'string') return photos
   const video = cleanVideo(input.video)
   if (typeof video === 'string') return video

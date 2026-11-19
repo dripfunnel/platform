@@ -131,6 +131,27 @@ describe('useSignIn', () => {
     expect(shown(signIn).ways).toEqual({ email: true, phone: true })
   })
 
+  // #1490: a page drew an email-only form before it knew the store's setting, then redrew; a theme holds its form until this is true.
+  it('says the ways are not known until the shop answers, and then known, so a theme draws its form once', async () => {
+    const options = later<unknown>()
+    shopAnswering(() => options.promise)
+    await show('signIn')
+    expect(shown(signIn).waysKnown).toBe(false)
+    await act(async () => options.settle({ data: { signInOptions: { email: false, phone: true } } }))
+    expect(shown(signIn).waysKnown).toBe(true)
+    expect(shown(signIn).ways).toEqual({ email: false, phone: true })
+  })
+
+  it('knows the ways at once on a preview, which never asks, and when the shop cannot be asked, as email only, so no page waits for ever', async () => {
+    shopAnswering(() => ({ data: {} }))
+    await show('signIn', 'preview')
+    expect([shown(signIn).waysKnown, shown(signIn).ways]).toEqual([true, { email: true, phone: true }])
+    cleanup()
+    shopAnswering(() => ({ errors: [{ message: 'down', extensions: { code: 'UNAVAILABLE' } }] }))
+    await show('signIn')
+    expect([shown(signIn).waysKnown, shown(signIn).ways]).toEqual([true, { email: true, phone: false }])
+  })
+
   it('asks the Shop API nothing on a preview, where nobody signs in', async () => {
     const asked = shopAnswering(() => ({ data: {} }))
     await show('signIn', 'preview')
@@ -230,6 +251,115 @@ describe('useAccount', () => {
     await act(async () => void (await shown(account).removeAddress('a-1')))
     expect(shopperToken('session')).toBeUndefined()
     expect(shown(account).status).toBe('signedOut')
+  })
+
+  describe('the mobile number', () => {
+    const answeringWith = (options: { phone: boolean }, state: { account: typeof raw; refuse: string | null }) =>
+      shopAnswering((a) => {
+        if (a.query.includes('account {')) return { data: { account: state.account, signInOptions: options } }
+        return state.refuse ? { errors: [{ message: 'no', extensions: { code: state.refuse } }] } : { data: { requestPhoneCode: true, confirmPhone: true } }
+      })
+    const accountReads = (asked: { query: string }[]) => asked.filter((a) => a.query.includes('account {')).length
+
+    it('is offered only where the shop signs in by mobile', async () => {
+      sessionStorage.setItem('df-session', 'sess-1')
+      answeringWith({ phone: false }, { account: raw, refuse: null })
+      await show('account')
+      expect(shown(account).phoneAllowed).toBe(false)
+      cleanup()
+      answeringWith({ phone: true }, { account: raw, refuse: null })
+      await show('account')
+      expect(shown(account).phoneAllowed).toBe(true)
+      expect(shown(account).phoneCodeFor).toBeNull()
+    })
+
+    it('checks the number and the code before asking anything', async () => {
+      sessionStorage.setItem('df-session', 'sess-1')
+      const asked = answeringWith({ phone: true }, { account: raw, refuse: null })
+      await show('account')
+      const before = asked.length
+      let problems: unknown = null
+      await act(async () => {
+        problems = await shown(account).sendPhoneCode('  ')
+      })
+      expect(problems).toEqual({ to: 'required' })
+      await act(async () => {
+        problems = await shown(account).sendPhoneCode('98450 22113')
+      })
+      expect(problems).toEqual({ to: 'invalid' })
+      await act(async () => {
+        problems = await shown(account).confirmPhone('123456')
+      })
+      expect(problems).toEqual({})
+      expect(asked).toHaveLength(before)
+    })
+
+    it('texts a code to the new number, keeps the account as it is, then saves the number once the code is entered and reads the account again', async () => {
+      sessionStorage.setItem('df-session', 'sess-1')
+      const asked = answeringWith({ phone: true }, { account: raw, refuse: null })
+      await show('account')
+      let sent: unknown = null
+      await act(async () => {
+        sent = await shown(account).sendPhoneCode(' +91 98450 22113 ')
+      })
+      expect(sent).toEqual({})
+      expect(asked.find((a) => a.query.includes('requestPhoneCode'))?.variables).toEqual({ to: '+91 98450 22113' })
+      expect(shown(account).phoneCodeFor).toBe('+91 98450 22113')
+      expect(shown(account).account?.phone).toBeNull()
+      expect(accountReads(asked)).toBe(1)
+      let problems: unknown = null
+      await act(async () => {
+        problems = await shown(account).confirmPhone('12')
+      })
+      expect(problems).toEqual({ code: 'invalid' })
+      expect(asked.some((a) => a.query.includes('confirmPhone'))).toBe(false)
+      await act(async () => {
+        problems = await shown(account).confirmPhone(' 123456 ')
+      })
+      expect(problems).toEqual({})
+      expect(asked.find((a) => a.query.includes('confirmPhone'))?.variables).toEqual({ to: '+91 98450 22113', code: '123456' })
+      expect(shown(account).phoneCodeFor).toBeNull()
+      expect(accountReads(asked)).toBe(2)
+    })
+
+    it('keeps each refusal, as the mobile number’s, and the code that waits after a wrong one', async () => {
+      sessionStorage.setItem('df-session', 'sess-1')
+      const state = { account: raw, refuse: null as string | null }
+      answeringWith({ phone: true }, state)
+      await show('account')
+      state.refuse = 'RATE_LIMITED'
+      let answer: unknown = {}
+      await act(async () => {
+        answer = await shown(account).sendPhoneCode('+919845022113')
+      })
+      expect(answer).toBeNull()
+      expect(shown(account).error).toEqual({ code: 'RATE_LIMITED', of: 'phone' })
+      expect(shown(account).phoneCodeFor).toBeNull()
+      state.refuse = null
+      await act(async () => void (await shown(account).sendPhoneCode('+919845022113')))
+      expect(shown(account).error).toBeNull()
+      state.refuse = 'CODE_REFUSED'
+      await act(async () => {
+        answer = await shown(account).confirmPhone('000000')
+      })
+      expect(answer).toBeNull()
+      expect(shown(account).error).toEqual({ code: 'CODE_REFUSED', of: 'phone' })
+      expect(shown(account).phoneCodeFor).toBe('+919845022113')
+      await act(async () => shown(account).cancelPhone())
+      expect(shown(account).phoneCodeFor).toBeNull()
+      expect(shown(account).error).toBeNull()
+    })
+
+    it('is signed out when the session ended before the number was saved', async () => {
+      sessionStorage.setItem('df-session', 'sess-1')
+      const state = { account: raw, refuse: null as string | null }
+      answeringWith({ phone: true }, state)
+      await show('account')
+      state.refuse = 'SIGNED_OUT'
+      await act(async () => void (await shown(account).sendPhoneCode('+919845022113')))
+      expect(shopperToken('session')).toBeUndefined()
+      expect(shown(account).status).toBe('signedOut')
+    })
   })
 
   it('signs out: ends the session on the server, forgets it here, and goes home', async () => {

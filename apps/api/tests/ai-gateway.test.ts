@@ -8,7 +8,7 @@ import { pgArray, withSystemScope } from '#db/scoped/index'
 import { upsertStoreAiAccount } from '#db/scoped/storeAiAccount'
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { chatInput, createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
+import { chatInput, createAiGateway, designerAiFor, GatewayRefused, type ChatInput } from '#saas/aiGateway/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -53,7 +53,16 @@ const fake = (provider: GatewayProvider, key: string): ChatProvider => ({
 
 const input = (o: Partial<ChatInput> = {}): ChatInput => ({ provider: 'anthropic', model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'Explain Lambda.' }], maxTokens: 100, stream: false, ...o })
 
-const gateway = async (storeId = t.storeA1, partnerId = t.partnerA) =>
+const chatStream = () => {
+  const chunks = [
+    { choices: [{ delta: { content: 'hel' }, finish_reason: null }] },
+    { choices: [{ delta: { content: 'lo' }, finish_reason: 'stop' }] },
+    { choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } },
+  ]
+  return new Response(`${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('')}data: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } })
+}
+
+const gateway = async (storeId = t.storeA1, partnerId = t.partnerA, fetcher?: typeof fetch) =>
   createAiGateway({
     sql: db.sql,
     context: { caller: { kind: 'api-key', keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' },
@@ -61,6 +70,7 @@ const gateway = async (storeId = t.storeA1, partnerId = t.partnerA) =>
     fallbackKey: undefined,
     actor: { keyId: null, userId: null },
     adapters: (provider, key) => fake(provider, key),
+    ...(fetcher ? { executor: { fetch: fetcher } } : {}),
     now: () => now,
     sleep: () => Promise.resolve(),
   })
@@ -110,14 +120,6 @@ afterAll(async () => {
 
 describe("the studio's model", () => {
   const sent: { url: string; headers: Record<string, string>; body: { model: string; messages: { role: string; content: unknown }[] } }[] = []
-  const chatStream = () => {
-    const chunks = [
-      { choices: [{ delta: { content: 'hel' }, finish_reason: null }] },
-      { choices: [{ delta: { content: 'lo' }, finish_reason: 'stop' }] },
-      { choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } },
-    ]
-    return new Response(`${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('')}data: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } })
-  }
   const standIn = (async (url: string, init: RequestInit) => {
     sent.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) })
     return chatStream()
@@ -382,9 +384,10 @@ describe('/api/v1 over a store key', () => {
     expect(refused.status).toBe(429)
     expect(refused.headers.get('content-type')).toContain('application/json')
     expect(await refused.json()).toEqual({ error: { code: 'AI_BUDGET_REACHED' } })
-    expect((await call(key, post({ ...input({ stream: true }), model: 'nope' }))).status).toBe(404)
 
     await entitle(t.storeA1, 1, 5)
+    // The model is checked against the key that would run it, so after who pays (SAAS.md §9.3).
+    expect((await call(key, post({ ...input({ stream: true }), model: 'nope' }))).status).toBe(404)
     const ok = await call(key, post(input({ stream: true })))
     expect(ok.status).toBe(200)
     expect(ok.headers.get('content-type')).toBe('text/event-stream')
@@ -392,5 +395,90 @@ describe('/api/v1 over a store key', () => {
     expect(text).toContain('event: text')
     expect(text).toContain('event: end')
     expect(text).not.toContain('event: error')
+  })
+})
+
+describe("a DeepInfra key's own models, read on every call (SAAS.md §9.3)", () => {
+  const partnerDi = 'sk-di-PARTNERDEEPINFRAPARTNERDEEPINFRA'
+  const storeDi = 'sk-di-STOREDEEPINFRASTOREDEEPINFRA'
+  const glm = 'zai-org/GLM-4.6'
+  const kimi = 'moonshotai/Kimi-K2.6'
+  const models = 'https://api.deepinfra.com/v1/openai/models'
+  let listed = [glm, kimi]
+  let dollarsPerMillion = { input_tokens: 0.5, output_tokens: 2 }
+  const sent: { url: string; body: { model?: string; max_completion_tokens?: number } | null }[] = []
+  const fetcher = (async (url: string, init: RequestInit) => {
+    sent.push({ url, body: init.body ? JSON.parse(String(init.body)) : null })
+    if (url === models) return new Response(JSON.stringify({ data: listed.map((id) => ({ id, metadata: { tags: ['chat'], max_tokens: 16_000, pricing: dollarsPerMillion } })) }))
+    if (url.startsWith('https://api.anthropic.com/')) return new Response('{}', { status: 503 })
+    return chatStream()
+  }) as unknown as typeof fetch
+  const deps = async () => ({ sql: db.sql, context: { caller: { kind: 'api-key' as const, keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }, secrets: await secretBox(kek), fallbackKey: undefined, adapters: (provider: GatewayProvider, key: string) => fake(provider, key), executor: { fetch: fetcher }, sleep: () => Promise.resolve() })
+  const costOfRun = async (model: string) => Number((await db.sql<{ cost_amount: string }[]>`select cost_amount from ai_run where store_id = ${t.storeA1} and kind = 'gateway' and model = ${model}`)[0]?.cost_amount)
+
+  it('runs a listed model on /api/v1 with nothing listed before, sized and priced from the list', async () => {
+    await entitle(t.storeA1, 1, 5)
+    await partnerProfile(t.partnerA, 'openai', partnerDi)
+    sent.length = 0
+    calls.length = 0
+    plan = [() => Promise.resolve({ ...answer(), model: glm, usage: { tokensIn: 1_000_000, tokensOut: 1_000_000 } })]
+    const r = await (await gateway(t.storeA1, t.partnerA, fetcher)).complete({ ...input({ provider: 'openai', model: glm }), maxTokens: undefined })
+    expect(r).toMatchObject({ ok: true, billed: 'plan' })
+    expect(sent.map((s) => s.url)).toEqual([models])
+    expect(calls[0]).toMatchObject({ key: partnerDi, request: { model: glm, maxTokens: 16_000 } })
+    expect(await costOfRun(glm)).toBe(250)
+  })
+
+  it("refuses on /api/v1 a model the key doesn't list, a built-in one included, before a prompt is taken", async () => {
+    calls.length = 0
+    const g = await gateway(t.storeA1, t.partnerA, fetcher)
+    expect(await g.complete(input({ provider: 'openai', model: 'zai-org/GLM-9' }))).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
+    expect(await g.complete(input({ provider: 'openai', model: 'gpt-5' }))).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
+    expect(await g.complete(input({ provider: 'openai', model: glm, maxTokens: 16_001 }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    await expect(g.stream(input({ provider: 'openai', model: 'zai-org/GLM-9', stream: true })).next()).rejects.toEqual(new GatewayRefused('MODEL_NOT_FOUND'))
+    expect(calls).toHaveLength(0)
+    const [used] = await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    expect(used?.used).toBe(1)
+  })
+
+  it("runs the studio on a listed model with nothing listed before, priced from the list", async () => {
+    dollarsPerMillion = { input_tokens: 100_000, output_tokens: 200_000 }
+    sent.length = 0
+    const done = await (await designerAiFor(await deps(), 'plan'))?.complete({ system: 's', text: 't', images: [] })
+    expect(done).toMatchObject({ model: expect.any(String), tokensIn: 10, tokensOut: 5, costAmount: 200 })
+    expect(sent.map((s) => s.url)).toEqual([models, 'https://api.deepinfra.com/v1/openai/chat/completions'])
+    expect(sent[1]?.body).toMatchObject({ model: glm, max_completion_tokens: 16_000 })
+    dollarsPerMillion = { input_tokens: 0.5, output_tokens: 2 }
+  })
+
+  it('lets no other key use a model a DeepInfra key listed, on /api/v1 or in the studio', async () => {
+    await partnerProfile(t.partnerA, 'openai', 'sk-proj-PARTNEROPENAIPARTNEROPENAI')
+    sent.length = 0
+    expect(await (await gateway(t.storeA1, t.partnerA, fetcher)).complete(input({ provider: 'openai', model: glm }))).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
+    expect(await designerAiFor(await deps(), 'plan', glm)).toBeNull()
+    expect(sent).toHaveLength(0)
+  })
+
+  it("falls back to a DeepInfra account on its preferred model if listed, else its first, and skips one listing none", async () => {
+    await partnerProfile(t.partnerA, 'anthropic', partnerKey)
+    const sealed = await (await secretBox(kek)).seal(storeDi)
+    await withSystemScope(db.sql, (tx) => upsertStoreAiAccount(tx, { storeId: t.storeA1, provider: 'openai', keyEnc: sealed, keyPrefix: 'sk-di-…', status: 'ok', testedAt: now, connectedBy: 'test', at: now }))
+    await db.sql`update store_ai_account set fallback_authorized = true, preferred_model = null where store_id = ${t.storeA1}`
+    const chatSent = () => sent.filter((s) => s.url === 'https://api.deepinfra.com/v1/openai/chat/completions').map((s) => s.body?.model)
+
+    sent.length = 0
+    expect(await (await designerAiFor(await deps(), 'plan'))?.complete({ system: 's', text: 't', images: [] })).toMatchObject({ text: 'hello' })
+    expect(chatSent()).toEqual([glm])
+
+    await db.sql`update store_ai_account set preferred_model = ${kimi} where store_id = ${t.storeA1}`
+    sent.length = 0
+    await (await designerAiFor(await deps(), 'plan'))?.complete({ system: 's', text: 't', images: [] })
+    expect(chatSent()).toEqual([kimi])
+
+    listed = []
+    sent.length = 0
+    await expect((await designerAiFor(await deps(), 'plan'))?.complete({ system: 's', text: 't', images: [] })).rejects.toBeInstanceOf(GatewayError)
+    expect(chatSent()).toEqual([])
+    listed = [glm, kimi]
   })
 })

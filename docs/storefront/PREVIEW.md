@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -68,8 +68,7 @@ The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these step
 
 | Path | Holds | Why |
 |---|---|---|
-| `storefront-sites`: `stores/{id}/preview/{change id}/` | One folder per accepted change: `index.html` and the theme's own chunks | A folder per change makes undo and "back to the previous draft" a pointer move. |
-| `storefront-assets`: `core/{version}/` | React, core and the allowed libraries for each core version, built once per release | Shared by every store, so a store's preview upload is only its theme, about 100–300 KB. |
+| `storefront-sites`: `stores/{id}/preview/{change id}/` | One folder per accepted change: `index.html`, the theme's own chunks and core's runtime under `assets/core/` (React, core and the allowed libraries, about 1.1 MB) | A folder per change makes undo and "back to the previous draft" a pointer move. The runtime is copied into each folder (decided 2026-11-13): the edge Worker serves a preview from its folder alone, and nothing hosted a shared copy, so previews were blank. |
 | `design_draft.preview_deploy_ref` (Postgres, DATA-MODEL §7) | Which change folder the preview link shows | The pointer is state the studio shows, kept beside the draft it belongs to. |
 
 - Preview folders are deleted once a publish has made the draft live, except the current one.
@@ -199,7 +198,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.
-5. **`/shop-api/*` goes to the API Worker only after the full re-check of step 4** (the slug
+5. **`/shop-api/*` goes to the API Worker (its placed default `fetch`, #1292) only after the full re-check of step 4** (the slug
    isn't secret, so the hostname alone opens nothing: no test-mode cart or checkout either). The
    API Worker finds the store from the slug in the hostname
    ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.

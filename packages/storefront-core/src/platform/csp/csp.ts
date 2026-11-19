@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { googleFontsCss, googleFontsFiles } from '../../guard/fonts.js'
 
 // The CSP of storefront ARCHITECTURE §3.5: built per store from hashes, never a nonce, written into the
 // build's manifest and sent as headers by the edge Worker (LIVE-SHOP §4 step 8, §5 step 5; PREVIEW §5 step 4).
@@ -78,8 +79,8 @@ const directives = (list: [name: string, sources: readonly string[]][]) =>
 /** The built pages with the address form, the only ones that may frame "Pin on map" (ARCHITECTURE §3.5). */
 export const isMapsPage = (path: string): boolean => /^(?:checkout|account)\//.test(path)
 
-/** The CSP header for a store's live site and its preview link; `page` is the built file's path. */
-export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): string => {
+/** The CSP header for a store's live site and its preview link; `page` is the built file's path, `fonts` whether theme.css lists Google fonts. */
+export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = '', fonts = false): string => {
   const p = storeCspSchema.parse(input)
   const from = (key: keyof Hosts) => [...p.analytics.flatMap((a) => analyticsHosts[a][key] ?? []), ...p.payments.flatMap((k) => paymentHosts[k][key] ?? [])]
   const build = ["'self'", ...(p.assetOrigin ? [p.assetOrigin] : [])]
@@ -87,8 +88,9 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): stri
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
-    ['style-src', [...build, ...hashes.styles]],
-    ['font-src', build],
+    // Google's hosts only for a theme that lists a family, so no other store's shoppers reach Google (ARCHITECTURE §3.5).
+    ['style-src', [...build, ...hashes.styles, ...(fonts ? [googleFontsCss] : [])]],
+    ['font-src', [...build, ...(fonts ? [googleFontsFiles] : [])]],
     // The asset host too: a theme's CSS url(media/…) names its image beside the stylesheet there (#1405).
     ['img-src', [...build, ...p.mediaOrigins, ...from('img')]],
     ['media-src', ["'self'", ...p.mediaOrigins]],
@@ -109,8 +111,8 @@ export const studioCsp = (input: StudioCsp, { styles }: Pick<InlineHashes, 'styl
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', ["'self'"]],
-    ['style-src', ["'self'", ...styles]],
-    ['font-src', ["'self'"]],
+    ['style-src', ["'self'", ...styles, googleFontsCss]],
+    ['font-src', ["'self'", googleFontsFiles]],
     ['connect-src', ["'self'"]],
     ['img-src', ["'self'", p.mediaOrigin]],
     ['media-src', ["'self'", p.mediaOrigin]],

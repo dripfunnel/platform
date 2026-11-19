@@ -179,6 +179,16 @@
   font-family: var(--df-font);
 }
 
+.df-dialog--wide {
+  box-sizing: border-box;
+  width: min(100% - 2 * var(--df-space-4), 720px);
+}
+
+.df-dialog .df-field :is(input, select) {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .df-dialog::backdrop {
   background: var(--df-color-backdrop);
 }
@@ -191,6 +201,10 @@
   display: grid;
   gap: var(--df-space-1);
   margin-bottom: var(--df-space-6);
+}
+
+.df-dialog-body--spaced {
+  padding-top: var(--df-space-3);
 }
 
 .df-dialog-body p {
@@ -242,6 +256,45 @@
   background: var(--df-color-surface);
   color: var(--df-color-text);
   font: inherit;
+}
+
+.df-choice-set {
+  min-width: 0;
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+}
+
+.df-choice-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--df-space-3);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  cursor: pointer;
+}
+
+.df-choice-card:has(input:checked) {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-choice-card:has(input:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-choice-card > span {
+  display: grid;
+  gap: var(--df-space-1);
+}
+
+.df-field .df-choice-card input {
+  height: auto;
+  margin: 2px 0 0;
 }
 
 .df-field input:focus-visible,

@@ -47,6 +47,7 @@ import { Route as AppProductsImportRouteImport } from './routes/_app/products_.i
 import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
 import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
 import { Route as AppSettingsPaymentsRouteImport } from './routes/_app/settings_.payments'
+import { Route as AppCartsWishlistCustomerIdRouteImport } from './routes/_app/carts_.wishlist.$customerId'
 import { Route as AppOffersOfferIdEditRouteImport } from './routes/_app/offers_.$offerId_.edit'
 import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
@@ -238,6 +239,12 @@ const AppSettingsPaymentsRoute = AppSettingsPaymentsRouteImport.update({
   path: '/settings/payments',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCartsWishlistCustomerIdRoute =
+  AppCartsWishlistCustomerIdRouteImport.update({
+    id: '/carts_/wishlist/$customerId',
+    path: '/carts/wishlist/$customerId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppOffersOfferIdEditRoute = AppOffersOfferIdEditRouteImport.update({
   id: '/offers_/$offerId_/edit',
   path: '/offers/$offerId/edit',
@@ -287,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/settings/payments': typeof AppSettingsPaymentsRoute
+  '/carts/wishlist/$customerId': typeof AppCartsWishlistCustomerIdRoute
   '/offers/$offerId/edit': typeof AppOffersOfferIdEditRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
@@ -327,6 +335,7 @@ export interface FileRoutesByTo {
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/settings/payments': typeof AppSettingsPaymentsRoute
+  '/carts/wishlist/$customerId': typeof AppCartsWishlistCustomerIdRoute
   '/offers/$offerId/edit': typeof AppOffersOfferIdEditRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
@@ -370,6 +379,7 @@ export interface FileRoutesById {
   '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
   '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
   '/_app/settings_/payments': typeof AppSettingsPaymentsRoute
+  '/_app/carts_/wishlist/$customerId': typeof AppCartsWishlistCustomerIdRoute
   '/_app/offers_/$offerId_/edit': typeof AppOffersOfferIdEditRoute
   '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
@@ -412,6 +422,7 @@ export interface FileRouteTypes {
     | '/products/size-charts'
     | '/products/warehouses'
     | '/settings/payments'
+    | '/carts/wishlist/$customerId'
     | '/offers/$offerId/edit'
     | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
@@ -452,6 +463,7 @@ export interface FileRouteTypes {
     | '/products/size-charts'
     | '/products/warehouses'
     | '/settings/payments'
+    | '/carts/wishlist/$customerId'
     | '/offers/$offerId/edit'
     | '/products/$productId/story'
   id:
@@ -494,6 +506,7 @@ export interface FileRouteTypes {
     | '/_app/products_/size-charts'
     | '/_app/products_/warehouses'
     | '/_app/settings_/payments'
+    | '/_app/carts_/wishlist/$customerId'
     | '/_app/offers_/$offerId_/edit'
     | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
@@ -775,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPaymentsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/carts_/wishlist/$customerId': {
+      id: '/_app/carts_/wishlist/$customerId'
+      path: '/carts/wishlist/$customerId'
+      fullPath: '/carts/wishlist/$customerId'
+      preLoaderRoute: typeof AppCartsWishlistCustomerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/offers_/$offerId_/edit': {
       id: '/_app/offers_/$offerId_/edit'
       path: '/offers/$offerId/edit'
@@ -819,6 +839,7 @@ interface AppRouteChildren {
   AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
   AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
   AppSettingsPaymentsRoute: typeof AppSettingsPaymentsRoute
+  AppCartsWishlistCustomerIdRoute: typeof AppCartsWishlistCustomerIdRoute
   AppOffersOfferIdEditRoute: typeof AppOffersOfferIdEditRoute
   AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
@@ -850,6 +871,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,
   AppProductsWarehousesRoute: AppProductsWarehousesRoute,
   AppSettingsPaymentsRoute: AppSettingsPaymentsRoute,
+  AppCartsWishlistCustomerIdRoute: AppCartsWishlistCustomerIdRoute,
   AppOffersOfferIdEditRoute: AppOffersOfferIdEditRoute,
   AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }

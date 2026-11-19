@@ -11,6 +11,7 @@ import { storeActivityFor } from '#auth/storeSupport'
 import { withSystemScope } from '#db/scoped/index'
 import { storeSchema } from '#apis/store/schema'
 import { activityLog } from '#saas/activity/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { apiKeyAudit } from '#saas/apiKeys/index'
@@ -256,7 +257,7 @@ describe('ending', () => {
     const staff = await enter('tok-out')
     const response = await handleStoreAuth(
       new Request(`https://${hosts.a}/api/auth/sign-out`, { method: 'POST', headers: { origin: `https://${hosts.a}`, 'cf-connecting-ip': '203.0.113.7', cookie: `${staffCookieName}=${staff}` } }),
-      { sql: db.sql, activity: activityLog, partnerId: t.partnerA, host: hosts.a, secrets: null, now: () => clock, allowAttempt: async () => true },
+      { sql: db.sql, activity: activityLog, partnerId: t.partnerA, host: hosts.a, secrets: null, now: () => clock, allowAttempt: async () => true, codeChannels: testCodeChannels },
     )
     expect(response.headers.get('set-cookie')).toContain(`${staffCookieName}=;`)
     expect((await currentOf(staff)).session).toMatchObject({ state: 'ended', endedBy: 'portal' })

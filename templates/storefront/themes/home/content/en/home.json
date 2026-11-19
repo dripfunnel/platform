@@ -1,0 +1,68 @@
+{
+  "hero": {
+    "eyebrow": "Welcome",
+    "title": "Pieces for",
+    "accent": "every room",
+    "lead": "Find pieces for every corner of your home.",
+    "shop": "Shop the home",
+    "newest": "See what's new",
+    "alt": "Warm afternoon light across a desk with a white lamp, a vase of dried grasses and a glass bottle"
+  },
+  "rooms": {
+    "eyebrow": "Browse",
+    "title": "Shop by collection",
+    "explore": "Explore",
+    "all": "Shop all"
+  },
+  "newest": {
+    "eyebrow": "Just arrived",
+    "title": "New in the home",
+    "all": "See all new pieces"
+  },
+  "story": {
+    "eyebrow": "Our story",
+    "title": "The story behind",
+    "accent": "our pieces",
+    "body": "Tell shoppers what goes into your pieces: the materials you choose, who makes them, and how to look after them so they last.",
+    "more": "Read our story",
+    "bedAlt": "A low bed with white and mustard cushions, a linen throw and a woven basket",
+    "vaseAlt": "A round white stoneware vase on a marble stand",
+    "lampAlt": "A white table lamp and a vase on a bedside table"
+  },
+  "quote": {
+    "eyebrow": "At home",
+    "text": "A home comes together one piece at a time."
+  },
+  "promises": {
+    "label": "Shopping with us",
+    "secure": {
+      "title": "Secure checkout",
+      "body": "Checkout over an encrypted connection."
+    },
+    "track": {
+      "title": "Track your order",
+      "body": "Follow each order from your account."
+    },
+    "save": {
+      "title": "Save what you love",
+      "body": "Keep a wishlist for the rooms you're planning."
+    }
+  },
+  "banner": {
+    "eyebrow": "Browse",
+    "title": "Browse everything",
+    "body": "See every product in the shop, all in one place.",
+    "action": "Shop all",
+    "alt": "A bright living room with an olive velvet sofa, a wooden cabinet and a writing desk by the window"
+  },
+  "signup": {
+    "title": "Keep track of your orders",
+    "body": "Create an account to save pieces you love, follow your orders and check out faster.",
+    "action": "Create an account"
+  },
+  "picks": {
+    "eyebrow": "Keep browsing",
+    "title": "More for the home",
+    "all": "Shop all"
+  }
+}

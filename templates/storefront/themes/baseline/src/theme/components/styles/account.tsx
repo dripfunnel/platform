@@ -29,6 +29,7 @@ export const account = {
   navOn: clsx('bg-soft text-ink'),
   note: clsx('m-0 text-ink-soft text-[14px]'),
   order: clsx('p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface text-ink no-underline hover:border-ink-soft focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
+  orderRow: clsx('p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface'),
   orderFacts: clsx('flex min-w-0 flex-col gap-y-1 gap-x-1'),
   orderPill: clsx('group-[:nth-child(n)]/account-orders:self-end'),
   orderState: clsx('flex min-w-0 flex-col shrink-0 items-end gap-y-1.5 gap-x-1.5 text-[14px]'),

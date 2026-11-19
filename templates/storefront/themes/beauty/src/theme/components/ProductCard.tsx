@@ -1,0 +1,60 @@
+import { Image, Link, Price, useStorefront, type ProductCard as Card } from '@dripfunnel/storefront-core/theme'
+import { shop as styles } from './styles/shop'
+
+export const ProductCard = ({ product }: { product: Card }) => {
+  const { store, locale, t } = useStorefront()
+  return (
+    <article className={styles.card}>
+      <Link href={product.href} className={styles.cardLink}>
+        <div className={styles.cardPicture}>
+          {product.photo ? <Image image={product.photo} alt={product.photo.alt ?? product.name} ratio={1} sizes="(min-width: 900px) 25vw, 50vw" className={styles.cardImage} /> : <span className={styles.noPicture}>{t('shop.card.noPicture')}</span>}
+          {product.badges[0] ? <span className={styles.badge}>{product.badges[0].label}</span> : null}
+          {product.stock.inStock ? null : <span className={styles.soldOut}>{t('shop.card.soldOut')}</span>}
+          <span className={styles.cardView} aria-hidden="true">
+            {t('shop.card.view')}
+          </span>
+        </div>
+        <h3 className={styles.cardName}>{product.name}</h3>
+      </Link>
+      {product.price ? (
+        <p className={styles.cardPrice}>
+          {product.from ? <span className={styles.from}>{t('shop.card.from')}</span> : null}
+          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />
+        </p>
+      ) : null}
+    </article>
+  )
+}
+
+/** `placeholders`: that many cells shaped like the placeholder's, after the products, while more load. */
+export const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (
+  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>
+    {products.map((p) => (
+      <li key={p.id} className={styles.cell}>
+        <ProductCard product={p} />
+      </li>
+    ))}
+    {[...Array(placeholders).keys()].map((i) => (
+      <li key={i} className={styles.cell}>
+        <div className={styles.skeletonCard}>
+          <div className={styles.skeletonPicture} />
+          <div className={styles.skeletonLine} />
+        </div>
+      </li>
+    ))}
+  </ul>
+)
+
+/** The grid's shape while its products load, so nothing moves when they arrive. */
+export const GridPlaceholder = ({ label, count, wide = false }: { label: string; count: number; wide?: boolean }) => (
+  <ul className={wide ? styles.gridWide : styles.grid} aria-busy="true" aria-label={label}>
+    {[...Array(count).keys()].map((i) => (
+      <li key={i} className={styles.cell}>
+        <div className={styles.skeletonCard}>
+          <div className={styles.skeletonPicture} />
+          <div className={styles.skeletonLine} />
+        </div>
+      </li>
+    ))}
+  </ul>
+)

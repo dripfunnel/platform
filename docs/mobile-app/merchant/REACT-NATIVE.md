@@ -12,7 +12,7 @@ How builds, partners and store accounts work is in
 
 **Status: the project is set up (#496), its foundations are built (#497: the API client, formatting on Hermes, messages and the partner's look) and so are getting in and My profile (#498), the shell (#499), Products (#500), Collections (#501) and Import & export (#505).** The other screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-11-02 (#1008: no Owner is held at `enrol`, §sign-in). Before: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-11-16 (#1509: built, the two-step screen and My profile's phone set-up say where the code went and offer "Send again on WhatsApp" and "Send by SMS instead" after 20 seconds, §5.1). Before: 2026-11-16 (a 2-factor code arrives by WhatsApp first; "Send by SMS instead" comes on #1509, §5.1). Before: 2026-11-02 (#1008: no Owner is held at `enrol`, §sign-in). Before: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -160,6 +160,18 @@ loading the partner's look don't.
   sign-in with the session as `token` in the body. A password opens a *pending* session when the person has a
   second factor or an Owner has none yet; the pending token is held in memory only, so an app that is killed
   there wakes up signed out.
+- **The 2-factor code arrives by WhatsApp first** while the partner's WhatsApp is on (decided 2026-11-16, ACCESS.md §4;
+  #1506). Built on #1509, as the web portal's (#1507): the two-step screen and My profile's phone set-up say where the
+  code went ("We sent a code to WhatsApp on •••• 1234", "Sent by SMS to •••• 1234", never the number) and, after
+  **20 seconds**, offer **Send again on WhatsApp** and, only while the answer's `codeChannels.sms` is open, **Send by
+  SMS instead**. The countdown is not read out each second: its start and its end are announced once each, queued
+  behind what a screen reader is saying. `TOO_SOON` waits the `seconds` the API gives; `CHANNEL_OFF` drops that link
+  and says to use the other, or, with neither left, a backup code (sign-in) or the authenticator app (My profile); no
+  answer says to check the connection and keeps the links. A resend in My profile sends the password again, as every
+  start needs it. With neither channel open for the person's number, My profile offers only the authenticator app,
+  and a phone-method person reads that phone codes are paused. With the partner's WhatsApp and SMS both off the
+  server answers `done` for a phone-method person, so the app opens the session as for no 2-factor. The set-up a
+  team requiring 2-factor holds people at (`EnrolScreen`) is unchanged (#1509: that requirement isn't built).
 - **Where the token lives.** Only a full session is saved, with the last store, in Expo SecureStore
   (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), keyed by the portal host. Sign-out and an answer of `UNAUTHENTICATED` wipe
   both. If the keystore fails or gives no answer in 5 s, the app treats that as no saved session and a failed
@@ -167,7 +179,7 @@ loading the partner's look don't.
   that cannot remove the token tries twice, then marks the device signed out in AsyncStorage, so the next start
   does not use the token it left behind and tries the removal again; a new sign-in replaces it and clears the mark.
 - **After the password:** `done` opens the session; `second-factor` asks for the code (an authenticator app's,
-  or a text sent as the step opens), a backup code stands in for it; `enrol` holds a session at set-up by text
+  or one sent to the phone as the step opens), a backup code stands in for it; `enrol` holds a session at set-up by text
   message, then shows the ten backup codes once before the session opens; no Owner is held there since #1008
   (2-factor is optional), so it serves only a team that requires it (ACCESS.md §14.4).
 - **The stores.** `myStores` after sign-in: none is refused ("This account doesn't belong to a store here"),

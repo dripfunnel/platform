@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { SmsRefused, smsTimeoutMs, SmsUnavailable, type SmsSender } from '#core/sms'
+import { SmsRefused, smsTimeoutMs, SmsUnavailable, type SmsAccountCheck, type SmsSender } from '#core/sms'
 
-// A partner's own Twilio account (THIRD-PARTY-ACCESS §2.8, §8.3) through the Messages API,
-// sending from its Messaging Service, which holds the partner's numbers and sender name.
+// DripFunnel's or a partner's own Twilio account (THIRD-PARTY-ACCESS §2.8, §8.3) through the Messages API,
+// sending from its Messaging Service, which holds the account's numbers and sender name.
 
 export interface TwilioCredentials {
   accountSid: string
@@ -41,3 +41,19 @@ export const twilioSender = ({ accountSid, authToken, messagingServiceSid, fetch
     return { providerId: sent.success ? sent.data.sid : 'unknown' }
   },
 })
+
+/** Whether the SID and token open the account and its Messaging Service, by reading the service: nothing is sent (#1017). */
+export const checkTwilioAccount = async ({ accountSid, authToken, messagingServiceSid, fetchImpl = fetch }: TwilioCredentials & { fetchImpl?: typeof fetch }): Promise<SmsAccountCheck> => {
+  let response: Response
+  try {
+    response = await fetchImpl(`https://messaging.twilio.com/v1/Services/${encodeURIComponent(messagingServiceSid)}`, {
+      headers: { authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`, accept: 'application/json' },
+      signal: AbortSignal.timeout(smsTimeoutMs),
+    })
+  } catch {
+    return 'unavailable'
+  }
+  // 404: the service isn't this account's, so its texts would fail too.
+  if (response.status === 401 || response.status === 403 || response.status === 404) return 'rejected'
+  return response.ok ? 'ok' : 'unavailable'
+}

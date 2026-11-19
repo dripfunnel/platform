@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addressDraft } from '../../checkout/checkout'
 import type { AddressDraft } from '../../checkout/address'
 import { createI18n } from '../../platform/i18n/i18n'
-import { AddressFields, PhoneField } from './form'
+import { AddressFields, PhoneField, TextField } from './form'
 
 const { t } = createI18n('en-US')
 afterEach(cleanup)
@@ -18,18 +18,18 @@ const Fields = ({ start, errors = {} }: { start: AddressDraft; errors?: Paramete
 describe('AddressFields', () => {
   it('asks for a country when none is chosen, and says so when it is missing', () => {
     render(<Fields start={addressDraft(null, '')} errors={{ country: 'required' }} />)
-    const select = screen.getByLabelText('Country') as HTMLSelectElement
+    const select = screen.getByLabelText('Country *') as HTMLSelectElement
     expect(select.value).toBe('')
     expect([...select.options].map((o) => o.textContent)).toEqual(['Choose a country', 'United States', 'India'])
     expect(screen.getByRole('alert').textContent).toBe('Fill this in.')
     fireEvent.change(select, { target: { value: 'IN' } })
-    expect(screen.getByLabelText('PIN code')).toBeTruthy()
+    expect(screen.getByLabelText('PIN code *')).toBeTruthy()
     expect([...select.options].map((o) => o.value)).toEqual(['US', 'IN'])
   })
 
   it('names the fields each country needs, and which are optional', () => {
     render(<Fields start={addressDraft(null, 'US')} />)
-    expect(screen.getByLabelText('ZIP code')).toBeTruthy()
+    expect(screen.getByLabelText('ZIP code *')).toBeTruthy()
     expect(screen.getByText('Apartment, floor, landmark').parentElement?.textContent).toContain('Optional')
   })
 })
@@ -41,6 +41,24 @@ const Phone = ({ start, country, seen }: { start: string; country: string; seen:
         setValue(v)
       }} />
 }
+
+describe('autoFocus', () => {
+  it('moves focus into a text field and a phone field when they appear, and only when asked', () => {
+    const none = render(
+      <>
+        <TextField label="Code" value="" onChange={() => undefined} />
+        <PhoneField label="Number" value="" onChange={() => undefined} country="IN" codeLabel="Country code" locale="en-IN" />
+      </>,
+    )
+    expect(document.activeElement).toBe(document.body)
+    none.unmount()
+    const text = render(<TextField label="Code" value="" onChange={() => undefined} autoFocus />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Code'))
+    text.unmount()
+    render(<PhoneField label="Number" value="" onChange={() => undefined} country="IN" codeLabel="Country code" locale="en-IN" autoFocus />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Number'))
+  })
+})
 
 describe('PhoneField', () => {
   it('starts in the given country and hands back the number with its code', () => {

@@ -137,8 +137,9 @@ const isApiPath = (pathname: string) => pathname === '/app/delivery.apk' || ['/s
 
 /** Every answer on a store's host names the build it came from, or `none` (LIVE-SHOP §4 step 10): the checks know it's ours. */
 export const serveLive = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
-  // The Worker judges both, the Delivery API answering only on the store's free address (DELIVERY §4).
-  if (isApiPath(url.pathname)) return deps.edge.fetch(request)
+  // The Worker judges both, the Delivery API answering only on the store's free address (DELIVERY §4). They go to its default fetch, which
+  // Cloudflare places next to the database, so a call's many queries stay in one region (#1292, ARCHITECTURE §6).
+  if (isApiPath(url.pathname)) return deps.api.fetch(request)
   const answer = await serveStore(request, url, store, deps)
   if (answer.headers.get('x-df-build')) return answer
   const headers = new Headers(answer.headers)

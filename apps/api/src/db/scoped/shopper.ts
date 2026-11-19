@@ -113,6 +113,10 @@ export const proveShopper = async (tx: ScopedSql, id: string, channel: 'email' |
   `
 }
 
+/** The proven number as the account's own, verified now; false when the account isn't an active one of this store. */
+export const setShopperPhone = async (tx: ScopedSql, storeId: string, id: string, phone: string, now: Date): Promise<boolean> =>
+  (await tx`update customer set phone = ${phone}, phone_verified_at = ${now} where id = ${id} and store_id = ${storeId} and status = 'active'`).count > 0
+
 /** The store's placed guest orders with any of the account's verified emails or numbers become its account's; their ids. A preview's test order isn't a sale. */
 export const linkGuestOrders = async (tx: ScopedSql, storeId: string, customerId: string): Promise<string[]> => {
   const linked = await tx<{ id: string }[]>`

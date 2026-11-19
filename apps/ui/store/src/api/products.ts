@@ -74,12 +74,12 @@ export const loadProducts = async (q: ProductQuery, cursor: { after?: string | n
   return { rows: products.nodes, next: products.pageInfo.hasNextPage ? products.pageInfo.endCursor : null, previous: products.pageInfo.hasPreviousPage ? products.pageInfo.startCursor : null }
 }
 
-const countsSchema = z.object({ all: z.number(), visible: z.number(), hidden: z.number(), pending: z.number(), sentBack: z.number(), lowStock: z.number(), missingInfo: z.number(), fromSuppliers: z.number(), outOfStock: z.number() })
+const countsSchema = z.object({ all: z.number(), visible: z.number(), hidden: z.number(), pending: z.number(), sentBack: z.number(), lowStock: z.number(), missingInfo: z.number(), fromSuppliers: z.number(), outOfStock: z.number(), versions: z.number(), hiddenVersions: z.number() })
 
 export type ProductCounts = z.infer<typeof countsSchema>
 
 export const loadProductCounts = async (): Promise<ProductCounts> =>
-  (await query('{ productCounts { all visible hidden pending sentBack lowStock missingInfo fromSuppliers outOfStock } }', z.object({ productCounts: countsSchema }))).productCounts
+  (await query('{ productCounts { all visible hidden pending sentBack lowStock missingInfo fromSuppliers outOfStock versions hiddenVersions } }', z.object({ productCounts: countsSchema }))).productCounts
 
 const named = z.object({ id: z.string(), name: z.string() })
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
@@ -115,6 +115,10 @@ export const setProductsVisible = async (ids: string[], visible: boolean): Promi
 
 export const deleteProducts = async (ids: string[]): Promise<number> =>
   (await query('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', z.object({ deleteProducts: z.number() }), { ids })).deleteProducts
+
+/** A hidden copy named "Copy of …", with no stock; the copy's id. */
+export const duplicateProduct = async (id: string): Promise<string> =>
+  (await query('mutation D($id: ID!) { duplicateProduct(id: $id) { id } }', z.object({ duplicateProduct: z.object({ id: z.string() }) }), { id })).duplicateProduct.id
 
 export const addToCollection = async (collectionId: string, productIds: string[]): Promise<number> =>
   (await query('mutation A($c: ID!, $p: [ID!]!) { addProductsToCollection(collectionId: $c, productIds: $p) }', z.object({ addProductsToCollection: z.number() }), { c: collectionId, p: productIds })).addProductsToCollection

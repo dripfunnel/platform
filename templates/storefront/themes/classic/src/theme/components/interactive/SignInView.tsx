@@ -50,6 +50,15 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
     )
   }
 
+  // The store's setting isn't known until it answers: no tabs or fields yet, so the form is drawn once, from the setting, and never jumps (#1490).
+  if (!s.waysKnown) {
+    return (
+      <section className={styles.auth} aria-busy="true">
+        <h1 className={styles.title}>{title}</h1>
+      </section>
+    )
+  }
+
   // Sign-in and create account offer the ways the store turned on; a code to a number makes the account, with no password.
   const byPhone = purpose !== 'reset' && (channel === 'phone' || !s.ways.email)
   const tabs = purpose !== 'reset' && s.ways.email && s.ways.phone

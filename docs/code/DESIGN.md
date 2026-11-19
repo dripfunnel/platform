@@ -95,3 +95,10 @@ commitment under semver (ARCHITECTURE §5).
 - A change to `storefront-core` has a changeset stating the bump and why.
 - No new dependency without a reason in the pull request, and never one that duplicates an
   existing dependency's job.
+
+### Dependency overrides
+
+A vulnerable package is fixed by bumping the direct dependency that pulls it in. An entry in
+`pnpm-workspace.yaml` `overrides` is used only when no fixed parent exists, carries a one-line
+reason naming the advisory, and is removed once its parent catches up. Advisories that no release fixes yet are tracked on
+the card that found them, not here.

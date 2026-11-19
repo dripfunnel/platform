@@ -1,19 +1,32 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, join, normalize } from 'node:path'
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join, normalize, sep } from 'node:path'
 import { applyCodemods, baselineWithOwn, changesBetween, mediaFolder, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder, type ClientBundle } from './gate/bundle'
 import { WarmGate, type GateProblem, type Lane, type ThemeImages } from './gate/index'
 import { imageThemeFiles } from './gate/media'
 import { laneOf } from './gate/lanes'
-import { gitIn, type Git } from './git'
-import { isRepoPath, isRefreshedPath, isThemePath } from './paths'
+import { pagePicture, type Device, type Picture } from './gate/picture'
+import { gitBytesIn, gitIn, type Git } from './git'
+import { isRepoPath, isRefreshedPath, isThemeMediaPath, isThemePath } from './paths'
 
 /** One file the model's diff writes, or removes when `content` is null (storefront AI-STUDIO §4 step 2). */
 export type FileChange = { path: string; content: string | null }
 
 /** How the frame takes a new bundle: the stylesheet alone when every script is the one it has (AI-STUDIO §4 step 5). */
 export type Swap = 'stylesheet' | 'modules'
+
+/** A theme image's bytes as base64 (ARCHITECTURE §3.4 "Images"). */
+export type MediaFile = { path: string; content: string }
+
+/** A template's theme applied to the draft (SAAS §9.2): its code and words, its images, and the replaced template's images. */
+export type TemplateSwitch = { files: FileChange[]; media: MediaFile[]; previous: { path: string; sha256: string }[] }
+
+/** The draft's images at a commit, and those its history removed (by git blob id), for the push (AI-STUDIO §6 step 4). */
+export type DraftMedia = { media: (MediaFile & { blob: string })[]; removed: { path: string; blob: string }[] }
+
+type MediaOp = { path: string; bytes: Buffer | null }
 
 /** `typechecked`: the theme files the warm typecheck checked again, null when the lane skipped it (#1240). */
 export type ChangeResult =
@@ -24,6 +37,7 @@ export type ChangeResult =
 export type Prechecked = { lane: Lane; problems: GateProblem[] }
 
 export type Loaded = { head: string; bundle: ClientBundle | null; problems: GateProblem[] }
+export type Shown = { ok: true; bundle: ClientBundle; swap: Swap } | { ok: false }
 
 /** The upgrade bot's commit: every file it wrote or removed, package.json included, and the notes it applied. */
 export type Upgraded = { commit: string; files: FileChange[]; notes: Pick<UpgradeNote, 'version' | 'kind' | 'notes'>[] }
@@ -49,6 +63,8 @@ const withChange = (theme: ReadonlyMap<string, string>, files: readonly FileChan
   }
   return next
 }
+
+const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
 
 const scripts = (b: ClientBundle) => b.files.filter((f) => f.path.endsWith('.js')).map((f) => f.path).sort().join('\n')
 
@@ -92,12 +108,12 @@ export class Workspace {
   }
 
   /** Starts a working copy from files (a template's skeleton and theme) as its first commit. */
-  async loadFiles(files: readonly { path: string; content: string }[], message: string): Promise<Loaded> {
+  async loadFiles(files: readonly { path: string; content: string; encoding?: 'base64' | undefined }[], message: string): Promise<Loaded> {
     if (!files.every((f) => isRepoPath(f.path))) throw new Error('A file path climbs out of the repo.')
     await this.reset()
     await mkdir(this.repo, { recursive: true })
     await this.git(['init', '--quiet', '--initial-branch', branch])
-    for (const f of files) await this.write(f.path, f.content)
+    for (const f of files) await this.write(f.path, f.encoding === 'base64' ? Buffer.from(f.content, 'base64') : f.content)
     await this.git(['add', '--all'])
     await this.git(['commit', '--quiet', '--message', message])
     return this.afterLoad()
@@ -122,11 +138,46 @@ export class Workspace {
     return new Map(await Promise.all(paths.map(async (p) => [p, await this.git(['show', `${commit}:${p}`])] as const)))
   }
 
+  /** The images at `commit` and those its history removed, for the push once a publish of it is live (AI-STUDIO §6 step 4). */
+  async mediaAt(commit: string): Promise<DraftMedia> {
+    this.mustBeLoaded()
+    // `ls-tree -z` gives `mode blob id\tpath` per file.
+    const listed = (await this.git(['ls-tree', '-r', '-z', `${commit}^{commit}`, '--', mediaFolder])).split('\0').filter((l) => l !== '')
+    const entries = listed.map((line) => ({ blob: line.slice(0, line.indexOf('\t')).split(' ')[2] ?? '', path: line.slice(line.indexOf('\t') + 1) })).filter((e) => isThemeMediaPath(e.path))
+    const media = await Promise.all(entries.map(async (e) => ({ ...e, content: (await this.bytesAt(commit, e.path))?.toString('base64') ?? '' })))
+    // `--raw` gives `:mode mode old new D\tpath` for each image a commit removed.
+    const raw = (await this.git(['log', '--raw', '--no-abbrev', '--no-renames', '--diff-filter=D', '--format=', `${commit}^{commit}`, '--', mediaFolder])).split('\n')
+    const have = new Set(media.map((m) => `${m.path}\0${m.blob}`))
+    const removed = raw.flatMap((line) => {
+      const m = /^:\d+ \d+ ([0-9a-f]{40}) [0-9a-f]{40} D\t(.+)$/.exec(line)
+      return m?.[1] && m[2] && isThemeMediaPath(m[2]) && !have.has(`${m[2]}\0${m[1]}`) ? [{ path: m[2], blob: m[1] }] : []
+    })
+    return { media, removed }
+  }
+
   /** The head's own images, read again only when the git tree holding them changes. */
   private async headImages(): Promise<ThemeImages> {
     const tree = await this.git(['rev-parse', `HEAD:${mediaFolder.slice(0, -1)}`]).then((t) => t.trim(), () => '')
     if (this.images?.tree !== tree) this.images = { tree, files: tree ? await imageThemeFiles(this.repo) : [] }
     return this.images
+  }
+
+  /** The head's images, as the validator takes them, with `ops` applied; keyed by their bytes, as nothing commits them yet. */
+  private async imagesWith(ops: readonly MediaOp[]): Promise<ThemeImages> {
+    const files = new Map((await this.headImages()).files.map((f) => [f.path, f]))
+    for (const op of ops) {
+      if (op.bytes === null) files.delete(op.path)
+      else files.set(op.path, { path: op.path, content: op.bytes.toString('base64'), encoding: 'base64' })
+    }
+    const list = [...files.values()].sort((a, b) => a.path.localeCompare(b.path))
+    return { tree: `next:${createHash('sha256').update(JSON.stringify(list)).digest('hex')}`, files: list }
+  }
+
+  /** The images the working copy holds, by path. */
+  private async mediaNow(): Promise<Map<string, Buffer>> {
+    const names = await readdir(join(this.repo, mediaFolder)).catch(() => [])
+    const paths = names.map((n) => `${mediaFolder}${n}`).filter(isThemeMediaPath)
+    return new Map(await Promise.all(paths.map(async (p) => [p, await readFile(join(this.repo, p))] as const)))
   }
 
   /** The validator, then the typecheck unless the lane skips it, on the theme with `files`; nothing is written. */
@@ -140,6 +191,28 @@ export class Workspace {
     return { lane, problems: lane === 'full' ? [...problems, ...this.gate.typecheck(theme).problems] : problems }
   }
 
+  /** The agent's passing work, bundled for the frame and never committed (AI-STUDIO §4 "The agent"); no `files` shows the head again. */
+  async show(files: readonly FileChange[], context: GuardContext): Promise<Shown> {
+    if (studioImageProblems(files).length > 0 || !files.every((f) => isThemePath(f.path))) return { ok: false }
+    const theme = withChange(await this.theme(), files)
+    if ((await this.gate.validate(theme, context, await this.headImages())).length > 0) return { ok: false }
+    const next = join(this.client, 'next')
+    try {
+      for (const f of files) {
+        if (f.content === null) await rm(join(this.repo, f.path), { force: true })
+        else await this.write(f.path, f.content)
+      }
+      const bundled = await this.gate.bundle()
+      if (!bundled.ok) return { ok: false }
+      const swap: Swap = this.current && scripts(this.current) === scripts(bundled.bundle) ? 'stylesheet' : 'modules'
+      await this.promote(next, bundled.bundle)
+      return { ok: true, bundle: bundled.bundle, swap }
+    } finally {
+      await this.discard()
+      await rm(next, { recursive: true, force: true })
+    }
+  }
+
   /** Checks the loaded theme once, so the first change's typecheck is already warm. */
   async prime(): Promise<void> {
     if (this.loaded) this.gate.typecheck(await this.theme())
@@ -149,20 +222,56 @@ export class Workspace {
   async change(files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> {
     const touched = studioImageProblems(files)
     if (touched.length > 0) return { ok: false, problems: touched }
+    return this.apply(files, [], message, context)
+  }
+
+  /**
+   * A template's theme (SAAS §9.2), the one change that may write the theme's images (ARCHITECTURE §3.4 "Images"): its
+   * images replace the old template's, matched by bytes, and an image the store pushed itself is never replaced or removed.
+   */
+  async applyTemplate(input: TemplateSwitch, message: string, context: GuardContext): Promise<ChangeResult> {
+    this.mustBeLoaded()
+    const touched = studioImageProblems(input.files)
+    if (touched.length > 0) return { ok: false, problems: touched }
+    const previous = new Map(input.previous.map((p) => [p.path, p.sha256]))
+    const own = await this.mediaNow()
+    const incoming = new Map(input.media.map((m) => [m.path, Buffer.from(m.content, 'base64')]))
+    const ops: MediaOp[] = []
+    const kept: string[] = []
+    for (const [path, bytes] of incoming) {
+      const there = own.get(path)
+      if (there && sha256(there) === sha256(bytes)) continue
+      if (there && previous.get(path) !== sha256(there)) kept.push(path)
+      else ops.push({ path, bytes })
+    }
+    for (const [path, bytes] of own) if (!incoming.has(path) && previous.get(path) === sha256(bytes)) ops.push({ path, bytes: null })
+    if (kept.length > 0) {
+      const message = 'The store has its own image with this name and the template has a different one; rename or remove the store’s image in its repo first.'
+      return { ok: false, problems: kept.map((file) => ({ step: 'validator', file, line: null, rule: 'studio/media-conflict', message })) }
+    }
+    return this.apply(input.files, ops, message, context)
+  }
+
+  /** The gate on the theme with `files` and the image `ops`; on a pass a local commit, on a failure nothing changed at all. */
+  private async apply(files: readonly FileChange[], ops: readonly MediaOp[], message: string, context: GuardContext): Promise<ChangeResult> {
     const before = await this.theme()
     const theme = withChange(before, files)
-    // The sandbox chooses the lane from the diff, never the model (ARCHITECTURE §6.2).
-    const lane = laneOf(before, files)
-    const refused = await this.gate.validate(theme, context, await this.headImages())
+    // The sandbox chooses the lane from the diff, never the model (ARCHITECTURE §6.2); new images need the whole bundle.
+    const lane = ops.length > 0 ? 'full' : laneOf(before, files)
+    const refused = await this.gate.validate(theme, context, ops.length > 0 ? await this.imagesWith(ops) : await this.headImages())
     if (refused.length > 0) return { ok: false, problems: refused }
     // The validator accepted every path, so each is one of §3.4's; checked again before it touches the disk.
-    if (!files.every((f) => isThemePath(f.path))) throw new Error('A validated path is outside the theme.')
+    if (!files.every((f) => isThemePath(f.path)) || !ops.every((o) => isThemeMediaPath(o.path))) throw new Error('A validated path is outside the theme.')
     for (const f of files) {
       if (f.content === null) await rm(join(this.repo, f.path), { force: true })
       else await this.write(f.path, f.content)
     }
+    for (const o of ops) {
+      if (o.bytes === null) await rm(join(this.repo, o.path), { force: true })
+      else await this.write(o.path, o.bytes)
+    }
     const next = join(this.client, 'next')
-    const gated = await this.gate.build(theme, lane)
+    const gated = await this.gate.build(theme, lane, context)
     if (!gated.ok) {
       await this.discard()
       await rm(next, { recursive: true, force: true })
@@ -183,8 +292,12 @@ export class Workspace {
     const parent = (await this.git(['rev-list', '--parents', '-n', '1', commit])).trim().split(' ')[1]
     if (!parent) return { ok: false, problems: [{ step: 'validator', file: null, line: null, rule: 'undo/first-commit', message: 'The first version of the draft has nothing before it to go back to.' }] }
     const paths = (await this.git(['diff', '--name-only', '-z', parent, commit])).split('\0').filter((p) => p !== '')
-    const files = await Promise.all(paths.map(async (path): Promise<FileChange> => ({ path, content: await this.at(parent, path) })))
-    return this.change(files, message, context)
+    const files = await Promise.all(paths.filter((p) => !isThemeMediaPath(p)).map(async (path): Promise<FileChange> => ({ path, content: await this.at(parent, path) })))
+    // Only a template's change moves images; undoing it puts back the draft's own earlier bytes, never new ones.
+    const ops = await Promise.all(paths.filter(isThemeMediaPath).map(async (path): Promise<MediaOp> => ({ path, bytes: await this.bytesAt(parent, path) })))
+    const touched = studioImageProblems(files)
+    if (touched.length > 0) return { ok: false, problems: touched }
+    return this.apply(files, ops, message, context)
   }
 
   /**
@@ -251,7 +364,7 @@ export class Workspace {
       try {
         const theme = await this.theme()
         const refused = await this.gate.validate(theme, context, await this.headImages())
-        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full')
+        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full', context)
         if (!gated.ok) {
           await this.git(['reset', '--quiet', '--hard', before])
           await rm(next, { recursive: true, force: true })
@@ -326,13 +439,15 @@ export class Workspace {
     return readFile(file).catch(() => null)
   }
 
-  /** The current bundle's own files with their hashes, for the preview folder (PREVIEW §4 step 2). */
-  async previewFiles(): Promise<{ id: string; files: { path: string; sha256: string; base64: string }[] } | null> {
+  /** The current bundle's own files and core's runtime under assets/core/, with their hashes, for the preview folder (PREVIEW §3, §4 step 2). */
+  async previewFiles(runtimeDir: string): Promise<{ id: string; files: { path: string; sha256: string; base64: string }[] } | null> {
     if (!this.current) return null
+    const runtime = (await readdir(runtimeDir)).map((name) => ({ path: `${runtimeFolder}${name}`, file: join(runtimeDir, name) }))
+    const own = this.current.files.map((f) => ({ path: f.path, file: join(this.client, 'current', f.path) }))
     const files = await Promise.all(
-      this.current.files.map(async (f) => {
-        const bytes = await readFile(join(this.client, 'current', f.path))
-        return { path: f.path, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') }
+      [...own, ...runtime].map(async ({ path, file }) => {
+        const bytes = await readFile(file)
+        return { path, sha256: createHash('sha256').update(bytes).digest('hex'), base64: bytes.toString('base64') }
       }),
     )
     return { id: this.current.id, files }
@@ -366,12 +481,43 @@ export class Workspace {
     return listed === path ? this.git(['show', `${rev}:${path}`]) : null
   }
 
+  private async bytesAt(rev: string, path: string): Promise<Buffer | null> {
+    const listed = (await this.git(['ls-tree', '--name-only', rev, '--', path])).trim()
+    return listed === path ? gitBytesIn(this.repo, this.dir)(['show', `${rev}:${path}`]) : null
+  }
+
   private async discard() {
     await this.git(['reset', '--quiet', '--hard', 'HEAD'])
     await this.git(['clean', '--quiet', '-fd'])
   }
 
-  private async write(path: string, content: string) {
+  /**
+   * A picture of one page with `files` over the head (AI-STUDIO §4 "The agent"), drawn from a copy: the draft, its commits
+   * and its warm gate are never touched, and the copy is gone afterwards.
+   */
+  async picture(files: readonly FileChange[], page: string, device: Device, context: GuardContext): Promise<Picture> {
+    if (!files.every((f) => isThemePath(f.path))) return { images: [], problem: 'A path in the change is outside the theme.' }
+    // Nothing reaches the disk, or runs, before every path and line passed the validator (as in change and precheck).
+    if ((await this.gate.validate(withChange(await this.theme(), files), context, await this.headImages())).length > 0) return { images: [], problem: 'Call check and fix what it names first.' }
+    const scratch = await mkdtemp(join(tmpdir(), 'df-picture-'))
+    try {
+      const copy = join(scratch, 'repo')
+      await cp(this.repo, copy, { recursive: true, filter: (from) => !from.split(sep).includes('.git') })
+      for (const f of files) {
+        const at = join(copy, normalize(f.path))
+        if (f.content === null) await rm(at, { force: true })
+        else {
+          await mkdir(dirname(at), { recursive: true })
+          await writeFile(at, f.content)
+        }
+      }
+      return await pagePicture(copy, join(scratch, 'work'), page, device, context)
+    } finally {
+      await rm(scratch, { recursive: true, force: true })
+    }
+  }
+
+  private async write(path: string, content: string | Buffer) {
     const file = join(this.repo, path)
     await mkdir(dirname(file), { recursive: true })
     await writeFile(file, content)

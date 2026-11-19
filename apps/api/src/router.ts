@@ -12,12 +12,20 @@ const under = (pathname: string, prefix: string) => pathname === prefix || pathn
 // The zone the Worker's own routes sit on: dripfunnel.ai, dripfunnel.dev, or localhost locally.
 const ownZoneOf = (adminHost: string) => adminHost.slice(adminHost.indexOf('.') + 1)
 
+const storefrontPath = (pathname: string) => under(pathname, '/shop-api') || under(pathname, '/delivery-api') || pathname === deliveryApkPath
+
 /** A partner's host on `/api` reaches the default fetch only over store-proxy's binding, since the Worker's own routes
- *  deliver only its own zone; that binding uses the default fetch so placement applies (ARCHITECTURE.md §6). */
-export const entryOf = (url: URL, config: Pick<Config, 'ADMIN_HOST'>, entry: Entry): Entry => {
-  if (entry !== 'public' || !under(url.pathname, '/api')) return entry
+ *  deliver only its own zone; that binding uses the default fetch so placement applies (ARCHITECTURE.md §6). The same holds
+ *  for `/shop-api`, the Delivery API and its download on a store's host (#1292): store-proxy sends them here, not to
+ *  `StorefrontEdge`, which Cloudflare doesn't place, and they are judged by that entry's rules. A store host is one outside our
+ *  zone (a custom domain or `SHOP_DOMAIN`'s), or one under `SHOP_DOMAIN` where that sits inside our zone, as locally. */
+export const entryOf = (url: URL, config: Pick<Config, 'ADMIN_HOST' | 'SHOP_DOMAIN'>, entry: Entry): Entry => {
+  if (entry !== 'public') return entry
   const zone = ownZoneOf(config.ADMIN_HOST)
-  return url.hostname === zone || url.hostname.endsWith(`.${zone}`) ? entry : 'portal'
+  const ours = url.hostname === zone || url.hostname.endsWith(`.${zone}`)
+  if (under(url.pathname, '/api')) return ours ? entry : 'portal'
+  const shops = config.SHOP_DOMAIN ?? null
+  return storefrontPath(url.pathname) && (!ours || (shops !== null && url.hostname.endsWith(`.${shops}`))) ? 'edge' : entry
 }
 
 export const resolveArea = (url: URL, config: Pick<Config, 'ADMIN_HOST' | 'PLATFORM_HOST' | 'HOOKS_HOST' | 'SHOP_DOMAIN'>, entry: Entry): Area | undefined => {

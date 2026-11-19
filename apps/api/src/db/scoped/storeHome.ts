@@ -111,27 +111,32 @@ export const selectRejectedCouriers = async (tx: ScopedSql, storeId: string): Pr
   (await tx<{ provider: string }[]>`select provider from store_courier where store_id = ${storeId} and role <> 'off' and last_test_result = 'rejected' order by position, provider`).map((r) => r.provider)
 
 export interface SetupRow {
+  category: boolean
   products: boolean
   collections: boolean
   payments: boolean
   shipping: boolean
-  /** The steps the Owner skipped (store.setup_skipped): `payments` and/or `shipping`. */
+  /** The storefront brand has a logo and a favicon (storefront_brand, DATA-MODEL §7.8). */
+  brand: boolean
+  /** The steps the Owner skipped (store.setup_skipped): `payments`, `shipping` and/or `brand`. */
   skipped: string[]
 }
 
 /** The getting-started checklist's facts (PortalHome "Get your shop ready"). */
 export const selectSetup = async (tx: ScopedSql, storeId: string): Promise<SetupRow> => {
   const [row] = await tx<SetupRow[]>`
-    select exists (select 1 from product where store_id = ${storeId} and deleted_at is null and not is_sample) as products,
+    select (select category_id is not null from store where id = ${storeId}) as category,
+      exists (select 1 from product where store_id = ${storeId} and deleted_at is null and not is_sample) as products,
       exists (select 1 from collection where store_id = ${storeId} and deleted_at is null) as collections,
       exists (select 1 from payment_provider_account where store_id = ${storeId} and status = 'live' and not paused_by_plan) as payments,
       exists (select 1 from store_shipping where store_id = ${storeId} and saved_at is not null) as shipping,
+      exists (select 1 from storefront_brand where store_id = ${storeId} and logo_asset_id is not null and favicon_asset_id is not null) as brand,
       (select to_jsonb(setup_skipped) from store where id = ${storeId}) as skipped
   `
-  return row ?? { products: false, collections: false, payments: false, shipping: false, skipped: [] }
+  return row ?? { category: false, products: false, collections: false, payments: false, shipping: false, brand: false, skipped: [] }
 }
 
-export const setupSteps = ['payments', 'shipping'] as const
+export const setupSteps = ['payments', 'shipping', 'brand'] as const
 export type SetupStep = (typeof setupSteps)[number]
 
 /** Through 0351's definer: the merchant side writes this store column and no other. */

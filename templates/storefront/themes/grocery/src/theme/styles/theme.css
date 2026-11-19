@@ -1,0 +1,46 @@
+@theme {
+  --color-bg: #fff;
+  --color-surface: #fff;
+  --color-soft: #f1f7ee;
+  --color-tint: #fff6d9;
+  --color-ink: #16231a;
+  --color-ink-soft: #33433a;
+  --color-muted: #56655b;
+  --color-line: #e2eadf;
+  --color-accent: #1f7a3a;
+  --color-accent-ink: #fff;
+  --color-highlight: #ffd84d;
+  --color-highlight-ink: #16231a;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 12px;
+  --radius-button: 10px;
+  --font-heading: 'Poppins', 'Avenir Next', 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  --heading-weight: 700;
+  --brand-weight: 800;
+  --heading-case: none;
+  --heading-spacing: -0.02em;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', roboto, arial, sans-serif;
+  --color-header-bg: #1f7a3a;
+  --color-header-ink: #fff;
+  --color-header-hover: #186330;
+  --color-footer-bg: #10301b;
+  --color-footer-ink: #f1f7ee;
+  --color-footer-muted: #b6c9ba;
+  --color-footer-line: #2a4a33;
+  --picture: linear-gradient(150deg, #e3f1dc, #c4e1b5);
+  --picture-alt: #f1f7ee;
+  --color-shade-10: rgb(22 35 26 / 0.10);
+  --color-shade-12: rgb(22 35 26 / 0.12);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) 150% 0 / 200% 100% var(--color-soft);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) -50% 0 / 200% 100% var(--color-soft);
+  }
+}

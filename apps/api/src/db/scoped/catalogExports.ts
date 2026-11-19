@@ -14,6 +14,8 @@ export interface CatalogExportRow {
   filter: Record<string, unknown>
   state: 'queued' | 'done' | 'failed'
   rows: number | null
+  /** A product export's products (`rows` counts its versions); null for any other. */
+  products: number | null
   truncated: boolean
   csv: string | null
   requested_by_id: string
@@ -41,14 +43,14 @@ export const selectCatalogExport = async (tx: ScopedSql, storeId: string, id: st
 /** "Recent exports": the asker's own, newest first, without their files. */
 export const selectCatalogExports = (tx: ScopedSql, storeId: string, requesterId: string, kinds: readonly CatalogExportKind[], limit: number): Promise<Omit<CatalogExportRow, 'csv'>[]> =>
   tx<Omit<CatalogExportRow, 'csv'>[]>`
-    select id, store_id, seller_id, kind, filter, state, rows, truncated, requested_by_id, requested_by_label, created_at, finished_at, expires_at
+    select id, store_id, seller_id, kind, filter, state, rows, products, truncated, requested_by_id, requested_by_label, created_at, finished_at, expires_at
     from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and kind = any (${pgArray([...kinds])}::text[])
     order by created_at desc, id desc limit ${limit}
   `
 
-export const completeCatalogExport = async (tx: ScopedSql, id: string, r: { rows: number; truncated: boolean; csv: string; at: Date; expiresAt: Date }): Promise<void> => {
+export const completeCatalogExport = async (tx: ScopedSql, id: string, r: { rows: number; products?: number; truncated: boolean; csv: string; at: Date; expiresAt: Date }): Promise<void> => {
   await tx`
-    update catalog_export set state = 'done', rows = ${r.rows}, truncated = ${r.truncated}, csv = ${r.csv}, finished_at = ${r.at}, expires_at = ${r.expiresAt}
+    update catalog_export set state = 'done', rows = ${r.rows}, products = ${r.products ?? null}, truncated = ${r.truncated}, csv = ${r.csv}, finished_at = ${r.at}, expires_at = ${r.expiresAt}
     where id = ${id} and state = 'queued'
   `
 }
@@ -81,6 +83,8 @@ export interface ExportVersionRow {
   cost: string | null
   cost_currency: string | null
   values: string[] | null
+  /** The product photo this version shows (its asset id), one of the product's own. */
+  photo: string | null
   prices: { currency: string; amount: string; compare: string | null; source: string }[] | null
   stock: number
 }
@@ -94,12 +98,14 @@ export interface ExportProductRow {
   visibility: 'visible' | 'hidden'
   options: string[] | null
   versions: ExportVersionRow[] | null
+  /** Every photo in the product's order, with its alt text. */
+  photos: { asset: string; alt: string | null }[] | null
   translations: { language: string; field: 'name' | 'description'; text: string }[] | null
 }
 
 /**
  * Products as a spreadsheet row each version (in the order given): options, codes, prices in every currency,
- * the count in the product's owner's default location, and the product's translations.
+ * the count in the product's owner's default location, the product's translations and its photos in order.
  */
 export const selectExportProducts = (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<ExportProductRow[]> =>
   ids.length === 0
@@ -108,7 +114,7 @@ export const selectExportProducts = (tx: ScopedSql, storeId: string, ids: readon
         select p.id, p.slug, p.name, p.description, p.product_type, p.visibility,
           (select json_agg(o.name order by o.position) from product_option o where o.product_id = p.id) as options,
           (select json_agg(json_build_object(
-              'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'weight', v.weight_grams, 'cost', v.cost_amount::text, 'cost_currency', v.cost_currency,
+              'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'weight', v.weight_grams, 'cost', v.cost_amount::text, 'cost_currency', v.cost_currency, 'photo', v.photo_asset_id,
               'values', (select json_agg(ov.name order by o.position) from product_version_option_value pv
                 join product_option o on o.id = pv.option_id join product_option_value ov on ov.id = pv.value_id where pv.version_id = v.id),
               'prices', (select json_agg(json_build_object('currency', vp.currency, 'amount', vp.amount::text, 'compare', vp.compare_at_amount::text, 'source', vp.source) order by vp.currency)
@@ -116,6 +122,7 @@ export const selectExportProducts = (tx: ScopedSql, storeId: string, ids: readon
               'stock', (select coalesce(sum(s.on_hand), 0) from stock_level s join warehouse w on w.id = s.warehouse_id
                 where s.version_id = v.id and w.is_default and w.deleted_at is null and w.seller_id is not distinct from p.seller_id)
             ) order by v.position, v.id) from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
+          (select json_agg(json_build_object('asset', ph.asset_id, 'alt', ph.alt) order by ph.position, ph.created_at, ph.id) from product_photo ph where ph.product_id = p.id) as photos,
           (select json_agg(json_build_object('language', t.language, 'field', t.field, 'text', t.text) order by t.language, t.field)
             from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field in ('name', 'description')) as translations
         from product p

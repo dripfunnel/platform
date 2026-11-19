@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+// @vitest-environment-options { "settings": { "enableIframePageLoading": true } }
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { frameMaps } from './pinFrame'
 
@@ -30,6 +31,28 @@ const open = (stop = new AbortController()) => {
 }
 
 describe('Pin on map’s frame', () => {
+  it('asks for places by what was typed and the country, and for the point of one it was given, and reads only what fits (#1615)', async () => {
+    const { loading, sent, say } = open()
+    say({ type: 'ready' })
+    const maps = await loading
+    const listed = maps.suggest('viman', 'IN')
+    expect(sent).toHaveBeenCalledWith({ type: 'suggest', id: 1, text: 'viman', country: 'IN' }, origin)
+    const list = [{ id: 'p1', main: 'Viman Nagar', secondary: 'Pune' }]
+    say({ type: 'answer', id: 1, result: list })
+    expect(await listed).toEqual(list)
+    const chosen = maps.select('p1')
+    expect(sent).toHaveBeenCalledWith({ type: 'select', id: 2, choice: 'p1' }, origin)
+    say({ type: 'answer', id: 2, result: { latitude: 18.5679, longitude: 73.9143 } })
+    expect(await chosen).toEqual({ latitude: 18.5679, longitude: 73.9143 })
+    const bad = maps.suggest('viman', '')
+    say({ type: 'answer', id: 3, result: [{ id: 'p1', main: 7 }] })
+    expect(await bad).toBeNull()
+    const many = maps.suggest('viman', '')
+    say({ type: 'answer', id: 4, result: Array.from({ length: 9 }, (_, i) => ({ id: String(i), main: 'x', secondary: '' })) })
+    expect(await many).toBeNull()
+    maps.close()
+  })
+
   it('frames the hooks host’s page, sandboxed and titled, and says hello to it once loaded', async () => {
     const { frame, sent, loading, stop } = open()
     expect(frame.src).toBe(source)

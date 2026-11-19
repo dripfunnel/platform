@@ -2,11 +2,11 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, type Browser, type Page } from 'playwright-core'
+import { chromium, type Browser, type Locator, type Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { coreRoutes, routeAddresses, themeRoutesSchema } from '@dripfunnel/storefront-core'
-import { catalogueSnapshotSchema, validateTheme, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { catalogueSnapshotSchema, gateWidths, pageBudgets, validateTheme, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from './gate/bundle'
 import { overBudget, weigh } from './gate/budgets'
 import { buildSite } from './publish/build'
@@ -19,6 +19,8 @@ import { buildRuntime } from './runtime/build'
 vi.setConfig({ testTimeout: 600_000, hookTimeout: 120_000 })
 
 const themesDir = fileURLToPath(new URL('../../../templates/storefront/themes/', import.meta.url))
+// The category templates are built from baseline (#1537), so they run its baseline-only checks too.
+const fromBaseline = ['baseline', 'beauty', 'electronics', 'fashion', 'grocery', 'home', 'jewelry']
 const keys = readdirSync(themesDir).filter((k) => statSync(join(themesDir, k)).isDirectory()).sort()
 const chrome = [process.env['CHROME_PATH'], '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p): p is string => p !== undefined && existsSync(p))
 
@@ -44,7 +46,7 @@ const walk = (dir: string, rel = ''): string[] =>
 const themeFiles = (key: string): ThemeFile[] =>
   walk(join(themesDir, key))
     .filter((path) => path !== 'template.json')
-    .map((path) => ({ path, content: readFileSync(join(themesDir, key, path), 'utf8') }))
+    .map((path): ThemeFile => (path.startsWith('src/theme/media/') ? { path, content: readFileSync(join(themesDir, key, path)).toString('base64'), encoding: 'base64' } : { path, content: readFileSync(join(themesDir, key, path), 'utf8') }))
 
 const brand = { name: 'Northstar Linen', tagline: 'Linen clothes, made slowly', email: 'hello@northstar.example', phone: '+91 98450 22113', address: ['12 Residency Road', 'Bengaluru'], socialLinks: [] }
 // The seed stores offer English only (en-IN and en-US), so the themes are written in English (card #486).
@@ -126,7 +128,7 @@ afterAll(async () => {
 })
 
 it('has the starting themes the gallery offers, each in its own folder', () => {
-  expect(keys).toEqual(['baseline', 'classic', 'market'])
+  expect(keys).toEqual(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])
   for (const key of keys) expect(templateSchema.parse(JSON.parse(readFileSync(join(themesDir, key, 'template.json'), 'utf8'))).key).toBe(key)
 })
 
@@ -196,7 +198,7 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
-  it.runIf(key === 'baseline')('opens its menu children on hover and focus, and closes them on Escape and when focus leaves', async ({ skip }) => {
+  it.runIf(fromBaseline.includes(key))('opens its menu children on hover and focus, and closes them on Escape and when focus leaves', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-menu`)
     const built = await bundle(dir, out)
@@ -272,6 +274,57 @@ describe.each(keys)('the %s theme', (key) => {
       expect(seen.text).toContain('100% cotton')
     } finally {
       await page.context().close()
+    }
+  })
+
+  it('shows no stock line for a version whose stock isn’t tracked, and keeps it for one that is (#1278)', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-stock-line`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const size = { id: 'o1', name: 'Size', values: [{ id: 's', name: 'Small' }, { id: 'm', name: 'Medium' }, { id: 'l', name: 'Large' }] }
+    const kit = productWith([size], [
+      { values: ['s'], inStock: true, available: 5 },
+      { values: ['m'], inStock: false, available: 0 },
+      { values: ['l'], inStock: true, available: null },
+    ])
+    const stockLine = (page: Page) => page.getByText(/^(In stock|Sold out|Choose a Size to see stock)$/)
+    const lines = async (page: Page) => (await stockLine(page).allTextContents()).map((s) => s.trim())
+    const addable = async (page: Page) => ({
+      add: await page.getByRole('button', { name: 'Add to cart' }).first().isDisabled(),
+      buy: await page.getByRole('button', { name: 'Buy now' }).first().isDisabled(),
+    })
+    const page = await openProduct(browser, out, kit)
+    try {
+      const at = async (version: string) => {
+        await page.goto(`https://k7f3q9f2xa.webpreview.store/products/kit/${version}/`)
+        await page.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+      }
+      await page.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+      expect(await lines(page)).toEqual(['Choose a Size to see stock'])
+      await at('v0')
+      expect(await lines(page)).toEqual(['In stock'])
+      expect(await addable(page)).toEqual({ add: false, buy: false })
+      await at('v1')
+      expect(await lines(page)).toEqual(['Sold out'])
+      expect((await addable(page)).add).toBe(true)
+      await at('v2')
+      expect(await lines(page)).toEqual([])
+      expect(await addable(page)).toEqual({ add: false, buy: false })
+      await expect(page.locator('p[role="status"]').filter({ hasText: /stock|Sold out/ }).count()).resolves.toBe(0)
+    } finally {
+      await page.context().close()
+    }
+    // A product with no options is one version: untracked, it says nothing; tracked, it says so.
+    const single = (available: number | null) => productWith([], [{ values: [], inStock: available !== 0, available }])
+    for (const [available, expected] of [[null, []], [4, ['In stock']], [0, ['Sold out']]] as const) {
+      const alone = await openProduct(browser, out, single(available))
+      try {
+        await alone.getByRole('button', { name: 'Add to cart' }).first().waitFor()
+        expect(await lines(alone)).toEqual(expected)
+      } finally {
+        await alone.context().close()
+      }
     }
   })
 
@@ -432,5 +485,381 @@ describe.each(keys)('the %s theme', (key) => {
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics })
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
     expect(report.passed).toBe(true)
+  })
+
+  // #713: unthrottled, the page paints its loading state before the offline Shop API answers, as on a fast runner.
+  it('keeps the home page still when the Shop API answers nothing', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-still`)
+    const repo = join(root, `${key}-still-repo`)
+    cpSync(dir, repo, { recursive: true })
+    const built = await buildSite({ repo, theme: themeFiles(key), snapshot, runtimeDir: runtime, out, work: join(root, `${key}-still-work`) })
+    if (!built.ok) throw new Error(JSON.stringify(built.report))
+    const site = join(out, 'site')
+    const origin = 'https://shop.northstar.example'
+    const context = await browser.newContext({ viewport: { width: gateWidths[0], height: 900 }, isMobile: true, hasTouch: true })
+    await context.addInitScript(() => {
+      const m = { cls: 0 }
+      Object.defineProperty(window, '__dfShift', { value: m })
+      new PerformanceObserver((l) => l.getEntries().forEach((e) => (m.cls += (e as PerformanceEntry & { value?: number }).value ?? 0))).observe({ type: 'layout-shift', buffered: true })
+    })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(shopFixture(snapshot, [])(route.request().postData() ?? '')) })
+      const file = (await fileFor([site], url.pathname)) ?? (/\.[a-z0-9]+$/.test(url.pathname) ? null : await fileFor([site], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      const type = file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : file.rel.endsWith('.html') ? 'text/html' : null
+      return route.fulfill({ status: 200, body: file.bytes, ...(type ? { contentType: type } : {}) })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await page.waitForTimeout(1000)
+      expect((await page.evaluate('window.__dfShift.cls')) as number).toBeLessThan(pageBudgets.cls)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+type AccountState = { phone: string | null; verified: boolean; takesMobile: boolean; refuseCode: boolean; offline: boolean; sentTo: string[] }
+
+/** The signed-in account page (live mode, as a built page carries it in `df-page`), its shop answering from `state`. */
+const openAccount = async (b: Browser, out: string, state: AccountState, width = 1440): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width, height: 900 } })
+  await context.addInitScript(() => sessionStorage.setItem('df-session', 'sess-1'))
+  const live = JSON.stringify({ route: 'account', custom: null, path: '/account/', store: snapshot.store, poweredBy: null }).replaceAll('<', '\\u003c')
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.origin !== origin) return route.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      if (state.offline) return route.abort('failed')
+      const body = route.request().postData() ?? ''
+      const asked = JSON.parse(body) as { query: string; variables?: { to?: string } }
+      const answer = /query Account\b/.test(asked.query)
+        ? { data: { account: { id: 'cu-1', name: 'Asha Rao', email: 'asha@example.com', phone: state.phone, emailVerified: true, phoneVerified: state.verified, addresses: [] }, store: { markets: [] }, signInOptions: { phone: state.takesMobile } } }
+        : asked.query.includes('requestPhoneCode')
+          ? (state.sentTo.push(asked.variables?.to ?? ''), { data: { requestPhoneCode: true } })
+          : asked.query.includes('confirmPhone')
+            ? state.refuseCode
+              ? { errors: [{ message: 'no', extensions: { code: 'CODE_REFUSED' } }] }
+              : ((state.phone = asked.variables?.to ?? null), (state.verified = true), { data: { confirmPhone: true } })
+            : shopFixture(snapshot, [])(body)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return route.fulfill({ status: 404 })
+    if (file.rel.endsWith('.html')) return route.fulfill({ status: 200, contentType: 'text/html', body: Buffer.from(file.bytes).toString('utf8').replace(/<body[^>]*>/, (m) => `${m}<script id="df-page" type="application/json">${live}</script>`) })
+    return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}/account/`)
+  await page.getByRole('heading', { name: 'Your details' }).waitFor()
+  return page
+}
+
+// Card #1404: Account › Your details lets a shopper add or change their mobile number, proved by a text code.
+describe.each(['classic', ...fromBaseline])('the %s theme’s account, mobile number', (key) => {
+  let out = ''
+  const fresh = (over: Partial<AccountState> = {}): AccountState => ({ phone: null, verified: false, takesMobile: true, refuseCode: false, offline: false, sentTo: [], ...over })
+  const mobileRow = (page: Page) => page.locator('dl > div').filter({ has: page.locator('dt', { hasText: 'Mobile number' }) })
+
+  beforeAll(async () => {
+    if (!browser) return
+    out = join(root, `${key}-account`)
+    const built = await bundle(join(themesDir, key), out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+  })
+
+  it('adds a number: Add beside “Not given”, the number, the texted code, then the number with Verified', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh()
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await expect(row.getByText('Used to sign in with a text code and for delivery updates.').isVisible()).resolves.toBe(true)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await expect(page.getByText('We\'ll text a code to the new number.').isVisible()).resolves.toBe(true)
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByText(/Enter the code we sent to/).waitFor()
+      expect(state.sentTo).toEqual(['+919845022113'])
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await row.getByText('Verified').waitFor()
+      await expect(row.textContent()).resolves.toContain('+919845022113')
+      await expect(row.getByRole('button', { name: 'Change' }).isVisible()).resolves.toBe(true)
+      await expect(page.getByText('Your mobile number is saved.').count()).resolves.toBe(1)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('keeps focus with the shopper at every step, by keyboard: each field as it opens, back to Add on Cancel, and to Change once the number is saved', async ({ skip }) => {
+    if (!browser) return skip()
+    const page = await openAccount(browser, out, fresh())
+    const focused = (target: Locator) => target.evaluate((el) => el === document.activeElement)
+    try {
+      const row = mobileRow(page)
+      const number = page.getByLabel('Mobile number')
+      const code = page.getByLabel('6-digit code')
+      const add = row.getByRole('button', { name: 'Add' })
+      await add.focus()
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await expect.poll(() => focused(code)).toBe(true)
+      await page.getByRole('button', { name: 'Use another number' }).click()
+      await expect.poll(() => focused(number)).toBe(true)
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect.poll(() => focused(add)).toBe(true)
+      await page.keyboard.press('Enter')
+      await number.waitFor()
+      await page.keyboard.type('9845022113')
+      await page.keyboard.press('Enter')
+      await code.waitFor()
+      await page.keyboard.type('123456')
+      await page.keyboard.press('Enter')
+      const change = row.getByRole('button', { name: 'Change' })
+      await change.waitFor()
+      await expect.poll(() => focused(change)).toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('changes a number: Change, and the old number stays on screen until the new one is proved', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh({ phone: '+919811100001', verified: true })
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await expect(row.getByRole('button', { name: 'Add' }).count()).resolves.toBe(0)
+      await row.getByRole('button', { name: 'Change' }).click()
+      await page.getByLabel('Mobile number').fill('98550 00005')
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').waitFor()
+      await expect(row.textContent()).resolves.toContain('+919811100001')
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await row.getByRole('button', { name: 'Change' }).waitFor()
+      await expect(row.textContent()).resolves.toContain('+919855000005')
+      await expect(row.textContent()).resolves.not.toContain('+919811100001')
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('says what went wrong and changes nothing: a number to check, a shop that can’t be reached, a refused code', async ({ skip }) => {
+    if (!browser) return skip()
+    const state = fresh({ refuseCode: true })
+    const page = await openAccount(browser, out, state)
+    try {
+      const row = mobileRow(page)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await expect(page.getByRole('alert').first().isVisible()).resolves.toBe(true)
+      expect(state.sentTo).toEqual([])
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      state.offline = true
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByText(/couldn.t reach the shop/).waitFor()
+      state.offline = false
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').fill('123456')
+      await page.getByRole('button', { name: 'Save number' }).click()
+      await page.getByText(/That code didn.t work/).waitFor()
+      await expect(page.getByLabel('6-digit code').isVisible()).resolves.toBe(true)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await page.getByRole('button', { name: 'Use another number' }).click()
+      await expect(page.getByLabel('Mobile number').isVisible()).resolves.toBe(true)
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(row.getByRole('button', { name: 'Add' }).isVisible()).resolves.toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it('offers no Add or Change in a shop that takes no mobile sign-in', async ({ skip }) => {
+    if (!browser) return skip()
+    const page = await openAccount(browser, out, fresh({ takesMobile: false }))
+    try {
+      const row = mobileRow(page)
+      await expect(row.textContent()).resolves.toContain('Not given')
+      await expect(row.getByRole('button').count()).resolves.toBe(0)
+    } finally {
+      await page.context().close()
+    }
+  })
+
+  it.each([390, 1440])('fits the screen at %i px, with the number field and the code field open', async (width) => {
+    if (!browser) return
+    const page = await openAccount(browser, out, fresh(), width)
+    try {
+      const row = mobileRow(page)
+      await row.getByRole('button', { name: 'Add' }).click()
+      await page.getByLabel('Mobile number').fill('98450 22113')
+      await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true)
+      await page.getByRole('button', { name: 'Send code' }).click()
+      await page.getByLabel('6-digit code').waitFor()
+      await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBe(true)
+    } finally {
+      await page.context().close()
+    }
+  })
+})
+
+type ListState = { asked: string[]; failNext: boolean }
+
+/** A signed-in live page at `path` (its `route`), the shop answering the account, 45 orders (pages of 20) and 30 posts (pages of 12). */
+const openScrollList = async (b: Browser, out: string, route: 'accountOrders' | 'blog', path: string, state: ListState, width = 1440, height = 600): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width, height } })
+  await context.addInitScript(() => sessionStorage.setItem('df-session', 'sess-1'))
+  const live = JSON.stringify({ route, custom: null, path, store: snapshot.store, poweredBy: null }).replaceAll('<', '\\u003c')
+  const order = (n: number) => ({ id: `o-${n}`, number: `${1000 + n}`, state: 'placed', paymentState: 'paid', paymentMethod: 'stripe', placedAt: '2026-10-13T06:00:00Z', pricesIncludeTax: false, itemCount: 2, total: { amount: '5440', currency: 'USD' } })
+  const post = (n: number) => ({ title: `Post ${n}`, path: `/blog/post-${n}`, slug: `post-${n}`, author: 'Maya', publishedAt: '2026-10-01T10:00:00Z', tags: [], seoTitle: null, seoDescription: null, cover: null, body: [{ kind: 'text', text: 'word '.repeat(40), alt: null, image: null, items: null, productSlugs: null }] })
+  const pageOf = (total: number, size: number, after: string | null, make: (n: number) => unknown) => {
+    const from = after === null ? 0 : Number(after)
+    const to = Math.min(from + size, total)
+    return { nodes: Array.from({ length: to - from }, (_, i) => make(from + i)), pageInfo: { hasNextPage: to < total, endCursor: String(to) } }
+  }
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.origin !== origin) return route.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      const body = route.request().postData() ?? ''
+      const asked = JSON.parse(body) as { query: string; variables?: { after?: string | null } }
+      const after = asked.variables?.after ?? null
+      const list = /query (OrderHistory|Blog)\b/.exec(asked.query)?.[1]
+      if (list && after !== null) {
+        state.asked.push(`${list}:${after}`)
+        if (state.failNext) {
+          state.failNext = false
+          return route.abort('failed')
+        }
+      }
+      const answer = /query Account\b/.test(asked.query)
+        ? { data: { account: { id: 'cu-1', name: 'Asha Rao', email: 'asha@example.com', phone: null, emailVerified: true, phoneVerified: false, addresses: [] }, store: { markets: [] }, signInOptions: { phone: false } } }
+        : list === 'OrderHistory'
+          ? { data: { orderHistory: pageOf(45, 20, after, order) } }
+          : list === 'Blog'
+            ? { data: { blogPosts: pageOf(30, 12, after, post) } }
+            : shopFixture(snapshot, [])(body)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return route.fulfill({ status: 404 })
+    if (file.rel.endsWith('.html')) return route.fulfill({ status: 200, contentType: 'text/html', body: Buffer.from(file.bytes).toString('utf8').replace(/<body[^>]*>/, (m) => `${m}<script id="df-page" type="application/json">${live}</script>`) })
+    return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}${path}`)
+  return page
+}
+
+// Card #1570: Account › Orders and the Blog load their next page by themselves, as the product grids do, with no Load more.
+describe.each(['classic', ...fromBaseline])('the %s theme’s lists on the live site', (key) => {
+  let out = ''
+  const lists = [
+    { name: 'Account › Orders', route: 'accountOrders' as const, path: '/account/orders/', item: 'a[href^="/account/orders/o-"]', first: 20, all: 45, noun: 'orders', failed: "We couldn't load more orders. Try again." },
+    { name: 'the Blog', route: 'blog' as const, path: '/blog/', item: 'a[href^="/blog/post-"]', first: 12, all: 30, noun: 'posts', failed: "We couldn't load older posts. Try again." },
+  ]
+  const fresh = (): ListState => ({ asked: [], failNext: false })
+
+  beforeAll(async () => {
+    if (!browser) return
+    out = join(root, `${key}-lists`)
+    const built = await bundle(join(themesDir, key), out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+  })
+
+  describe.each(lists)('$name', (list) => {
+    const items = (page: Page) => page.locator(list.item)
+    const noButton = (page: Page) => expect(page.getByRole('button', { name: /load more|older posts/i }).count()).resolves.toBe(0)
+
+    it('loads the next page before the shopper reaches the end, with no Load more button, and stops at the end', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await expect(items(page).count()).resolves.toBe(list.first)
+        await noButton(page)
+        expect(state.asked).toEqual([])
+        // Scroll until the last row is still a hundred pixels below the screen: the end has not been reached.
+        await items(page).last().evaluate((el) => window.scrollTo(0, Math.max(0, el.getBoundingClientRect().bottom + window.scrollY - window.innerHeight - 100)))
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        await noButton(page)
+        // Keeps scrolling while it waits, so a slow last page on CI is still asked for and awaited (#1637).
+        await expect
+          .poll(
+            async () => {
+              await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+              return items(page).count()
+            },
+            { timeout: 15_000, interval: 300 },
+          )
+          .toBe(list.all)
+        const asked = state.asked.length
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await page.waitForTimeout(500)
+        expect(state.asked.length).toBe(asked)
+        await expect(page.getByText(/Loading more/).count()).resolves.toBe(0)
+        await noButton(page)
+      } finally {
+        await page.context().close()
+      }
+    })
+
+    it('says so when a page does not load, keeps what is shown, and Try again is the only button', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      state.failNext = true
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await items(page).last().evaluate((el) => window.scrollTo(0, Math.max(0, el.getBoundingClientRect().bottom + window.scrollY - window.innerHeight - 100)))
+        await page.getByRole('alert').filter({ hasText: list.failed }).waitFor()
+        await expect(items(page).count()).resolves.toBe(list.first)
+        const buttons = page.getByRole('button')
+        await expect(buttons.filter({ hasText: 'Try again' }).count()).resolves.toBe(1)
+        await noButton(page)
+        // A failed page does not retry by itself.
+        const asked = state.asked.length
+        await page.waitForTimeout(500)
+        expect(state.asked.length).toBe(asked)
+        await page.getByRole('button', { name: 'Try again' }).click()
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        await expect(page.getByRole('alert').filter({ hasText: list.failed }).count()).resolves.toBe(0)
+      } finally {
+        await page.context().close()
+      }
+    })
+
+    it('loads the next page when the keyboard reaches the last items, and announces the number shown', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await expect(page.getByRole('status').filter({ hasText: `Showing ${list.first} ${list.noun}` }).count()).resolves.toBe(1)
+        await items(page).last().focus()
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        const shown = await items(page).count()
+        await expect(page.getByRole('status').filter({ hasText: `Showing ${shown} ${list.noun}` }).count()).resolves.toBe(1)
+        await noButton(page)
+      } finally {
+        await page.context().close()
+      }
+    })
   })
 })

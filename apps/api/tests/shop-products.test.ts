@@ -5,6 +5,7 @@ import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import type { TenantContext } from '#core/tenancy'
 import { pgArray, withScope } from '#db/scoped/index'
+import { selectShopProductRows } from '#db/scoped/shop'
 import { encodeValueCursor } from '#core/cursor'
 import { activityLog } from '#saas/activity/index'
 import type { PictureCopies } from '#saas/storefronts/index'
@@ -346,6 +347,36 @@ describe('recording the catalogue for a live build', () => {
   it('records nothing for a host that serves no open store', async () => {
     expect(await record('nobody.shop.example')).toBeNull()
     expect(await recorder().store('nobody.shop.example')).toBeNull()
+  })
+
+  // Card #1460: a photo is listed once however many versions show it, with its version when only one does.
+  it('lists each photo once: with its version when one version shows it, and as a product photo when several do', async () => {
+    const asset = async () => {
+      const [file] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`
+      if (!file) throw new Error('no asset')
+      await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${ids.kurta}, ${t.storeA1}, ${file.id}, (select count(*) from product_photo where product_id = ${ids.kurta}))`
+      return file.id
+    }
+    const [shared, single] = [await asset(), await asset()]
+    const read = async () => (await db.sql.begin((tx) => selectShopProductRows(tx, t.storeA1, [ids.kurta], 'en')))[0]?.photos ?? []
+    const listed = (photos: { asset_id: string }[]) => photos.map((p) => p.asset_id)
+    await db.sql`update product_version set photo_asset_id = ${single} where id = ${ids.red}`
+    const one = await read()
+    expect(listed(one)).toEqual([shared, single])
+    expect(one.find((p) => p.asset_id === single)?.version_id).toBe(ids.red)
+    expect(one.find((p) => p.asset_id === shared)?.version_id).toBeNull()
+    await db.sql`update product_version set photo_asset_id = ${shared} where product_id = ${ids.kurta}`
+    const many = await read()
+    expect(listed(many)).toEqual([shared, single])
+    expect(new Set(listed(many)).size).toBe(many.length)
+    expect(many.find((p) => p.asset_id === shared)?.version_id).toBeNull()
+    await db.sql`update product_photo set version_id = ${ids.red} where product_id = ${ids.kurta} and asset_id = ${shared}`
+    expect((await read()).find((p) => p.asset_id === shared)?.version_id).toBeNull()
+    await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
+    const legacy = await read()
+    expect(legacy.find((p) => p.asset_id === shared)?.version_id).toBe(ids.red)
+    await db.sql`update product_version set photo_asset_id = null where product_id = ${ids.kurta}`
+    await db.sql`delete from product_photo where product_id = ${ids.kurta}`
   })
 
   // Card #1105: the pictures a live build names are copied to the asset host, only this store's and only what shoppers see.

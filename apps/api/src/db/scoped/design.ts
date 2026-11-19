@@ -23,6 +23,11 @@ export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null)
     order by t.key = 'classic' desc, t.key = 'baseline' desc, t.key
     limit ${maxPageSize}`
 
+/** The starting template of the store's category (DATA-MODEL §7.2), or null. */
+export const selectCategoryTemplate = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ template_key: string | null }[]>`
+    select c.template_key from store s join store_category c on c.id = s.category_id where s.id = ${storeId}`)[0]?.template_key ?? null
+
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
   (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
 
@@ -132,8 +137,11 @@ export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date
     order by number desc limit ${limit}`
 
 /** The merchant's last requests, newest first, for the model's context (storefront ARCHITECTURE §6.2: the last four). */
-export const selectRecentRequests = async (tx: ScopedSql, storeId: string, limit: number): Promise<string[]> =>
-  (await tx<{ text: string }[]>`select text from design_message where store_id = ${storeId} and role = 'user' order by created_at desc, id desc limit ${limit}`).map((r) => r.text)
+export type RecentTurn = Pick<MessageRow, 'role' | 'text' | 'changed' | 'undone' | 'sample_url'>
+
+/** The merchant's requests and the AI's replies, newest first. */
+export const selectRecentTurns = (tx: ScopedSql, storeId: string, limit: number): Promise<RecentTurn[]> =>
+  tx<RecentTurn[]>`select role, text, to_jsonb(changed) as changed, undone, sample_url from design_message where store_id = ${storeId} and role in ('user', 'ai') order by created_at desc, id desc limit ${limit}`
 
 export const selectMessage = async (tx: ScopedSql, storeId: string, id: string): Promise<MessageRow | null> =>
   (await tx<MessageRow[]>`select ${messageColumns(tx)} from design_message where store_id = ${storeId} and id = ${id}`)[0] ?? null

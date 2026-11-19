@@ -1,3 +1,4 @@
+import ts from 'typescript'
 import type { RuleId } from './rules.js'
 
 // Invented data the theme's words may not claim (ARCHITECTURE §3.3, DESIGN §3), in English and Hindi, digits in any script.
@@ -86,4 +87,19 @@ export const asRead = (text: string): string =>
 export const claimsIn = (text: string): { rule: RuleId; what: string }[] => {
   const read = asRead(text)
   return claims.filter((c) => c.patterns.some((p) => p.test(read))).map(({ rule, what }) => ({ rule, what }))
+}
+
+/** Why a claim stands nowhere in the theme, in its content files or written in its code. */
+export const claimMessage = (words: string, what: string) => `"${words.trim().slice(0, 120)}" reads as ${what}. Such facts come only from the store's data through core, never from the theme's words.`
+
+/** Every literal piece of text in a node of the theme's code (strings, template parts, JSX text), for the claims check. */
+export const literalTexts = (node: ts.Node): string[] => {
+  const found: string[] = []
+  const visit = (n: ts.Node) => {
+    if (ts.isStringLiteralLike(n) || ts.isJsxText(n)) found.push(n.text)
+    else if (ts.isTemplateExpression(n)) found.push(n.head.text, ...n.templateSpans.map((s) => s.literal.text))
+    ts.forEachChild(n, visit)
+  }
+  visit(node)
+  return found
 }

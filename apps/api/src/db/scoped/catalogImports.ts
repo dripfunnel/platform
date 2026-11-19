@@ -39,9 +39,11 @@ export interface CatalogImportRow {
   started_at: Date | null
   finished_at: Date | null
   expires_at: Date | null
+  /** The store category whose sample catalog this import is (0404); null for every other import. */
+  sample_category_id: string | null
 }
 
-export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'inventory' | 'plan' | 'problems' | 'problems_csv' | 'connection_id' | 'selection' | 'cursor' | 'warehouse_map'>
+export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'inventory' | 'plan' | 'problems' | 'problems_csv' | 'connection_id' | 'selection' | 'cursor' | 'warehouse_map' | 'sample_category_id'>
 
 const summary = (tx: ScopedSql) =>
   tx`id, store_id, seller_id, source, state, match_mode, warehouse_id, products, ready, matched, done, created, updated, skipped, failed, photos_pending,
@@ -49,12 +51,12 @@ const summary = (tx: ScopedSql) =>
 
 export const insertCatalogImport = async (
   tx: ScopedSql,
-  i: { storeId: string; sellerId: string | null; source: 'csv' | 'shopify'; file: string; inventory: string | null; byId: string; byLabel: string },
+  i: { storeId: string; sellerId: string | null; source: 'csv' | 'shopify'; file: string; inventory: string | null; byId: string; byLabel: string; sampleCategoryId?: string | null },
 ): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
-    insert into catalog_import (id, store_id, seller_id, source, file, inventory, requested_by_id, requested_by_label)
-    values (${id}, ${i.storeId}, ${i.sellerId}, ${i.source}, ${i.file}, ${i.inventory}, ${i.byId}, ${i.byLabel})
+    insert into catalog_import (id, store_id, seller_id, source, file, inventory, requested_by_id, requested_by_label, sample_category_id)
+    values (${id}, ${i.storeId}, ${i.sellerId}, ${i.source}, ${i.file}, ${i.inventory}, ${i.byId}, ${i.byLabel}, ${i.sampleCategoryId ?? null})
   `
   return id
 }
@@ -127,11 +129,16 @@ export const saveImportProgress = async (
   `
 }
 
-/** The row as the count left it, held until the transaction ends; null when the run is no longer running. */
-export const saveImportPhotos = async (tx: ScopedSql, id: string, problems: unknown[]): Promise<CatalogImportRow | null> =>
+/** Where the next spare photo of the plan's `index`th product is, so two photos failing together never try the same one (#1348). */
+export const saveImportSpare = async (tx: ScopedSql, id: string, index: number, spare: number): Promise<void> => {
+  await tx`update catalog_import set plan = jsonb_set(plan, ${`{products,${index},spare}`}::text[], ${String(spare)}::text::jsonb) where id = ${id} and state = 'running'`
+}
+
+/** The row as the count left it, held until the transaction ends; null when the run is no longer running. `replaced` photos were queued in place of this one. */
+export const saveImportPhotos = async (tx: ScopedSql, id: string, problems: unknown[], replaced = 0): Promise<CatalogImportRow | null> =>
   (
     await tx<CatalogImportRow[]>`
-      update catalog_import set photos_pending = greatest(photos_pending - 1, 0), problems = problems || ${JSON.stringify(problems)}::text::jsonb
+      update catalog_import set photos_pending = greatest(photos_pending - 1 + ${replaced}, 0), problems = problems || ${JSON.stringify(problems)}::text::jsonb
       where id = ${id} and state = 'running'
       returning *
     `

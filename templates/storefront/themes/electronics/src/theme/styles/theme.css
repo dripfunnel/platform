@@ -1,0 +1,56 @@
+@theme {
+  --color-bg: #f4f6f9;
+  --color-surface: #fff;
+  --color-soft: #eceff4;
+  --color-tint: #e3e8f1;
+  --color-ink: #0b0d12;
+  --color-ink-soft: #2a303c;
+  --color-muted: #586072;
+  --color-line: #dce1e9;
+  --color-accent: #1f5cf0;
+  --color-accent-ink: #fff;
+  --color-volt: #c6f432;
+  --color-volt-ink: #0b0d12;
+  --color-stage: #0b0d12;
+  --color-stage-raised: #151a24;
+  --color-stage-line: #262d3b;
+  --color-stage-ink: #f4f6f9;
+  --color-stage-muted: #a4adbe;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 14px;
+  --radius-button: 10px;
+  --font-heading: 'Space Grotesk', 'Avenir Next', 'Segoe UI Variable Display', 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
+  --heading-weight: 600;
+  --brand-weight: 700;
+  --heading-case: none;
+  --heading-spacing: -0.03em;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', menlo, monospace;
+  --color-header-bg: #0b0d12;
+  --color-header-ink: #f4f6f9;
+  --color-header-hover: #1b2130;
+  --color-footer-bg: #07080c;
+  --color-footer-ink: #eceff4;
+  --color-footer-muted: #a4adbe;
+  --color-footer-line: #222836;
+  --picture: linear-gradient(145deg, #151a24, #2a3550);
+  --picture-alt: linear-gradient(145deg, #eef1f6, #dde3ee);
+  --glow: radial-gradient(60% 60% at 70% 40%, rgb(31 92 240 / 0.35), rgb(11 13 18 / 0) 70%);
+  --glow-volt: radial-gradient(50% 50% at 50% 55%, rgb(198 244 50 / 0.18), rgb(21 26 36 / 0) 70%);
+  --grid-lines: linear-gradient(rgb(11 13 18 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(11 13 18 / 0.05) 1px, transparent 1px);
+  --color-shade-20: rgb(11 13 18 / 0.2);
+  --color-shade-72: rgb(11 13 18 / 0.72);
+  --color-shade-92: rgb(11 13 18 / 0.92);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) 150% 0 / 200% 100% var(--color-soft);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) -50% 0 / 200% 100% var(--color-soft);
+  }
+}

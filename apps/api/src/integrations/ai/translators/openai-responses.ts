@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { UnsupportedFeature, type CanonicalFinish, type CanonicalRequest, type CanonicalResponse, type CanonicalStreamEvent, type CanonicalToolChoice, type ProviderCapabilities } from '../canonical'
 import { GatewayError } from '../gateway'
-import { checkRequest, checkToolPairing, clampTemperature, dataUrl, refuseErrorFlags, turnsOf } from './shared'
+import { checkRequest, checkToolPairing, clampTemperature, dataUrl, resultText, turnsOf } from './shared'
 import { advanceToolCall, endToolCall, errorEvent, guardedStream, newToolCall, openaiErrorCode, parseOrThrow, typeOf, usageOf, type ToolCallState } from './streams'
 import type { RequestTranslator, ResponseTranslator, StreamTranslatorFactory } from './types'
 
@@ -38,12 +38,11 @@ export const openaiResponsesRequest: RequestTranslator<OpenAiResponsesBody> = {
     // The Responses API has no stop sequences.
     if (request.stop?.length) throw new UnsupportedFeature('stop sequences')
     const turns = turnsOf(request.messages)
-    refuseErrorFlags(turns)
     checkToolPairing(turns)
     const input: InputItem[] = request.developer ? [{ role: 'developer', content: request.developer }] : []
     for (const turn of turns) {
       if (turn.role === 'user') {
-        for (const result of turn.results) input.push({ type: 'function_call_output', call_id: result.callId, output: result.content })
+        for (const result of turn.results) input.push({ type: 'function_call_output', call_id: result.callId, output: resultText(result) })
         if (turn.content.length > 0) input.push({ role: 'user', content: turn.content.map((part) => (part.type === 'text' ? { type: 'input_text' as const, text: part.text } : { type: 'input_image' as const, image_url: dataUrl(part) })) })
         continue
       }

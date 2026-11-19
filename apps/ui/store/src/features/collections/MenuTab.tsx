@@ -163,6 +163,9 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
     else acc.push({ key: r.key, label: named(r), kids: [] })
     return acc
   }, [])
+  // The live header (#1481): Home and Shop all, the menu's items, or every visible collection while there are none, then About and Contact.
+  const fixed = (key: keyof typeof words.fixed) => ({ key, label: words.fixed[key], kids: [] as { key: string; label: string }[] })
+  const links = [fixed('home'), fixed('shopAll'), ...(tops.length > 0 ? tops : collections.filter((c) => c.visible).slice(0, 20).map((c) => ({ key: c.id, label: c.name, kids: [] as { key: string; label: string }[] }))), fixed('about'), fixed('contact')]
 
   return (
     <div className="df-coll-edit">
@@ -170,22 +173,25 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
         <div className="df-menu-head">
           <h1 id="df-menu-title">{words.title}</h1>
           {canEdit && (
-            <select
-              aria-label={words.addLabel}
-              value=""
-              disabled={busy || addable.length === 0}
-              onChange={(e) => {
-                const c = collections.find((x) => x.id === e.target.value)
-                if (c) void apply([...rows, { key: `m${++rowKey}`, kind: 'collection', label: c.name, collectionId: c.id, url: null, depth: 0 }], words.added)
-              }}
-            >
-              <option value="">{words.add}</option>
-              {addable.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            // The title is on the wrapper: a disabled select shows no tooltip in some browsers.
+            <span title={addable.length === 0 ? words.noneToAdd : undefined}>
+              <select
+                aria-label={words.addLabel}
+                value=""
+                disabled={busy || addable.length === 0}
+                onChange={(e) => {
+                  const c = collections.find((x) => x.id === e.target.value)
+                  if (c) void apply([...rows, { key: `m${++rowKey}`, kind: 'collection', label: c.name, collectionId: c.id, url: null, depth: 0 }], words.added)
+                }}
+              >
+                <option value="">{words.add}</option>
+                {addable.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </span>
           )}
         </div>
         {busy && (
@@ -230,7 +236,7 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
           <h2>{words.desktop}</h2>
           <div className="df-menu-desktop">
             <strong>{storeName}</strong>
-            {tops.map((t) => (
+            {links.map((t) => (
               <span key={t.key}>
                 <span>
                   {t.label}
@@ -244,7 +250,7 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
         <section className="df-menu-preview df-menu-phone" aria-label={words.phone}>
           <h2>{words.phone}</h2>
           <ul>
-            {tops.flatMap((t) => [
+            {links.flatMap((t) => [
               <li key={t.key}>
                 {t.label}
                 <Icon name="chevron" size={14} />

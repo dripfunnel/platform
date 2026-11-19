@@ -36,6 +36,12 @@ export interface StudioApi {
   progress: (storeId: string, run: string, event: LiveEvent) => Promise<void>
   /** Stops the change running for the store; false when none is (AI-STUDIO §4). */
   cancel: (storeId: string) => Promise<boolean>
+  /** A design run's input, held here until its Workflow takes it, never in the job's params (AI-STUDIO §4 "A design run"). */
+  hold: (storeId: string, run: string, input: unknown) => Promise<void>
+  /** `run`'s input, deleted as it is taken; null when taken before (a replayed step) or dropped by Stop. */
+  take: (storeId: string, run: string) => Promise<unknown>
+  /** Drops `run`'s input, or every one waiting when no run is named; true when one was there. */
+  drop: (storeId: string, run?: string) => Promise<boolean>
   /** A plan's build, page by page in one turn (#1243); Stop (`cancel`) ends it after the page being built. */
   build: (storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel) => Promise<BuildOutcome | StudioAnswer>
   /** The build `run` as it last stood, kept by the object page by page, for an answer lost mid-build; null when none was kept. */

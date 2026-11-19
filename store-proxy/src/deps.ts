@@ -4,6 +4,8 @@ import type { SessionSeal } from './session'
 /** What a request is served with; index.ts builds it from the bindings, tests from fakes. */
 export interface Deps {
   edge: EdgeApi
+  /** The API's default fetch, which Cloudflare places next to the database: `/shop-api/*` and the Delivery API go here, not through `edge`, whose entrypoint it doesn't place (#1292). */
+  api: { fetch: (request: Request) => Promise<Response> }
   sites: R2Bucket
   cache: Cache
   waitUntil: (work: Promise<unknown>) => void

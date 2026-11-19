@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Deps } from './deps'
 import worker, { route } from './index'
 import { sessionSeconds } from './session'
-import { depsWith, fakeCache, fakeEdge, fakeSites, sessionKey, type Clock, type FakeEdge } from './testSupport'
+import { depsWith, fakeApi, fakeCache, fakeEdge, fakeSites, sessionKey, type Clock, type FakeApi, type FakeEdge } from './testSupport'
 
 // Card #317: a preview host, {slug}-preview.my-store.one (storefront PREVIEW.md §5, §6).
 
@@ -21,6 +21,7 @@ const objects = {
 
 let clock: Clock
 let edge: FakeEdge
+let api: FakeApi
 let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
@@ -31,12 +32,13 @@ const grantA = { ok: true as const, storeId: storeA, userId: owner, epoch: 3, fo
 beforeEach(async () => {
   clock = { at: 1_700_000_000_000 }
   edge = fakeEdge()
+  api = fakeApi()
   edge.tokens.set('link-a', { key: keyA, access: grantA })
   edge.tokens.set('link-b', { key: keyB, access: { ok: true, storeId: storeB, userId: owner, epoch: 0, folder: 'change-7' } })
   edge.access.set(`${keyA}:${storeA}:${owner}:3`, grantA)
   cache = fakeCache(clock)
   sites = fakeSites(objects)
-  ;({ deps, settle } = await depsWith({ edge, sites: sites.sites, cache: cache.cache, clock }))
+  ;({ deps, settle } = await depsWith({ edge, api, sites: sites.sites, cache: cache.cache, clock }))
 })
 
 afterEach(() => {
@@ -80,10 +82,11 @@ describe('a preview page', () => {
     expect(html).not.toContain('draft')
     expect(page.headers.get('x-robots-tag')).toBe('noindex, nofollow')
     expect(page.headers.get('referrer-policy')).toBe('no-referrer')
-    const api = await get(`https://${hostA}/shop-api/graphql`, { method: 'POST' })
-    expect(api.status).toBe(401)
-    expect(await api.json()).toMatchObject({ errors: [{ extensions: { code: 'PREVIEW_CLOSED' } }] })
+    const closed = await get(`https://${hostA}/shop-api/graphql`, { method: 'POST' })
+    expect(closed.status).toBe(401)
+    expect(await closed.json()).toMatchObject({ errors: [{ extensions: { code: 'PREVIEW_CLOSED' } }] })
     expect(edge.forwarded).toEqual([])
+    expect(api.forwarded).toEqual([])
     expect(sites.asked).toEqual([])
   })
 
@@ -153,7 +156,8 @@ describe('a preview page', () => {
     const response = await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}', ...withCookie(cookie, '; cart=xyz') })
     expect(response.status).toBe(200)
     expect(response.headers.get('set-cookie')).toContain('__Host-df_preview=')
-    const [forwarded] = edge.forwarded
+    const [forwarded] = api.forwarded
+    expect(edge.forwarded).toEqual([])
     expect(forwarded?.headers.get('cookie')).toBe('cart=xyz')
     expect(JSON.stringify([...(forwarded?.headers ?? [])])).not.toContain(owner)
   })

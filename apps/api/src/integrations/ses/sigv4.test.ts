@@ -19,6 +19,14 @@ describe('SigV4', () => {
     )
   })
 
+  it('signs a body given as bytes as it signs the same bytes given as text (a template image, seed-templates)', async () => {
+    const key = { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: 'secret', region: 'auto', service: 's3' }
+    const request = { method: 'PUT', path: '/bucket/key', headers: { host: 'example.r2.cloudflarestorage.com', 'x-amz-date': '20261117T000000Z' } }
+    const text = await authorization(key, { ...request, body: '{"a":1}' })
+    expect(await authorization(key, { ...request, body: new TextEncoder().encode('{"a":1}') })).toBe(text)
+    expect(await authorization(key, { ...request, body: new Uint8Array([0xff, 0x00]) })).not.toBe(text)
+  })
+
   it('formats the request time in basic ISO 8601, UTC', () => {
     expect(amzDate(new Date('2015-08-30T12:36:00.123Z'))).toBe('20150830T123600Z')
   })

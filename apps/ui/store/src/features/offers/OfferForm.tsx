@@ -187,7 +187,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
       <Section n={1} title={words.sections.what}>
         {(d.type === 'products' || d.type === 'order') && (
           <>
-            <div className="df-offer-row">
+            <div className="df-offer-row df-offer-bottom">
               <div className="df-offer-segment" role="radiogroup" aria-labelledby={ids.kind}>
                 <span id={ids.kind} className="df-visually-hidden">
                   {words.kindLabel}

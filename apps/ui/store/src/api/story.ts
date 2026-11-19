@@ -53,7 +53,7 @@ export interface StoryModuleInput {
   photos?: { assetId: string; alt?: string }[]
   productIds?: string[]
   blockId?: string
-  video?: { url: string }
+  video?: { url: string } | { assetId: string }
 }
 
 /** The draft, saved as the next revision; the live page doesn't change until it is published. */

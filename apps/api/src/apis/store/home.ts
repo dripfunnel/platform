@@ -45,12 +45,15 @@ export const registerHome = (builder: StoreBuilder) => {
   })
   const SetupType = builder.objectRef<Setup>('HomeSetup').implement({
     fields: (t) => ({
+      category: t.exposeBoolean('category', { nullable: true }),
       products: t.exposeBoolean('products', { nullable: true }),
       collections: t.exposeBoolean('collections', { nullable: true }),
       payments: t.exposeBoolean('payments', { nullable: true }),
       shipping: t.exposeBoolean('shipping', { nullable: true }),
       paymentsSkipped: t.exposeBoolean('paymentsSkipped', { nullable: true }),
       shippingSkipped: t.exposeBoolean('shippingSkipped', { nullable: true }),
+      brand: t.exposeBoolean('brand', { nullable: true }),
+      brandSkipped: t.exposeBoolean('brandSkipped', { nullable: true }),
     }),
   })
   const Home = builder.objectRef<HomeView>('StoreHome').implement({

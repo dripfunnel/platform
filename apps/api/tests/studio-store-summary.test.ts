@@ -101,8 +101,10 @@ const summaryA = () => buildStoreSummary(db.sql, person(t.storeA1, t.partnerA), 
 
 describe('the store summary', () => {
   it('holds the store’s settings, brand, collections, best sellers, top collections, cities and offers', async () => {
+    expect((await summaryA()).category).toBeNull()
+    await db.sql`update store set category_id = (select id from store_category where key = 'fashion_apparel') where id = ${t.storeA1}`
     const s = await summaryA()
-    expect(s).toMatchObject({ name: 'Store A1', city: 'Pune', currency: 'INR', products: 3, collectionCount: 1, collections: [{ name: 'Summer', slug: 'summer', products: 1, image: false }] })
+    expect(s).toMatchObject({ name: 'Store A1', city: 'Pune', category: 'Fashion & Apparel', currency: 'INR', products: 3, collectionCount: 1, collections: [{ name: 'Summer', slug: 'summer', products: 1, image: false }] })
     expect(s.brand).toMatchObject({ tagline: 'Linen for warm days', voice: 'warm', colours: ['#224466'] })
     expect(s.bestSellers).toEqual([
       { name: 'Linen shirt', slug: 'linen-shirt', price: 'INR 1499.00', unitsSold: 10 },

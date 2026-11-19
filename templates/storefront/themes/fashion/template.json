@@ -1,0 +1,8 @@
+{
+  "key": "fashion",
+  "name": "Thread",
+  "tag": "Fashion & apparel",
+  "description": "Clean editorial layout with big portrait photos, a lookbook hero and new arrivals up front.",
+  "demoStore": null,
+  "coreMinVersion": "0.14.0"
+}

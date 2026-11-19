@@ -10,13 +10,15 @@ export interface SignInCandidate {
   email: string
   password_hash: string | null
   two_factor_method: 'app' | 'sms' | null
+  /** Where a phone-method code goes; the sign-in reads which channels reach it (ACCESS.md §4). */
+  phone: string | null
   locked_until: Date | null
 }
 
 /** The active person with this email under the host's partner; at most one (user_email_key). */
 export const selectSignInCandidate = async (tx: ScopedSql, partnerId: string, email: string): Promise<SignInCandidate | null> => {
   const rows = await tx<SignInCandidate[]>`
-    select u.id, u.partner_id, u.name, u.email, u.password_hash, u.two_factor_method, u.locked_until
+    select u.id, u.partner_id, u.name, u.email, u.password_hash, u.two_factor_method, u.phone, u.locked_until
     from "user" u
     where u.partner_id = ${partnerId} and lower(u.email) = lower(${email}) and u.status = 'active'
   `
@@ -101,13 +103,23 @@ export interface VerificationCodeRow {
 
 export const insertVerificationCode = async (
   tx: ScopedSql,
-  code: { id: string; partnerId: string; userId: string; purpose: 'sign_in' | 'enrol_phone'; hash: string; expiresAt: Date; createdAt: Date },
+  code: { id: string; partnerId: string; userId: string; purpose: 'sign_in' | 'enrol_phone'; channel: 'whatsapp' | 'sms'; hash: string; expiresAt: Date; createdAt: Date },
 ): Promise<void> => {
   await tx`
-    insert into verification_code (id, partner_id, subject_kind, subject_id, purpose, code_hash, expires_at, created_at)
-    values (${code.id}, ${code.partnerId}, 'user', ${code.userId}, ${code.purpose}, ${code.hash}, ${code.expiresAt}, ${code.createdAt})
+    insert into verification_code (id, partner_id, subject_kind, subject_id, purpose, channel, code_hash, expires_at, created_at)
+    values (${code.id}, ${code.partnerId}, 'user', ${code.userId}, ${code.purpose}, ${code.channel}, ${code.hash}, ${code.expiresAt}, ${code.createdAt})
   `
 }
+
+/** The newest code sent for this purpose, used or not: the 20-second rule reads its channel (ACCESS.md §4). */
+export const selectLastCodeSent = async (tx: ScopedSql, userId: string, purpose: 'sign_in' | 'enrol_phone'): Promise<{ channel: 'whatsapp' | 'sms'; sentAt: Date } | null> =>
+  (
+    await tx<{ channel: 'whatsapp' | 'sms'; sentAt: Date }[]>`
+      select channel, created_at as "sentAt" from verification_code
+      where subject_kind = 'user' and subject_id = ${userId} and purpose = ${purpose}
+      order by created_at desc limit 1
+    `
+  )[0] ?? null
 
 /** The latest unused, unexpired code for this purpose; an older one is never accepted. */
 export const selectLiveCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in' | 'enrol_phone', now: Date): Promise<VerificationCodeRow | null> => {

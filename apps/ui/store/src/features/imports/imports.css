@@ -88,6 +88,13 @@
   font-size: 13px;
 }
 
+.df-import-export-about {
+  margin: 0;
+  padding: 8px 16px;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
 .df-import-sources,
 .df-import-cards {
   display: grid;
@@ -594,6 +601,7 @@
 }
 
 .df-import-export-head {
+  justify-content: flex-end;
   padding: 14px 16px;
 }
 

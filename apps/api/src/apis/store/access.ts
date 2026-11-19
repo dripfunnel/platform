@@ -15,7 +15,7 @@ import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
-import type { StudioDeps } from '#saas/ai-designer/index'
+import type { DesignRuns, StudioDeps } from '#saas/ai-designer/index'
 import type { StoreRepos } from '#integrations/github/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, blockedIn, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
@@ -23,6 +23,7 @@ import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import type { StoreBillingStripe, StripeApi } from '#integrations/stripe/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
+import type { CodeChannelCheck } from '#saas/portalCodes/index'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -39,7 +40,7 @@ export interface StoreContext extends Record<string, unknown> {
   host?: string
   /** Connect Shopify's app, or null where none is set up (CATALOG K7). */
   shopify?: ShopConnect | null
-  /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
+  /** The stores' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached. */
   couriers?: CourierDirectory | null
   /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
   billing?: (StripeApi & StoreBillingStripe) | null
@@ -48,6 +49,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** Which channels reach a number (ACCESS.md §4): the brand's and My profile's `codeChannels`, and the phone method's code; none where unset. */
+  codeChannels?: CodeChannelCheck | null
   /** DNS for checking a merchant's webhook address (SSRF, AGENTS.md "Security"); null where none can be asked. */
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
@@ -69,7 +72,9 @@ export interface StoreContext extends Record<string, unknown> {
   /** The AI sign-in flow (SAAS §9.3); null where the Worker has none. */
   aiOauth?: AiOAuth | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
-  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
+  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'reference' | 'lookCache' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
+  /** The DesignRun Workflow askDesign and buildDesignPlan start (storefront AI-STUDIO §4); null where it isn't bound. */
+  designRuns?: DesignRuns | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
   /** Signs the 10-minute links to shoppers' files on orders (#1369); null where CREDENTIALS_KEK isn't set. */

@@ -41,7 +41,7 @@ const giftCardAttempt = (ctx: ShopContext) => limitCodeTries(ctx, 'gift-card', '
 
 export const cartOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
-  const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
+  const couriers = ctx.couriers ? await ctx.couriers.forStore(shopper.context.storeId) : null
   // A guest's new carts are counted per store and address, so a script can't fill the table.
   const { ip } = ctx.facts
   const allowNewCart = async () => ip !== null && (await ctx.allowNewCart(`cart:${shopper.context.storeId}:${ip}`))
@@ -129,14 +129,15 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       // A gift card's recipient and day; null on every other line.
       gift: t.field({ type: Gift, nullable: true, resolve: (l) => l.gift }),
       quantity: t.exposeInt('quantity'),
-      productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? null }),
+      // A line that can't be bought keeps its name, version and photo (#1465), but no web address: the product may not open.
+      productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? l.shown?.productName ?? null }),
       productSlug: t.string({ nullable: true, resolve: (l) => l.item?.product.slug ?? null }),
-      versionName: t.string({ nullable: true, resolve: (l) => l.item?.versionLabel ?? null }),
+      versionName: t.string({ nullable: true, resolve: (l) => l.item?.versionLabel ?? l.shown?.versionLabel ?? null }),
       photoUrl: t.string({
         nullable: true,
         resolve: (l, _, ctx) => {
-          const photo = l.item?.product.photos.find((p) => p.versionId === l.versionId) ?? l.item?.product.photos[0]
-          return photo ? assetUrl(ctx, photo.assetId) : null
+          const photo = l.item?.product.photos.find((p) => p.versionId === l.versionId)?.assetId ?? l.item?.product.photos[0]?.assetId ?? l.shown?.photoAssetId
+          return photo ? assetUrl(ctx, photo) : null
         },
       }),
       unitPrice: t.field({ type: Money_, nullable: true, resolve: (l) => l.unitPrice }),
@@ -193,6 +194,8 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       shippingOption: t.exposeString('shippingOption', { nullable: true }),
       // False when nothing in the cart is sent (downloads, services, gift cards): checkout skips the address and delivery.
       needsShipping: t.exposeBoolean('needsShipping'),
+      // True when a product in the cart asks shoppers to confirm their age: Review shows the tick box (#1443).
+      needsAgeConfirmation: t.exposeBoolean('needsAgeConfirmation'),
       checkoutStep: t.exposeString('checkoutStep', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (c) => c.lines }),
       subtotal: t.field({ type: Money_, resolve: (c) => c.subtotal }),

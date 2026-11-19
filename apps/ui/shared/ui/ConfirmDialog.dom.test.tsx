@@ -122,3 +122,143 @@ describe('the confirm dialog waiting on fields of the caller’s own', () => {
     expect(onConfirm).toHaveBeenCalledOnce()
   })
 })
+
+describe('the confirm dialog’s choices (#1453)', () => {
+  const show = (hint: boolean, target = 'Item') => {
+    const onConfirm = vi.fn()
+    render(
+      <ConfirmDialog
+        open
+        title="Stop selling it?"
+        target={target}
+        consequence="Other versions stay."
+        confirmLabel="Apply"
+        cancelLabel="Cancel"
+        choices={[
+          {
+            key: 'how',
+            label: 'How',
+            options: [
+              { value: 'a', label: 'First', ...(hint ? { hint: 'First line', confirmLabel: 'Hide' } : {}) },
+              { value: 'b', label: 'Second', ...(hint ? { hint: 'Second line', confirmLabel: 'Remove' } : {}) },
+            ],
+            initial: 'a',
+            error: () => null,
+          },
+        ]}
+        onConfirm={(_reason, _value, picks) => onConfirm(picks['how'])}
+        onCancel={() => undefined}
+      />,
+    )
+    return onConfirm
+  }
+
+  it('shows radio boxes with a line under each option when options carry one, with the confirm label following the pick', () => {
+    const onConfirm = show(true, '')
+    expect(screen.getByText('First line')).toBeTruthy()
+    expect(screen.getByText('Second line')).toBeTruthy()
+    expect((screen.getByRole('radio', { name: /First/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: /Second/ }))
+    expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(onConfirm).toHaveBeenCalledWith('b')
+  })
+
+  it('leaves a choice without lines as a dropdown with the one confirm label, and shows a target only when given one', () => {
+    show(false, 'Item')
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'How' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeTruthy()
+    expect(screen.getByText('Item')).toBeTruthy()
+  })
+})
+
+describe('the confirm dialog’s size (#1352)', () => {
+  const Sized = ({ wide }: { wide?: boolean }) => (
+    <ConfirmDialog open title="Invite a supplier" target="Step 3 of 3" consequence="They never see your customers." confirmLabel="Send the invite" cancelLabel="Cancel" {...(wide === undefined ? {} : { wide })} onConfirm={() => undefined} onCancel={() => undefined} />
+  )
+  const dialog = () => document.querySelector('dialog') as HTMLDialogElement
+
+  it('is the usual size by default, and only wide when asked', () => {
+    render(<Sized />)
+    expect(dialog().className).toBe('df-dialog')
+    cleanup()
+    render(<Sized wide={false} />)
+    expect(dialog().className).toBe('df-dialog')
+    cleanup()
+    render(<Sized wide />)
+    expect(dialog().className).toBe('df-dialog df-dialog--wide')
+  })
+})
+
+describe('the space above the confirm dialog’s text (#1500)', () => {
+  const Spaced = ({ spaced }: { spaced?: boolean }) => (
+    <ConfirmDialog open title="Add a note" target="" consequence="Only your team sees this." confirmLabel="Add" cancelLabel="Cancel" {...(spaced === undefined ? {} : { spaced })} onConfirm={() => undefined} onCancel={() => undefined} />
+  )
+  const body = () => document.querySelector('.df-dialog-body') as HTMLElement
+
+  it('is the usual space by default, and more only when asked', () => {
+    render(<Spaced />)
+    expect(body().className).toBe('df-dialog-body')
+    cleanup()
+    render(<Spaced spaced />)
+    expect(body().className).toBe('df-dialog-body df-dialog-body--spaced')
+  })
+})
+
+describe('where the confirm dialog puts the cursor, and Enter (#1470)', () => {
+  const open = (extra: Partial<Parameters<typeof ConfirmDialog>[0]> = {}) => {
+    const onConfirm = vi.fn()
+    const onCancel = vi.fn()
+    render(<ConfirmDialog open title="Add to Fabric" target="Fabric" consequence="" confirmLabel="Add" cancelLabel="Cancel" onConfirm={onConfirm} onCancel={onCancel} {...extra} />)
+    return { onConfirm, onCancel }
+  }
+  const value = { label: 'New value', type: 'text' as const, initial: '', error: (v: string) => (v.trim() === '' ? 'Type a value.' : null) }
+
+  it('starts in the text box, and Enter adds a valid value as the button does', () => {
+    const { onConfirm } = open({ input: value })
+    const box = screen.getByLabelText('New value') as HTMLInputElement
+    expect(document.activeElement).toBe(box)
+    fireEvent.change(box, { target: { value: 'Bamboo' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onConfirm).toHaveBeenCalledWith(null, 'Bamboo', {})
+  })
+
+  it('keeps the window open on Enter with an empty value, with the message the button waits on', () => {
+    const { onConfirm } = open({ input: value })
+    const box = screen.getByLabelText('New value')
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(screen.getByText('Type a value.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('still closes on Cancel and on Escape without confirming', () => {
+    const { onConfirm, onCancel } = open({ input: value })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.keyDown(screen.getByLabelText('New value'), { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalled()
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('starts on Cancel with no text box, so Enter never confirms by accident', () => {
+    open()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }))
+  })
+
+  it('starts in the reason box or the type-to-confirm box, and Enter there confirms nothing', () => {
+    const { onConfirm } = open({ reason: { label: 'Why', hint: 'Say why' }, typeToConfirm: { label: 'Type it', hint: 'Type Fabric', expected: 'Fabric' } })
+    const why = screen.getByLabelText('Why')
+    expect(document.activeElement).toBe(why)
+    fireEvent.change(why, { target: { value: 'Because' } })
+    fireEvent.keyDown(why, { key: 'Enter' })
+    const typed = screen.getByLabelText('Type it')
+    fireEvent.change(typed, { target: { value: 'Fabric' } })
+    fireEvent.keyDown(typed, { key: 'Enter' })
+    expect(onConfirm).not.toHaveBeenCalled()
+    cleanup()
+    open({ typeToConfirm: { label: 'Type it', hint: 'Type Fabric', expected: 'Fabric' } })
+    expect(document.activeElement).toBe(screen.getByLabelText('Type it'))
+  })
+})

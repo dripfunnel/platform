@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cx } from '../cx'
-import { AddressFields, Checkbox, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, AgeConfirmation, Checkbox, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -24,9 +24,27 @@ export const CheckoutView = () => {
 
   if (c.status === 'loading') {
     return (
-      <section className={shop.page} aria-busy="true">
-        <h1 className={shop.title}>{t('shop.checkout.title')}</h1>
-        <p className={shop.lead}>{t('shop.checkout.loading')}</p>
+      <section className={styles.page} aria-busy="true">
+        <h1 className={styles.title}>{t('shop.checkout.title')}</h1>
+        <p className={shop.srOnly}>{t('shop.checkout.loading')}</p>
+        <div className={styles.layout}>
+          <ol className={styles.steps}>
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className={styles.step}>
+                <div className={styles.stepHead}>
+                  <span className={shop.skeletonDot} />
+                  <span className={shop.skeletonText} />
+                </div>
+              </li>
+            ))}
+          </ol>
+          <aside className={styles.side}>
+            <h2 className={styles.sideTitle}>{t('shop.checkout.summary')}</h2>
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonText} />
+            <span className={shop.skeletonShort} />
+          </aside>
+        </div>
       </section>
     )
   }
@@ -67,7 +85,9 @@ export const CheckoutView = () => {
           ? t('shop.checkout.refusals.notReady')
           : code === 'OFFER_CHANGED' || code === 'CART_CHANGED'
             ? t('shop.checkout.refusals.changed')
-            : t('shop.checkout.refusals.other')
+            : code === 'AGE_CONFIRMATION_REQUIRED'
+              ? t('shop.checkout.refusals.age')
+              : t('shop.checkout.refusals.other')
   const problem = (p: string | undefined) => (p === 'required' ? t('shop.checkout.required') : p === 'invalid' ? t('shop.checkout.invalid') : null)
 
   const body = (id: CheckoutStepId) => {
@@ -190,6 +210,7 @@ export const CheckoutView = () => {
         </dl>
         <p className={styles.note}>{t('shop.checkout.agree')}</p>
         <PaymentElement t={t} className={styles.payment} />
+        <AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} className={styles.age} />
         <PlaceOrder checkout={c} className={cx(shop.primary, styles.pay)} again={t('shop.checkout.payAgain')}>
           {t('shop.checkout.place')}
         </PlaceOrder>

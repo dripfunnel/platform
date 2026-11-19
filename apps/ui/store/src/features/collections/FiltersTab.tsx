@@ -186,7 +186,7 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
                 {f.values.length === 0 && <span className="df-coll-hint">{words.noValues}</span>}
                 {f.values.map((v) => (
                   <button key={v.id} type="button" className={alike?.some((a) => a.id === v.id) ? 'df-filter-value df-filter-value--alike' : 'df-filter-value'} disabled={!canEdit || busy} onClick={() => manage(f, v)}>
-                    {v.name} <span>{formatCount(v.products)}</span>
+                    {v.name} <span>{fill(words.valueCount, { count: formatCount(v.products) })}</span>
                   </button>
                 ))}
                 {canEdit && (

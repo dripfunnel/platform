@@ -8,6 +8,9 @@ export type Refusal =
   | { code: 'WRONG_CODE'; triesLeft?: number }
   | { code: 'LOCKED'; minutes: number }
   | { code: 'INVALID_PHONE' }
+  // A portal code's channel (ACCESS.md §4, #1506): one that is off, SMS within 20 s of WhatsApp, or a sign-up step skipped.
+  | { code: 'CHANNEL_OFF' | 'STEP_SKIPPED' }
+  | { code: 'TOO_SOON'; seconds: number }
   // Google sign-in (#1046): no account for Google's address, Google's answer refused, or no Google here.
   | { code: 'NO_ACCOUNT' | 'GOOGLE_REFUSED' | 'GOOGLE_UNAVAILABLE' }
   | { code: 'INVALID_INPUT' | 'INVALID_EMAIL' | 'INVALID_SUBDOMAIN' | 'COUNTRY_UNAVAILABLE' | 'SIGNUP_CLOSED' | 'SIGNUP_EXPIRED' }
@@ -18,9 +21,9 @@ export type Refusal =
   | { code: 'FORBIDDEN' }
   | { code: 'STORE_LIMIT'; limit: number }
 
-const badRequest = new Set<Refusal['code']>(['INVALID_PHONE', 'INVALID_INPUT', 'INVALID_EMAIL', 'INVALID_SUBDOMAIN', 'COUNTRY_UNAVAILABLE', 'SIGNUP_CLOSED', 'SIGNUP_EXPIRED', 'NAME_REQUIRED', 'WEAK_PASSWORD', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID', 'EMAIL_CHANGE_INVALID'])
+const badRequest = new Set<Refusal['code']>(['INVALID_PHONE', 'CHANNEL_OFF', 'STEP_SKIPPED', 'INVALID_INPUT', 'INVALID_EMAIL', 'INVALID_SUBDOMAIN', 'COUNTRY_UNAVAILABLE', 'SIGNUP_CLOSED', 'SIGNUP_EXPIRED', 'NAME_REQUIRED', 'WEAK_PASSWORD', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID', 'EMAIL_CHANGE_INVALID'])
 
-const ownStatus: Partial<Record<Refusal['code'], number>> = { FORBIDDEN: 403, STORE_LIMIT: 403 }
+const ownStatus: Partial<Record<Refusal['code'], number>> = { FORBIDDEN: 403, STORE_LIMIT: 403, TOO_SOON: 429 }
 
 export const refuse = (refusal: Refusal): Response => {
   const status = ownStatus[refusal.code]

@@ -337,6 +337,8 @@ describe.skipIf(!chrome)('step check', () => {
     expect(headers['index.html']?.['content-security-policy']).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/)
     // A snapshot without the store's portal lets no page frame the site.
     expect(Object.values(headers).every((h) => h['content-security-policy'].includes("frame-ancestors 'none'"))).toBe(true)
+    // The baseline lists no Google font, so no page lets Google's hosts load (ARCHITECTURE §3.5).
+    expect(Object.values(headers).some((h) => /fonts\.(googleapis|gstatic)\.com/.test(h['content-security-policy']))).toBe(false)
   })
 
   it('passes a catalogue snapshot’s product and collection pages through the whole gate, hydrated from their answers (#1011)', async () => {
@@ -351,6 +353,36 @@ describe.skipIf(!chrome)('step check', () => {
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
     const headers = JSON.parse(readFileSync(join(root, 'catalogue-check-checked/headers.json'), 'utf8')) as Record<string, unknown>
     expect(Object.keys(headers)).toEqual(expect.arrayContaining(['products/linen-shirt/index.html', 'products/linen-shirt/v-red/index.html', 'collections/summer/index.html']))
+  })
+
+  describe('a page that navigates while it is read (#1539)', () => {
+    // The page's own script moves it from inside the check's first scroll, so the browser destroys the context the check is
+    // reading in, as a redirect or a reload after hydration does. Its inline script is hashed into the page's CSP at check time.
+    const withScroll = async (name: string, script: string) => {
+      const source = await sourceOf(name)
+      const out = join(root, `${name}-built`)
+      const theme = await checkout(source.bundle, source.commit, join(root, `${name}-src`))
+      await buildSite({ repo: join(root, `${name}-src`), theme, snapshot, runtimeDir: runtime, out, work: join(root, `${name}-work`) })
+      expect(existsSync(join(out, 'site/cart/index.html'))).toBe(true)
+      const home = join(out, 'site/index.html')
+      writeFileSync(home, readFileSync(home, 'utf8').replace('<head>', `<head><script>${script}</script>`))
+      return checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics: steady(() => 20) })
+    }
+    // A scroll that never answers, because the page is already on its way elsewhere: once, as a redirect is, or every time.
+    const leave = (to: string, once: boolean) =>
+      `const real = window.scrollTo.bind(window); let gone = false; window.scrollTo = (...a) => { if (${once} && gone) return real(...a); gone = true; location.replace('${to}'); return new Promise(() => {}) }`
+
+    it('is read again once it has loaded, not thrown at', async () => {
+      const { report } = await withScroll('navigates-once', leave('/cart/', true))
+      expect(JSON.stringify(report.checks.filter((c) => !c.passed))).not.toContain('failed while loading')
+    })
+
+    it('is that page’s failure when it never stops, and the other pages are still checked', async () => {
+      const { report } = await withScroll('navigates-always', leave('/', false))
+      const failed = JSON.stringify(report.checks.filter((c) => !c.passed))
+      expect(failed).toContain('The home page at 390 px failed while loading.')
+      expect(failed).not.toContain('The cart page')
+    })
   })
 
   it('fails a page whose loads block the main thread past the budget, by the timings it measured', async () => {
@@ -368,23 +400,18 @@ describe.skipIf(!chrome)('step check', () => {
       let x = seed
       return Array.from({ length: 11_000 }, () => (x = (x * 1103515245 + 12345) % 2147483648) % 1000000).join(', ')
     }
-    const table = (n: number) => `export const table${n} = [${digits(n + 7)}]\n`
+    // Ten tables of 85 KB each, as one file may hold at most 100 KB (guard/files.ts), clear the 200 KB JavaScript budget.
+    const tables = Array.from({ length: 10 }, (_, i) => i + 1)
     const source = await sourceOf('broken', {
-      'src/theme/components/interactive/tableA.tsx': table(1),
-      'src/theme/components/interactive/tableB.tsx': table(2),
-      'src/theme/components/interactive/tableC.tsx': table(3),
-      'src/theme/components/interactive/tableD.tsx': table(4),
+      ...Object.fromEntries(tables.map((n) => [`src/theme/components/interactive/table${n}.tsx`, `export const table${n} = [${digits(n + 7)}]\n`])),
       'src/theme/components/interactive/Heavy.tsx': [
         "'use client'",
         '',
         "import { useMemo } from 'react'",
-        "import { table1 } from './tableA'",
-        "import { table2 } from './tableB'",
-        "import { table3 } from './tableC'",
-        "import { table4 } from './tableD'",
+        ...tables.map((n) => `import { table${n} } from './table${n}'`),
         '',
         'export const Heavy = () => {',
-        '  const total = useMemo(() => table1.length + table2.length + table3.length + table4.length, [])',
+        `  const total = useMemo(() => ${tables.map((n) => `table${n}.length`).join(' + ')}, [])`,
         '  return <span data-total={total} />',
         '}',
         '',
@@ -422,7 +449,7 @@ describe.skipIf(!chrome)('step check', () => {
     expect(report.passed).toBe(false)
     expect(failed['sealed']).toContain('The "powered" component on the home page isn\'t seen: something covers its centre.')
     expect(failed['checkout']).toContain('The checkout page at 390 px can\'t be used')
-    expect(failed['budgets']).toMatch(/^Home page loads [\d.]+ KB of JavaScript gzipped, over the 90.0 KB budget\./)
+    expect(failed['budgets']).toMatch(/^Home page loads [\d.]+ KB of JavaScript gzipped, over the 200.0 KB budget\./)
     expect(failed['no-js']).toContain("main heading is empty without JavaScript.")
     expect(report.checks.find((c) => c.name === 'validator')).toEqual({ name: 'validator', passed: true })
   })

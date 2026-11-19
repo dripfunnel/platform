@@ -34,6 +34,8 @@ export interface DraftModule {
   productIds: string[]
   blockId: string | null
   videoUrl: string
+  /** An uploaded video; it and the link replace each other (#1448). */
+  videoAssetId: string | null
 }
 
 const isKind = (k: string): k is StoryKind => (storyKinds as readonly string[]).includes(k)
@@ -58,6 +60,7 @@ export const blankModule = (kind: StoryKind): DraftModule => ({
   productIds: [],
   blockId: null,
   videoUrl: '',
+  videoAssetId: null,
 })
 
 /** The stored draft as the form edits it; a kind this editor doesn't know is left out rather than lost silently. */
@@ -77,6 +80,7 @@ export const modulesOf = (stored: readonly StoredModule[]): DraftModule[] =>
             productIds: m.productIds ?? [],
             blockId: m.blockId,
             videoUrl: m.video?.url ?? '',
+            videoAssetId: m.video?.assetId ?? null,
           },
         ]
       : [],
@@ -110,7 +114,7 @@ export const moduleInput = (m: DraftModule): StoryModuleInput => {
     case 'brand':
       return { ...base, ...opt('blockId', m.blockId ?? undefined) }
     case 'video':
-      return { ...base, ...opt('video', m.videoUrl.trim() ? { url: m.videoUrl.trim() } : undefined) }
+      return { ...base, ...opt('video', m.videoAssetId ? { assetId: m.videoAssetId } : m.videoUrl.trim() ? { url: m.videoUrl.trim() } : undefined) }
     case 'specs':
     case 'faq':
       return base

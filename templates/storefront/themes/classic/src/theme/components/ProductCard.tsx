@@ -16,8 +16,7 @@ export const ProductCard = ({ product }: { product: Card }) => {
       <span className={styles.cardRule} aria-hidden="true" />
       {product.price ? (
         <p className={styles.cardPrice}>
-          {product.from ? <span className={styles.from}>{t('shop.card.from')}</span> : null}
-          <Price money={product.price} compareAt={product.compareAt} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />
+          <Price money={product.price} compareAt={product.compareAt} to={product.maxPrice} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} />
         </p>
       ) : null}
       <Link href={product.href} className={styles.cardMore}>
@@ -30,11 +29,18 @@ export const ProductCard = ({ product }: { product: Card }) => {
   )
 }
 
-export const ProductGrid = ({ products, wide = false }: { products: readonly Card[]; wide?: boolean }) => (
-  <ul className={wide ? styles.gridWide : styles.grid}>
+/** `placeholders`: that many cells shaped like the placeholder's, after the products, while more load. */
+export const ProductGrid = ({ products, wide = false, placeholders = 0 }: { products: readonly Card[]; wide?: boolean; placeholders?: number }) => (
+  <ul className={wide ? styles.gridWide : styles.grid} aria-busy={placeholders > 0 || undefined}>
     {products.map((p) => (
       <li key={p.id} className={styles.cell}>
         <ProductCard product={p} />
+      </li>
+    ))}
+    {[...Array(placeholders).keys()].map((i) => (
+      <li key={i} className={styles.cell}>
+        <div className={styles.skeletonPicture} />
+        <div className={styles.skeletonLine} />
       </li>
     ))}
   </ul>

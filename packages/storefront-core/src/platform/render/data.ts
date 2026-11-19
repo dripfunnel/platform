@@ -40,9 +40,10 @@ export const shared = <T>(client: ShopClient, key: string, load: () => Promise<T
 
 /**
  * Loads what `key` names (null asks nothing), keeping only the answer to the latest question: a slow answer to an
- * earlier one never replaces it. A pre-filled answer shows at once and stays while the Shop API is asked again.
+ * earlier one never replaces it. A pre-filled answer shows at once and stays while the Shop API is asked again; with
+ * `keepBuilt` it stays for good and the Shop API is not asked, so the page shows one answer from its first paint (#1481).
  */
-export const useShopData = <T>(key: string | null, load: (client: ShopClient) => Promise<T>): Loaded<T> & { retry: () => void } => {
+export const useShopData = <T>(key: string | null, load: (client: ShopClient) => Promise<T>, { keepBuilt = false }: { keepBuilt?: boolean } = {}): Loaded<T> & { retry: () => void } => {
   const { client } = useStorefront()
   const prefilled = useContext(PrefilledContext)
   const known = key !== null && prefilled !== null && prefilled.answers.has(key)
@@ -62,6 +63,7 @@ export const useShopData = <T>(key: string | null, load: (client: ShopClient) =>
       const answer = prefilled.answers.get(key) as T
       setState((s) => (s.status === 'ready' && s.data === answer ? s : { status: 'ready', data: answer, code: null }))
     } else setState({ status: 'loading', data: null, code: null })
+    if (kept && keepBuilt) return
     const answer = attempt === 0 ? shared(client, key, () => loader.current(client)) : loader.current(client)
     answer.then(
       (data) => {

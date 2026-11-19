@@ -115,6 +115,10 @@
   font-weight: 600;
 }
 
+.df-places-required::after {
+  content: ' *';
+}
+
 .df-places-field input {
   min-height: var(--df-control-height);
   padding: 0 var(--df-space-3);
@@ -163,7 +167,7 @@
   color: var(--df-color-surface);
 }
 
-/* "Pin on map" (#815): the map is #814's frame on the hooks host, sized here. */
+/* The location form's map (#815, #1609): #814's frame on the hooks host, sized here, under the address search. */
 .df-places-pin {
   display: flex;
   flex-direction: column;
@@ -198,11 +202,41 @@
   background: var(--df-color-surface);
 }
 
-.df-places-map-title {
-  margin: 0;
-  color: var(--df-color-heading);
-  font-weight: 600;
+.df-places-search {
+  position: relative;
+}
+
+.df-places-options {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  left: 0;
+  max-height: 280px;
+  margin: 4px 0 0;
+  padding: var(--df-space-1) 0;
+  overflow-y: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+  list-style: none;
+}
+
+.df-places-option {
+  padding: 8px var(--df-space-3);
+  color: var(--df-color-text);
   font-size: 14px;
+  cursor: pointer;
+}
+
+.df-places-option span {
+  color: var(--df-color-muted);
+}
+
+.df-places-option:hover,
+.df-places-option[aria-selected='true'] {
+  background: var(--df-color-hover);
 }
 
 .df-places-map-area {

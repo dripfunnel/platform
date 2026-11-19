@@ -4,8 +4,23 @@ import { ApiError, decode, nextPage, pageInfoSchema, postJson, typedQuery, type 
 // The merchant portal's sign-in routes on the partner's host (ACCESS.md §4). With no Origin and no cookie each
 // answer carries the session as `token`; a refusal is an ApiError with the route's code.
 
-const signInAnswer = z.object({ step: z.enum(['done', 'second-factor', 'enrol']), method: z.enum(['app', 'sms']).nullable().optional(), token: z.string() })
-const hintAnswer = z.object({ hint: z.string() })
+export const codeChannelSchema = z.enum(['whatsapp', 'sms'])
+export type CodeChannel = z.infer<typeof codeChannelSchema>
+
+/** Where a phone code can go now (ACCESS.md §4 "How a portal code reaches a phone"). */
+export const codeChannelsSchema = z.object({ whatsapp: z.boolean(), sms: z.boolean() })
+export type CodeChannels = z.infer<typeof codeChannelsSchema>
+
+const signInAnswer = z.object({
+  step: z.enum(['done', 'second-factor', 'enrol']),
+  method: z.enum(['app', 'sms']).nullable().optional(),
+  codeChannels: codeChannelsSchema.optional(),
+  token: z.string(),
+})
+/** A code sent: by which channel, to the number's last four (`•••• 0142`), and where the next one can go. */
+const codeSentAnswer = z.object({ hint: z.string(), channel: codeChannelSchema, codeChannels: codeChannelsSchema })
+export type CodeSent = z.infer<typeof codeSentAnswer>
+const channelOf = (channel: CodeChannel | undefined) => (channel ? { channel } : {})
 const tokenAnswer = z.object({ token: z.string() })
 const backupCodeAnswer = z.object({ token: z.string(), left: z.number() })
 const enrolledAnswer = z.object({ token: z.string(), backupCodes: z.array(z.string()) })
@@ -19,9 +34,9 @@ export const signIn = async (rest: RestOptions, email: string, password: string)
 export const signInWithGoogle = async (rest: RestOptions, idToken: string): Promise<SignInStep> =>
   decode(signInAnswer, await postJson(rest, '/api/auth/google/token', { idToken }))
 
-/** Texts the code to the person's own number; answers a hint of the number ("ending 0142"). */
-export const sendCode = async (rest: RestOptions, pendingToken: string): Promise<string> =>
-  decode(hintAnswer, await postJson(rest, '/api/auth/send-code', {}, pendingToken)).hint
+/** Sends the code to the person's own number, by the channel asked for or else WhatsApp while it is open; refused CHANNEL_OFF or TOO_SOON (`seconds`). */
+export const sendCode = async (rest: RestOptions, pendingToken: string, channel?: CodeChannel): Promise<CodeSent> =>
+  decode(codeSentAnswer, await postJson(rest, '/api/auth/send-code', channelOf(channel), pendingToken))
 
 export const verifyCode = async (rest: RestOptions, pendingToken: string, code: string): Promise<string> =>
   decode(tokenAnswer, await postJson(rest, '/api/auth/second-factor', { code }, pendingToken)).token
@@ -29,9 +44,9 @@ export const verifyCode = async (rest: RestOptions, pendingToken: string, code: 
 export const signInWithBackupCode = async (rest: RestOptions, pendingToken: string, code: string): Promise<{ token: string; left: number }> =>
   decode(backupCodeAnswer, await postJson(rest, '/api/auth/backup-code', { code }, pendingToken))
 
-/** Set-up for a held session by text message (a team that requires 2-factor, #1008): the number first, then the code it was sent, which ends with the backup codes. */
-export const enrolSendCode = async (rest: RestOptions, pendingToken: string, phone: string): Promise<string> =>
-  decode(hintAnswer, await postJson(rest, '/api/auth/enrol-second-factor', { method: 'sms', phone }, pendingToken)).hint
+/** Set-up for a held session by a phone code (a team that requires 2-factor, #1008): the number first, then the code it was sent, which ends with the backup codes. */
+export const enrolSendCode = async (rest: RestOptions, pendingToken: string, phone: string, channel?: CodeChannel): Promise<CodeSent> =>
+  decode(codeSentAnswer, await postJson(rest, '/api/auth/enrol-second-factor', { method: 'sms', phone, ...channelOf(channel) }, pendingToken))
 
 export const enrolConfirm = async (rest: RestOptions, pendingToken: string, code: string): Promise<{ token: string; backupCodes: string[] }> =>
   decode(enrolledAnswer, await postJson(rest, '/api/auth/enrol-second-factor', { method: 'sms', code }, pendingToken))

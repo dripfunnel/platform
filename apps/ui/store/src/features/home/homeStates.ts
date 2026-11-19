@@ -1,4 +1,5 @@
 import type { StoreHome, StoreLocaleFacts } from '../../api/home'
+import type { StorefrontSetup } from './homeView'
 
 // Home's states under ?state= (ui/README.md §6): loading, error, owner, manager, staff, newStore, newManager, newStaff,
 // allClear, readOnly, denied. Each seat's sample is what the API answers that seat (§5: null where it may not see).
@@ -51,23 +52,24 @@ const fresh: StoreHome | null = busy && {
   sales: [],
   returningCustomers: 0,
   latestOrders: [],
-  setup: { products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false },
+  setup: { category: false, products: true, collections: false, brand: false },
 }
 
 /** What `home` withholds from a Manager (approval, couriers) and Staff (money, payments, returning customers). */
-const asManager = (home: StoreHome): StoreHome => ({ ...home, awaitingApproval: null, rejectedCouriers: null, setup: home.setup && { ...home.setup, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+const asManager = (home: StoreHome): StoreHome => ({ ...home, awaitingApproval: null, rejectedCouriers: null, setup: home.setup && { ...home.setup, brand: null } })
 const asStaff = (home: StoreHome): StoreHome => ({
   ...asManager(home),
   paymentsToCollect: null,
   sales: null,
   returningCustomers: null,
   latestOrders: home.latestOrders.map((o) => ({ ...o, total: null })),
-  setup: home.setup && { products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null },
+  setup: home.setup && { category: null, products: null, collections: null, brand: null },
 })
 
 export interface HomeSample {
   home: StoreHome
   locale: StoreLocaleFacts | null
+  storefront?: StorefrontSetup | null
 }
 
 const indiaLocale: StoreLocaleFacts = { country: 'IN', currency: 'INR', language: 'en' }
@@ -80,7 +82,7 @@ export const homeSample = (state: HomeState | null): HomeSample | null => {
     case 'staff':
       return { home: asStaff(busy), locale: null }
     case 'newStore':
-      return { home: fresh, locale: indiaLocale }
+      return { home: fresh, locale: indiaLocale, storefront: { status: 'not_started', published: false, template: null, previewReady: false, publishing: null, host: null } }
     case 'newManager':
       return { home: asManager(fresh), locale: null }
     case 'newStaff':

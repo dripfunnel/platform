@@ -2,7 +2,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Profile } from '../../api/profile'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
+import { productName } from '../common/productName'
 
 // My profile's cards driven as a person would: password, two-step, details, appearance and activity paging.
 
@@ -24,6 +25,7 @@ const profile = (twoFactor: Profile['twoFactor'], extra: Partial<Profile> = {}):
   theme: null,
   passwordChangedAt: null,
   twoFactor,
+  codeChannels: { whatsapp: true, sms: true },
   ...extra,
 })
 const typeIn = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
@@ -73,6 +75,82 @@ describe('two-step sign-in', () => {
     await settle()
     expect(startSecondFactor).toHaveBeenLastCalledWith('sms', 'pw two')
     expect(startSecondFactor).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the phone set-up (ACCESS.md §4)', () => {
+  const codes = messages.codeResend
+  const tick = async (seconds: number) => {
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    for (let i = 0; i < seconds; i++) await act(async () => vi.advanceTimersByTimeAsync(1000))
+  }
+  const step = (channel: 'whatsapp' | 'sms') => ({ secret: null, uri: null, hint: '•••• 1234', done: false, backupCodes: null, channel })
+  const startPhone = async (channels = { whatsapp: true, sms: true }) => {
+    const { TwoStep } = await import('./TwoStep')
+    render(<TwoStep profile={profile({ method: null, backupCodesLeft: 0 }, { codeChannels: channels })} onChanged={() => undefined} onToast={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: words.twoStep.turnOn }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.twoStep.sms) }))
+    setUpPassword('pw')
+    fireEvent.click(screen.getByRole('button', { name: words.twoStep.next }))
+    await tick(0)
+  }
+
+  afterEach(() => vi.useRealTimers())
+
+  it('says the code went to WhatsApp, and after 20 seconds sends the next by SMS with the password', async () => {
+    vi.useFakeTimers()
+    const startSecondFactor = vi.fn().mockResolvedValue(step('whatsapp'))
+    const resendSecondFactorCode = vi.fn().mockResolvedValue(step('sms'))
+    vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), startSecondFactor, resendSecondFactorCode }))
+    await startPhone()
+    expect(screen.getByText(fill(codes.sentWhatsapp, { hint: '•••• 1234' }))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: codes.insteadSms })).toBeNull()
+    await tick(20)
+    fireEvent.click(screen.getByRole('button', { name: codes.insteadSms }))
+    await tick(0)
+    expect(resendSecondFactorCode).toHaveBeenCalledWith('pw', 'sms')
+    expect(screen.getByText(fill(codes.sentSms, { hint: '•••• 1234' }))).toBeTruthy()
+  })
+
+  it('hides the SMS link while SMS is off, and waits the seconds TOO_SOON names', async () => {
+    vi.useFakeTimers()
+    const { ApiError } = await import('@dripfunnel/shared/graphql')
+    const startSecondFactor = vi.fn().mockResolvedValue(step('whatsapp'))
+    const resendSecondFactorCode = vi.fn().mockRejectedValue(new ApiError('TOO_SOON', 'wait', { seconds: 4 }))
+    vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), startSecondFactor, resendSecondFactorCode }))
+    await startPhone({ whatsapp: true, sms: false })
+    await tick(20)
+    expect(screen.queryByRole('button', { name: codes.insteadSms })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: codes.againWhatsapp }))
+    await tick(0)
+    expect(screen.getByRole('alert').textContent).toBe(fill(codes.tooSoon, { seconds: '4' }))
+    expect(screen.getByText(fill(codes.wait, { seconds: '4' }))).toBeTruthy()
+  })
+
+  it('says why no code went when the channel is off', async () => {
+    const { ApiError } = await import('@dripfunnel/shared/graphql')
+    const startSecondFactor = vi.fn().mockRejectedValue(new ApiError('CHANNEL_OFF', 'off'))
+    vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), startSecondFactor }))
+    vi.useFakeTimers()
+    await startPhone()
+    expect(screen.getByRole('alert').textContent).toBe(words.twoStep.noChannel)
+  })
+
+  it('offers only the authenticator app while no code can reach the phone, and says a phone method is paused', async () => {
+    const { TwoStep } = await import('./TwoStep')
+    const off = { whatsapp: false, sms: false }
+    const view = render(<TwoStep profile={profile({ method: null, backupCodesLeft: 0 }, { codeChannels: off })} onChanged={() => undefined} onToast={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: words.twoStep.turnOn }))
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([`${words.twoStep.app}${words.twoStep.appPick}`])
+    view.unmount()
+
+    const appView = render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8 }, { codeChannels: off })} onChanged={() => undefined} onToast={() => undefined} />)
+    expect(screen.queryByRole('button', { name: words.twoStep.useSms })).toBeNull()
+    appView.unmount()
+
+    render(<TwoStep profile={profile({ method: 'sms', backupCodesLeft: 8 }, { codeChannels: off })} onChanged={() => undefined} onToast={() => undefined} />)
+    expect(screen.getByText(fill(words.twoStep.paused, { product: productName() }))).toBeTruthy()
+    expect(screen.getByRole('button', { name: words.twoStep.useApp })).toBeTruthy()
   })
 })
 

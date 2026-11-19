@@ -34,7 +34,7 @@ import {
   type ShopStoreRow,
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
-import { selectCartVersions } from '#db/scoped/cart'
+import { selectCartLineDisplays, selectCartVersions } from '#db/scoped/cart'
 import { textLimits } from '#engine/modules/catalog/index'
 import { selectProductQuestions, selectQuestionWords } from '#db/scoped/questions'
 import { shopQuestionsOf, type ShopQuestion } from './questions'
@@ -59,6 +59,15 @@ export interface CartItem {
   soldHere: boolean
   /** Whether its product asks questions, so a line without answers is checked only then (#1368). */
   hasQuestions: boolean
+  /** Its product asks shoppers to confirm their age at checkout (#1443). */
+  ageRestricted: boolean
+}
+
+/** What a cart line shows when its version can't be bought: its product's name, its version and a photo, for display only (#1465). */
+export interface CartLineDisplay {
+  productName: string
+  versionLabel: string | null
+  photoAssetId: string | null
 }
 
 export interface StorefrontDeps {
@@ -191,8 +200,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
 
   /** The prices' facts: the store's currencies and rates, the shopper's market, and whether the cart's currency can be priced. */
   const pricingIn = async (tx: ScopedSql) => {
-    const row = await selectShopPricing(tx, storeId)
-    const market = await selectShopMarket(tx, storeId, marketId)
+    const [row, market] = await Promise.all([selectShopPricing(tx, storeId), selectShopMarket(tx, storeId, marketId)])
     if (!row || !market) return null
     const pricing: StorePricing = { pricingCurrency: row.pricing_currency, currencies: row.currencies.map((c) => ({ currency: c.currency, mode: c.mode, rounding: c.rounding })), perEuro: new Map(row.rates.map((r) => [r.currency, r.per_euro])) }
     const rate = (c: string) => c === 'EUR' || pricing.perEuro.has(c)
@@ -212,9 +220,9 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
 
   const viewsOf = async (tx: ScopedSql, ids: readonly string[], facts: NonNullable<Awaited<ReturnType<typeof pricingIn>>>): Promise<ShopProductView[]> => {
     if (ids.length === 0) return []
-    const rows = await selectShopProductRows(tx, storeId, ids, language)
+    // Independent reads go together on the transaction: one round trip each batch (docs/api/README.md §7).
+    const [rows, badges] = await Promise.all([selectShopProductRows(tx, storeId, ids, language), features.badges ? selectShopBadges(tx, storeId) : null])
     const stock = await selectShopStock(tx, rows.flatMap((r) => r.versions.map((v) => v.id)))
-    const badges = features.badges ? await selectShopBadges(tx, storeId) : null
     const byId = new Map(rows.map((r) => [r.id, productView(r, { currency, market: facts.market, pricing: facts.pricing, stock: new Map(stock.map((s) => [s.version_id, s])), badges, now: now() })]))
     return ids.flatMap((id) => byId.get(id) ?? [])
   }
@@ -311,21 +319,27 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
    * market sells it. A version shoppers can't see is missing from the answer.
    */
   const cartItemsIn = async (tx: ScopedSql, versionIds: readonly string[]): Promise<Map<string, CartItem>> => {
-    const facts = await pricingIn(tx)
-    const versions = await selectCartVersions(tx, storeId, versionIds, language)
+    const [facts, versions] = await Promise.all([pricingIn(tx), selectCartVersions(tx, storeId, versionIds, language)])
     if (!facts || versions.length === 0) return new Map()
     const productIds = [...new Set(versions.map((v) => v.product_id))]
-    const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
-    const views = new Map((await viewsOf(tx, productIds, facts)).map((p) => [p.id, p]))
+    const [listed, shown] = await Promise.all([selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds), viewsOf(tx, productIds, facts)])
+    const views = new Map(shown.map((p) => [p.id, p]))
     return new Map(
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
         const version = product?.versions.find((x) => x.id === v.id)
-        return product && version ? [[v.id, { product, version, versionLabel: versionLabelOf(version.name, v.choices), taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
+        return product && version ? [[v.id, { product, version, versionLabel: versionLabelOf(version.name, v.choices), taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions, ageRestricted: v.age_restricted }] as const] : []
       }),
     )
   }
   const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> => inScope((tx) => cartItemsIn(tx, versionIds))
+
+  /**
+   * What names these versions on a cart line, whatever their product's state, so an unavailable line still says what it was
+   * (#1465). The shop role reads only visible products, so this reads in system scope, for the caller's own cart's versions only.
+   */
+  const cartLineDisplays = async (versionIds: readonly string[]): Promise<Map<string, CartLineDisplay>> =>
+    new Map((await withSystemScope(sql, (tx) => selectCartLineDisplays(tx, storeId, versionIds, language))).map((r) => [r.id, { productName: r.product_name, versionLabel: versionLabelOf(r.version_name, r.choices), photoAssetId: r.photo_asset_id }]))
 
   /** These products' questions as the shopper sees them: translated, priced in the cart's currency and market (#1368). */
   const questionsIn = async (tx: ScopedSql, productIds: readonly string[]): Promise<Map<string, ShopQuestion[]>> => {
@@ -366,5 +380,5 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     }))
   }
 
-  return { store, menu, collections, collection, asset, products, facets, priceBounds, product, cartItems, cartItemsIn, productsByIds, offers, questions, questionsIn }
+  return { store, menu, collections, collection, asset, products, facets, priceBounds, product, cartItems, cartItemsIn, cartLineDisplays, productsByIds, offers, questions, questionsIn }
 }

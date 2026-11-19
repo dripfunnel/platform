@@ -77,7 +77,7 @@ const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
   const onOverview = vi.fn()
   const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true, forCategory: false }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
   })
   await settle()
   return { onOverview, onRun }
@@ -152,6 +152,22 @@ describe('the studio’s frame', () => {
     const picker = screen.getByRole('combobox', { name: words.page })
     const labels = within(picker).getAllByRole('option').map((o) => o.textContent)
     expect(labels).toEqual(expect.arrayContaining([words.routes.home, fill(words.routes.product, { name: 'Kurta' }), words.routes.terms, 'FAQ', '/about']))
+  })
+
+  it('takes a brief up to 10,000 characters, counting from 8,000, and won’t send past it', async () => {
+    await show()
+    fireEvent.change(prompt(), { target: { value: 'a'.repeat(7999) } })
+    expect(screen.queryByText(/ of .* characters$/)).toBeNull()
+    fireEvent.change(prompt(), { target: { value: 'a'.repeat(10_000) } })
+    expect(screen.getByText(fill(c.count, { count: '10,000', max: '10,000' }))).toBeTruthy()
+    expect((screen.getByRole('button', { name: c.send }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.change(prompt(), { target: { value: 'a'.repeat(10_012) } })
+    expect(screen.getByText(fill(c.tooLong, { count: '12', max: '10,000' }))).toBeTruthy()
+    expect(prompt().getAttribute('aria-invalid')).toBe('true')
+    expect((screen.getByRole('button', { name: c.send }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.keyDown(prompt(), { key: 'Enter' })
+    await settle()
+    expect(api.askDesign).not.toHaveBeenCalled()
   })
 
   it('keeps the same frame when a change is accepted: the frame reloads itself (AI-STUDIO §4 step 5)', async () => {
@@ -458,6 +474,19 @@ describe('the chat', () => {
     expect(chip.querySelector('img.df-studio-thumb')?.getAttribute('src')).toBe('blob:picked')
   })
 
+  it('gives a refused change its image back, shown from the upload since its in-memory preview is gone', async () => {
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:picked', revokeObjectURL: () => undefined }))
+    await show({ askDesign: vi.fn().mockRejectedValue(new ApiError('INVALID_IMAGE', 'No.')) })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'hero.png', { type: 'image/png' })] } }))
+    await settle()
+    fireEvent.change(prompt(), { target: { value: 'Use this' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    const chip = screen.getByText('hero.png').closest('.df-studio-chip') as HTMLElement
+    expect(chip.querySelector('img[src="blob:picked"]')).toBeNull()
+  })
+
   it('takes a pasted image, and refuses one of another kind', async () => {
     await show()
     const paste = (type: string) => fireEvent.paste(prompt(), { clipboardData: { items: [{ kind: 'file', type, getAsFile: () => new File(['x'], '', { type }) }] } })
@@ -467,6 +496,18 @@ describe('the chat', () => {
     await settle()
     expect(api.uploadImage).toHaveBeenCalledTimes(1)
     expect(screen.getByText(c.imageName)).toBeTruthy()
+  })
+})
+
+describe('a page that threw in the frame', () => {
+  it('says so until the frame shows a page again, and ignores it from another origin', async () => {
+    await show()
+    post({ type: 'df-studio:problem', section: 'home' }, 'https://evil.example.com')
+    expect(screen.queryByText(words.sandbox.pageFailed)).toBeNull()
+    post({ type: 'df-studio:problem', section: 'home' })
+    expect(screen.getByText(words.sandbox.pageFailed).closest('[role="alert"]')).not.toBeNull()
+    post({ type: 'df-studio:page', path: '/about' })
+    expect(screen.queryByText(words.sandbox.pageFailed)).toBeNull()
   })
 })
 

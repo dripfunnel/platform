@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named, §9). Before: 2026-11-05 (#1244: the AI's photos only from Openverse and Wikimedia Commons, §9). Before: 2026-11-02 (#1178: Shopify's CSV files need no account, §3.4). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §8.1). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §8.1). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §8, §8.1). Before: 2026-11-01 (#1086: the production database on PlanetScale, §2.1, §2.2, §8). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §2.2, §8). Before: 2026-10-31 (Pexels, Openverse and Wikimedia Commons join the photo search, `PEXELS_API_KEY`, `AI_PHOTOS`, `AI_PHOTO_SOURCES`, §9). Before: 2026-10-30 (Pixabay for the studio's free photos, `PIXABAY_API_KEY`, §9). Before: 2026-10-29 (#1006: AI provider layers, the authentication-flow table in §2.6, SAAS §9.3). Before: 2026-10-29 (#878: Crashlytics for the merchant app, §2.8, §4, §7, §8). Before: 2026-10-29 (#872: Crashlytics built for the delivery app, §2.8). Before: 2026-10-28 (#876: Crashlytics for the shop app, §2.8, §8). Before: 2026-10-28 (#869: the shop app's per-store secrets named, §3.7). Before: 2026-10-28 (#950: the Claude and ChatGPT sign-ins and their gate, `AI_SIGN_IN`, §2.6, §8.1). Before: 2026-10-27 (#848: the delivery app's `STORE_KEY` and store file, §8). Before: 2026-10-27 (#858: `GOOGLE_MAPS_SERVER_KEY` read for arrival estimates, §2.12, §8.1). Before: 2026-10-26 (#842: silent pushes, §2.13). Before: 2026-10-26 (#860: the shop app's `STORE_KEY` and store file, §8). Before: 2026-10-26 (#840: Expo push built, `EXPO_PUSH_TOKEN` and `PUSH_LOCAL`, §2.13, §8.1). Before: 2026-10-23 (#839: riders' sign-in codes use `code.shopper_sign_in`, so no new template, §4). Before: 2026-10-23 (#838: the `rider.invited` text, §4). Before: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-11-19 (#1609: the warehouse form's map is always shown and has an address search, so the browser key is also restricted to the Places API (New), §2.12). Before: 2026-11-18 (#1563: an OpenAI key, DeepInfra's included, is checked before saving like an Anthropic one, §4). Before: 2026-11-17 (#1543: DripFunnel's own SMS and WhatsApp accounts are set in the admin console, not Worker values, the `MSG91_*`, `TWILIO_*`, `SNS_*` and `SMS_ROUTE_*` values gone; Admin enables them per partner and a partner with both chooses which sends, §1, §2.8, §4, §8.1, §8.3). Before: 2026-11-17 (#1542: a partner's complete SMS account sends whatever state DripFunnel's is in; no fallback between accounts, §4, §8.1). Before: 2026-11-17 (#1489: Shiprocket is each store's own API user, sealed per store in `courier_account`; its tracking hook is per store, §3.2). Before: 2026-11-16 (#1018: the partner console's SMS panel built, §4). Before: 2026-11-16 (#1506: portal codes go by WhatsApp as `code.portal` on the `whatsapp` deliverer, §4). Before: 2026-11-16 (#1504: the partner's WhatsApp Business account on Meta's Cloud API and its WhatsApp switch, built; cart reminders go through it and the MSG91 WhatsApp adapter is gone, §2.8, §4, §8.3). Before: 2026-11-16 (#1017 part 2: AWS SNS as a third SMS provider, `india` and `rest` routes for DripFunnel's default (`SNS_*`, `SMS_ROUTE_*`) and a partner's own, §2.8, §4, §8.1, §8.3). Before: 2026-11-16 (#1017: DripFunnel's own MSG91 and Twilio send every partner's texts from five Worker values until the partner's own account for a provider is complete, and the partner's SMS switch; built, §2.8, §4, §8.1, §8.3). Before: 2026-11-16 (with Gaurav, not built yet: WhatsApp is Meta's Cloud API only, for portal codes and cart reminders; the partner's WhatsApp and SMS are two panels, §2.8, §4, §8.3). Before: 2026-11-16 (a Claude sign-in offers and runs only `claude-haiku-4-5`, §2.6). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-06 (#1308: the AI's photo sources are `AI_PHOTO_SOURCES` as set, Pexels and Pixabay included when named, §9). Before: 2026-11-05 (#1244: the AI's photos only from Openverse and Wikimedia Commons, §9). Before: 2026-11-02 (#1178: Shopify's CSV files need no account, §3.4). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §8.1). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §8.1). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §8, §8.1). Before: 2026-11-01 (#1086: the production database on PlanetScale, §2.1, §2.2, §8). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §2.2, §8). Before: 2026-10-31 (Pexels, Openverse and Wikimedia Commons join the photo search, `PEXELS_API_KEY`, `AI_PHOTOS`, `AI_PHOTO_SOURCES`, §9). Before: 2026-10-30 (Pixabay for the studio's free photos, `PIXABAY_API_KEY`, §9). Before: 2026-10-29 (#1006: AI provider layers, the authentication-flow table in §2.6, SAAS §9.3). Before: 2026-10-29 (#878: Crashlytics for the merchant app, §2.8, §4, §7, §8). Before: 2026-10-29 (#872: Crashlytics built for the delivery app, §2.8). Before: 2026-10-28 (#876: Crashlytics for the shop app, §2.8, §8). Before: 2026-10-28 (#869: the shop app's per-store secrets named, §3.7). Before: 2026-10-28 (#950: the Claude and ChatGPT sign-ins and their gate, `AI_SIGN_IN`, §2.6, §8.1). Before: 2026-10-27 (#848: the delivery app's `STORE_KEY` and store file, §8). Before: 2026-10-27 (#858: `GOOGLE_MAPS_SERVER_KEY` read for arrival estimates, §2.12, §8.1). Before: 2026-10-26 (#842: silent pushes, §2.13). Before: 2026-10-26 (#860: the shop app's `STORE_KEY` and store file, §8). Before: 2026-10-26 (#840: Expo push built, `EXPO_PUSH_TOKEN` and `PUSH_LOCAL`, §2.13, §8.1). Before: 2026-10-23 (#839: riders' sign-in codes use `code.shopper_sign_in`, so no new template, §4). Before: 2026-10-23 (#838: the `rider.invited` text, §4). Before: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -30,6 +30,7 @@ These restate [../ARCHITECTURE.md](../ARCHITECTURE.md) §7 and the AGENTS.md sec
 | **Credentials partners and merchants give us are encrypted at rest** | A partner's AI, courier, SMS/WhatsApp, Google sign-in and support-chat credentials (§4) and a merchant's payment, courier, AI and Shopify credentials (§3) go in Postgres, encrypted with a platform key-encryption key (§5). They are never shown again after saving, only a masked hint and "connected on" |
 | **Every credential has an owner and a rotation date** | DF Admin shows its health, last check and rotation date, never its value ([../ui/admin/CONSOLE-DESIGN.md](../ui/admin/CONSOLE-DESIGN.md) R1) |
 | **CI secrets live in GitHub Actions** | Only secrets CI itself needs: deploying, Neon branches, publishing the package. Store repos hold **no platform secret** ([../api/SAAS.md](../api/SAAS.md) §5 step 5) |
+| **Exception: DripFunnel's own SMS and WhatsApp accounts live in Postgres** (decided 2026-11-17, #1543) | A Super admin enters them in the admin console, so they change without a deploy; they are sealed with `CREDENTIALS_KEK` in `platform_credential`, every column readable by `app_system` alone, shown back as their last four only, like a partner's (§4, §8.3). Every other DripFunnel secret stays a Worker secret |
 
 Legend:
 
@@ -196,7 +197,8 @@ without notice. An API key is the supported way for both.
 - **Anthropic (Claude): Claude Code's public PKCE client** (`9d1c250a-…`). Authorize at `claude.ai/oauth/authorize` with
   `code=true`, redirect `https://platform.claude.com/oauth/code/callback` (it shows `code#state`), scopes
   `user:profile user:inference`; token at `api.anthropic.com/v1/oauth/token` as JSON; calls use the SDK with `authToken` and the
-  `anthropic-beta: oauth-2025-04-20` header. The storefront designer lists `claude-haiku-4-5` first for a sign-in and streams a Messages
+  `anthropic-beta: oauth-2025-04-20` header. The storefront designer offers a sign-in only `claude-haiku-4-5`, the one model Anthropic runs on it outside Claude Code
+  (every other answers a bare `429 rate_limit_error` with the account's limits unused; checked 2026-11-16), and streams a Messages
   call at the model's maximum output, with reference images as standard image blocks. **Anthropic's terms do not allow this** (no Claude.ai login or Free, Pro or Max
   credentials in a third-party product: <https://code.claude.com/docs/en/legal-and-compliance>). It is built on the user's decision,
   not Anthropic's authorisation; revisit if Anthropic objects.
@@ -290,8 +292,8 @@ Each row is an open question in the specs. Each needs an account and key once ch
 
 | Need | Where it's specified | Candidates | Credentials | Lead time |
 |---|---|---|---|---|
-| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Shoppers' order updates (confirmed, shipped, delivered) (decided 2026-10-05 on #337); Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1); **MSG91 (India) and Twilio (US)**, decided 2026-10-05 on #284 | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
-| **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype), shipping with email in the first release (decided 2026-10-05 on #337); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
+| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4); DripFunnel's own SMS accounts (MSG91, Twilio, AWS SNS, with an India and a rest route) and its own WhatsApp account are set in the admin console and used only by the partners Admin enables them for, a partner with both choosing which sends (decided 2026-11-17, built on #1543; before, from 2026-10-30, DripFunnel's SMS sent for every partner from Worker values, #1017; the routes, the choice and the switches in §4) | Shoppers' order updates (confirmed, shipped, delivered) (decided 2026-10-05 on #337); Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1); **MSG91 (India) and Twilio (US)**, decided 2026-10-05 on #284; **AWS SNS** on either route, added 2026-11-16 | Twilio Verify, MSG91, AWS SNS, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
+| **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype), shipping with email in the first release (decided 2026-10-05 on #337); portal codes, WhatsApp first (ACCESS §4); WhatsApp codes (ACCESS §2.1) | **Meta WhatsApp Cloud API directly, nothing else** (decided 2026-11-16 with Gaurav; built on #1504, which deleted the MSG91 path #321 built); DripFunnel's own account too, for the partners Admin enables it for (#1543, §4) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token** (no app secret: we take no Meta webhook, decided 2026-11-16) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
 | **Search engine** (only if Postgres full-text isn't enough) | PLATFORM-PROMPT §5.4 "Typesense later" | Typesense Cloud | Admin key (server) + search-only scoped keys | later |
@@ -337,12 +339,14 @@ developer's **own** fine-grained token in `GITHUB_PAT` (issues, pull requests an
 Shoppers may pin their delivery address on a map at checkout and in My addresses (#814;
 storefront ARCHITECTURE §2.1), and merchants and suppliers may pin a warehouse in the merchant portal
 (#815), through the same map frame, so the portal never holds the key. One platform key per environment,
-not per store or partner.
+not per store or partner. **Decided on #1609 (2026-11-19):** the warehouse form shows its map as soon as it opens (#815 loaded
+Google only when the map was opened), and a search box above the map suggests places as it is typed in, through Places Autocomplete (#815 left
+autocomplete out). Typing in the address fields does not search. Both run in the same frame; the list page still loads no Google. **Decided on #1615 (2026-11-19):** the storefront's address form (checkout and My addresses) does the same, with the same search through the same frame, in place of #814's "Pin on map" button.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API | Project | — | #814 |
-| **Browser API key**, one per environment | Loads the map in the shopper's browser, so it is public by design. **Restricted by referrer** to the hooks host (`https://hooks.<host>/*`; locally `https://hooks.localhost/*`): Google is loaded only inside the map frame, whose page sends its origin as the referrer, so no store domain needs listing. Also **restricted by API** (Maps JavaScript API and Geocoding API only), with a daily quota (decided 2026-10-22 on #814) | `AIza…` (public) | Worker variable `GOOGLE_MAPS_BROWSER_KEY`; only the map frame's page on the hooks host carries it (`hooks.<host>/maps/pin`), never the Shop API, a build or a repo | #814 |
+| **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API, and the Places API (New) for the address search (the warehouse form's and the storefront's) | Project | — | #814, #1609 |
+| **Browser API key**, one per environment | Loads the map in the shopper's browser, so it is public by design. **Restricted by referrer** to the hooks host (`https://hooks.<host>/*`; locally `https://hooks.localhost/*`): Google is loaded only inside the map frame, whose page sends its origin as the referrer, so no store domain needs listing. Also **restricted by API** (Maps JavaScript API, Geocoding API and, since #1609, Places API (New) only), with a daily quota (decided 2026-10-22 on #814) | `AIza…` (public) | Worker variable `GOOGLE_MAPS_BROWSER_KEY`; only the map frame's page on the hooks host carries it (`hooks.<host>/maps/pin`), never the Shop API, a build or a repo | #814 |
 
 **Built on #858 (api/DELIVERY.md §7):** own delivery adds a **server key** restricted to the Routes API (**API restriction: Routes API only**, no application restriction since a Worker has no
 fixed address), for arrival estimates (Worker secret `GOOGLE_MAPS_SERVER_KEY`, validated at boot, optional; without it no estimate), with a daily quota. It is read only by the `delivery.eta`
@@ -437,19 +441,21 @@ first (PLATFORM-PROMPT §5.4).
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
 The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (one aggregator decided
-on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
-2026-10-04 on #272, §4), stored encrypted per partner, never a DripFunnel key; a merchant's own
-carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
+on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket**. **Shiprocket is the merchant's own API user** (decided 2026-11-13 on #1489 and agreed with Gaurav 2026-11-17, replacing
+the partner's own account of #272): entered in Settings › Shipping, checked with Shiprocket, stored encrypted per store,
+never a DripFunnel key. **EasyPost stays the partner's own account** (decided 2026-10-04 on #272, §4) and is not
+connectable yet; a merchant's own carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
 
 **Built on #311** (part 1): each adapter books a label at its courier's cheapest service and asks a pickup (Shiprocket's
 adhoc order, courier, label and pickup, its pickup address registered once per location; EasyPost's shipment bought, and a
 pickup bought from its rates), each call with a timeout and only reads retried; a label file is taken only from the
 courier's file store over https. Locally the stand-in books too. Part 2: tracking arrives on each account's hook,
-`hooks.<host>/couriers/shiprocket/{partnerId}` (the partner sets a token on its Shiprocket webhook, sent as `x-api-key`)
-and `hooks.<host>/couriers/easypost/{partnerId}` (an EasyPost webhook with a secret, which signs each event); there is no
-polling. Still missing on dev: each partner's Shiprocket API user and webhook token, and EasyPost key and webhook secret
-(#275 stores them with the account).
+`hooks.<host>/couriers/shiprocket/{storeId}` (the merchant sets a token on its Shiprocket webhook, sent as `x-api-key`,
+and enters the same token when connecting; #1489) and `hooks.<host>/couriers/easypost/{storeId}` (an EasyPost webhook with
+a secret, which signs each event; **not live yet**: no EasyPost account can be connected, so outside local it answers 400, and only the local
+stand-in answers it); there is no polling. Still missing: EasyPost's key and webhook secret (#275 stores
+them with the partner's account), and the hook address shown to the merchant in Settings › Shipping.
 
 **Warehouse pins (#815)**: a pinned location's coordinates go to Shiprocket's add-pickup call as `lat` and `long`
 (optional strings; confirmed from a client library and an integration, as its own docs page wouldn't render, so the card's
@@ -459,9 +465,10 @@ moved after that isn't sent.
 
 **Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
 since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
-of couriers, which it connects only where its partner has the account. Until #275 reads partners' accounts none has one,
-so a store can't connect a courier and checkout charges its flat rate; locally `COURIERS_LOCAL=1` gives every partner
-both, quoting a fixed tariff ([setup/local.md](../setup/local.md) §6.1).
+of couriers. Since #1489 a store connects Shiprocket with its own API user (`courier_account`, migration 0409: the email,
+and the password with the tracking token sealed as one value, read back by system scope alone where a call goes out);
+EasyPost has no account to connect yet, so a US store can't connect a courier and checkout charges its flat rate.
+Locally `COURIERS_LOCAL=1` gives every store both, quoting a fixed tariff ([setup/local.md](../setup/local.md) §6.1).
 
 ### 3.3 The merchant's own AI key
 
@@ -533,10 +540,53 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 
 *Built on #275 (migration 0368):* **AI provider keys** only, in `partner_credential`: named profiles for Anthropic or
 OpenAI, one default, sealed with `CREDENTIALS_KEK` (`v1.` values), `key_enc` readable by `app_system` alone. Anthropic
-keys are checked with one `models.list` call before saving; an OpenAI key saves as *Not tested* until #950's adapter.
+keys are checked with one `models.list` call before saving, an OpenAI key with OpenAI's `/models` (*since 2026-11-16*; before,
+*Not tested*) and a DeepInfra key (`sk-di-…`, saved under OpenAI) with DeepInfra's.
 The designer's model is the partner's default Anthropic key, else `AI_PROVIDER_KEY` (the Worker secret stays as the
-fallback; the publish workflow's repair still uses it). Couriers, SMS and WhatsApp, Google sign-in, the chat widget and
-merchants' own keys are not built.
+fallback; the publish workflow's repair still uses it). Couriers, WhatsApp (#1504, below), Google sign-in, the chat widget and
+merchants' own keys are not built here.
+
+*Built on #1017 (migrations 0399, 0400):* **SMS accounts** in the same table, `kind 'sms'`, one per provider (`msg91`,
+`twilio` or `sns`, AWS SNS added 2026-11-16 by Gaurav): the secret sealed in `key_enc` (MSG91's auth key, Twilio's auth
+token, SNS's secret access key), the rest in `settings` (MSG91's seven template ids; Twilio's account SID and messaging
+service SID; SNS's access key id, region and, to serve India, its DLT sender id, entity id and seven template ids, all or
+none). Saving checks the account with one read-only call (MSG91's balance, Twilio's Messaging Service, SNS's
+`GetSMSAttributes`), refuses a rejected one and a set of India template ids that isn't all seven, and shows back only the
+provider, the secret's last four, *Working* or *Rejected*, when it was checked and whether India's templates are complete.
+
+**Routes.** A text goes by its number's route: `india` (`+91`, DLT) takes MSG91 or SNS, `rest` takes Twilio or SNS, one
+provider per route at a time, never mixed within a message. A partner picks which of its saved accounts serves each route
+(`partner.sms_route_india`, `sms_route_rest`); with no pick, or a pick whose account is gone, the first of the route's
+providers whose account serves it (MSG91 then SNS for India, Twilio then SNS for the rest). An account serves a route once
+complete: India needs all seven templates, and SNS its header and entity too.
+
+**DripFunnel's own accounts (built on #1543, migration 0410).** DripFunnel's MSG91, Twilio and SNS accounts and its
+WhatsApp account are `platform_credential` rows, one per provider, set in the admin console by a **Super admin only**
+(`messaging.manage`): saved only once checked, as a partner's are, tested, replaced and removed, each with a reason and
+audited. Its route choice (`platform_messaging.sms_route_india`, `sms_route_rest`) works as a partner's. Every other staff
+role sees their status (`messaging.read`): the provider, the last four, *Working* or *Rejected*, the last check and the
+routes, never a secret. DripFunnel's WhatsApp has its own switch (`platform_messaging.whatsapp_enabled`), held to the
+partner's rules: on only with a *Working* account that names `code.portal`; a save without `code.portal` is refused while
+on; a *Test* Meta rejects turns it off; removing it turns it off.
+
+**Admin's per-partner switches** (`partner.df_sms_enabled`, `partner.df_whatsapp_enabled`, off for every partner until
+turned on): **DripFunnel's SMS** and **DripFunnel's WhatsApp**, set by a Super admin or the partner's assigned Partner manager
+(`partners.messaging`) with a reason, audited (ACCESS §5.4). While a switch is on, the partner may use DripFunnel's account
+for that channel. A partner can always set up its own accounts.
+
+**Which account sends** (decided 2026-11-17, built on #1543, `saas/sms` `senderOf`, the same rule per SMS route and for
+WhatsApp): DripFunnel's account sends for a partner **only where Admin enabled it for that partner**, and then **when the
+partner chose it** (`dripfunnel` as the route's choice; `partner.whatsapp_account = 'dripfunnel'`) **or has no account of its
+own** for the route. Otherwise the partner's own sends; otherwise none. With both and no choice, its own sends. With
+Admin's switch off, a partner without its own account has no SMS or WhatsApp at all. An account that doesn't serve the
+route (SNS without India's part, MSG91 without all seven templates) counts as none for that route; an own account that
+serves it but can't be opened sends nothing rather than hand over to DripFunnel's. When Admin turns DripFunnel's off for a
+partner using it, each route (or WhatsApp) it had set to DripFunnel's goes back to its own account if it has one, else has
+no account; the choice is kept for when it is on again. DripFunnel's WhatsApp counts only while usable (on, *Working*, its
+own `code.portal` approved). **Nothing falls back between accounts** (#1542): a text or message its account refuses or
+can't send is retried or given up on that account, never sent through the other. The partner's **SMS switch** (`partner.sms_enabled`, on by default) turned off sends
+its stores no text through any account, DripFunnel's included: each one is given up with `sms_off`. Owner and Admin
+(`integrations.write`), or staff in a setup session; never an impersonation (ACCESS §8.1). The console's panel is Settings › Integrations › SMS (built on #1018, docs/ui/platform/FIRST-RELEASE.md §14.5).
 
 | Item | What it is for | Credential | Instead of |
 |---|---|---|---|
@@ -544,7 +594,8 @@ merchants' own keys are not built.
 | **AI provider key** (Anthropic; optionally a second provider) | AI on the partner's plans that include it (§2.6); merchants on other plans bring their own (§3.3) | API key, with the partner's own spend limit | A DripFunnel platform key, which no longer exists |
 | **Shiprocket** (India) | Rates, labels, pickups and tracking for the partner's Indian stores (§3.2) | API user email + password | A key per merchant |
 | **US courier aggregator** (**EasyPost**, #337) | USPS, UPS and FedEx rates, labels and tracking (§3.2) | API key | A DripFunnel key |
-| **SMS and WhatsApp sender** (MSG91, Twilio, Gupshup; WhatsApp Business) | Sign-up and two-step codes, shopper codes, WhatsApp reminders, in the partner's sender name (§2.8) | Account id + token or API key; sender ids, DLT entity and templates; WhatsApp phone-number id, system-user token and app secret | A DripFunnel sender |
+| **SMS sender** (India: MSG91 or AWS SNS; the rest: Twilio or AWS SNS) | Two-step and portal codes on request, shopper codes, order updates, in the partner's sender name (§2.8) | MSG91: auth key and the seven template ids (its own DLT entity, header and templates); Twilio: account SID, auth token, messaging service SID; SNS: access key id, secret access key, region, and for India the DLT sender id, entity id and seven template ids | DripFunnel's account for the route, where Admin enabled it for the partner and the partner chose it or has none of its own (#1543) |
+| **WhatsApp Business account** (Meta's Cloud API only, decided 2026-11-16; built on #1504) | Portal codes first (ACCESS §4, #1506), cart reminders, in the partner's display name (§2.8) | WhatsApp Business Account id, phone-number id, permanent system-user token; the approved templates' names and language (no app secret: we take no Meta webhook) | DripFunnel's account, where Admin enabled it for the partner and the partner chose it or has none of its own (#1543); with neither, cart reminders go by email |
 | **Google sign-in OAuth client** | "Continue with Google" on the partner's portal host, its name on the consent screen (§2.9) | Client id + client secret, redirect URI on the partner's host | None: no Google button (#1046) |
 | **Support chat widget** (Intercom, Crisp, Zendesk, Help Scout) | Merchants chatting with their partner's support from the portal (§2.8) | Widget / app id (public) + identity-verification secret | A DripFunnel widget |
 | **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Through Stripe's own fields as a token (#201), never typed into our forms | — |
@@ -554,10 +605,12 @@ merchants' own keys are not built.
 | Partner brand fonts, logos | Branding | None | — |
 
 **The texts a partner registers (India's DLT; built on #289).** MSG91 sends only registered
-templates, so each partner registers these seven with its own sender header, word for word, the
-variables in this order, and enters each template id with its MSG91 credentials (#275). Twilio
-sends the same words as plain text. `apps/api/src/saas/sms/index.ts` holds the wording; a
-change there needs every Indian partner to register it again.
+templates, and SNS sends India's with their DLT ids, so DripFunnel registers these seven for its own
+India route (entered with its MSG91 or SNS account in the admin console, #1543), and a partner with its own MSG91 or SNS
+account for India registers them with its own sender header, word for word, the variables in this
+order, and enters all seven template ids with it (#1017). Twilio, and SNS outside India, send the
+same words as plain text. `apps/api/src/saas/sms/index.ts` holds the wording; a
+change there needs DripFunnel and every Indian partner with its own account to register it again.
 
 | Message | Wording (variables numbered) |
 |---|---|
@@ -569,11 +622,14 @@ change there needs every Indian partner to register it again.
 | `rider.invited` (#838) | {1}: you're invited to deliver our orders. Get the app and sign in with this number: {2} |
 
 {1} is the sender's name (the partner's product, or the store's), and a code is 6 digits. The
-`sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) picks MSG91 for `+91` numbers and Twilio
-for the rest; it drops a code past its expiry, a refusal, and a partner with no account or
-template, logging only a code, and retries an outage or a refused credential (401, 403). Until #275
-reads the accounts, the Worker registers no `sms` deliverer and texts wait in the outbox, as email
-waits without SES. A dropped text is recorded as given up, with its reason as `last_error`, never
+`sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) sends each text on its number's route (above), through the
+account the rule above picks (#1543); SNS sends it `Transactional` and, for India,
+with `AWS.SNS.SMS.SenderID`, `AWS.MM.SMS.EntityId` and `AWS.MM.SMS.TemplateId`. It drops a code past its expiry, a
+refusal, a text with no account for its route (`no_india_account`, `no_rest_account`) or no template, and every text of a
+partner whose SMS is off (`sms_off`), logging only a code, and retries an outage or a refused credential (401, 403).
+The Worker registers the `sms` deliverer wherever sealed accounts, partners' and DripFunnel's, can be opened
+(`CREDENTIALS_KEK`), or locally `SMS_LOCAL` (`saas/sms` `smsDeliveryFor`, #1542, #1543); without either, SMS is closed
+and texts wait in the outbox until the sweep gives them up, as email waits without SES. A dropped text is recorded as given up, with its reason as `last_error`, never
 as delivered. Order updates are queued by the `order.notify` deliverer (#312): `order.confirmed` once an order goes through,
 `order.shipped` once a shipment has a courier and a tracking link. A code needs an expiry, and an order update unsent after 3 days is given up too (the
 cron's sweep, which leaves a row the relay holds); once a text is sent or given up, its row keeps only
@@ -581,19 +637,54 @@ the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
 can text twice.
 
-**The WhatsApp templates a partner has Meta approve (built on #321).** Cart reminders in India go by the partner's
-WhatsApp Business number through its MSG91 account (MSG91's outbound template API), as a template the partner registers
-word for word, with its name entered beside its MSG91 credentials (#275): `apps/api/src/saas/whatsapp/index.ts` holds the
-wording. The store's own subject and message never go by WhatsApp, since an approved template can't carry free text.
+**The partner's WhatsApp account (built on #1504, migration 0401).** One `partner_credential` row, `kind 'whatsapp'`,
+`provider 'meta'`, per partner: the system-user token sealed in `key_enc` (readable by `app_system` alone), and in
+`settings` the WhatsApp Business Account id, the phone-number id, the templates' language and the name of each template
+it uses (`code.portal`, `cart.reminder`, `cart.reminder_code`; one left blank is a message it doesn't send by WhatsApp).
+Saving checks the account with read-only calls and refuses one Meta rejects; *Test* repeats them and marks it *Working* or
+*Rejected*, naming what Meta refused: it reads the phone number (`GET /{phone-number-id}?fields=display_phone_number,verified_name`)
+and, in the business account's `message_templates`, each named template, which must exist in the account's language
+and be `APPROVED`. No test message is sent. The console sees the token's last four only, the ids, the template names,
+the status and when it was checked. The partner's **WhatsApp switch** (`partner.whatsapp_enabled`) is off by default.
+**On needs `code.portal`** (decided 2026-11-16 with Gaurav): it turns on only when the account that would send carries
+codes, else `NO_ACCOUNT` or `NO_CODE_TEMPLATE`: its own saved account naming `code.portal` with a *Working* last check
+(Meta approved every named template), or DripFunnel's where that is the one that sends (#1543). While on and its own
+account sends, a save without `code.portal` is refused the same way and a *Test* Meta rejects turns it off in the same
+transaction (`partner.whatsapp_disabled`, reason `test_rejected`); removing its own account turns it off unless
+DripFunnel's is there to send. The partner chooses whose account sends with `setWhatsAppChoice` (`own` or `dripfunnel`,
+`partner.whatsapp_account_chosen`); `dripfunnel` is refused (`DRIPFUNNEL_UNAVAILABLE`) unless Admin enabled it and it is
+usable. Admin enabling DripFunnel's WhatsApp starts nothing: the partner's own On decides, and sign-up asks for a number
+only once it is on. Owner and Admin (`integrations.write`), or
+staff in a setup session; never an impersonation (ACCESS §8.1). The console's panel is #1505.
+
+**The WhatsApp templates a partner has Meta approve (built on #321, on Meta since #1504).** Every WhatsApp message goes
+through Meta's Cloud API on the partner's own account (`apps/api/src/integrations/meta/whatsapp.ts`, the Graph API
+version pinned in `graphApiVersion`) as an approved template: `POST /{phone-number-id}/messages`, `type: 'template'`,
+its variables as body parameters in order. A portal code (ACCESS §4, sent since #1506) uses an **authentication**
+template, whose wording is Meta's own (the code, its security note, a 10-minute expiry and a Copy code button, sent as a
+`button` component, `sub_type: 'url'`, `index: '0'`, with the code as its parameter), so the partner registers only its
+name. Cart reminders in India use the two below, registered word for word: `apps/api/src/saas/whatsapp/index.ts` holds
+the wording. The store's own subject and message never go by WhatsApp, since an approved template can't carry free text.
 
 | Message | Wording (variables numbered) |
 |---|---|
 | `cart.reminder` | {{1}}: you left {{2}} in your cart. It’s saved for you: {{3}} |
 | `cart.reminder_code` | {{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}} |
+| `code.portal` (its name saved with the account on #1504; sent since #1506) | Meta's authentication template: {{1}} is your verification code, with its security note, "This code expires in 10 minutes." and a Copy code button carrying the code |
 
-{{1}} is the store's name, {{2}} the count of items ("2 items"), and the link is the reminder's return link. Until #275
-reads partners' accounts, the Worker registers the `whatsapp` deliverer only locally (`SMS_LOCAL`, whose stand-in prints
-it), and `cart.remind` sends every reminder by email.
+{{1}} is the store's name, {{2}} the count of items ("2 items"), and the link is the reminder's return link. The Worker
+registers the `whatsapp` deliverer wherever it can open sealed credentials (`CREDENTIALS_KEK`), and locally under
+`SMS_LOCAL`, whose stand-in gives every partner an account and prints each message. Each message goes through the account
+the rule above picks, the partner's own or DripFunnel's (#1543). A reminder whose partner has no such account, has
+WhatsApp off, or whose account names no template for it goes by email, as `cart.remind` decides and again as it is sent:
+through DripFunnel's account, only where DripFunnel's cart templates are saved.
+A portal code's row (#1506) carries the number, the code and its expiry: it is given up, never sent late, once expired
+(the deliverer, and the cron's sweep as for texts), or when the partner has no account, WhatsApp off or no `code.portal`,
+and once sent or given up keeps only its message kind; it never falls back to email or SMS, since the person asks for SMS.
+Meta's refusal of the message or number (e.g. `131026`, not on WhatsApp; `132001`, no such approved template) gives the
+reminder up as undeliverable; a refused token, a throttle, a billing problem or an outage is retried. Only Meta's error
+code is logged, never the number, the code or the token. Meta takes no idempotency key, so a crash between its acceptance
+and the row being marked can send twice.
 
 ---
 
@@ -628,7 +719,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App** (with Actions and Workflows permissions); **Cloudflare Containers** (limits checked 2026-10-09); the **R2 storefront upload credential**; **`my-store.one`** (and **`my-shop.dev`** for dev); cache purge; Cloudflare for SaaS; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** through MSG91 for cart reminders (decided 2026-10-05 on #337); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the aggregator's test account on the house partner (§4) and, for Shiprocket, a test API user entered in a test store's Settings › Shipping (a store's own since #1489, §3.2); SES configuration set and SNS; **WhatsApp** on the house partner's own Meta account for cart reminders (decided 2026-10-05 on #337; Meta's Cloud API since #1504); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); the studio sandbox in Cloudflare Containers (decided 2026-10-08 on #470) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
@@ -642,7 +733,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 1. **Staff identity provider**: Microsoft Entra ID (docs) or Microsoft Entra ID (Admin
    prototype)? (§2.5)
 2. ~~**SMS and WhatsApp provider** to recommend to partners.~~ **MSG91 (India) and Twilio (US)**,
-   adapters built in the first release (decided 2026-10-05 on #284). ~~Whether each partner needs its own
+   adapters built in the first release (decided 2026-10-05 on #284); WhatsApp is Meta's Cloud API directly (decided 2026-11-16). ~~Whether each partner needs its own
    sender~~: yes, the partner's own account (#272, §4). (§2.8)
 3. ~~**Google sign-in on white-label hosts**: a central callback, or a client per partner?~~
    A client per partner (#272). (§2.9)
@@ -713,13 +804,13 @@ Where it is kept:
 | `HEALTH_RATE_LIMITER`, `SIGN_IN_RATE_LIMITER`, `STAFF_SESSION_RATE_LIMITER` *(bindings)* | Rate limits on `/health`, sign-in and codes, and the staff-session routes (ARCHITECTURE §7) | Declared in `wrangler.jsonc` `ratelimits` | `wrangler.jsonc` | `index.ts` |
 | `BUILD_RATE_LIMITER` *(binding)* | A store build's calls on `hooks.<host>/builds/*`, per address, before the token is checked (storefront LIVE-SHOP §9); unbound, they answer 500 | Declared in `wrangler.jsonc` `ratelimits` | `wrangler.jsonc` | `index.ts` (since #517) |
 | `CF_VERSION_METADATA` *(binding)* | The running Worker version, for `/health` and logs | Declared in `wrangler.jsonc` | `wrangler.jsonc` | `index.ts` |
-| `CREDENTIALS_KEK` | Encrypts 2-factor secrets and every merchant credential at rest (§5). One per environment; never reused across them | `openssl rand -base64 32` | `.env.local` · Worker secret · Worker secret | `core/config.ts`, `auth/secretBox.ts` |
+| `CREDENTIALS_KEK` | Encrypts 2-factor secrets, every merchant and partner credential, and DripFunnel's own SMS and WhatsApp accounts at rest (§1, §5). One per environment; never reused across them. Unset, no SMS or WhatsApp is sent outside `SMS_LOCAL` (§4, #1542, #1543) | `openssl rand -base64 32` | `.env.local` · Worker secret · Worker secret | `core/config.ts`, `auth/secretBox.ts` |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Staff sign-in to the admin console (§2.5). Single-tenant registration, `openid profile email`, the `amr` optional claim | Entra admin center → App registrations → New (single tenant) → redirect URIs from §2.5 → *Certificates & secrets* → New client secret (copy it once; 24 months at most) | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `integrations/entra` |
 | `STRIPE_SECRET_KEY` | DripFunnel's Stripe account: Connect accounts, customers, payment methods; reads charges, invoices, payouts (§2.7); since #309 also shoppers' PaymentIntents and Stripe Tax calculations on merchants' connected accounts, and Connect OAuth's code exchange. A **restricted** key (`rk_`), test mode outside prod | Stripe Dashboard → Developers → API keys → *Create restricted key*, with write on Accounts, Customers, Payment methods, PaymentIntents, Tax calculations and Connect (OAuth), and read on Charges, Invoices, Payouts, Refunds. *(Open, #309)*: if Stripe refuses the OAuth exchange to a restricted key, that one call needs the secret key | `.env.local` (optional, test) · Worker secret (test) · Worker secret (live) | `core/config.ts`, `integrations/stripe` (since #201) |
 | `STRIPE_WEBHOOK_SECRET` | Verifies events at `hooks.<host>/stripe` (SAAS §7.2) | Stripe → Developers → Webhooks → *Add endpoint* `https://hooks.dripfunnel.ai/stripe` (dev: `https://hooks.dripfunnel.dev/stripe`) with `invoice.*`, `charge.*`, `payout.*`, `account.*` and *Listen to events on Connected accounts* → *Reveal signing secret*. Locally `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"` prints one (the Worker picks the API by host, [setup/local.md](../setup/local.md) §8) | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `hooks/stripe.ts` (since #201) |
 | `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod. Absent, Connect Stripe says it isn't set up and the callback route doesn't exist | Stripe → Connect → Settings, with the redirect `https://hooks.<host>/stripe/connect/callback` | — · Worker variable (test) · Worker variable (live) | `core/config.ts`, `hooks/stripeConnect.ts` (since #309) |
 | `STRIPE_PUBLISHABLE_KEY` | What checkout's card field acts with on the merchant's account, and what the partner console's Stripe.js acts with for its payout account and card (`pk_…`, #278), in `STRIPE_SECRET_KEY`'s mode (the Worker refuses another). Absent, Stripe isn't offered at checkout and Settings › Payout and payment says the provider isn't switched on | Stripe → Developers → API keys | `.env.local` (optional, test) · Worker variable (test) · Worker variable (live) | `core/config.ts`, `integrations/stripe/payments.ts` (since #309), `saas/billing` (`billingClientConfig`, #278) |
-| `GOOGLE_MAPS_BROWSER_KEY` | The storefront's "Pin on map" (§2.12, #814): a public browser key restricted by referrer to the hooks host and to the Maps JavaScript and Geocoding APIs, with a quota. Absent, the button is hidden and the address form works as before | Google Cloud → APIs & Services → Credentials → Create API key, then Application restrictions → Websites `https://hooks.<host>/*` (dev: `https://hooks.dripfunnel.dev/*`; local: `https://hooks.localhost/*`) and API restrictions | `.env.local` (optional) · Worker variable · Worker variable | `core/config.ts`, `hooks/mapFrame.ts` (the frame's page), `apis/shop/catalog.ts` (`store.mapFrame`, the frame's address) |
+| `GOOGLE_MAPS_BROWSER_KEY` | The storefront's "Pin on map" (§2.12, #814): a public browser key restricted by referrer to the hooks host and to the Maps JavaScript, Geocoding and Places (New) APIs, with a quota. Absent, the warehouse form's map and search are hidden and the address form works as before. Without the Places API on the key the map works and search says it is unavailable (#1609) | Google Cloud → APIs & Services → Credentials → Create API key, then Application restrictions → Websites `https://hooks.<host>/*` (dev: `https://hooks.dripfunnel.dev/*`; local: `https://hooks.localhost/*`) and API restrictions | `.env.local` (optional) · Worker variable · Worker variable | `core/config.ts`, `hooks/mapFrame.ts` (the frame's page), `apis/shop/catalog.ts` (`store.mapFrame`, the frame's address) |
 | `GOOGLE_MAPS_SERVER_KEY` | A delivery's arrival estimate (§2.12, #858): a server key restricted to the Routes API, with a quota. Absent, the shop answers no `etaAt` and nothing else changes | Google Cloud → APIs & Services → Credentials → Create API key, then API restrictions → Routes API only | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `index.ts` (`routesFor`), `integrations/googleRoutes` |
 | `STRIPE_TEST_SECRET_KEY`, `STRIPE_TEST_PUBLISHABLE_KEY` | Prod only, both or neither: test-mode keys for preview storefronts' checkout (storefront ARCHITECTURE §4.1) where the keys above are live; the secret is restricted as `STRIPE_SECRET_KEY` is | Stripe (test mode) → Developers → API keys | — · — · Worker secret and variable | `core/config.ts` (since #309) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Every email the outbox holds (§2.4, #274). An IAM user limited to `ses:SendEmail`/`ses:SendRawEmail` on the sender domain's identity. **All with `SES_SENDER_DOMAIN` and `EMAIL_SUPPRESSION_KEY`, or email waits in the outbox** | IAM → Users → *Create user* with that inline policy → *Security credentials* → *Create access key*; the region is the SES account's | `.env.local` (optional; the SES sandbox) · Worker secret (sandbox, verified recipients) · Worker secret (production access) | `core/config.ts`, `integrations/ses`, `jobs/queues/deliverers/email.ts` |
@@ -729,12 +820,12 @@ Where it is kept:
 | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Connect Shopify (§3.4, CATALOG K7): the OAuth app and the callback's signature check. Without both, Connect Shopify says it isn't set up and `hooks.<host>/shopify/callback` doesn't exist | Shopify Partners → Apps → *Create app* → *Configuration*: App URL the portal, allowed redirection URL from §3.4, scopes `read_products`, `read_inventory` → *Client credentials* | `.env.local` (optional, a development store) · Worker secret · Worker secret | `core/config.ts`, `integrations/shopify`, `hooks/shopify.ts` (since #301) |
 | `SHOPIFY_LOCAL` | `1` answers Connect Shopify with a logging stand-in: approval comes straight back, the shop is empty. It skips Shopify's signature, so the Worker refuses to start with it unless `HOOKS_HOST` is on `localhost`; set, it wins over the two values above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts` |
 | `EMAIL_LOCAL` | `1` sends email through a local stand-in: the outbox, templates and relay run as on dev, and each email prints in the `pnpm dev` terminal and `apps/api/.local-mail/` (docs/setup/local.md §6.1). Needs `EMAIL_SUPPRESSION_KEY`; the Worker refuses to start with it unless `HOOKS_HOST` is on `localhost`; set, it wins over SES | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
-| `SMS_LOCAL` | `1` delivers texts through a local stand-in: each partner has an account on both providers, and the composed text prints instead of reaching MSG91 or Twilio. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
+| `SMS_LOCAL` | `1` delivers texts and WhatsApp messages through a local stand-in: DripFunnel's own SMS and WhatsApp accounts are the stand-in's (still used only where Admin enabled them for the partner, #1543; the local seed turns DripFunnel's SMS on for every partner), a saved account, a partner's or DripFunnel's, checks as *Working* without a call, and the composed message prints instead of reaching a provider. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
 | `PUSH_LOCAL` | Built on #840. `1` delivers pushes through a local stand-in: each push prints in the `pnpm dev` terminal and `apps/api/.local-mail/`, to its subject (`rider:<id>`), never the phone's token, and every receipt reads as delivered. Local only, as above; set, it wins over `EXPO_PUSH_TOKEN` | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
 | `AI_SIGN_IN` | Built on #950. `1` turns on the Claude and ChatGPT sign-ins (§2.6): the console and the Storefront › AI tab offer them, and a connected sign-in's token is used by the studio. Unset or anything else, both read "Not available" and a connected one is not used. Off by default in every environment; enabling it in dev or prod needs its own go-ahead. Never read by `/api/v1`, which never runs on a sign-in | — | Worker variable | `core/config.ts`, `integrations/ai/oauth` (since #950) |
 | `EXPO_PUSH_TOKEN` | Built on #840. Sends pushes to the shop and delivery apps through Expo (§2.13), as a bearer on every send and receipts call. Optional: without it pushes wait in the outbox (production: setup/prod.md §3.9). Validated at boot (letters, digits, `_` and `-`, at least 20) | expo.dev → DripFunnel's account → *Access tokens* → *Create token* (a robot user's token, for this purpose only); turn on *Enhanced Security for Push Notifications* in the project's settings so sends need it | — (`PUSH_LOCAL` instead) · Worker secret · Worker secret | `core/config.ts`, `index.ts`, `integrations/expoPush`, `jobs/queues/deliverers/push.ts` |
 | `PUBLISH_CHECKS` | `off` makes the API pass every store build's report whatever its checks say; the report keeps each check's real result. `on` or unset refuses on the safety checks (LIVE-SHOP §4 step 7). The Worker takes `off` on any host, prod included (#1164) | — | dev and prod Worker vars · — · — | `core/config.ts`, `saas/storefronts/builds.ts` |
-| `CODE_CHECK` | `0` accepts any text (SMS) code; email codes are always checked (#1002). Only the comparison with the stored code is skipped, expiry, tries and lockout stay. `1` or unset checks codes. The Worker takes `0` on any host, prod included | — | dev Worker vars, `.env.local` · — · — | `core/config.ts`, `auth/codeCheck.ts` |
+| `CODE_CHECK` | `0` accepts any text (SMS) code; email codes are always checked (#1002). Only the comparison with the stored code is skipped, expiry, tries and lockout stay. `1` or unset checks codes. The Worker takes `0` on any host, prod included; prod unsets it once real texts arrive (#1017) | — | dev Worker vars, `.env.local` · — · — | `core/config.ts`, `auth/codeCheck.ts` |
 | `DNS_LOCAL` | `1` answers a `*.localhost` name with what its partner domain record expects, so a partner's local addresses verify through the real check, and lets a partner add `*.localhost` addresses. With the `CF_*` values set, a `*.localhost` portal host is live at once and never sent to Cloudflare. Every other name goes to the real resolver and, with those values, to Cloudflare. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local`, `saas/partnerDomains` |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Store repos through the *DripFunnel Provisioning* App (§2.3): its five permissions, asked for again on each installation token. All three or none; the key is PEM, PKCS#1 as GitHub issues it or PKCS#8, with real or `\n` newlines | GitHub → the org → Settings → Developer settings → GitHub Apps → *New GitHub App*: the webhook of `GITHUB_WEBHOOK_SECRET`, the five permissions of §2.3, installable on this org only → *Generate a private key*; install it on the org for **selected repositories** (#287 confirms a repo it creates joins the installation; otherwise all repositories), and the installation id is the number in that installation's settings URL | — · Worker variables and a Worker secret (#287) · the same | `core/config.ts`, `integrations/github` (since #316) |
 | `GITHUB_WEBHOOK_SECRET` | The provisioning App's webhook secret (§2.3, #968): the API checks each push event's `x-hub-signature-256` with it. At least 20 characters. Without it `hooks.<host>/github` doesn't exist and a push builds nothing | In the App's settings: *Webhook* active, URL `https://<hooks host>/github`, a random secret (`openssl rand -hex 32`), and under *Permissions & events* subscribe to **Push** | — · Worker secret · the same | `core/config.ts`, `hooks/github.ts` (since #968) |
@@ -791,15 +882,23 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 
 ### 8.3 Partner credentials: in the database, never environment variables
 
-Each partner's own accounts (§4), encrypted with `CREDENTIALS_KEK` in Postgres (#275). They have
-no variable name: the partner enters them in the partner console, or staff in a setup session.
+Each partner's own accounts (§4), encrypted with `CREDENTIALS_KEK` in Postgres (#275), and each store's own Shiprocket login in `courier_account` (#1489,
+§3.2), sealed the same way. They have no variable name: the partner enters its own in the partner console, or staff in a setup session; a merchant enters
+its Shiprocket login in Settings › Shipping.
+DripFunnel's own SMS and WhatsApp accounts are kept the same way, in `platform_credential`, and entered by a Super admin
+in the admin console (§1's exception, §4; #1543): MSG91 after DripFunnel's DLT entity, header and seven templates are
+approved, with each template's id; Twilio's account SID, auth token and Messaging Service SID, its US sender registered;
+SNS's IAM user (only `sns:Publish` and `sns:GetSMSAttributes`), region and, for India, its DLT header, entity and template
+ids; Meta's WhatsApp Business Account id, phone-number id, permanent system-user token and approved templates, `code.portal`
+among them.
 
 | Credential | Role | How the partner makes it | Read by *(when built)* |
 |---|---|---|---|
 | AI provider key | AI on its plans that include AI | Anthropic Console → its own organisation → API keys, with a spend limit | AI runs (`ai_run`) |
-| Shiprocket API user | India rates, labels, tracking | Shiprocket → Settings → API → create an API user | Courier adapter |
+| ~~Shiprocket API user~~ | Since #1489 a store's own, in `courier_account` (§3.2), entered by the merchant in Settings › Shipping | Shiprocket → Settings → API → create an API user | Courier adapter |
 | US courier aggregator key | USPS, UPS, FedEx through **EasyPost** (#337) | The aggregator's dashboard → API keys (production key) | Courier adapter |
-| SMS / WhatsApp sender | Codes, shoppers' order updates and WhatsApp reminders in its name | The provider's console; DLT registration (India: the six templates in §4) and Meta business verification first | The `sms` deliverer (#289), registered by #275 |
+| SMS sender | Codes on request, shoppers' order updates in its name; where Admin enabled DripFunnel's too, the partner chooses per route which sends (#1543) | MSG91: its console's auth key, after DLT registration (India: the seven templates in §4, whose ids it enters); Twilio: the account SID and auth token, and a Messaging Service holding its numbers; AWS SNS: an IAM user allowed only `sns:Publish` and `sns:GetSMSAttributes`, its access key, the region, and for India its DLT header, entity id and the seven templates' DLT ids | The `sms` deliverer (#289), through `partner_credential` `kind 'sms'` and the partner's routes (#1017) |
+| WhatsApp Business account | Portal codes first and cart reminders in its name (decided 2026-11-16) | Meta Business Manager: business verification, a system user with a permanent token (`whatsapp_business_messaging` and `whatsapp_business_management`), the WhatsApp Business Account id, the number's phone-number id, the approved templates' names and language | The `whatsapp` deliverer and the account's *Test*, through `partner_credential` `kind 'whatsapp'`, `partner.whatsapp_enabled` and the partner's choice, `partner.whatsapp_account` (#1504, #1543) |
 | Google OAuth client | "Continue with Google" on its portal host | Google Cloud → APIs & Services → Credentials → OAuth client (web), redirect `https://<portal host>/api/auth/google/callback` | Portal sign-in |
 | Support chat widget | Its support chat in the portal | The chat tool's settings → install / identity verification | The portal's chat widget |
 

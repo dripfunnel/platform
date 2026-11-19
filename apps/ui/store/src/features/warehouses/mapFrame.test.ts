@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// @vitest-environment-options { "settings": { "disableIframePageLoading": false } }
+// @vitest-environment-options { "settings": { "enableIframePageLoading": true } }
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { frameMap } from './mapFrame'
 
@@ -61,6 +61,28 @@ describe('the warehouse map’s frame (#815)', () => {
     expect(await bad).toBeNull()
     map.close()
     expect(frame.isConnected).toBe(false)
+  })
+
+  it('asks for places by what was typed and the country, and for the point of one it was given, and reads only what fits (#1609)', async () => {
+    const { loading, sent, say } = open()
+    say({ type: 'ready' })
+    const map = await loading
+    const listed = map.suggest('viman', 'IN')
+    expect(sent).toHaveBeenCalledWith({ type: 'suggest', id: 1, text: 'viman', country: 'IN' }, origin)
+    const list = [{ id: 'p1', main: 'Viman Nagar', secondary: 'Pune' }]
+    say({ type: 'answer', id: 1, result: list })
+    expect(await listed).toEqual(list)
+    const chosen = map.select('p1')
+    expect(sent).toHaveBeenCalledWith({ type: 'select', id: 2, choice: 'p1' }, origin)
+    say({ type: 'answer', id: 2, result: { latitude: 18.5679, longitude: 73.9143 } })
+    expect(await chosen).toEqual({ latitude: 18.5679, longitude: 73.9143 })
+    const bad = map.suggest('viman', '')
+    say({ type: 'answer', id: 3, result: [{ id: 'p1', main: 7 }] })
+    expect(await bad).toBeNull()
+    const many = map.suggest('viman', '')
+    say({ type: 'answer', id: 4, result: Array.from({ length: 9 }, (_, i) => ({ id: String(i), main: 'x', secondary: '' })) })
+    expect(await many).toBeNull()
+    map.close()
   })
 
   it('believes nothing from another window or origin, and nothing malformed', async () => {

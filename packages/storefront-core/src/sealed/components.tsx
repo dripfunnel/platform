@@ -5,6 +5,7 @@ import { useStayInFrame } from '../platform/browser/link'
 import { readConsent, writeConsent, type ConsentChoice } from '../platform/consent/consent'
 import type { Translate } from '../platform/i18n/i18n'
 import { formatMoney, type Money } from '../pricing/money'
+import { useRegisterAgeBox } from './ageBox'
 import { focusedElement, showInTopLayer } from './element'
 import { Sealed } from './Sealed'
 
@@ -13,18 +14,23 @@ import { Sealed } from './Sealed'
 
 type Styled = { className?: string }
 
-export type PriceProps = Styled & { money: Money; compareAt?: Money | null; includesTax: boolean; locale: string; t: Translate }
+export type PriceProps = Styled & { money: Money; compareAt?: Money | null; to?: Money | null; includesTax: boolean; locale: string; t: Translate }
 
-/** The price with its tax label; a compare-at price only as the engine returns it, in the same currency. Parts: amount, was, tax. */
-export const Price = ({ money, compareAt, includesTax, locale, t, className }: PriceProps) => (
-  <Sealed part="price" className={className}>
-    <span className="price">
-      <span part="amount">{formatMoney(money, locale)}</span>
-      {compareAt && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s part="was">{formatMoney(compareAt, locale)}</s> : null}{' '}
-      <span part="tax">{t(includesTax ? 'price.inclTax' : 'price.plusTax')}</span>
-    </span>
-  </Sealed>
-)
+const higher = (a: Money, b: Money) => a.currency === b.currency && BigInt(a.amount) > BigInt(b.amount)
+
+/** The price with its tax label; a compare-at price only as the engine returns it, in the same currency. `to` makes it a range (one tax label, no compare-at). Parts: amount, was, tax. */
+export const Price = ({ money, compareAt, to, includesTax, locale, t, className }: PriceProps) => {
+  const range = to && higher(to, money) ? to : null
+  return (
+    <Sealed part="price" className={className}>
+      <span className="price">
+        <span part="amount">{range ? `${formatMoney(money, locale)} – ${formatMoney(range, locale)}` : formatMoney(money, locale)}</span>
+        {!range && compareAt && higher(compareAt, money) ? <s part="was">{formatMoney(compareAt, locale)}</s> : null}{' '}
+        <span part="tax">{t(includesTax ? 'price.inclTax' : 'price.plusTax')}</span>
+      </span>
+    </Sealed>
+  )
+}
 
 /** In the top layer at the top of the page, its height held in the page. Part: banner. */
 export const PreviewBanner = ({ t, className }: Styled & { t: Translate }) => {
@@ -64,6 +70,20 @@ export const LegalNotices = ({ notices, t, className }: Styled & { notices: read
       </section>
     </Sealed>
   ) : null
+
+export type AgeConfirmationProps = Styled & { needed: boolean; checked: boolean; onChange: (checked: boolean) => void; t: Translate }
+
+/** The tick box a cart with an age-restricted product needs before it can be ordered (#1443); nothing for any other cart. Part: box. */
+export const AgeConfirmation = ({ needed, checked, onChange, t, className }: AgeConfirmationProps) => {
+  useRegisterAgeBox(needed)
+  return needed ? (
+    <Sealed part="age" className={className}>
+      <label part="box">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {t('checkout.age.confirm')}
+      </label>
+    </Sealed>
+  ) : null
+}
 
 export type Crumb = { label: string; href: string }
 

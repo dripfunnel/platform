@@ -8,6 +8,10 @@ export type Pin = { latitude: number; longitude: number }
 const placeSchema = z.object({ line1: z.string().max(500).nullable(), city: z.string().max(200).nullable(), region: z.string().max(200).nullable(), postalCode: z.string().max(40).nullable(), country: z.string().regex(/^[A-Z]{2}$/) })
 export type FoundAddress = z.infer<typeof placeSchema>
 
+const suggestionsSchema = z.array(z.object({ id: z.string().min(1).max(300), main: z.string().max(300), secondary: z.string().max(300) })).max(8)
+/** One line of the search's list: the place's name, and where it is. */
+export type Suggestion = z.infer<typeof suggestionsSchema>[number]
+
 export type FrameMap = {
   draw: (at: Pin, zoom: number, moved: (to: Pin) => void) => void
   move: (to: Pin) => void
@@ -15,6 +19,10 @@ export type FrameMap = {
   find: (address: string, country: string) => Promise<Pin | null>
   /** The address at a point; null when there is none. */
   place: (at: Pin) => Promise<FoundAddress | null>
+  /** Places matching what was typed, best first; null when search is unavailable or it fails. */
+  suggest: (text: string, country: string) => Promise<Suggestion[] | null>
+  /** The point of one of the last suggestions; null when it can't be found. */
+  select: (id: string) => Promise<Pin | null>
   close: () => void
 }
 
@@ -74,6 +82,8 @@ export const frameMap: FrameLoader = (source, element, title, signal) =>
       move: (to) => post({ type: 'move', at: to }),
       find: (address, country) => ask({ type: 'find', address, country }, pinSchema),
       place: (at) => ask({ type: 'place', at }, placeSchema),
+      suggest: (text, country) => ask({ type: 'suggest', text, country }, suggestionsSchema),
+      select: (id) => ask({ type: 'select', choice: id }, pinSchema),
       close,
     }
     function fail() {

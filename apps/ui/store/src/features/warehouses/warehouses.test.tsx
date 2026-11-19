@@ -41,6 +41,11 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
+const fillRequired = (over: Partial<Record<'name' | 'line1' | 'city' | 'region' | 'postalCode' | 'country', string>> = {}) => {
+  const values = { name: 'Shed', line1: '1 Main Road', city: 'Jaipur', region: 'Rajasthan', postalCode: '302001', country: 'IN', ...over }
+  for (const key of Object.keys(values) as (keyof typeof values)[]) fireEvent.change(screen.getByLabelText(words.form[key]), { target: { value: values[key] } })
+}
+
 describe('a supplier’s locations', () => {
   it('sends the name, only the address lines given, the country in capitals, and the pin or none', () => {
     const form = { id: null, revision: null, name: ' Shed ', line1: '', line2: '', city: 'Jaipur', region: '', postalCode: '', country: 'in', pin: null }
@@ -69,11 +74,10 @@ describe('a supplier’s locations', () => {
     api.savePlace.mockResolvedValue('w3')
     await show()
     fireEvent.click(screen.getByRole('button', { name: words.add }))
-    fireEvent.change(screen.getByLabelText(words.form.name), { target: { value: 'Shed' } })
-    fireEvent.change(screen.getByLabelText(words.form.city), { target: { value: 'Jaipur' } })
+    fillRequired()
     fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
     await settle()
-    expect(api.savePlace).toHaveBeenCalledWith(null, null, { name: 'Shed', address: { city: 'Jaipur' }, latitude: null, longitude: null })
+    expect(api.savePlace).toHaveBeenCalledWith(null, null, { name: 'Shed', address: { line1: '1 Main Road', city: 'Jaipur', region: 'Rajasthan', postalCode: '302001', country: 'IN' }, latitude: null, longitude: null })
     expect(screen.getByText('Shed added')).toBeTruthy()
   })
 
@@ -133,12 +137,34 @@ describe('a supplier’s locations', () => {
     expect(screen.getByText(words.saved)).toBeTruthy()
   })
 
+  it('needs the name, address, city, state, postal code and country to save, says which are missing once Save is tried, and leaves Address line 2 optional', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    for (const key of ['name', 'line1', 'city', 'region', 'postalCode', 'country'] as const) expect(screen.getByLabelText(words.form[key]).getAttribute('aria-required')).toBe('true')
+    expect(screen.getByLabelText(words.form.line2).getAttribute('aria-required')).toBe('false')
+    expect(screen.queryByText(words.form.missing.city)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
+    expect(api.savePlace).not.toHaveBeenCalled()
+    for (const key of ['name', 'line1', 'city', 'region', 'postalCode', 'country'] as const) expect(screen.getByText(words.form.missing[key])).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByLabelText(words.form.name))
+    fillRequired({ postalCode: '  ' })
+    fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
+    expect(api.savePlace).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(screen.getByLabelText(words.form.postalCode))
+    expect(screen.getByText(words.form.missing.postalCode)).toBeTruthy()
+    expect(screen.queryByText(words.form.missing.city)).toBeNull()
+    fireEvent.change(screen.getByLabelText(words.form.postalCode), { target: { value: '302001' } })
+    fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
+    await settle()
+    expect(api.savePlace).toHaveBeenCalledTimes(1)
+  })
+
   it('words a refused add and a refused default', async () => {
     api.savePlace.mockRejectedValue(new ApiError('TOO_MANY_WAREHOUSES', 'limit'))
     api.makeDefaultPlace.mockRejectedValue(new ApiError('READ_ONLY', 'read only'))
     await show()
     fireEvent.click(screen.getByRole('button', { name: words.add }))
-    fireEvent.change(screen.getByLabelText(words.form.name), { target: { value: 'Shed' } })
+    fillRequired()
     fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
     await settle()
     expect(screen.getByText(words.refused.TOO_MANY_WAREHOUSES)).toBeTruthy()
@@ -152,10 +178,8 @@ describe('a supplier’s locations', () => {
   it('blocks Save on a country that isn’t two letters, and says why to a screen reader', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: words.add }))
-    fireEvent.change(screen.getByLabelText(words.form.name), { target: { value: 'Shed' } })
+    fillRequired({ country: 'U1' })
     const country = screen.getByLabelText(words.form.country)
-    expect(country.getAttribute('aria-describedby')).toBeNull()
-    fireEvent.change(country, { target: { value: 'U1' } })
     fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
     expect(api.savePlace).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(country)
@@ -180,13 +204,13 @@ describe('a supplier’s locations', () => {
     const name = screen.getByLabelText(words.form.name)
     expect(document.activeElement).toBe(name)
     // Not said before Save is tried: an empty new form isn't a mistake yet.
-    expect(screen.queryByText(words.form.nameMissing)).toBeNull()
+    expect(screen.queryByText(words.form.missing.name)).toBeNull()
     fireEvent.change(name, { target: { value: '  ' } })
     screen.getByRole('button', { name: words.form.cancel }).focus()
     fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
     expect(api.savePlace).not.toHaveBeenCalled()
     expect(name.getAttribute('aria-invalid')).toBe('true')
-    expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(words.form.nameMissing)
+    expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(words.form.missing.name)
     expect(document.activeElement).toBe(name)
     fireEvent.click(screen.getByRole('button', { name: words.form.cancel }))
     fireEvent.click(screen.getByRole('button', { name: fill('Workshop') }))

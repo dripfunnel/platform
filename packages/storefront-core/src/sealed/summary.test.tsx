@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { cartOf, line, shownCart, usd } from '../../test/cart'
 import { Provided } from '../../test/shop'
 import type { Order } from '../orders/order'
@@ -8,6 +8,8 @@ import { createI18n } from '../platform/i18n/i18n'
 import { OrderSummary } from './summary'
 
 const { t } = createI18n('en-US')
+// The studio frame's session path, as the frame's own script address would give it (AI-STUDIO §3 step 6).
+vi.mock('../platform/render/studio', async (actual) => ({ ...(await actual<object>()), studioBasePath: () => '/__studio/abcdefghijklmnopqrstuv/' }))
 
 describe('OrderSummary', () => {
   it('shows every amount as the engine answered it, sealed, with the lines only at checkout', () => {
@@ -51,6 +53,11 @@ describe('OrderSummary', () => {
     expect(renderToStaticMarkup(<Provided mode="live">{summary}</Provided>)).toContain(`src="/cdn-cgi/image/width=320,quality=82,format=auto/${original}"`)
     expect(renderToStaticMarkup(<Provided mode="preview">{summary}</Provided>)).toContain(`src="${original}"`)
     expect(renderToStaticMarkup(summary)).toContain(`src="${original}"`)
+  })
+
+  it('asks for a line’s picture under the studio frame’s session path, since the frame carries no cookie', () => {
+    const cart = shownCart(cartOf([{ ...line('v1', 1), photoUrl: 'https://shop.example/shop-api/assets/a' }]))
+    expect(renderToStaticMarkup(<Provided mode="studio"><OrderSummary cart={cart} at="checkout" locale="en-US" t={t} /></Provided>)).toContain('src="/__studio/abcdefghijklmnopqrstuv/shop-api/assets/a"')
   })
 
   it('shows a placed order’s lines and what was charged, without an estimate or a next step', () => {

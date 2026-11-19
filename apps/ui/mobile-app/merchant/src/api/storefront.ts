@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { ApiError, isApiError, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // The compact Storefront screen on the Store API (FIRST-RELEASE (store) §14; apps/api src/apis/store/storefront.ts, studio.ts, publishing.ts, preview.ts).
 // `storefront.read` reads; `publish` (the Owner) changes, and the API refuses everyone else.
@@ -56,14 +56,35 @@ export const requestLimit = 2000
 const answerSchema = z.object({ outcome: z.enum(designOutcomes), message: z.object({ text: z.string() }).nullable() })
 export type DesignAnswer = { outcome: DesignOutcome; reply: string | null }
 
-/** One change, checked and repaired in the store's sandbox before it answers; the phone always asks for the home page as a phone sees it. */
+/** One change, checked and repaired in the store's sandbox, answered once its run ends; the phone always asks for the home page as a phone sees it. */
 export const askDesign = async (client: ApiClient, request: string): Promise<DesignAnswer> => {
-  const { askDesign: answer } = await typedQuery(client)(
-    'mutation Ask($text: String!, $page: String!, $device: String!) { askDesign(text: $text, page: $page, device: $device) { outcome message { text } } }',
-    z.object({ askDesign: answerSchema }),
-    { text: request, page: '/', device: 'phone' },
-  )
+  const answer = await designRun(client, async (run) => {
+    await typedQuery(client)('mutation Ask($text: String!, $page: String!, $device: String!, $run: ID!) { askDesign(text: $text, page: $page, device: $device, run: $run) }', z.object({ askDesign: z.string() }), { text: request, page: '/', device: 'phone', run })
+  })
   return { outcome: answer.outcome, reply: answer.message?.text ?? null }
+}
+
+/** A design run's answer is read every `runPollMs`, for at most a build's clock and the gate after it (AI-STUDIO §4 "A design run"). */
+export const runPollMs = 3_000
+const runWaitMs = 19 * 60_000
+
+// Hermes has no Web Crypto; a run id only names the run within its store, never a credential (AI-STUDIO §4 "A design run").
+const newRunId = (): string => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => ((c === 'x' ? 0 : 8) + Math.floor(Math.random() * (c === 'x' ? 16 : 4))).toString(16))
+
+/** `start` begins a run under a new id, then designRun is read until it ends: a refusal throws as the API sent it, a lost read is read again. */
+export const designRun = async (client: ApiClient, start: (run: string) => Promise<void>): Promise<z.infer<typeof answerSchema>> => {
+  const run = newRunId()
+  await start(run)
+  for (const until = Date.now() + runWaitMs; ; ) {
+    try {
+      const { designRun: answer } = await typedQuery(client)('query Run($run: ID!) { designRun(run: $run) { outcome message { text } } }', z.object({ designRun: answerSchema.nullable() }), { run })
+      if (answer) return answer
+    } catch (error) {
+      if (!isApiError(error, 'NO_RESPONSE')) throw error
+    }
+    if (Date.now() >= until) throw new ApiError('NO_RESPONSE', 'The design run took too long to answer.')
+    await new Promise((resolve) => setTimeout(resolve, runPollMs))
+  }
 }
 
 export const discardDraft = async (client: ApiClient): Promise<void> => {

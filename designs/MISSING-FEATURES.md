@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-11-09 (#1367: customising a product is specified, so it leaves §2.2). Before: 2026-10-28 (#852: the admin store's Delivery app tab, §4). Before: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
+Last updated: 2026-11-12 (#1404: a shopper can add or change their mobile number). Before: 2026-11-09 (#1367: customising a product is specified, so it leaves §2.2). Before: 2026-10-28 (#852: the admin store's Delivery app tab, §4). Before: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -273,5 +273,5 @@ Each is built only if the release gains it.
 | "You may also like" on a product | Product | The release lists the store's product sections, not related products | — |
 | "Email me new arrivals and offers" | Register, Checkout › Contact | Marketing consent is not in the release's Getting in or Checkout rows | — |
 | "Text me offers (SMS)", when the store has SMS on | Checkout › Contact | Same: marketing consent, and its own consent record, are not scoped | — |
-| Change email, mobile number or password | Account › Your details | The release's Account is profile, addresses, sign out and delete | — |
+| Change email or password | Account › Your details | The release's Account is profile, mobile number (#1404), addresses, sign out and delete | — |
 | "Billing address is the same as delivery" | Checkout › Payment | The release's Checkout row names one address | — |

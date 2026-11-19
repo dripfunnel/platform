@@ -1,11 +1,16 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { build, context, type BuildContext, type BuildOptions, type Message, type Metafile, type OutputFile, type Plugin } from 'esbuild'
 import { z } from 'zod'
 import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
 import { imageMapSource, readImages, themeImagePlugin, writeImages, type ThemeImageFile } from './media'
 import type { GateProblem } from './problems'
+
+/** The folder this module runs from, whose packages are the image's own. */
+const ownDir = dirname(fileURLToPath(import.meta.url))
+const ownResolve = Symbol('own')
 
 // The fast gate's bundle is the studio frame and the preview (storefront AI-STUDIO §1, PREVIEW §4): the theme's own
 // chunks, with react, core and the allowed libraries taken from the core runtime the image carries (runtime/build.ts).
@@ -17,6 +22,8 @@ export const runtimeModules: Readonly<Record<string, string>> = {
   motion: 'motion.js',
   'motion/react': 'motion.js',
 }
+/** Libraries a theme may import that go into its own bundle, so only the parts it uses load: icons, for one. */
+export const bundledModules: ReadonlySet<string> = new Set(['lucide-react'])
 export const bootModule = 'boot.js'
 
 /** The folder under the bundle's assets that core's runtime is served from; a preview never stores it (PREVIEW §3). */
@@ -92,7 +99,11 @@ const runtimePlugin = (generated: Generated): Plugin => ({
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
-      return file ? { path: `./core/${file}`, external: true } : { errors: [{ text: `${args.path} isn't a module a theme may import.` }] }
+      if (file) return { path: `./core/${file}`, external: true }
+      // Its ES module build from the image's own packages (never the store's repo), so only the parts used are kept;
+      // inside it, react still goes to core's runtime.
+      if (bundledModules.has(args.path)) return args.pluginData === ownResolve ? undefined : b.resolve(args.path, { kind: args.kind, resolveDir: ownDir, pluginData: ownResolve })
+      return { errors: [{ text: `${args.path} isn't a module a theme may import.` }] }
     })
   },
 })

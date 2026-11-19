@@ -1,4 +1,4 @@
-import { PermissionDenied, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
+import { firstName, PermissionDenied, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { changeTeamRole, inviteTeamMember, loadMoreTeam, removeTeamMember, resendTeamInvite, revokeTeamInvite, setSecondFactorPolicy, transferOwnership, type TeamMember, type TeamResult } from '../../api/settings'
@@ -77,6 +77,7 @@ export const SettingsScreen = () => {
   const readOnly = me.role === 'partner-read-only' || forced === 'readonly'
   // Integrations is Owners' and Admins' (ACCESS §5.3 integrations.write); everyone else never sees the tab.
   const mayManage = me.role === 'partner-owner' || me.role === 'partner-admin'
+  const impersonating = session && session.state === 'open' && session.kind === 'impersonation' ? session : null
   const members = extra ?? { items: data.team.items, endCursor: data.team.pageInfo.endCursor, more: data.team.pageInfo.hasNextPage }
 
   // Each change answers here: its toast, or its refusal in words; the page then reads the team again.
@@ -141,8 +142,8 @@ export const SettingsScreen = () => {
             onToast={setToast}
           />
         )}
-        {tab === 'integrations' && (mayManage ? <IntegrationsTab mayChange={!readOnly} onToast={setToast} /> : <PermissionDenied actionLabel={messages.settings.integrations.title} reason={messages.settings.integrations.mayNot} />)}
-        {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={session && session.state === 'open' && session.kind === 'impersonation' ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
+        {tab === 'integrations' && (mayManage ? <IntegrationsTab mayChange={!readOnly} actingAs={impersonating ? firstName(impersonating.actingAs?.name ?? '') : null} onToast={setToast} /> : <PermissionDenied actionLabel={messages.settings.integrations.title} reason={messages.settings.integrations.mayNot} />)}
+        {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={impersonating ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />
     </>

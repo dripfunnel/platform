@@ -16,6 +16,7 @@ import { selectGoogleSignIn } from '#db/scoped/googleSignIn'
 import { withScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
+import { testCodeChannels } from './support/codeChannels'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -101,7 +102,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const deps = (overrides: Partial<StoreGoogleDeps> = {}): StoreGoogleDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, codeCheck: '0', google, local: false, ...overrides })
+const deps = (overrides: Partial<StoreGoogleDeps> = {}): StoreGoogleDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => now, allowAttempt: async () => true, codeChannels: testCodeChannels, codeCheck: '0', google, local: false, ...overrides })
 
 const cookieValues = (response: Response) => Object.fromEntries(response.headers.getSetCookie().map((c) => c.split(';')[0]?.split('=') ?? []).filter((kv) => kv.length === 2))
 
@@ -224,9 +225,8 @@ describe('signing up with Google', () => {
     }
     const resumed = await handleStoreGoogle(new Request(`https://${host}/api/auth/sign-up/resume`, { method: 'POST', headers: { origin: `https://${host}`, 'cf-connecting-ip': '203.0.113.7', cookie: `__Host-portal_signup=${signup}` } }), deps())
     expect(await resumed.json()).toMatchObject({ ok: true, step: 'store', name: 'Farhan Ali', email: 'farhan@gmail.example', countries: [{ code: 'IN' }] })
-    expect(await post('/api/auth/sign-up/store', { storeName: 'Juniper & Co.', subdomain: 'juniper-google', country: 'IN' })).toMatchObject({ ok: true })
-    expect(await post('/api/auth/sign-up/send-phone', { phone: '+919800000099' })).toMatchObject({ ok: true })
-    expect(await post('/api/auth/sign-up/verify-phone', { code: '000000' })).toMatchObject({ ok: true })
+    // The partner's WhatsApp is off, so the store step makes the store with no number (#1506).
+    expect(await post('/api/auth/sign-up/store', { storeName: 'Juniper & Co.', subdomain: 'juniper-google', country: 'IN' })).toMatchObject({ ok: true, step: 'done' })
     const [made] = await db.sql<{ password_hash: string | null; password_changed_at: Date | null; email_verified_at: Date | null }[]>`select password_hash, password_changed_at, email_verified_at from "user" where email = 'farhan@gmail.example'`
     expect(made).toEqual({ password_hash: null, password_changed_at: null, email_verified_at: now })
   })

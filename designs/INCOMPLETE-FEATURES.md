@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-09 (#1367: a supplier sees its own lines' answers, the vendors note). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-16 (#1507: the portal builds the WhatsApp and SMS code states, PortalAuth, PortalProfile). Before: 2026-11-16 (PortalAuth: sign-up's number step and codes by WhatsApp first). Before: 2026-11-12 (#1404: Change mobile number is built, the prototype only toasts). Before: 2026-11-09 (#1367: a supplier sees its own lines' answers, the vendors note). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -36,6 +36,7 @@ the missing backend.
 | 12 | ~~**Four unmounted files.** Decide whether to keep or delete `PortalBrand`, `PortalPartner`, `PortalPayouts` and `PortalPlans`.~~ Deleted on #183: the shell links to the Platform prototype for brand, plans and partner. | design.md §1 |
 | 13 | ~~**Open decisions still unresolved:** what a supplier may see of a customer, who owns refunds across suppliers, whether editing an approved product sends it back for approval, what happens to a removed supplier's products, and whether 2FA applies to Owners only or to everyone.~~ | uploads/DESIGN-BRIEF.md §4 |
 | 14 | **Mobile number fields are one box** (PortalAuth, PortalProfile, SetRiders, SetStore, customers, brand; the DF Storefront prototype's Contact and sign-in too). The built portal and storefront show a country code dropdown, starting in the store's country, beside the number (decided 2026-11-01); the prototypes still need it drawn. | PortalProfile:21; DF Storefront Prototype:578, 686 |
+| 15 | **Account › Your details › Change mobile number only toasts** ("We'll text a code to the new number (prototype)"). The built storefront shows **Add** or **Change**, then a number field with a country code, then a 6-digit code field with "Save number" and "Use another number" (decided 2026-11-10 on #1404). The email's and password's Change buttons are still toasts. | DF Storefront Prototype:748 |
 
 ---
 
@@ -45,6 +46,13 @@ the missing backend.
 - ~~"Use a backup code instead" and "Contact support" are toast only (:115).~~
 - ~~There is no screen to set up or turn off two-step sign-in, and only SMS codes are supported.~~
 - Sign-up never asks for country, currency or language. That is left to a card on Home.
+- Sign-up step 4 always asks for a number and says "We text you a code". The docs ask for the number only while the partner's WhatsApp is on and send every portal code by WhatsApp first, "Send by SMS instead" after 20
+  seconds (ACCESS §4, decided 2026-11-16). The docs win. **The portal builds these states and the prototypes don't draw
+  them** (#1507, no prototype by decision): sign-up numbered as three steps with WhatsApp off, the store step then
+  "Create my store"; one code panel on su4, the sign-in code (`tfa`) and the enrol view, and PortalProfile's phone set-up:
+  "We sent a code to WhatsApp on •••• 1234", a 20-second countdown, then "Send again on WhatsApp" and, while SMS is on,
+  "Send by SMS instead", then "Sent by SMS to •••• 1234"; PortalProfile's Two-step sign-in offers only the authenticator
+  app with both channels off and says a phone method's codes are paused.
 - ~~An invitation always assigns the Staff role, whatever the inviter chose.~~
 - ~~The "Privacy" and "Help" footer items aren't links.~~
 

@@ -59,23 +59,15 @@ export type Place = { line1: string | null; city: string | null; region: string 
 
 const placeFields = ['line1', 'city', 'region', 'postalCode'] as const
 
-/** What the map last wrote in each field, so a new pin may replace it while the shopper leaves it as it is. */
-export type MapFilled = Partial<Record<(typeof placeFields)[number], string>>
-
 /**
- * The pin's address in each field that is empty or still as the map last filled it; what the shopper typed is never
- * replaced, and nothing at all comes from another country.
+ * The pin's address in the address fields (#1615): line 1, city, region and postal code are replaced by the place's, and the
+ * country follows it. Name, phone and line 2 are never touched, and nothing is filled from a country the shop doesn't offer.
  */
-export const fillFromPlace = (a: AddressDraft, place: Place | null, countries: readonly string[], filled: MapFilled = {}): { draft: AddressDraft; filled: MapFilled } => {
-  if (!place || (a.country ? a.country !== place.country : !countries.includes(place.country))) return { draft: a, filled }
-  const draft = { ...a, country: a.country || place.country }
-  const next: MapFilled = {}
-  for (const f of placeFields) {
-    if (a[f].trim() !== '' && a[f] !== filled[f]) continue
-    draft[f] = place[f] ?? ''
-    if (place[f]) next[f] = place[f]
-  }
-  return { draft, filled: next }
+export const fillFromPlace = (a: AddressDraft, place: Place | null, countries: readonly string[]): AddressDraft => {
+  if (!place || !countries.includes(place.country)) return a
+  const draft = { ...a, country: place.country }
+  for (const f of placeFields) draft[f] = place[f] ?? ''
+  return draft
 }
 
 /** An address as the Shop API takes it (ShopAddressInput, ShopSavedAddressInput). */

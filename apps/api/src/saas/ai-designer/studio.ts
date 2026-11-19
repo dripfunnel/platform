@@ -3,15 +3,18 @@ import type { StoreRole } from '#auth/storePermissions'
 import { isUuid } from '#core/ids'
 import { logEvent, failureCode } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
-import { insertDesignMessage, markUndone, moveFlow, selectDesignChat, selectLatestChange, selectLatestFlow, selectMessage, selectRecentRequests, type MessageRow } from '#db/scoped/design'
+import { insertDesignMessage, markUndone, moveFlow, selectDesignChat, selectLatestChange, selectLatestFlow, selectMessage, selectRecentTurns, type MessageRow, type RecentTurn } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
-import { makeVisible } from '#db/scoped/catalog'
+import { makeVisible, selectLibraryImageByChecksum } from '#db/scoped/catalog'
 import { insertAiRun, selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import { AiDeclined, GatewayError, SignInExpired, type AiImage, type AiProvider } from '#integrations/ai/index'
+import type { ReferencePage, ReferenceReader } from '#integrations/cloudflare/reference'
+import { lookKey, throughLookCache, type LookCache } from './lookCache'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
+import { siteIn } from './sample'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { checkedUrl, fetchPublic } from '#integrations/http/publicFetch'
 import { maxImageBytes } from '#core/media'
@@ -21,8 +24,9 @@ import type { StockImages, StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type FileEdit, type StudioState } from '#saas/studio/index'
-import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
-import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { agentBuildMs, agentChangeMs, chatReply, designModel, type CopiedImage, type DesignTools, type DesignBrief, type Device, type ReferenceBrief } from './model'
+import { answersOf, chunkRequests, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, sectionRequests, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { designRunId, heldRun, outputOf, runOutput, type DesignRunOutput, type DesignRuns, type HeldRun, type RunRequest } from './runs'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -37,6 +41,10 @@ export interface StudioDeps extends DesignerDeps {
   /** The models that account can run, the default first; empty where the model isn't the merchant's to pick. */
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
+  /** Reads a sample site's fonts, colours, sections and pictures; null or unset where Browser Rendering isn't set up. */
+  reference?: ReferenceReader | null
+  /** Where a sample site's look is kept for a session, so an earlier turn's site isn't pictured again; null off Cloudflare. */
+  lookCache?: LookCache | null
   lookup: DnsLookup | null
   /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
   stock: StockImages | null
@@ -50,6 +58,8 @@ export interface StudioDeps extends DesignerDeps {
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   /** `my-store.one` (SHOP_DOMAIN); the studio frame opens only on `{slug}-preview.` of it. */
   previewDomain: string | null
+  /** The DesignRun Workflow askDesign and buildDesignPlan start (AI-STUDIO §4 "A design run"); null where it isn't bound. */
+  runs?: DesignRuns | null
 }
 
 export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device; mode?: 'change' | 'chat' }
@@ -58,21 +68,36 @@ const reasonOf = (error: unknown): DesignFailureReason | null => {
   if (error instanceof SignInExpired) return 'SIGN_IN_EXPIRED'
   if (error instanceof AiDeclined) return 'DECLINED'
   if (!(error instanceof GatewayError)) return null
-  if (error.code === 'RATE_LIMITED' || error.code === 'PROVIDER_UNAVAILABLE' || error.code === 'TIMEOUT') return error.code
+  if (error.code === 'RATE_LIMITED' || error.code === 'PROVIDER_UNAVAILABLE' || error.code === 'TIMEOUT' || error.code === 'OUT_OF_CREDIT') return error.code
   return error.code === 'INVALID_CREDENTIALS' ? 'CREDENTIALS_REJECTED' : error.code === 'CANCELLED' ? null : 'BAD_REQUEST'
 }
 
 /** `asked`: the AI answered a vague request with questions or a plan (#1243), and the message is that. */
 export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'cancelled' | 'asked'; message: MessageRow }
+/** A finished design run: `message` null when it found nothing to take (stopped before it began, or a replayed step). */
+export type RunAnswer = { outcome: AskAnswer['outcome']; message: MessageRow | null }
 export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
 
-const maxRequest = 2000
+/** design_message.text's limit (migration 0395): a whole design brief fits. */
+const maxRequest = 10_000
+/** A request longer than this is a brief: planned and built step by step at once (AI-STUDIO §4 "A plan", decided 2026-11-16). */
+const longBrief = 1_500
+/** Less of the clock than this left after the plan, and its card waits for Build it rather than squeeze the sections. */
+const minAutoBuildMs = 5 * 60_000
+/** A sample site's own pictures copied into Assets for one request (AI-STUDIO §8). */
+const maxCopiedImages = 12
+const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
+/** One text box's words in Edit text. */
+const maxText = 2000
 /** design_message.sample_url's limit (migration 0333). */
 const maxUrl = 2048
 /** A page or a text key: names, never words. */
 const maxKey = 200
-const recentRequests = 4
+/** The last four requests with the AI's replies, so a follow-up ("make it bigger") keeps its reference. */
+const recentTurns = 8
+const turnLine = (t: RecentTurn): string =>
+  t.role === 'user' ? `Merchant: ${t.text.slice(0, 500)}` : `You: ${t.text.slice(0, 500)}${t.changed.length > 0 ? ` (changed: ${t.changed.join('; ')})` : ''}${t.undone ? ' (undone by the merchant)' : ''}`
 const imageTypes = new Set<AiImage['mediaType']>(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 /** ai_mode's choices (planKeys.ts): the merchant's own key, or AI on the plan, counted against `ai_prompts`. */
 const ownKeyMode = 0
@@ -159,6 +184,12 @@ export const createStudioService = (deps: StudioDeps) => {
     return withSystemScope(sql, (tx) => hasUsageLeft(tx, storeId, 'ai_prompts', monthStart(now()), allowed))
   }
 
+  /** The site the conversation last named, so "continue" or "do it" after a sample keeps drawing from it. */
+  const earlierSite = async (): Promise<string | null> => {
+    const turns = await withScope(sql, context, (tx) => selectRecentTurns(tx, storeId, recentTurns))
+    return turns.filter((t) => t.role === 'user').map((t) => t.sample_url ?? siteIn(t.text, maxUrl)).find((site) => site !== null) ?? null
+  }
+
   const imageOf = async (assetId: string): Promise<DesignResult<AiImage>> => {
     if (!isUuid(assetId)) return { ok: false, reason: 'INVALID_IMAGE' }
     const key = await withScope(sql, context, (tx) => selectMerchantImageKey(tx, storeId, assetId))
@@ -168,13 +199,47 @@ export const createStudioService = (deps: StudioDeps) => {
     return { ok: true, value: { mediaType: file.mime as AiImage['mediaType'], base64: toBase64(file.bytes) } }
   }
 
-  /** The sample site, screenshotted by the platform at a public https address only (docs/ARCHITECTURE.md §7). */
-  const screenshotOf = async (raw: string, device: Device): Promise<DesignResult<AiImage>> => {
+  /** The sample site, screenshotted by the platform at a public https address only (docs/ARCHITECTURE.md §7), top to bottom. */
+  const screenshotOf = async (raw: string, device: Device): Promise<DesignResult<AiImage[]>> => {
     if (!deps.lookup || !deps.screenshots) return { ok: false, reason: 'NOT_CONNECTED' }
     const url = await checkedUrl(raw, deps.lookup, AbortSignal.timeout(5_000)).catch(() => 'UNAVAILABLE' as const)
     if (!(url instanceof URL)) return { ok: false, reason: 'INVALID_URL' }
-    const bytes = await deps.screenshots.take(url, device)
-    return bytes ? { ok: true, value: { mediaType: 'image/jpeg', base64: toBase64(bytes) } } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
+    const slices = await deps.screenshots.take(url, device)
+    return slices.length > 0 ? { ok: true, value: slices.map((bytes) => ({ mediaType: 'image/jpeg' as const, base64: toBase64(bytes) })) } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
+  }
+
+  /** The same site's measured design, read like its screenshot at a public https address only; null when it can't be. */
+  const measuredOf = async (raw: string, device: Device): Promise<ReferencePage | null> => {
+    if (!deps.lookup || !deps.reference) return null
+    const url = await checkedUrl(raw, deps.lookup, AbortSignal.timeout(5_000)).catch(() => null)
+    return url instanceof URL ? deps.reference.read(url, device) : null
+  }
+
+  /** A named site's banner and tile pictures copied into Assets, never product photos (AI-STUDIO §8); `upload` false only finds earlier copies. */
+  const copiedFrom = async (page: ReferencePage, upload: boolean): Promise<CopiedImage[]> => {
+    const { lookup, assets } = deps
+    if (!lookup || !assets) return []
+    const wanted = [...new Map(page.images.filter((image) => !image.product).map((image) => [image.src, image])).values()].slice(0, maxCopiedImages)
+    const fetched = await Promise.all(wanted.map((image) => fetchPublic(image.src, { lookup, maxBytes: maxImageBytes, timeoutMs: 8_000, tries: 1 })))
+    const copied: CopiedImage[] = []
+    for (const [i, got] of fetched.entries()) {
+      const image = wanted[i]
+      if (!got.ok || !image) continue
+      const checksum = hex(await crypto.subtle.digest('SHA-256', got.bytes))
+      let assetId = await withScope(sql, context, (tx) => selectLibraryImageByChecksum(tx, storeId, checksum))
+      if (!assetId && !upload) continue
+      if (!assetId) {
+        const stored = await createAssetService({ sql, context, actor, activity, facts, store: assets }).upload(got.bytes)
+        if (!stored.ok || stored.asset.kind !== 'image') continue
+        assetId = stored.asset.id
+        await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.imageImported, [{ field: 'source', before: null, after: 'sample_site' }])))
+      }
+      // The same picture in two sections is one asset, listed with both.
+      const known = copied.find((c) => c.assetId === assetId)
+      if (known) known.sections.push(image.section)
+      else copied.push({ assetId, sections: [image.section], alt: image.alt, width: image.width, height: image.height })
+    }
+    return copied
   }
 
   const stockAllowed = () => deps.allowStock(`stock:${storeId}`)
@@ -246,18 +311,20 @@ export const createStudioService = (deps: StudioDeps) => {
     return { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] }
   }
 
-  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshot: AiImage | null, summary: StoreSummary | null, mayAsk = false): Promise<DesignBrief> => {
-    const recent = await withScope(sql, context, (tx) => selectRecentRequests(tx, storeId, recentRequests))
+  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshots: AiImage[], summary: StoreSummary | null, mayAsk = false, reference: ReferenceBrief | null = null, brief = false): Promise<DesignBrief> => {
+    const recent = await withScope(sql, context, (tx) => selectRecentTurns(tx, storeId, recentTurns))
     return {
       page: input.page,
       device: input.device,
-      recent: recent.reverse(),
+      recent: recent.reverse().map(turnLine),
       store: await shopOf(summary),
       summary,
       image,
       imageAssetId: image ? input.imageAssetId : null,
-      screenshot,
+      screenshots,
+      reference,
       mayAsk,
+      longBrief: brief,
     }
   }
 
@@ -265,12 +332,12 @@ export const createStudioService = (deps: StudioDeps) => {
     insertDesignMessage(tx, { storeId, createdBy: actor.id, at: now(), ...m })
 
   /** Chat mode: a reply with no change and no sandbox; it takes a prompt like a change (SAAS §9.2) and is metered as a `design` run. */
-  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shot: AiImage | null, asked: Date, live: Live): Promise<DesignResult<AskAnswer>> => {
+  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shots: AiImage[], reference: ReferenceBrief | null, asked: Date, live: Live): Promise<DesignResult<AskAnswer>> => {
     if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     let reply: Awaited<ReturnType<typeof chatReply>> | null = null
     let failure: unknown = null
     try {
-      reply = await chatReply(provider, await briefOf(input, image, shot, await currentSummary()), text, live.text)
+      reply = await chatReply(provider, await briefOf(input, image, shots, await currentSummary(), false, reference), text, live.text)
     } catch (error) {
       failure = error
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
@@ -291,15 +358,14 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /**
-   * `askDesign` (SAAS §9.2): budget, then the model through the store's studio (fast gate, up to three repairs), then the
+   * `askDesign` (SAAS §9.2): budget, then the model through the store's studio (fast gate, up to five repairs), then the
    * chat and the activity entry, which says only that a request was made and its outcome (LOGGING §4.1).
    */
-  const ask = (input: AskInput): Promise<DesignResult<AskAnswer>> => followed((run, live) => askIn(input, run, live))
+  const ask = (input: AskInput, run: string): Promise<DesignResult<AskAnswer>> => followed((id, live) => askIn(input, id, live), run)
 
   /** One request's work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
-  const followed = async (work: (run: string, live: Live) => Promise<DesignResult<AskAnswer>>): Promise<DesignResult<AskAnswer>> => {
+  const followed = async (work: (run: string, live: Live) => Promise<DesignResult<AskAnswer>>, run: string = crypto.randomUUID()): Promise<DesignResult<AskAnswer>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-    const run = crypto.randomUUID()
     const live = liveSender(
       (event) => studio.progress(storeId, run, event),
       (error) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }),
@@ -316,29 +382,56 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** `askDesign`'s work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
-  const askIn = async (input: AskInput, run: string, live: Live): Promise<DesignResult<AskAnswer>> => {
-    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+  /** A request's checks that cost nothing but reads, made again by its run: words, model, account and budget. */
+  const askReady = async (input: AskInput): Promise<DesignResult<{ text: string; billedTo: 'plan' | 'own_key'; provider: AiProvider }>> => {
     const text = input.text.trim()
     if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
+    const ready = await providerFor(input.model)
+    if (!ready.ok) return ready
+    if (ready.value.billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    return { ok: true, value: { text, ...ready.value } }
+  }
+
+  const askIn = async (input: AskInput, run: string, live: Live): Promise<DesignResult<AskAnswer>> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     live.step(input.mode === 'chat' ? 'asking' : 'reading')
-    const billedTo = await billing()
-    if (input.model !== null && !(await deps.models(billedTo, context)).includes(input.model)) return { ok: false, reason: 'INVALID_INPUT' }
-    const provider = await deps.ai(billedTo, context, input.model)
-    if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
-    if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    const ready = await askReady(input)
+    if (!ready.ok) return ready
+    const { text, billedTo, provider } = ready.value
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
-    const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
-    if (shot && !shot.ok) return shot
+    const started = now()
+    const look = async (site: string): Promise<[DesignResult<AiImage[]>, ReferencePage | null]> => {
+      const missed: { shot: DesignResult<AiImage[]> | null } = { shot: null }
+      const kept = await throughLookCache(deps.lookCache ?? null, lookKey(storeId, input.device, site), async () => {
+        const [shot, measured] = await Promise.all([screenshotOf(site, input.device), measuredOf(site, input.device)])
+        if (!shot.ok) missed.shot = shot
+        return shot.ok ? { shots: shot.value, measured } : null
+      })
+      return kept ? [{ ok: true, value: kept.shots }, kept.measured] : [missed.shot ?? { ok: false, reason: 'SAMPLE_UNAVAILABLE' }, null]
+    }
+    const attachedLook = input.sampleUrl ? await look(input.sampleUrl) : null
+    const attached = attachedLook?.[0] ?? null
+    if (attached && !attached.ok) return attached
+    // A site named only in the words is pictured too; one that can't be doesn't stop the change, since it may not be a sample.
+    const namedHere = siteIn(text, maxUrl)
+    const typed = attached ? null : (namedHere ?? (await earlierSite()))
+    const typedLook = typed ? await look(typed) : null
+    const typedShot = typedLook?.[0] ?? null
+    const shot = attached ?? (typedShot?.ok ? typedShot : null)
+    const measured = (attached ? attachedLook?.[1] : typedShot?.ok ? typedLook?.[1] : null) ?? null
+    // Only a site this request names, never one from earlier turns, has its pictures copied and its plan built at once.
+    const fresh = attached !== null || (typedShot?.ok === true && typed === namedHere)
     const asked = now()
-    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked, live)
+    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? [], measured && { page: measured, copied: [] }, asked, live)
+    const reference: ReferenceBrief | null = measured && { page: measured, copied: await copiedFrom(measured, fresh) }
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
     const added: AddedPhoto[] = []
     const stopLoop = new AbortController()
     const known = await currentSummary()
     const lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
-    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null, known, true), photoTools(added), () => undefined, stopLoop.signal, lookups)
+    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? [], known, true, reference, text.length > longBrief), photoTools(added), () => undefined, stopLoop.signal, lookups, agentChangeMs)
     let modelAsked = false
     let modelFailure: unknown = null
     let proposed = ''
@@ -386,9 +479,15 @@ export const createStudioService = (deps: StudioDeps) => {
       if (!stopped) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome: 'cancelled', message: stopped } }
     }
-    if (answer.outcome === 'changed') await placePhotos(proposed, [...(input.imageAssetId ? [input.imageAssetId] : []), ...(lookups?.listed ?? [])], added)
+    if (answer.outcome === 'changed') await placePhotos(proposed, [...(input.imageAssetId ? [input.imageAssetId] : []), ...(reference?.copied.map((c) => c.assetId) ?? []), ...(lookups?.listed ?? [])], added)
     const summary = 'summary' in answer ? answer.summary : null
-    if (askedBack && answer.outcome === 'unchanged' && summary) return { ok: true, value: { outcome: 'asked', message: await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId) } }
+    if (askedBack && answer.outcome === 'unchanged' && summary) {
+      const message = await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId)
+      // A plan for a site this request names is built at once, section by section, inside one build's clock (AI-STUDIO §4).
+      const wallMs = agentBuildMs - (now().getTime() - started.getTime())
+      if ((fresh || text.length > longBrief) && 'plan' in askedBack && wallMs >= minAutoBuildMs) return buildIn(message.id, input.model, run, live, { shots: shot?.value ?? [], reference, wallMs })
+      return { ok: true, value: { outcome: 'asked', message } }
+    }
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
@@ -408,7 +507,10 @@ export const createStudioService = (deps: StudioDeps) => {
 
   /** A vague request's questions or plan (#1243): its message holds them, and its run is the flow's one prompt unit. */
   const recordAsked = async (input: AskInput, text: string, at: Date, ask: DesignAsk, reply: string, runId: string | null): Promise<MessageRow> => {
-    const detail: QuestionsFlow | PlanFlow = 'questions' in ask ? { kind: 'questions', state: 'open', request: text, questions: ask.questions, answers: [] } : { kind: 'plan', state: 'open', request: text, answers: [], plan: ask.plan, changes: 0 }
+    // The attached site goes in the words the build reads, so its pages are drawn from it too (`buildPlan`).
+    const sample = input.sampleUrl && !text.includes(input.sampleUrl) ? `${text}\nSample site: ${input.sampleUrl}` : text
+    const request = sample.length <= maxRequest ? sample : text
+    const detail: QuestionsFlow | PlanFlow = 'questions' in ask ? { kind: 'questions', state: 'open', request, questions: ask.questions, answers: [] } : { kind: 'plan', state: 'open', request, answers: [], plan: ask.plan, changes: 0 }
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at })
       const id = await record(tx, { role: detail.kind, text: reply, aiRunId: runId, detail })
@@ -500,42 +602,59 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** "Make the plan" or "Skip questions" (#1243): `given` in the questions' order, each an option, words of their own or empty. */
-  const answerQuestions = (messageId: string, given: readonly string[], skip: boolean, model: string | null): Promise<DesignResult<AskAnswer>> =>
+  const questionsReady = async (messageId: string, given: readonly string[], skip: boolean) => {
+    const open = await openQuestions(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    const answers = answersOf(open.flow.questions, skip ? [] : given)
+    return answers ? ({ ok: true, open, answers } as const) : ({ ok: false, reason: 'INVALID_INPUT' } as const)
+  }
+  const answerQuestions = (messageId: string, given: readonly string[], skip: boolean, model: string | null, run: string): Promise<DesignResult<AskAnswer>> =>
     followed(async (_run, live) => {
-      const open = await openQuestions(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      const answers = answersOf(open.flow.questions, skip ? [] : given)
-      if (!answers) return { ok: false, reason: 'INVALID_INPUT' }
+      const ready = await questionsReady(messageId, given, skip)
+      if (!ready.ok) return ready
+      const { open, answers } = ready
       const moved: QuestionsFlow = { ...open.flow, state: skip ? 'skipped' : 'answered', answers }
       const count = answers.filter((a) => a.answer !== null).length
       const audit = entry(designAudit.questionsAnswered, [{ field: 'answers', before: null, after: skip ? 'skipped' : String(count) }])
       return plan({ row: open.row, from: open.flow, moved }, { request: open.flow.request, answers, previous: null, change: null }, 0, null, model, live, audit)
-    })
+    }, run)
 
   /** A change to the plan asked in words (#1243), at most three a plan, inside the same prompt unit. */
-  const changePlan = (messageId: string, words: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
+  const planChangeReady = async (messageId: string, words: string) => {
+    const said = words.trim()
+    if (said.length === 0 || said.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' } as const
+    const open = await openPlan(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    return open.flow.changes >= maxPlanChanges ? ({ ok: false, reason: 'PLAN_CHANGES_USED' } as const) : ({ ok: true, open, said } as const)
+  }
+  const changePlan = (messageId: string, words: string, model: string | null, run: string): Promise<DesignResult<AskAnswer>> =>
     followed(async (_run, live) => {
-      const said = words.trim()
-      if (said.length === 0 || said.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' }
-      const open = await openPlan(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      if (open.flow.changes >= maxPlanChanges) return { ok: false, reason: 'PLAN_CHANGES_USED' }
+      const ready = await planChangeReady(messageId, words)
+      if (!ready.ok) return ready
+      const { open, said } = ready
       const audit = entry(designAudit.planChanged, [{ field: 'changes', before: String(open.flow.changes), after: String(open.flow.changes + 1) }])
       return plan({ row: open.row, from: open.flow, moved: { ...open.flow, state: 'replaced' } }, { request: open.flow.request, answers: open.flow.answers, previous: open.flow.plan, change: said }, open.flow.changes + 1, said, model, live, audit)
-    })
+    }, run)
 
   /**
    * **Build it** (#1243): every planned page, home first, each its own change through the gate in the store's studio; the
    * build is one message, so one Undo takes it all back. Stop (`cancelDesign`) ends it after the page being built.
    */
-  const buildPlan = (messageId: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
-    followed(async (run, live) => {
+  /** `given`: what an ask that answered with a sample site's plan already read, and what is left of its clock. */
+  type Given = { shots: AiImage[]; reference: ReferenceBrief | null; wallMs: number }
+  /** A build's checks that cost nothing but reads, made again by its run. */
+  const buildReady = async (messageId: string, model: string | null) => {
+    const open = await openPlan(messageId)
+    if (!open) return { ok: false, reason: 'PLAN_GONE' } as const
+    if ((open.flow.failedBuilds ?? 0) >= maxFailedBuilds) return { ok: false, reason: 'PLAN_BUILDS_USED' } as const
+    const ready = await providerFor(model)
+    return ready.ok ? { ok: true, open, ready } as const : ready
+  }
+  const buildIn = async (messageId: string, model: string | null, run: string, live: Live, given: Given | null = null): Promise<DesignResult<AskAnswer>> => {
       if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-      const open = await openPlan(messageId)
-      if (!open) return { ok: false, reason: 'PLAN_GONE' }
-      if ((open.flow.failedBuilds ?? 0) >= maxFailedBuilds) return { ok: false, reason: 'PLAN_BUILDS_USED' }
-      const ready = await providerFor(model)
-      if (!ready.ok) return ready
+      const checked = await buildReady(messageId, model)
+      if (!checked.ok) return checked
+      const { open, ready } = checked
       const { row, flow } = open
       // Open again after a build that built nothing; one that asked the model counts against `maxFailedBuilds`.
       const tried = { ...reopened(flow), failedBuilds: (flow.failedBuilds ?? 0) + 1 }
@@ -550,10 +669,15 @@ export const createStudioService = (deps: StudioDeps) => {
       const added: AddedPhoto[] = []
       let lookups: ReturnType<typeof storeLookups> | null
       let designer: ReturnType<typeof designModel>
+      let copiedIds: string[]
       try {
         const known = await currentSummary()
         lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
-        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), photoTools(added), () => undefined, undefined, lookups)
+        const site = siteIn(flow.request, maxUrl)
+        const [shot, measured] = given ? [{ ok: true as const, value: given.shots }, null] : site ? await Promise.all([screenshotOf(site, 'desktop'), measuredOf(site, 'desktop')]) : [null, null]
+        const reference = given ? given.reference : measured && { page: measured, copied: await copiedFrom(measured, true) }
+        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, shot?.ok ? shot.value : [], known, false, reference), photoTools(added), () => undefined, undefined, lookups, given?.wallMs ?? agentBuildMs)
+        copiedIds = reference?.copied.map((c) => c.assetId) ?? []
       } catch (error) {
         await giveBack(reopened(flow)).catch(() => undefined)
         throw error
@@ -580,7 +704,8 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       let answer: Awaited<ReturnType<NonNullable<typeof studio>['build']>> | { outcome: 'failed' }
       try {
-        answer = await studio.build(storeId, { pages: pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
+        // A sample site's plan builds its home page section by section; a long brief's, then each other page.
+        answer = await studio.build(storeId, { pages: siteIn(flow.request, maxUrl) ? sectionRequests(flow) : flow.request.length > longBrief ? chunkRequests(flow) : pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
       } catch (error) {
         logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
         // An answer lost after a page was built still records the build as it stood, so its pages have their one Undo.
@@ -596,7 +721,7 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       const built = answer
       const changed = built.pages.filter((p) => p.outcome === 'changed')
-      if (changed.length > 0) await placePhotos(proposed, lookups?.listed ?? [], added)
+      if (changed.length > 0) await placePhotos(proposed, [...copiedIds, ...(lookups?.listed ?? [])], added)
       const saved = savedBeside(changed.length > 0 ? 'changed' : 'unchanged')
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
@@ -617,7 +742,77 @@ export const createStudioService = (deps: StudioDeps) => {
       if (message === 'lost') return { ok: false, reason: 'PLAN_GONE' }
       if (!message) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome, message } }
-    })
+  }
+
+  const buildPlan = (messageId: string, model: string | null, run: string): Promise<DesignResult<AskAnswer>> => followed((id, live) => buildIn(messageId, model, id, live), run)
+
+  const runReady = async (request: RunRequest) => {
+    if (request.kind === 'ask') return askReady(request.input)
+    if (request.kind === 'build') return buildReady(request.messageId, request.model)
+    const open = request.kind === 'questions' ? await questionsReady(request.messageId, request.answers, request.skip) : await planChangeReady(request.messageId, request.text)
+    return open.ok ? providerFor(request.model) : open
+  }
+
+  /**
+   * A design run's start (AI-STUDIO §4 "A design run"): the cheap refusals at once, then the request held
+   * in the store's studio and the run started under the portal's `run` id; the same id again starts nothing.
+   */
+  const startRun = async (request: RunRequest, run: string): Promise<DesignResult<string>> => {
+    const runs = deps.runs
+    if (!studio || !runs) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (!isUuid(run)) return { ok: false, reason: 'INVALID_INPUT' }
+    const id = designRunId(storeId, run)
+    if ((await runs.status(id)).state !== 'missing') return { ok: true, value: run }
+    const checked = await runReady(request)
+    if (!checked.ok) return checked
+    const state = await studio.status(storeId)
+    if (state.state === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: state.place }
+    if (state.state === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    await studio.hold(storeId, run, { ...request, facts } satisfies HeldRun)
+    try {
+      await runs.start(id, { kind: request.kind, run, context, actor, role: deps.role })
+    } catch (error) {
+      // Another request with the same id started it first; otherwise nothing will take what was held.
+      if ((await runs.status(id)).state !== 'missing') return { ok: true, value: run }
+      await studio.drop(storeId, run)
+      throw error
+    }
+    return { ok: true, value: run }
+  }
+
+  /** The DesignRun's one step: takes the held request first, so a replayed step or a stopped run reserves and asks nothing. */
+  const runHeld = async (run: string): Promise<DesignRunOutput> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    const held = heldRun.safeParse(await studio.take(storeId, run))
+    if (!held.success) {
+      // A replay's first attempt may have shown steps: other tabs still hear the run end.
+      await studio.progress(storeId, run, { type: 'done', outcome: 'cancelled', messageId: null }).catch((error: unknown) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }))
+      return { ok: true, outcome: 'cancelled', messageId: null }
+    }
+    // The request's own facts (LOGGING §4.1), kept with it rather than in the job's params.
+    const own = createStudioService({ ...deps, facts: held.data.facts })
+    const h = held.data
+    if (h.kind === 'questions') return runOutput(await own.answerQuestions(h.messageId, h.answers, h.skip, h.model, run))
+    if (h.kind === 'planChange') return runOutput(await own.changePlan(h.messageId, h.text, h.model, run))
+    return runOutput(h.kind === 'ask' ? await own.ask(h.input, run) : await own.buildPlan(h.messageId, h.model, run))
+  }
+
+  /** `designRun`: null while the run works; a refusal as the request would have answered it. */
+  const runResult = async (run: string): Promise<DesignResult<RunAnswer | null>> => {
+    if (!deps.runs) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (!isUuid(run)) return { ok: false, reason: 'NOT_FOUND' }
+    const status = await deps.runs.status(designRunId(storeId, run))
+    if (status.state === 'missing') return { ok: false, reason: 'NOT_FOUND' }
+    if (status.state === 'failed') return { ok: false, reason: 'FAILED' }
+    if (status.state === 'running') return { ok: true, value: null }
+    const output = outputOf.safeParse(status.output)
+    if (!output.success) return { ok: false, reason: 'FAILED' }
+    if (!output.data.ok) return output.data
+    const { outcome, messageId } = output.data
+    if (messageId === null) return { ok: true, value: { outcome, message: null } }
+    const message = await withScope(sql, context, (tx) => selectMessage(tx, storeId, messageId))
+    return message ? { ok: true, value: { outcome, message } } : { ok: false, reason: 'NOT_FOUND' }
+  }
 
   /** `searchStockImages`: every source's results for words the merchant typed; page 1 to 20. */
   const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {
@@ -647,7 +842,12 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** `cancelDesign`: stops the store's running change; the pending `askDesign` answers `cancelled`. */
-  const cancel = async (): Promise<DesignResult<boolean>> => (studio ? { ok: true, value: await studio.cancel(storeId) } : { ok: false, reason: 'NOT_CONNECTED' })
+  /** Stop: a run not started yet loses its held request, so it ends with nothing done; a running one stops in the studio. */
+  const cancel = async (): Promise<DesignResult<boolean>> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    const dropped = await studio.drop(storeId)
+    return { ok: true, value: (await studio.cancel(storeId)) || dropped }
+  }
 
   /** "Undo this change" on the latest change only (AI-STUDIO §5): a new change, with its own preview. */
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
@@ -704,7 +904,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const locale = await offeredLocale(language)
     if (!locale) return { ok: false, reason: 'INVALID_LANGUAGE' }
-    if (text.length > maxRequest || key.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
+    if (text.length > maxText || key.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     const answer = await studio.editText(storeId, { locale, key, text, userId: actor.id })
     if (answer.outcome === 'missing') return { ok: false, reason: 'NOT_FOUND' }
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
@@ -721,5 +921,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, wake, chat, ask, answerQuestions, changePlan, buildPlan, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
+  return { session, renew, wake, chat, ask, answerQuestions, changePlan, buildPlan, startRun, runHeld, runResult, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }

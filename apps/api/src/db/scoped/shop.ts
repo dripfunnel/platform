@@ -418,7 +418,7 @@ export const selectShopProductRows = (tx: ScopedSql, storeId: string, ids: reado
           'prices', coalesce((select json_agg(json_build_object('currency', vp.currency, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text)) from version_price vp where vp.version_id = v.id), '[]'::json),
           'choices', coalesce((select json_agg(json_build_object('option_id', ov.option_id, 'value_id', ov.value_id)) from product_version_option_value ov where ov.version_id = v.id), '[]'::json)
         ) order by v.position, v.id) from product_version v where v.product_id = p.id), '[]'::json) as versions,
-      coalesce((select json_agg(json_build_object('asset_id', ph.asset_id, 'alt', ph.alt, 'version_id', ph.version_id) order by ph.position) from product_photo ph where ph.product_id = p.id), '[]'::json) as photos,
+      coalesce((select json_agg(json_build_object('asset_id', ph.asset_id, 'alt', ph.alt, 'version_id', (select case count(*) when 0 then ph.version_id when 1 then (array_agg(v.id))[1] end from product_version v where v.product_id = ph.product_id and v.photo_asset_id = ph.asset_id and v.deleted_at is null)) order by ph.position) from product_photo ph where ph.product_id = p.id), '[]'::json) as photos,
       coalesce((select json_agg(pb.badge_id) from product_badge pb where pb.product_id = p.id), '[]'::json) as manual_badges
     from product p where p.store_id = ${storeId} and p.id = any (${pgArray(ids)}::uuid[])
   `
@@ -463,7 +463,8 @@ export const selectShopProductExtras = async (tx: ScopedSql, productId: string, 
     await tx<ShopProductExtrasRow[]>`
       select
         coalesce((select json_agg(json_build_object('id', o.id, 'name', ${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)},
-            'values', coalesce((select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'choice_name', tx`lower(v.name)`, 'name', tx`v.name`, language)}) order by v.position) from product_option_value v where v.option_id = o.id), '[]'::json)
+            'values', coalesce((select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'choice_name', tx`lower(v.name)`, 'name', tx`v.name`, language)}) order by v.position) from product_option_value v where v.option_id = o.id
+              and exists (select 1 from product_version_option_value ov join product_version pv on pv.id = ov.version_id where ov.value_id = v.id and pv.visibility = 'visible' and pv.deleted_at is null)), '[]'::json)
           ) order by o.position) from product_option o where o.product_id = p.id), '[]'::json) as options,
         coalesce((select json_agg(json_build_object('name', s.name, 'value', s.value, 'version_id', s.version_id) order by s.position) from product_spec s where s.product_id = p.id), '[]'::json) as specs,
         coalesce((select json_agg(h.text order by h.position) from product_highlight h where h.product_id = p.id), '[]'::json) as highlights,

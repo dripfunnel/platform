@@ -27,7 +27,8 @@ type Props = {
   quantity?: number
   disabled?: boolean
   className?: string
-  children: ReactNode
+  /** The words. A function gets `{ busy }`, true from the press until the engine answers, so a theme can say it is adding (#1292). */
+  children: ReactNode | ((state: { busy: boolean }) => ReactNode)
   /** Hears whether it worked, to say so beside the button. */
   onDone?: (worked: boolean) => void
   /** A gift card's recipient; the engine refuses a gift card without one. */
@@ -65,8 +66,8 @@ const CartButton = ({ action, act, intent, versionId, quantity = 1, disabled = f
   }
   return (
     <>
-      <button type="button" className={className} data-df-action={action} aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={click}>
-        {children}
+      <button type="button" className={className} data-df-action={action} aria-describedby={describedBy} aria-busy={busy || undefined} disabled={disabled || busy || versionId === null} onClick={click}>
+        {typeof children === 'function' ? children({ busy }) : children}
       </button>
       <Ask asking={asking} versionId={versionId} quantity={quantity} gift={gift} intent={intent} onClose={(done) => (setAsking(null), done && onDone?.(true))} />
     </>

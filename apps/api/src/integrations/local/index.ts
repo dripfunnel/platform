@@ -2,8 +2,8 @@ import type postgres from 'postgres'
 import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couriers'
 import { easyPostHook } from '../couriers/easypost'
 import { shiprocketHook } from '../couriers/shiprocket'
-import type { SmsSender } from '#core/sms'
-import type { WhatsAppSender } from '#core/whatsapp'
+import type { SmsAccountCheck, SmsSender } from '#core/sms'
+import type { WhatsAppAccountCheck, WhatsAppSender } from '#core/whatsapp'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
 import type { CloudflareApi } from '../cloudflare/api'
@@ -37,6 +37,9 @@ export const localSms = (): SmsSender => ({
   },
 })
 
+/** A partner's SMS account check on this machine: every account works, since none reaches MSG91 or Twilio here. */
+export const localSmsCheck = async (): Promise<SmsAccountCheck> => 'ok'
+
 /** Expo's last step on this machine: each push to its subject, never its token; every receipt delivered. */
 export const localPush = (): ExpoPush => ({
   send: async (messages) =>
@@ -54,6 +57,9 @@ export const localWhatsApp = (): WhatsAppSender => ({
     return { providerId: `local-${crypto.randomUUID()}` }
   },
 })
+
+/** A partner's WhatsApp account check on this machine: every account works, since none reaches Meta here. */
+export const localWhatsAppCheck = async (): Promise<WhatsAppAccountCheck> => ({ status: 'ok' })
 
 const isLocalName = (host: string) => host.toLowerCase().endsWith('.localhost')
 
@@ -101,14 +107,19 @@ const localLabelPdf = (lines: readonly string[]): Uint8Array<ArrayBuffer> => {
   return new TextEncoder().encode(body)
 }
 
+/** The password the local stand-in refuses, so a wrong login can be tried without Shiprocket (docs/setup/local.md §6.1). */
+export const localRefusedPassword = 'wrong-password'
+
 /**
- * Every partner has both accounts, quoting a fixed tariff within the courier's own country and booking labels with a
- * made-up tracking number, so checkout, Settings › Shipping and Ship items work locally without Shiprocket or EasyPost
- * (#275 sets the real accounts).
+ * Every store has both accounts, quoting a fixed tariff within the courier's own country and booking labels with a
+ * made-up tracking number, so checkout, Settings › Shipping and Ship items work locally without Shiprocket or EasyPost.
+ * Connecting Shiprocket checks the login against `localRefusedPassword` only.
  */
 export const localCouriers = (): CourierDirectory => ({
-  forPartner: async () => ({
+  check: async (_, login) => (login.password === localRefusedPassword ? 'rejected' : 'ok'),
+  forStore: async () => ({
     accounts: new Set(['shiprocket', 'easypost'] as const),
+    connectable: new Set(['shiprocket', 'easypost'] as const),
     gateway: {
       quote: async (provider, parcel) => {
         const tariff = localTariff[provider]

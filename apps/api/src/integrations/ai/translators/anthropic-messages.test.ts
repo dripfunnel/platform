@@ -57,6 +57,8 @@ describe('anthropic-messages request', () => {
   })
   it('maps required to any and carries the error flag', () => {
     expect(translate({ ...withTools, toolChoice: 'required' }).tool_choice).toEqual({ type: 'any' })
+    const cached = { ...withTools, messages: [...withTools.messages.slice(0, 2), { role: 'tool' as const, content: [{ type: 'tool_result' as const, callId: 'c1', content: '31C', cache: true }] }] }
+    expect(translate(cached).messages[2]).toEqual({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: '31C', cache_control: { type: 'ephemeral' } }] })
     const failing = { ...withTools, messages: [...withTools.messages.slice(0, 2), { role: 'tool' as const, content: [{ type: 'tool_result' as const, callId: 'c1', content: 'boom', isError: true }] }] }
     expect(translate(failing).messages[2]?.content[0]).toMatchObject({ is_error: true })
   })

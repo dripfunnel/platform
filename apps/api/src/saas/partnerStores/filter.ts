@@ -9,6 +9,7 @@ const day = 24 * 60 * 60 * 1000
 export const storeFilter = z.strictObject({
   status: z.enum(['trial', 'active', 'pastdue', 'suspended', 'cancelled']).optional(),
   plan: z.guid().optional(),
+  category: z.guid().optional(),
   created: z.enum(['month', '30d', '90d']).optional(),
   storefront: z.enum(['live', 'building', 'failed', 'own']).optional(),
   near: z.literal('yes').optional(),
@@ -30,6 +31,7 @@ export const toStoreFilter = (partnerId: string, f: StoreFilterInput, at: Date):
   partnerId,
   status: f.status ? statusFor[f.status] : undefined,
   planId: f.plan,
+  categoryId: f.category,
   createdAfter: f.created === undefined ? undefined : f.created === 'month' ? new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1)) : new Date(at.getTime() - (f.created === '30d' ? 30 : 90) * day),
   storefront: f.storefront,
   nearLimit: f.near === 'yes',

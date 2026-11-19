@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
+Last updated: 2026-11-17 (#1544: `@dripfunnel/shared/messaging`, the SMS and WhatsApp account shapes and sender rule both consoles use). Before: 2026-11-16 (#1500: `ConfirmDialog` takes `spaced`, the order note window uses it). Before: 2026-11-13 (#1352: `ConfirmDialog` takes `wide`, Invite a supplier uses it). Before: 2026-11-13 (#1453: `ConfirmDialog` choices with hints and per-option confirm labels, §3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-01 (#1111: partial answers). Before: 2026-10-02 (#134).
 
 ---
 
@@ -22,6 +22,7 @@ Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts withou
 | `@dripfunnel/shared/auth` | The `/api/auth/*` transport: same-origin JSON POST with a timeout, a refusal kept only when its code is one the app's routes promise (else `NOT_CONNECTED`), and the other tabs told after a route that changes who is signed in (moved here from the partner console when the merchant portal needed it, #292) | `createAuthClient`, `AuthRefusal`, `isRefusal`, `authTimeoutMs` |
 | `@dripfunnel/shared/search` | zod helpers for a route's URL search (#115): a value that doesn't fit is dropped, never a failed page | `optionalParam`, `searchParam`, `idParam` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `looksLikeEmail` (the loose email shape both consoles' invitations check, #193), `ticketError` (a pasted ticket link is https or nothing, both consoles' session starts, #196), `formatMoney` (integer minor units + currency), `minorOf`, `moneyText` and `moneyDigits` (a price as typed into a form and back, by the currency's own decimals: the partner console's plans and the merchant portal's product editor), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber`, `pluralForm` (the locale's plural rules over an app's `one`/`other` forms), `csv`, `csvCell` and `csvLink` (a CSV that no spreadsheet runs as a formula, and its download link) |
+| `@dripfunnel/shared/messaging` | SMS and WhatsApp accounts as both consoles type and show them (moved from the partner console when the admin console's Platform settings › Messaging became their second user, #1544): the providers, routes and messages, each field's shape and the form's input, and the API's rules for which account sends (THIRD-PARTY-ACCESS §4) | `smsProviders`, `smsRoutes`, `smsMessages`, `routeProviders`, `smsShapes`, `smsSecretFields`, `smsAccountInput`, `servesRoute`, `accountForRoute`, `senderOf`; `whatsAppMessages`, `whatsAppShapes`, `whatsAppAccountInput`, `servesCodes`, `rejectionOf` |
 
 ```
 apps/ui/shared/
@@ -30,6 +31,7 @@ apps/ui/shared/
   auth/        index.ts (+ .test.ts)
   search/      searchParams.ts, searchMaxLength.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts, plural.ts (each + .test.ts), index.ts
+  messaging/   index.ts
   package.json exports map; peer dependencies on react, @tanstack/react-router and zod
 ```
 
@@ -93,9 +95,15 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   in for its logo), `InfoNote` (a read-only fact in the info palette) and `Toast` (bottom centre,
   one line, 4.2 s). `detail.css` holds the detail header, meta, tabs, panels and their styles.
   `ConfirmDialog` takes `choices`, a list of picks, since the store actions need two in one
-  dialog (plan and when; limit and duration). It also takes `children`, fields the caller keeps (the admin
+  dialog (plan and when; limit and duration). A choice is a dropdown; when any of its options has a `hint`, it is
+  radio boxes in a fieldset instead, each with its title and the hint under it, the picked box outlined, and an
+  option's `confirmLabel` is the confirm button's label while it is picked (#1453, the merchant portal's "Stop
+  selling {name}?"). `target` may be empty, and then the bold line under the title is not drawn. It also takes `children`, fields the caller keeps (the admin
   Set contract dialog, #436), and `error`, which keeps the dialog open with what was entered
-  after a refused confirm and says why.
+  after a refused confirm and says why. `wide` makes it about 720 px instead of 540 (still never wider than
+  the screen), for a pick whose longest choice is long, as Invite a supplier's access (#1352); every dialog's
+  fields stay within its width. `spaced` adds a little room between the title and the text under it, for a
+  window with no bold line there, as the merchant portal's "Add a note to order {number}" (#1500).
 - **Export jobs** (#134, the partner console's store export being the admin activity export's
   second user): `exportJob` holds the one running export outside any screen, `useExportJob`
   reads it, `startExport` puts the API's answer in it, `exportCheck` decides what one status

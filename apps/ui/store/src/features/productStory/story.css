@@ -430,6 +430,12 @@
   object-fit: cover;
 }
 
+.df-story-video {
+  width: 100%;
+  max-height: 160px;
+  border-radius: var(--df-radius);
+}
+
 @media (max-width: 1024px) {
   .df-story-layout,
   .df-story-layout--panel {

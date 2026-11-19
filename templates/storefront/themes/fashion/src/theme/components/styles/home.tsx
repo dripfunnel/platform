@@ -1,0 +1,89 @@
+import { clsx } from 'clsx'
+
+// The home styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+// The header's column (layout.bar), so every section lines up with the logo and the footer.
+const sectionBase = clsx('box-border w-[min(100%,1240px)] mx-auto px-4 min-[900px]:px-8')
+const buttonBase = clsx('py-0 px-6 border inline-flex min-h-12 items-center justify-center gap-x-2 rounded-button text-[13px] font-semibold tracking-[0.14em] uppercase no-underline focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+
+export const home = {
+  // The page's one stable heading, outside the turning slides (WCAG 1.3.1).
+  pageTitle: clsx('sr-only'),
+  accent: clsx('italic text-highlight'),
+  em: clsx('italic'),
+  all: clsx('flex flex-col items-center gap-y-2 text-ink no-underline focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[4px] rounded-full'),
+  arrow: clsx('w-4 h-4 shrink-0 [fill:none] [stroke:currentcolor] [stroke-width:1.8]'),
+  allCircle: clsx('flex w-22 h-22 items-center justify-center rounded-full border border-line text-highlight text-[28px] font-light min-[900px]:w-28 min-[900px]:h-28'),
+  bannerCopy: clsx('absolute inset-0 flex flex-col items-start justify-end gap-y-4 p-6 bg-[linear-gradient(0deg,var(--color-shade-55),var(--color-shade-0)_60%)] text-on-photo min-[900px]:p-14'),
+  bannerImage: clsx('block w-full h-full object-cover'),
+  banner: clsx(sectionBase, 'pt-14 min-[900px]:pt-20'),
+  bannerPicture: clsx('relative w-full overflow-hidden rounded-card h-130 [background:var(--picture)] min-[900px]:h-150'),
+  bubble: clsx('flex w-22 flex-col items-center gap-y-2 text-ink no-underline min-[900px]:w-28 focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[4px] rounded-full'),
+  bubbleImage: clsx('block w-full h-full object-cover'),
+  bubbleName: clsx('text-center text-[11px] font-semibold tracking-[0.14em] uppercase leading-[1.3] wrap-anywhere'),
+  bubblePicture: clsx('block overflow-hidden w-22 h-22 rounded-full border-2 border-highlight p-0.5 [background-clip:content-box] [background:var(--picture-alt)] min-[900px]:w-28 min-[900px]:h-28 [&_img]:rounded-full'),
+  bubbles: clsx(sectionBase, 'm-0 pt-10 pb-2 flex list-none gap-x-4 overflow-x-auto [scrollbar-width:none] min-[900px]:pt-14 min-[900px]:gap-x-8 min-[900px]:justify-center'),
+  button: clsx(buttonBase, 'border-accent bg-accent text-accent-ink hover:[filter:brightness(1.1)]'),
+  // On a dark photo the default focus ring is too dark to see (WCAG 1.4.11).
+  buttonOnPhoto: clsx(buttonBase, 'border-accent bg-accent text-accent-ink hover:[filter:brightness(1.1)] focus-visible:[outline:2px_solid_var(--color-on-photo)]'),
+  buttonLight: clsx(buttonBase, 'border-on-photo bg-transparent text-on-photo hover:bg-[var(--color-light-12)] focus-visible:[outline:2px_solid_var(--color-on-photo)]'),
+  eyebrow: clsx('m-0 flex items-center gap-x-3 text-highlight text-[11px] font-semibold tracking-[0.28em] uppercase before:content-[""] before:block before:w-8 before:h-px before:bg-current'),
+  eyebrowLight: clsx('m-0 flex items-center gap-x-3 text-on-photo text-[11px] font-semibold tracking-[0.28em] uppercase before:content-[""] before:block before:w-8 before:h-px before:bg-current'),
+  feature: clsx(sectionBase, 'pt-6 grid grid-cols-[minmax(0,1fr)] gap-6 min-[900px]:pt-8 min-[900px]:gap-8'),
+  featureCopy: clsx('absolute inset-0 flex flex-col items-start justify-end gap-y-3 p-6 bg-[linear-gradient(0deg,var(--color-shade-50),var(--color-shade-0)_55%)] text-on-photo min-[900px]:p-10'),
+  featureMain: clsx('relative block overflow-hidden h-100 rounded-card [background:var(--picture)] no-underline min-[900px]:h-130 focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),
+  featureImage: clsx('block w-full h-full object-cover'),
+  featureName: clsx('m-0 font-heading text-[34px] leading-[1.1]'),
+  grid: clsx(sectionBase, 'pt-6 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3 list-none m-0 min-[900px]:pt-8 min-[900px]:grid-cols-[repeat(4,minmax(0,1fr))] min-[900px]:gap-4'),
+  head: clsx(sectionBase, 'pt-14 flex flex-wrap items-end justify-between gap-y-3 gap-x-6 min-[900px]:pt-20'),
+  headCopy: clsx('flex flex-col gap-y-3'),
+  heading: clsx('m-0 font-heading text-[34px] font-[var(--heading-weight)] leading-[1.1] tracking-[var(--heading-spacing)] text-balance min-[900px]:text-[46px]'),
+  heroTitle: clsx('m-0 max-w-[14ch] font-heading text-[40px] font-[var(--heading-weight)] leading-[1.05] tracking-[var(--heading-spacing)] text-balance min-[900px]:text-[68px]'),
+  image: clsx('block w-full h-full object-cover'),
+  link: clsx('pb-1 border-b border-ink text-ink text-[12px] font-semibold tracking-[0.16em] uppercase no-underline whitespace-nowrap focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px]'),
+  marquee: clsx('overflow-hidden bg-highlight text-highlight-ink'),
+  marqueeItem: clsx('px-5 flex items-center gap-x-5 text-[13px] font-semibold tracking-[0.12em] uppercase whitespace-nowrap after:content-[""] after:block after:w-1 after:h-1 after:rounded-full after:bg-current after:opacity-70'),
+  marqueeTrack: clsx('box-border w-[min(100%,1240px)] mx-auto py-3 px-4 flex flex-wrap justify-center gap-y-2 min-[900px]:px-8'),
+  plus: clsx('w-7 h-7 [fill:none] [stroke:currentcolor] [stroke-width:1.5]'),
+  promise: clsx('flex items-center gap-x-3 py-5 min-[900px]:justify-center'),
+  promiseBody: clsx('m-0 text-muted text-[12px]'),
+  promiseIcon: clsx('w-6 h-6 shrink-0 text-highlight [fill:none] [stroke:currentcolor] [stroke-width:1.5]'),
+  promiseTitle: clsx('m-0 text-ink text-[14px] font-semibold'),
+  promises: clsx(sectionBase, 'm-0 grid list-none grid-cols-[minmax(0,1fr)] min-[600px]:grid-cols-[repeat(2,minmax(0,1fr))] min-[900px]:grid-cols-[repeat(4,minmax(0,1fr))]'),
+  promisesBand: clsx('mt-14 border-y border-line bg-soft min-[900px]:mt-20'),
+  rail: clsx('m-0 p-0 pb-3 flex list-none gap-x-4 overflow-x-auto snap-x snap-mandatory [scrollbar-width:thin]'),
+  railWrap: clsx(sectionBase, 'pt-6'),
+  railSkeleton: clsx('block aspect-[4/5] rounded-card bg-soft'),
+  railItem: clsx('w-[62%] shrink-0 snap-start min-[600px]:w-[38%] min-[900px]:w-[calc((100%_-_48px)/4)]'),
+  signup: clsx('mt-20 py-16 px-6 flex flex-col items-center gap-y-4 bg-soft text-center'),
+  signupBody: clsx('m-0 max-w-[48ch] text-ink-soft text-[16px]'),
+  story: clsx(sectionBase, 'pt-14 grid grid-cols-[minmax(0,1fr)] items-center gap-8 min-[900px]:pt-20 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-14'),
+  storyBody: clsx('m-0 max-w-[52ch] text-ink-soft text-[16px] leading-[1.7]'),
+  storyCopy: clsx('flex flex-col items-start justify-center gap-y-5'),
+  storyPicture: clsx('overflow-hidden aspect-[4/3] rounded-card [background:var(--picture)]'),
+  tile: clsx('relative block overflow-hidden h-full min-h-60 rounded-card [background:var(--picture-alt)] no-underline focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[3px] min-[900px]:min-h-72'),
+  tileCell: clsx('min-w-0 first:col-span-2 first:row-span-2'),
+  tileName: clsx('absolute bottom-4 left-4 right-4 m-0 font-heading text-on-photo text-[22px] leading-[1.15] [text-shadow:0_1px_12px_var(--color-shade-45)] min-[900px]:text-[28px]'),
+  tileShade: clsx('absolute inset-0 bg-[linear-gradient(0deg,var(--color-shade-45),var(--color-shade-0)_50%)]'),
+}
+
+const arrowBase = clsx('hidden min-[900px]:flex w-11 h-11 items-center justify-center rounded-full border border-[var(--color-light-60)] bg-[var(--color-shade-20)] text-on-photo hover:bg-[var(--color-shade-35)] focus-visible:[outline:2px_solid_var(--color-on-photo)] focus-visible:outline-offset-[2px]')
+const slideBase = clsx('absolute inset-0 [transition:opacity_700ms_ease] motion-reduce:[transition:none]')
+
+export const hero = {
+  copy: clsx('absolute inset-0 flex items-end pb-20 bg-[linear-gradient(0deg,var(--color-shade-60),var(--color-shade-5)_65%)] text-on-photo min-[900px]:pb-28'),
+  copyInner: clsx(sectionBase, 'flex flex-col items-start gap-y-5'),
+  controls: clsx(sectionBase, 'absolute bottom-6 left-0 right-0 z-10 flex items-center justify-between min-[900px]:bottom-9'),
+  arrows: clsx('flex gap-x-2'),
+  dot: clsx('w-8 h-1 rounded-full border-0 p-0 bg-[var(--color-light-45)] cursor-pointer focus-visible:[outline:2px_solid_var(--color-on-photo)] focus-visible:outline-offset-[3px]'),
+  dotOn: clsx('w-8 h-1 rounded-full border-0 p-0 bg-on-photo cursor-pointer focus-visible:[outline:2px_solid_var(--color-on-photo)] focus-visible:outline-offset-[3px]'),
+  dots: clsx('flex gap-x-2'),
+  image: clsx('block w-full h-full object-cover'),
+  root: clsx('relative overflow-hidden h-[78vh] min-h-130 max-h-190 bg-ink'),
+  arrowIcon: clsx('w-5 h-5 [fill:none] [stroke:currentcolor] [stroke-width:1.8]'),
+  em: clsx('italic'),
+  next: arrowBase,
+  pause: clsx('flex w-11 h-11 items-center justify-center rounded-full border border-[var(--color-light-60)] bg-[var(--color-shade-20)] text-on-photo hover:bg-[var(--color-shade-35)] focus-visible:[outline:2px_solid_var(--color-on-photo)] focus-visible:outline-offset-[2px]'),
+  previous: arrowBase,
+  slide: clsx(slideBase, 'opacity-0'),
+  slideOn: clsx(slideBase, 'opacity-100'),
+}

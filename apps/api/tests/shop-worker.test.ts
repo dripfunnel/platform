@@ -69,12 +69,13 @@ describe('the Shop API through the Worker', () => {
     expect((await worker.fetch(request as Parameters<typeof worker.fetch>[0], bare as never, ctx)).status).toBe(500)
   })
 
-  it('serves a visible product’s file with its type and safe headers, and nothing else as anything but 404', async () => {
+  it('serves a product’s file, a hidden one’s too (#1465), with its type and safe headers, and nothing else as anything but 404', async () => {
     const served = await call(`https://store-a1.shop.example/shop-api/assets/${files.photo}`)
     expect([served.status, served.headers.get('content-type'), served.headers.get('x-content-type-options'), served.headers.get('content-security-policy'), await served.text()]).toEqual([
       200, 'image/png', 'nosniff', "default-src 'none'", 'bytes',
     ])
-    for (const id of [files.hidden, files.theirs, '00000000-0000-4000-8000-000000000000', 'not-an-id']) {
+    expect((await call(`https://store-a1.shop.example/shop-api/assets/${files.hidden}`)).status).toBe(200)
+    for (const id of [files.theirs, '00000000-0000-4000-8000-000000000000', 'not-an-id']) {
       expect((await call(`https://store-a1.shop.example/shop-api/assets/${id}`)).status).toBe(404)
     }
     expect((await call(`https://store-a1.shop.example/shop-api/assets/${files.photo}`, { method: 'POST' })).status).toBe(405)

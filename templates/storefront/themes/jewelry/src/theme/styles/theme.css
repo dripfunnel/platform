@@ -1,0 +1,44 @@
+@theme {
+  --color-bg: #fbf8f2;
+  --color-surface: #fffdf9;
+  --color-soft: #f4eee3;
+  --color-tint: #ece3d3;
+  --color-ink: #2b2219;
+  --color-ink-soft: #4d4135;
+  --color-muted: #6f6253;
+  --color-line: #e4d9c7;
+  --color-accent: #2b2219;
+  --color-accent-ink: #fbf8f2;
+  --color-gold: #b48e55;
+  --color-gold-ink: #7a5a22;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 0;
+  --radius-button: 0;
+  --font-heading: 'Cormorant Garamond', 'Hoefler Text', 'Baskerville', 'Baskerville Old Face', 'Palatino Linotype', 'Book Antiqua', 'Noto Serif', serif;
+  --heading-weight: 400;
+  --brand-weight: 500;
+  --heading-case: none;
+  --heading-spacing: 0.01em;
+  --font-body: 'Jost', 'Avenir Next', 'Avenir', 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
+  --color-header-bg: #fbf8f2;
+  --color-header-ink: #2b2219;
+  --color-header-hover: #f4eee3;
+  --color-footer-bg: #f4eee3;
+  --color-footer-ink: #2b2219;
+  --color-footer-muted: #645747;
+  --color-footer-line: #d9c9ac;
+  --picture: linear-gradient(160deg, #efe4d0, #d6c09a);
+  --picture-alt: linear-gradient(160deg, #f4eee3, #e6d8c0);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) 150% 0 / 200% 100% var(--color-soft);
+  }
+  40%,
+  100% {
+    background: linear-gradient(90deg, var(--color-soft) 40%, var(--color-bg) 50%, var(--color-soft) 60%) -50% 0 / 200% 100% var(--color-soft);
+  }
+}

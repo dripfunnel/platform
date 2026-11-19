@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { codeChannelsSchema, type CodeChannels } from './auth'
 import { query } from './client'
 
 // The partner's live look for this hostname (FIRST-RELEASE.md §2; apps/api src/apis/store/shell.ts),
@@ -31,3 +32,7 @@ export type Brand = NonNullable<z.infer<typeof brandSchema>['brand']>
 
 export const loadBrand = async (): Promise<Brand | null> =>
   (await query(`{ brand { productName primaryColor accentColor font corner background files { logoLight logoDark mark favicon } supportEmail supportUrl helpUrl termsUrl privacyUrl poweredBy googleSignIn } }`, brandSchema)).brand
+
+/** Whether sign-up will ask for a number (the partner's WhatsApp is on, SAAS.md §4.1); read by sign-up alone, not with the look. */
+export const loadCodeChannels = async (): Promise<CodeChannels | null> =>
+  (await query(`{ brand { codeChannels { whatsapp sms } } }`, z.object({ brand: z.object({ codeChannels: codeChannelsSchema.nullable() }).nullable() }))).brand?.codeChannels ?? null

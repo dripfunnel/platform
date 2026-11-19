@@ -15,6 +15,8 @@ export type KeptChange = {
   customPaths: string[]
   previewRef: string
   files: FileChange[]
+  /** A template's change: the template it replaced, so a restart applies its images again from the bucket (SAAS §9.2). */
+  replaced?: string | undefined
 }
 
 type Meta = Omit<KeptChange, 'files'> & { files: number }

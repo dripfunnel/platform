@@ -225,6 +225,7 @@ input BlogPostInput {
 type Brand {
   accentColor: String
   background: String
+  codeChannels: CodeChannels
   corner: String
   files: BrandFiles
   font: String
@@ -275,6 +276,7 @@ type CatalogExport {
   expiresAt: String
   id: ID
   kind: String
+  products: Int
   requestedAt: String
   rows: Int
   state: String
@@ -362,6 +364,11 @@ type CatalogueSettings {
   pricingCurrency: String
   translationLanguages: [String!]
   unitSystem: String
+}
+
+type CodeChannels {
+  sms: Boolean
+  whatsapp: Boolean
 }
 
 type Collection {
@@ -708,11 +715,6 @@ type DeliveryStep {
   state: String
 }
 
-type DesignAnswer {
-  message: DesignMessage
-  outcome: String
-}
-
 type DesignBuild {
   pages: [DesignBuildPage!]
   stopped: Boolean
@@ -762,6 +764,11 @@ type DesignPlanPage {
 type DesignQuestion {
   options: [String!]
   text: String
+}
+
+type DesignRunAnswer {
+  message: DesignMessage
+  outcome: String
 }
 
 type DesignText {
@@ -881,6 +888,9 @@ type HomeSales {
 }
 
 type HomeSetup {
+  brand: Boolean
+  brandSkipped: Boolean
+  category: Boolean
   collections: Boolean
   payments: Boolean
   paymentsSkipped: Boolean
@@ -1134,33 +1144,35 @@ type Mutation {
   addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
   addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
+  addSampleCatalog: ID
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
-  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, skip: Boolean): DesignAnswer
+  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, run: ID!, skip: Boolean): ID
   approveProduct(id: ID!): Boolean
-  askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, run: ID!, sampleUrl: String, text: String!): ID
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
-  buildDesignPlan(messageId: ID!, model: String): DesignAnswer
+  buildDesignPlan(messageId: ID!, model: String, run: ID!): ID
   cancelDelivery(deliveryId: ID!): Boolean
   cancelDesign: Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
-  changeDesignPlan(messageId: ID!, model: String, text: String!): DesignAnswer
+  changeDesignPlan(messageId: ID!, model: String, run: ID!, text: String!): ID
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
+  chooseShopCategory(id: ID!): ShopCategory
   chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
-  connectCourier(provider: String!): String
+  connectCourier(email: String, password: String, provider: String!, webhookToken: String): String
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
@@ -1313,7 +1325,7 @@ type Mutation {
   setPricesIncludeTax(included: Boolean!): Boolean
   setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
-  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setSecondFactor(channel: String, code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setStoreAiFallback(on: Boolean!): Boolean
   setStoreAiSwitch(on: Boolean!): Boolean
@@ -1990,11 +2002,13 @@ type ProductCounts {
   all: Int
   fromSuppliers: Int
   hidden: Int
+  hiddenVersions: Int
   lowStock: Int
   missingInfo: Int
   outOfStock: Int
   pending: Int
   sentBack: Int
+  versions: Int
   visible: Int
 }
 
@@ -2275,6 +2289,7 @@ type ProductVersion {
   id: ID
   lengthMm: Int
   name: String
+  photoAssetId: ID
   prices: [VersionPrice!]
   sku: String
   taxClassId: ID
@@ -2295,6 +2310,7 @@ input ProductVersionInput {
   id: ID
   lengthMm: Int
   name: String
+  photoAssetId: String
   prices: [VersionPriceInput!]!
   sku: String
   taxClassId: ID
@@ -2320,6 +2336,7 @@ input ProductsPatch {
 }
 
 type Profile {
+  codeChannels: CodeChannels
   email: String
   name: String
   passwordChangedAt: String
@@ -2392,6 +2409,7 @@ type Query {
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
   designChat(after: String): DesignChat
+  designRun(run: ID!): DesignRunAnswer
   designText(locale: String!, page: String!): [DesignText!]
   downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
@@ -2451,6 +2469,7 @@ type Query {
   searchStockImages(page: Int!, query: String!): [StockPhoto!]
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
+  shopCategory: ShopCategoryChoice
   shopifyConnection: ShopifyConnection
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
@@ -2725,6 +2744,7 @@ type ScheduledPlanChange {
 
 type SecondFactorStep {
   backupCodes: [String!]
+  channel: String
   done: Boolean
   hint: String
   secret: String
@@ -2742,6 +2762,7 @@ input ServiceDetailsInput {
 }
 
 enum SetupStep {
+  brand
   payments
   shipping
 }
@@ -2771,6 +2792,7 @@ input ShipLineInput {
 }
 
 type ShippingCourier {
+  accountEmail: String
   labelSize: String
   lastTestResult: String
   lastTestedAt: String
@@ -2816,6 +2838,20 @@ type ShippingSettings {
   pickupHours: String
   revision: Int
   savedAt: String
+}
+
+type ShopCategory {
+  archived: Boolean
+  hasSample: Boolean
+  id: ID
+  key: String
+  name(language: String): String
+  sections: [String!]
+}
+
+type ShopCategoryChoice {
+  current: ShopCategory
+  options: [ShopCategory!]
 }
 
 type ShopifyConnection {
@@ -3405,6 +3441,7 @@ type StorefrontTemplate {
   current: Boolean
   demoUrl: String
   description: String
+  forCategory: Boolean
   key: String
   name: String
   tag: String

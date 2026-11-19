@@ -79,7 +79,18 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
             setAddedId(version?.id ?? null)
           }}
         >
-          {isGift ? t('shop.product.gift.add') : t('shop.product.add')}
+          {({ busy }) =>
+            busy ? (
+              <>
+                <span className={shop.spinner} aria-hidden="true" />
+                {t('shop.product.adding')}
+              </>
+            ) : isGift ? (
+              t('shop.product.gift.add')
+            ) : (
+              t('shop.product.add')
+            )
+          }
         </AddToCart>
       )}
       {isGift ? null : (

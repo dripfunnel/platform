@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { Linking } from 'react-native'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
-import { fakeApi, type Call } from '../../testing/fakeApi'
+import { fakeApi, withDesignRuns, type Call } from '../../testing/fakeApi'
 import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
 import { StorefrontScreen } from './StorefrontScreen'
@@ -62,7 +62,7 @@ const base = (over: Handlers = {}): Handlers => ({
 const withDraft = (over: Handlers = {}): Handlers => base({ 'storefront { status': () => overviewOf({ status: 'unpublished_changes', draft }), ...over })
 
 const show = async (element: ReactElement, handlers: Handlers) => {
-  const { client, calls } = fakeApi(handlers)
+  const { client, calls } = fakeApi(withDesignRuns(handlers))
   mockSession.client = client
   const renderer = await renderShell(element, { acting: actingAs('owner') })
   await settle()
@@ -82,6 +82,8 @@ const clickLast = async (renderer: ReactTestRenderer, label: string) => {
 }
 const hasButton = (renderer: ReactTestRenderer, label: string) => pressablesNamed(renderer, label).length > 0
 const asked = (calls: Call[], text: string) => calls.filter((call) => call.query.includes(text))
+/** The run id the app makes for a design run: a UUID, as the API checks it. */
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const typePrompt = async (renderer: ReactTestRenderer, value: string) => {
   const field = renderer.root.findAll((node) => node.props.accessibilityLabel === 'What would you like to change?' && typeof node.props.onChangeText === 'function')[0]
   if (!field) throw new Error('no prompt field')
@@ -178,7 +180,7 @@ describe('Change something', () => {
     await typePrompt(renderer, '  Make the colours warmer  ')
     await click(renderer, 'Make a draft')
 
-    expect(asked(calls, 'askDesign')[0]?.variables).toEqual({ text: 'Make the colours warmer', page: '/', device: 'phone' })
+    expect(asked(calls, 'askDesign')[0]?.variables).toEqual({ text: 'Make the colours warmer', page: '/', device: 'phone', run: expect.stringMatching(uuid) })
     expect(texts(renderer)).toEqual(expect.arrayContaining(['Draft ready', '“Make the colours warmer”', 'Preview the draft', 'Discard', 'Publish', 'Draft ready — check it, then publish']))
     expect(hasButton(renderer, 'Make a draft')).toBe(false)
   })

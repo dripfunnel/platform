@@ -2,12 +2,13 @@ import { z } from 'zod'
 import { GitHubUnavailable, type GitHubCall } from './app'
 
 // Store repos through the App (storefront LIVE-SHOP.md §3): public, opaque names, `main` moved only by fast-forward.
-// Everything is text: theme code, content, JSON and the locked workflow.
+// Text, but for the theme's own images, which travel as base64 (ARCHITECTURE §3.4 "Images").
 
 export interface RepoChange {
   path: string
-  /** The new text, or null to delete the file. */
+  /** The new text (base64 when `encoding` says so), or null to delete the file. */
   content: string | null
+  encoding?: 'base64' | undefined
 }
 
 export interface NewCommit {
@@ -29,6 +30,8 @@ export interface StoreRepos {
   head: (name: string) => Promise<string | null>
   treeOf: (name: string, commit: string) => Promise<string>
   paths: (name: string, tree: string) => Promise<string[]>
+  /** Each file's path and git blob id in `tree`, so a push compares a theme image's bytes without reading them. */
+  blobs: (name: string, tree: string) => Promise<{ path: string; sha: string }[]>
   /** The text of the theme's files at `commit` (the only files a design reads a merchant's image from, AI-STUDIO §8). */
   themeText: (name: string, commit: string) => Promise<string>
   /** The images in `src/theme/media/` at `commit` (ARCHITECTURE §3.4 "Images"), named without their extension, within its caps. */
@@ -57,6 +60,8 @@ export const buildWorkflow = 'build.yml'
 // A copy of core's guard (`mediaPath`, `maxMedia*`), which can't be bundled into the Worker (saas/storefronts/paths.ts).
 const mediaPath = /^src\/theme\/media\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\.(?:png|jpg|jpeg|webp)$/
 const mediaCaps = { files: 100, bytes: 2 * 1024 * 1024, totalBytes: 20 * 1024 * 1024 }
+
+const base64Bytes = (text: string) => Math.floor((text.length * 3) / 4) - (text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0)
 
 const sha = z.string().regex(/^[0-9a-f]{40}$/)
 const repoSchema = z.object({ id: z.number() }).loose()
@@ -135,6 +140,11 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
       return listed.tree.filter((entry) => entry.type === 'blob').map((entry) => entry.path)
     },
+    blobs: async (name, tree) => {
+      const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
+      if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
+      return listed.tree.flatMap((entry) => (entry.type === 'blob' && entry.sha ? [{ path: entry.path, sha: entry.sha }] : []))
+    },
     themeText: async (name, commit) => {
       const theme = (await filesAt(name, commit)).filter((e) => e.path.startsWith('src/theme/') || e.path.startsWith('content/') || e.path === 'routes.json')
       const texts = await Promise.all(theme.map(async (e) => new TextDecoder().decode(await blob(name, e.sha))))
@@ -155,7 +165,16 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       return images
     },
     writeTree: async (name, base, changes) => {
-      const tree = changes.map((c) => (c.content === null ? { path: c.path, mode: '100644', type: 'blob', sha: null } : { path: c.path, mode: '100644', type: 'blob', content: c.content }))
+      // A tree's inline content is UTF-8 only, so a theme image is posted as a blob first and named by its sha.
+      const entry = async (c: RepoChange) => {
+        if (c.content === null) return { path: c.path, mode: '100644', type: 'blob', sha: null }
+        if (c.encoding !== 'base64') return { path: c.path, mode: '100644', type: 'blob', content: c.content }
+        if (!mediaPath.test(c.path) || base64Bytes(c.content) > mediaCaps.bytes) throw new Error(`${c.path} isn't a theme image within its cap`)
+        const blob = read(created, (await call('POST', `${repo(name)}/git/blobs`, { content: c.content, encoding: 'base64' })).body)
+        return { path: c.path, mode: '100644', type: 'blob', sha: blob.sha }
+      }
+      const tree = []
+      for (const c of changes) tree.push(await entry(c))
       return read(created, (await call('POST', `${repo(name)}/git/trees`, base === null ? { tree } : { base_tree: base, tree })).body).sha
     },
     commit: async (name, c) => {

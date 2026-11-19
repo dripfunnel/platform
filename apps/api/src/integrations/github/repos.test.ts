@@ -81,3 +81,42 @@ describe('themeMedia', () => {
     expect(images.reduce((sum, i) => sum + i.bytes.byteLength, 0)).toBe(20 * mb)
   })
 })
+
+describe('writeTree', () => {
+  const tree = 'e'.repeat(40)
+  const blob = 'f'.repeat(40)
+  const recorder = () => {
+    const sent: { path: string; body: unknown }[] = []
+    const call: GitHubCall = async (_, path, body) => {
+      sent.push({ path, body })
+      return { status: 201, body: { sha: path.endsWith('/git/blobs') ? blob : tree } }
+    }
+    return { repos: storeRepos(call, 'dripfunnel'), sent }
+  }
+
+  it('keeps text inline and posts a theme image as a base64 blob, naming it by its sha in the tree', async () => {
+    const { repos, sent } = recorder()
+    const image = Buffer.from([0x52, 0x49, 0x46, 0x46, 0xff, 0x00]).toString('base64')
+    await repos.writeTree('sf-abcdefghij', null, [
+      { path: 'routes.json', content: '{}' },
+      { path: 'src/theme/media/hero.webp', content: image, encoding: 'base64' },
+      { path: 'content/en/home.json', content: null },
+    ])
+    expect(sent[0]).toEqual({ path: '/repos/dripfunnel/sf-abcdefghij/git/blobs', body: { content: image, encoding: 'base64' } })
+    expect(sent[1]?.body).toEqual({
+      tree: [
+        { path: 'routes.json', mode: '100644', type: 'blob', content: '{}' },
+        { path: 'src/theme/media/hero.webp', mode: '100644', type: 'blob', sha: blob },
+        { path: 'content/en/home.json', mode: '100644', type: 'blob', sha: null },
+      ],
+    })
+  })
+
+  it('refuses base64 outside src/theme/media/ or past an image’s 2 MB, posting nothing', async () => {
+    const { repos, sent } = recorder()
+    await expect(repos.writeTree('sf-abcdefghij', null, [{ path: 'src/theme/pages/Home.tsx', content: 'AA==', encoding: 'base64' }])).rejects.toThrow(/theme image/)
+    const big = Buffer.alloc(2 * mb + 1).toString('base64')
+    await expect(repos.writeTree('sf-abcdefghij', null, [{ path: 'src/theme/media/big.png', content: big, encoding: 'base64' }])).rejects.toThrow(/theme image/)
+    expect(sent).toEqual([])
+  })
+})

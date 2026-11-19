@@ -89,6 +89,8 @@
     "approvals": "Approvals",
     "provisioning": "Provisioning",
     "rollouts": "Rollouts",
+    "categories": "Store categories",
+    "settings": "Platform settings",
     "activity": "Activity log",
     "staff": "Staff",
     "impersonate": "Impersonate"
@@ -430,6 +432,36 @@
         "statuses": { "ok": "Connected", "untested": "Not tested", "rejected": "Key rejected" },
         "default": "Default",
         "lastTested": "Last tested {when}"
+      },
+      "dfMessaging": {
+        "title": "DripFunnel’s messaging",
+        "note": "Lets this partner use DripFunnel’s own SMS and WhatsApp accounts (Platform settings › Messaging) where it has no account of its own, or where it picks DripFunnel’s. Its own On or Off still decides whether each channel is used.",
+        "loading": "Loading DripFunnel’s messaging",
+        "error": "These switches didn’t load. Nothing was changed.",
+        "retry": "Try again",
+        "channels": { "sms": "DripFunnel’s SMS", "whatsapp": "DripFunnel’s WhatsApp" },
+        "on": "On",
+        "off": "Off",
+        "turnOn": "Turn on",
+        "turnOff": "Turn off",
+        "denied": "Only a Super admin or this partner’s Partner manager can change this.",
+        "dialogs": {
+          "sms": {
+            "onTitle": "Turn on DripFunnel’s SMS for {name}?",
+            "onConsequence": "{name} may send texts through DripFunnel’s SMS accounts: on each route it has no account of its own for, and on any route it picks DripFunnel’s for. Its own SMS switch still decides whether texts go.",
+            "offTitle": "Turn off DripFunnel’s SMS for {name}?",
+            "offConsequence": "Each route {name} sends through DripFunnel’s goes back to its own account or, without one, sends no texts: people there on the phone method sign in without 2-factor while WhatsApp can’t reach them either. Its picks are kept for when you turn it on again."
+          },
+          "whatsapp": {
+            "onTitle": "Turn on DripFunnel’s WhatsApp for {name}?",
+            "onConsequence": "{name} may send codes and cart reminders from DripFunnel’s WhatsApp number, if it has no account of its own or chooses DripFunnel’s, while DripFunnel’s WhatsApp is on. Its own WhatsApp switch still decides whether WhatsApp is used.",
+            "offTitle": "Turn off DripFunnel’s WhatsApp for {name}?",
+            "offConsequence": "If {name} sends through DripFunnel’s WhatsApp, it goes back to its own account or, without one, to no WhatsApp: sign-up stops asking for a number, codes are texted and cart reminders go by email. Its choice is kept for when you turn it on again."
+          }
+        },
+        "reason": { "label": "Reason", "hint": "Recorded in the activity log, which this partner sees too." },
+        "cancel": "Cancel",
+        "done": { "on": "{channel} is on for {name}.", "off": "{channel} is off for {name}." }
       },
       "history": "State history",
       "items": {
@@ -790,6 +822,7 @@
       "partner": "Partner",
       "owner": "Owner",
       "plan": "Plan",
+      "category": "Category",
       "status": "Status",
       "storefront": "Storefront",
       "domain": "Domain",
@@ -847,6 +880,8 @@
       "anyStatus": "Any status",
       "storefront": "Storefront",
       "anyStorefront": "Any storefront",
+      "category": "Category",
+      "anyCategory": "Any category",
       "created": "Created",
       "anyTime": "Any time",
       "7d": "Last 7 days",
@@ -887,6 +922,7 @@
       "addNote": "add a note"
     },
     "noPlan": "No plan",
+    "noCategory": "—",
     "noOwner": "No owner yet",
     "denied": {
       "title": "This store isn’t in your assignment",
@@ -2486,6 +2522,451 @@
       "WRONG_STATE": "The rollout moved on. Reload to see where it is.",
       "FORBIDDEN": "Only the Engineer on call and Super admins can change a rollout.",
       "other": "That didn’t work. Nothing has changed."
+    }
+  },
+  "storeCategories": {
+    "level": "Platform · Merchants",
+    "title": "Store categories",
+    "sub": "What a shop sells. Each store’s Owner picks one; it sets the product page sections offered and guides the AI designer.",
+    "loading": "Loading store categories",
+    "listLabel": "Store categories",
+    "add": "Add category",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archived": "Archived",
+    "noSections": "No sections",
+    "columns": {
+      "name": "Category",
+      "key": "Key",
+      "sections": "Product page sections",
+      "stores": "Stores",
+      "actions": "Actions"
+    },
+    "stores": {
+      "one": "{count} store",
+      "other": "{count} stores"
+    },
+    "sections": {
+      "sizeCharts": "Size charts",
+      "specs": "Specifications",
+      "highlights": "Highlights",
+      "faqs": "FAQs",
+      "badges": "Badges",
+      "related": "Related products",
+      "aplus": "Product story (A+)",
+      "video": "Product video"
+    },
+    "empty": {
+      "title": "No store categories yet",
+      "body": "Add the first one so Owners can say what their shop sells."
+    },
+    "error": {
+      "title": "We couldn’t load store categories",
+      "body": "The admin service didn’t answer. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "readOnly": {
+      "title": "View only",
+      "body": "Only a Super admin can add, edit or archive store categories."
+    },
+    "form": {
+      "addTitle": "Add a store category",
+      "editTitle": "Edit {name}",
+      "addConsequence": "Owners can pick it straight away. Its key is made from the English name and never changes.",
+      "editConsequence": "Every store that chose it sees the new name. Sections already switched on in a store stay as they are.",
+      "addConfirm": "Add category",
+      "editConfirm": "Save changes",
+      "english": "Name in English",
+      "englishHint": "Required. Up to 60 characters; shown wherever no translation exists.",
+      "translations": "Translations",
+      "translationsHint": "Optional. A language code such as hi or fr-CA, and the name in that language.",
+      "language": "Language code",
+      "translatedName": "Name",
+      "addTranslation": "Add a translation",
+      "removeTranslation": "Remove the {language} translation",
+      "remove": "Remove",
+      "sectionsLegend": "Product page sections",
+      "sectionsHint": "Offered to an Owner who picks this category, within their plan. Never switched on without them.",
+      "englishMissing": "Enter a name in English.",
+      "tooLong": "Keep each name to 60 characters.",
+      "badLanguage": "Use a language code such as hi or fr-CA, once each, and give it a name."
+    },
+    "archiveDialog": {
+      "title": "Archive {name}",
+      "consequence": "{stores} keep this category; it leaves the picker for every other store.",
+      "confirm": "Archive category"
+    },
+    "restoreDialog": {
+      "title": "Restore {name}",
+      "consequence": "It comes back to every store’s picker.",
+      "confirm": "Restore category"
+    },
+    "reason": {
+      "label": "Reason",
+      "hint": "Kept in the activity log with the change."
+    },
+    "cancel": "Cancel",
+    "done": {
+      "created": "{name} added",
+      "updated": "{name} saved",
+      "archived": "{name} archived",
+      "restored": "{name} restored"
+    },
+    "refusals": {
+      "INVALID_INPUT": "Something in the form isn’t valid. Check the names and try again.",
+      "KEY_TAKEN": "A category with that English name already exists.",
+      "TOO_MANY": "There can be up to 100 store categories. Archive or reuse one instead.",
+      "NOT_FOUND": "That category isn’t here any more. Reload the list.",
+      "FORBIDDEN": "Only a Super admin can change store categories.",
+      "other": "That didn’t save. Try again in a moment."
+    },
+    "editor": {
+      "back": "Store categories",
+      "loading": "Loading the sample catalog…",
+      "error": {
+        "title": "The sample catalog didn’t load",
+        "body": "Check your connection and try again.",
+        "retry": "Try again"
+      },
+      "notFound": {
+        "title": "That category isn’t here",
+        "body": "It may have been removed. Go back to Store categories."
+      },
+      "title": "Sample catalog: {name}",
+      "status": "{count} products · {collections} collections · {currency} · saved {date}",
+      "noSample": "No sample yet. Add products and collections, then save.",
+      "readOnly": {
+        "title": "View only",
+        "body": "Only a Super admin can change a sample catalog."
+      },
+      "unsaved": "You have unsaved changes.",
+      "leave": "Leave without saving your changes to the sample catalog?",
+      "currency": "Currency of the prices",
+      "currencyHint": "Three letters. Prices are converted to each shop’s currency when it adds the sample.",
+      "currencyInvalid": "Enter the prices’ currency as three letters, such as INR.",
+      "productsTitle": "Products ({count})",
+      "collectionsTitle": "Collections ({count})",
+      "noProducts": "Add at least one product.",
+      "noCollections": "Add at least one collection.",
+      "collectionFirst": "Add a collection first: every product belongs to at least one.",
+      "emptyCollection": "“{name}” has no products. Add a product to it or delete it.",
+      "columns": {
+        "photo": "Photo",
+        "name": "Product",
+        "sku": "SKU",
+        "price": "Price",
+        "stock": "Stock",
+        "visible": "Shown",
+        "collections": "Collections",
+        "actions": "Actions",
+        "collection": "Collection",
+        "products": "Products"
+      },
+      "notTracked": "Not tracked",
+      "visibleYes": "Shown",
+      "visibleNo": "Hidden",
+      "noPhoto": "No photo",
+      "photoAlt": "Photo of {name}",
+      "addProduct": "Add product",
+      "editProduct": "Edit",
+      "dropProduct": "Delete",
+      "addProductTitle": "Add a sample product",
+      "editProductTitle": "Edit {name}",
+      "productConsequence": "Changes stay on this page until you save the sample catalog.",
+      "done": "Done",
+      "dropProductTitle": "Delete {name} from the sample?",
+      "dropProductConsequence": "Shops that already added the sample keep their products. The change applies when you save.",
+      "addCollection": "Add collection",
+      "addCollectionTitle": "Add a collection",
+      "renameCollection": "Rename",
+      "renameCollectionTitle": "Rename {name}",
+      "dropCollection": "Delete",
+      "dropCollectionTitle": "Delete the collection {name}?",
+      "dropCollectionConsequence": "It comes off its {count} products, which stay in the sample. The change applies when you save.",
+      "collectionConsequence": "Changes stay on this page until you save the sample catalog.",
+      "collectionName": "Collection name",
+      "collectionRequired": "Enter a name.",
+      "collectionTooLong": "Use up to 100 characters.",
+      "collectionTaken": "Another collection already has that name.",
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "sku": "SKU",
+        "price": "Price ({currency})",
+        "stock": "Stock (empty: not tracked)",
+        "visible": "Shown in the shop",
+        "collections": "Collections",
+        "photo": "Photo"
+      },
+      "nameRequired": "Enter the product’s name.",
+      "skuRequired": "Enter a SKU.",
+      "skuTaken": "Another product in this sample has that SKU.",
+      "priceInvalid": "Enter a price such as 499 or 499.50.",
+      "stockInvalid": "Enter the stock as a whole number, or leave it empty.",
+      "collectionNeeded": "Put the product in at least one collection.",
+      "uploadPhoto": "Upload photo",
+      "replacePhoto": "Replace photo",
+      "removePhoto": "Remove photo",
+      "uploading": "Uploading…",
+      "photoRefused": {
+        "TOO_LARGE": "That image is too large. Use one up to 20 MB.",
+        "PHOTO_REFUSED": "That isn’t an image we can use. Use a JPEG, PNG, WebP or GIF.",
+        "NO_STORAGE": "Photos can’t be stored right now. Try again later.",
+        "NOT_FOUND": "This category isn’t here any more.",
+        "FORBIDDEN": "Only a Super admin can upload sample photos.",
+        "UNAUTHENTICATED": "Your session ended. Sign in again.",
+        "NOT_CONNECTED": "The upload didn’t reach DripFunnel. Check your connection and try again."
+      },
+      "save": "Save changes",
+      "saveTitle": "Save the sample catalog for {name}",
+      "saveConsequence": "Shops in this category that add the sample from now on get these products and collections. Shops that already added it keep theirs.",
+      "saved": "Sample catalog saved for {name}.",
+      "refused": "The sample didn’t pass its check. Nothing was saved.",
+      "cancel": "Cancel",
+      "reason": {
+        "label": "Reason",
+        "hint": "Kept in the activity log with the change."
+      }
+    },
+    "sample": {
+      "status": "Sample: {products} · {collections} · {currency} · added {date}",
+      "products": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "collections": {
+        "one": "{count} collection",
+        "other": "{count} collections"
+      },
+      "none": "No sample",
+      "view": "View sample",
+      "create": "Create sample",
+      "addDefault": "Add default sample",
+      "reset": "Reset to default sample",
+      "remove": "Remove sample",
+      "addDefaultTitle": "Add the default sample catalog for {name}",
+      "resetTitle": "Reset the sample catalog for {name}",
+      "addDefaultConsequence": "Adds DripFunnel’s built-in products and collections for {name}, with photos, as this category’s sample, replacing any edits. Shops in this category can then add them while they have no orders.",
+      "removeTitle": "Remove the sample catalog for {name}?",
+      "removeConsequence": "It leaves the offer for every shop in this category. Stores that already added it keep their products.",
+      "removeConfirm": "Remove sample",
+      "saved": "Sample catalog saved for {name}.",
+      "removed": "Sample catalog removed from {name}.",
+      "refused": "The default sample didn’t pass its check. Nothing was saved.",
+      "problemsTitle": "Problems ({count})",
+      "problemAt": "Line {line}:",
+      "problemAtColumn": "Line {line}, {column}:",
+      "problemFile": "The file:"
+    }
+  },
+  "messaging": {
+    "level": "Platform settings",
+    "title": "Messaging",
+    "sub": "DripFunnel’s own SMS and WhatsApp accounts. A partner uses them only once you switch DripFunnel’s on for it on its page, and then where it has no account of its own, or picks DripFunnel’s.",
+    "loading": "Loading messaging",
+    "error": { "title": "We couldn’t load messaging", "body": "The admin service didn’t answer. Nothing was changed.", "retry": "Try again" },
+    "readOnly": { "title": "Status only", "body": "Only a Super admin can set up, test, replace or remove DripFunnel’s accounts. No one sees a secret, only its last 4 characters." },
+    "secretNote": "Each secret is stored encrypted and never shown again; only its last 4 characters are.",
+    "cancel": "Cancel",
+    "reason": { "label": "Reason", "hint": "Recorded in the activity log with your name." },
+    "statuses": { "ok": "Working", "untested": "Not tested", "rejected": "Rejected" },
+    "lastTested": "Last tested {when}",
+    "neverTested": "Never tested",
+    "testing": "Testing…",
+    "notUsed": "Not used",
+    "failed": "That didn’t go through. Nothing was changed. Try again.",
+    "sms": {
+      "title": "SMS",
+      "routesTitle": "Routes",
+      "accountsTitle": "Accounts",
+      "routes": { "india": "India (+91)", "rest": "Other countries" },
+      "routeNumbers": { "india": "Indian numbers", "rest": "numbers outside India" },
+      "sentBy": "Sent by DripFunnel’s {provider} account",
+      "unsent": "No account sends these: partners relying on DripFunnel’s send no texts here.",
+      "pickAuto": "Picked: whichever is set up",
+      "pick": "Picked: {provider}",
+      "change": "Change who sends to {route}",
+      "providers": { "msg91": "MSG91", "twilio": "Twilio", "sns": "AWS SNS" },
+      "serves": {
+        "msg91": "Sends to Indian numbers, with DripFunnel’s DLT-approved templates.",
+        "twilio": "Sends to numbers outside India.",
+        "sns": "Sends to numbers outside India, and to Indian numbers once its DLT details are in."
+      },
+      "notSetUp": "Not set up",
+      "secretLabels": { "msg91": "Auth key", "twilio": "Auth token", "sns": "Secret access key" },
+      "india": {
+        "complete": "India: the DLT details and all seven template ids are in.",
+        "incomplete": "India: no DLT details, so it doesn’t send to Indian numbers."
+      },
+      "rejectedNote": "{provider} rejected this account at its last test, but its routes still go through it. Fix it with {provider} and test again, replace it, or remove it.",
+      "setUp": "Set up {provider}",
+      "replace": "Replace {provider}",
+      "test": "Test {provider}",
+      "remove": "Remove {provider}",
+      "short": { "setUp": "Set up", "replace": "Replace", "test": "Test", "remove": "Remove", "change": "Change" },
+      "messages": {
+        "code.second_factor": "2-factor sign-in code (code.second_factor)",
+        "code.verify_phone": "Phone check code (code.verify_phone)",
+        "code.shopper_sign_in": "Shopper and rider sign-in code (code.shopper_sign_in)",
+        "order.confirmed": "Order confirmed (order.confirmed)",
+        "order.shipped": "Order shipped (order.shipped)",
+        "order.delivered": "Order delivered (order.delivered)",
+        "rider.invited": "Rider invite (rider.invited)"
+      },
+      "fields": {
+        "authKey": "Auth key",
+        "accountSid": "Account SID",
+        "authToken": "Auth token",
+        "messagingServiceSid": "Messaging service SID",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "region": "Region",
+        "senderId": "DLT sender id (header)",
+        "entityId": "DLT entity id"
+      },
+      "dialog": {
+        "title": "DripFunnel’s {provider} account",
+        "consequence": "Checked with {provider} before saving, with one call that sends nothing. Every partner using DripFunnel’s SMS on its routes sends through it. Every field is typed again on a replace, and the secret it replaces stops working here at once.",
+        "save": "Check and save",
+        "hints": {
+          "authKey": "In MSG91 under API › Auth key, with IP whitelisting off for it. 16 to 64 letters and digits.",
+          "accountSid": "On the Twilio console’s home page: AC and 32 characters.",
+          "authToken": "Next to the account SID: 32 characters.",
+          "messagingServiceSid": "Under Messaging › Services, with DripFunnel’s sender in it: MG and 32 characters.",
+          "accessKeyId": "An IAM user’s key allowed only sns:Publish and sns:GetSMSAttributes: AKIA or ASIA and 16 more.",
+          "secretAccessKey": "Shown once by AWS when the key is made: 40 characters.",
+          "region": "Where SNS sends from, such as ap-south-1.",
+          "senderId": "DripFunnel’s DLT-registered header: 3 to 11 letters or digits.",
+          "entityId": "DripFunnel’s DLT principal entity id: digits only."
+        },
+        "templatesMsg91": "Each message’s MSG91 Flow id, all seven, each on DripFunnel’s DLT-approved template.",
+        "indiaSns": "India, optional: the DLT sender id, entity id and all seven DLT template ids. Leave them all blank to send to numbers outside India only.",
+        "incomplete": {
+          "msg91": "Enter the auth key and all seven template ids (letters, digits, - and _).",
+          "twilio": "Enter the account SID (AC and 32 characters), the auth token (32) and the messaging service SID (MG and 32).",
+          "sns": "Enter the access key ID, the 40-character secret and a region such as ap-south-1. For India, fill the sender id, the entity id and all seven template ids, or leave them all blank."
+        }
+      },
+      "routeDialog": {
+        "title": "Who sends DripFunnel’s texts to {numbers}?",
+        "label": "Account",
+        "automatic": "Whichever is set up: {first}, else {second}",
+        "hints": { "complete": "Set up for this route.", "incomplete": "Saved, without India’s DLT details.", "missing": "Not set up." },
+        "now": "Now: DripFunnel’s {provider} account",
+        "nowNone": "Now: no account",
+        "consequence": "Partners using DripFunnel’s SMS send texts to {numbers} through DripFunnel’s {provider} account.",
+        "consequenceNone": "No account will send texts to {numbers}: partners relying on DripFunnel’s send none there.",
+        "confirm": "Save"
+      },
+      "removeDialog": {
+        "title": "Remove DripFunnel’s {provider} account?",
+        "deleted": "Its secret and details are deleted.",
+        "route": "Partners using DripFunnel’s send texts to {numbers} through DripFunnel’s {provider} account.",
+        "routeNone": "Partners relying on DripFunnel’s send no texts to {numbers}: their people on the phone method sign in without 2-factor while WhatsApp can’t reach them either.",
+        "none": "It sends no route now, so no text changes.",
+        "confirm": "Remove account"
+      },
+      "refusals": {
+        "INVALID_INPUT": "Something in that isn’t in {provider}’s shape, or the reason is missing. Check each field.",
+        "TEMPLATES_INCOMPLETE": "India needs all seven template ids. For an AWS SNS account that sends outside India only, leave India’s fields blank.",
+        "ACCOUNT_INCOMPLETE": "DripFunnel’s {provider} account can’t send there yet. Set it up with India’s DLT details first.",
+        "KEY_REJECTED": "{provider} rejected these details. Check them in DripFunnel’s {provider} account.",
+        "PROVIDER_UNAVAILABLE": "{provider} couldn’t be reached. Nothing was changed. Try again in a minute.",
+        "NOT_CONFIGURED": "Secrets can’t be stored on this server: CREDENTIALS_KEK isn’t set. Nothing was changed.",
+        "NOT_FOUND": "There’s no {provider} account saved any more. Reload the page.",
+        "NO_ACCOUNT": "Set up an account first.",
+        "NO_CODE_TEMPLATE": "That needs the code.portal template."
+      },
+      "toasts": {
+        "saved": "DripFunnel’s {provider} account saved.",
+        "ok": "{provider} works: it accepted DripFunnel’s account.",
+        "rejected": "{provider} rejected DripFunnel’s account.",
+        "route": "Route saved.",
+        "removed": "DripFunnel’s {provider} account removed."
+      }
+    },
+    "whatsapp": {
+      "title": "WhatsApp",
+      "note": "DripFunnel’s WhatsApp Business account on Meta’s Cloud API. While it’s on, partners you switch DripFunnel’s WhatsApp on for may send codes and cart reminders through it, from DripFunnel’s number and name; each partner’s own On still decides.",
+      "none": "No account yet. No partner can use DripFunnel’s WhatsApp until one is set up and turned on.",
+      "on": "On",
+      "off": "Off",
+      "businessAccountLabel": "WhatsApp Business Account ID",
+      "phoneNumberLabel": "Phone-number ID",
+      "tokenLabel": "Access token",
+      "languageLabel": "Template language",
+      "statusLabel": "Status",
+      "messages": {
+        "code.portal": "Portal codes (code.portal)",
+        "cart.reminder": "Cart reminder (cart.reminder)",
+        "cart.reminder_code": "Cart reminder with a discount code (cart.reminder_code)"
+      },
+      "rejectedNote": "Meta rejected this account at its last check, so it stays off. Test it again once it’s fixed in Meta, or replace it.",
+      "needsCodeTemplate": "Turning on needs the code.portal template named and the account Working at its last check.",
+      "setUp": "Set up WhatsApp",
+      "replace": "Replace account",
+      "test": "Test",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "remove": "Remove",
+      "dialog": {
+        "title": "DripFunnel’s WhatsApp Business account",
+        "consequence": "Checked with Meta before saving: the phone number, and each template you name, approved in this language. Nothing is sent. A token you replace stops working here at once.",
+        "save": "Check and save",
+        "businessAccountHint": "In WhatsApp Manager, under Account tools. Digits only.",
+        "phoneNumberHint": "In DripFunnel’s Meta app, under WhatsApp › API setup. Digits only, not the phone number itself.",
+        "tokenHint": "A system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management. Meta shows it once; it is never shown again here.",
+        "languageHint": "The language the templates are approved in, as Meta writes it: en, en_US, hi.",
+        "templateHints": {
+          "code.portal": "The approved authentication template with a Copy code button. Needed to turn it on.",
+          "cart.reminder": "Registered word for word: “{{1}}: you left {{2}} in your cart. It’s saved for you: {{3}}”. Blank sends cart reminders by email.",
+          "cart.reminder_code": "Registered word for word: “{{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}}”. Blank sends these by email."
+        },
+        "incomplete": "Enter both IDs (digits from Meta), the token, a language such as en or en_US, and template names in lowercase letters, digits and underscores.",
+        "codeTemplateNeeded": "It’s on, so the code.portal template can’t be blank. Turn it off first to save without it."
+      },
+      "onDialog": {
+        "title": "Turn on DripFunnel’s WhatsApp?",
+        "consequence": "Partners you switched DripFunnel’s WhatsApp on for can use it: those with no account of their own, or that choose it, send codes and cart reminders from DripFunnel’s number once their own WhatsApp is on.",
+        "confirm": "Turn on"
+      },
+      "offDialog": {
+        "title": "Turn off DripFunnel’s WhatsApp?",
+        "consequence": "Every partner using it goes back to its own account or, without one, to no WhatsApp: sign-up stops asking for a number, codes are texted and cart reminders go by email. Their choices are kept for when it’s on again.",
+        "confirm": "Turn off"
+      },
+      "removeDialog": {
+        "title": "Remove DripFunnel’s WhatsApp account?",
+        "consequence": "The token, IDs and template names are deleted, and DripFunnel’s WhatsApp goes off: every partner using it goes back to its own account or, without one, to no WhatsApp.",
+        "confirm": "Remove account"
+      },
+      "problems": {
+        "token": "Meta refused the access token. Check it’s a system user’s permanent token with whatsapp_business_messaging and whatsapp_business_management.",
+        "phone_number": "Meta refused the phone-number ID: it doesn’t exist, or the token can’t reach it.",
+        "business_account": "Meta refused the WhatsApp Business Account ID: it doesn’t exist, or the token can’t read its templates.",
+        "template": "Meta has no approved template “{name}” in {language} for {message}. Check its name, language and approval in WhatsApp Manager."
+      },
+      "refusals": {
+        "INVALID_INPUT": "Something in that isn’t in Meta’s shape, or the reason is missing. Check both IDs, the token, the language and the template names.",
+        "TEMPLATES_INCOMPLETE": "Name the templates again.",
+        "ACCOUNT_INCOMPLETE": "The account isn’t complete.",
+        "KEY_REJECTED": "Meta rejected the account.",
+        "PROVIDER_UNAVAILABLE": "Meta couldn’t be reached. Nothing was changed. Try again in a minute.",
+        "NOT_CONFIGURED": "Secrets can’t be stored on this server: CREDENTIALS_KEK isn’t set. Nothing was changed.",
+        "NOT_FOUND": "There’s no WhatsApp account saved any more. Reload the page.",
+        "NO_ACCOUNT": "Set up a WhatsApp account before turning it on.",
+        "NO_CODE_TEMPLATE": "That needs the code.portal template, named and Working at the last check. Replace the account to name it, then Test."
+      },
+      "toasts": {
+        "saved": "DripFunnel’s WhatsApp account saved.",
+        "ok": "WhatsApp works: Meta accepted the number and every template.",
+        "rejected": "Meta rejected DripFunnel’s WhatsApp account.",
+        "rejectedOff": "Meta rejected DripFunnel’s WhatsApp account, so it is off.",
+        "on": "DripFunnel’s WhatsApp is on.",
+        "off": "DripFunnel’s WhatsApp is off.",
+        "removed": "DripFunnel’s WhatsApp account removed."
+      }
     }
   }
 }

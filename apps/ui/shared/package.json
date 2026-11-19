@@ -15,7 +15,8 @@
     "./ui/auth.css": "./ui/auth.css",
     "./ui/cards.css": "./ui/cards.css",
     "./ui/list.css": "./ui/list.css",
-    "./ui/detail.css": "./ui/detail.css"
+    "./ui/detail.css": "./ui/detail.css",
+    "./messaging": "./messaging/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -28,18 +29,18 @@
     "@fontsource/ibm-plex-mono": "^5.3.0"
   },
   "peerDependencies": {
-    "react": "^19.3.0",
     "@tanstack/react-router": "^1.170.39",
+    "react": "^19.3.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@tanstack/react-router": "^1.170.39",
+    "@tanstack/react-router": "^1.170.46",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "happy-dom": "^20.14.5",
+    "happy-dom": "^21.0.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }

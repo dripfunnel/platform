@@ -14,7 +14,7 @@
       <button onClick="{{ a.back }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">← Products</button>
       <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.02em;flex:1;min-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ heading }}</span>
       <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:{{ chip.bg }};border:1px solid {{ chip.bd }};color:{{ chip.fg }};font-size:12px;font-family:Manrope,sans-serif;font-weight:600;">{{ chip.label }}</span>
-      <sc-if value="{{ showDup }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.duplicate }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Duplicate</button></sc-if>
+      <sc-if value="{{ showDup }}" hint-placeholder-val="{{ false }}"><span style="position:relative;display:inline-block;"><button aria-haspopup="menu" aria-label="More actions" onClick="{{ a.menuToggle }}" style="height:36px;width:36px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:18px;line-height:1;cursor:pointer;">⋮</button><sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><span role="menu" style="position:absolute;right:0;top:40px;z-index:5;min-width:150px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:8px;box-shadow:0 6px 18px rgba(31,41,51,.14);padding:4px 0;"><button role="menuitem" onClick="{{ a.duplicate }}" style="display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 14px;font-size:13px;color:var(--text,#1F2933);cursor:pointer;">Duplicate</button></span></sc-if></span></sc-if>
       <sc-if value="{{ showDelete }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.del }}" style="height:36px;padding:0 12px;border:1px solid var(--pbd,#F0D4BF);border-radius:8px;background:var(--card,#FFFFFF);color:var(--link,#B8541F);font-size:13px;cursor:pointer;">Delete</button></sc-if>
       <sc-if value="{{ canSave }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">{{ saveLabel }}</button></sc-if>
     </div>
@@ -61,9 +61,10 @@
             <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What are you selling?</span>
             <div style="display:grid;grid-template-columns:{{ typeCols }};gap:8px;">
               <sc-for list="{{ types }}" as="t" hint-placeholder-count="4">
-                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;opacity:{{ t.op }};min-height:56px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
+                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:{{ t.cur }};opacity:{{ t.op }};min-height:56px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
               </sc-for>
             </div>
+            <sc-if value="{{ typeLocked }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--muted,#5A6472);">You can’t change what you’re selling once the product is saved. To sell it another way, add a new product.</div></sc-if>
           </div>
 
           <sc-if value="{{ kind.dl }}" hint-placeholder-val="{{ false }}">
@@ -397,6 +398,7 @@
                     <div style="border:1px solid var(--border,#EDEAE5);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--okfg,#1D6B47);">{{ seo.url }}</span><span style="font-size:17px;color:#1A0DAB;">{{ seo.title }}</span><span style="font-size:13px;color:var(--text2,#434A55);">{{ seo.desc }}</span></div>
                     <input value="{{ d.seoTitle }}" onChange="{{ on.seoTitle }}" readOnly="{{ roMost }}" placeholder="{{ seo.title }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;font-size:14px;outline:none;">
                     <textarea value="{{ d.seoDesc }}" onChange="{{ on.seoDesc }}" readOnly="{{ roMost }}" rows="2" placeholder="{{ seo.desc }}" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;resize:vertical;"></textarea>
+                    <span style="font-size:12px;color:var(--muted,#5A6472);">Leave these empty to use the product’s name and description.</span>
                   </sc-if>
 
                   <sc-if value="{{ sec.isMore }}" hint-placeholder-val="{{ false }}">
@@ -488,7 +490,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     const d = this.draftFrom(props.app);
-    this.state = { d, orig: JSON.stringify(d), open: {}, lang: 'main', err: {}, saveErr: '', optDraft: {}, vSearch: '', ai: 18, teaserOff: false, pendingGen: false };
+    this.state = { d, orig: JSON.stringify(d), open: {}, lang: 'main', err: {}, saveErr: '', optDraft: {}, vSearch: '', ai: 18, teaserOff: false, pendingGen: false, menuOpen: false };
   }
   componentWillUnmount() { Object.values(this._up || {}).forEach(clearInterval); }
 
@@ -509,10 +511,15 @@ class Component extends DCLogic {
 
   combos(options) { return options.filter(o => o.choices.length).reduce((acc, o) => acc.flatMap(a => o.choices.map(c => [...a, c])), [[]]); }
 
-  generate() {
+  generate(confirmed) {
     const { d } = this.state; const app = this.props.app;
     const opts = d.options.filter(o => o.choices.length);
     const combos = this.combos(opts);
+    if (!confirmed && !d.variants.length && combos.length) {
+      const lost = Number(d.stock) || 0;
+      app.modal({ title: combos.length === 1 ? 'Create 1 version?' : `Create ${combos.length} versions?`, body: `Each version gets its own price, starting at ${app.fmt(Number(d.price) || 0)}, and its own stock, starting at 0.${lost > 0 ? ` The ${lost} in stock now won’t carry over.` : ''}`, confirm: 'Create versions', onConfirm: () => this.generate(true) });
+      return;
+    }
     const prefix = (d.sku || this.autoSku(d.name, app)).split('-')[0];
     const oldByKey = {}; d.variants.forEach(v => { oldByKey[v.key] = v; });
     const sib = d.variants[0];
@@ -773,7 +780,7 @@ class Component extends DCLogic {
           if (v.enabled) {
             const others = d.variants.filter((x, j) => j !== i && !x.removed && x.enabled).length;
             if (!others) { app.modal({ title: 'This would hide every version', body: 'Shoppers couldn’t buy anything. Hide the whole product instead?', confirm: 'Hide product', navy: true, onConfirm: () => this.upd({ status: 'hidden' }) }); return; }
-            app.modal({ title: `${v.vals.join(' / ')}`, body: 'Hide it (you still sell other versions), or say you don’t make this combination?', choices: [{ label: 'Hide it for now', sub: 'Keeps price and stock', value: 'hide' }, { label: 'We don’t make this', sub: 'Removes the combination — add it back any time', value: 'remove' }], confirm: 'Apply', onConfirm: val => setV(val === 'remove' ? { removed: true } : { enabled: false }) });
+            app.modal({ title: `Stop selling ${v.vals.join(' / ')}?`, body: 'Other versions will still be available.', choices: [{ label: 'Hide it for now', sub: 'Keeps price and stock. Show it again any time.', value: 'hide', confirm: 'Hide' }, { label: 'We don’t make this', sub: `Leaves ${v.vals.join(' / ')} out of the product. Add it back any time.`, value: 'remove', confirm: 'Remove' }], confirm: 'Hide', onConfirm: val => setV(val === 'remove' ? { removed: true } : { enabled: false }) });
           } else setV({ enabled: true });
         }
       });
@@ -801,7 +808,7 @@ class Component extends DCLogic {
     if (c.on('faqs')) sections.push(mkSec('faqs', 'FAQs', (d.faqs || []).length ? `${d.faqs.length} question${d.faqs.length > 1 ? 's' : ''}` : 'Answer what shoppers ask before they buy', { action: 'Add' }));
     if (c.on('related')) sections.push(mkSec('related', 'Related products', d.relatedAuto ? 'Automatic — from the same collection' : (d.related || []).length ? `${d.related.length} picked` : 'Show similar products under this one', { action: 'Choose' }));
     sections.push(mkSec('legal', 'Legal & safety', notReady.length ? `${notReady.length} ${notReady.length > 1 ? 'countries need' : 'country needs'} more: ${notReady.map(m => m.code).join(', ')}` : 'Using your store’s details · nothing missing', { action: 'Review', tag: 'never a paid feature', tagBg: 'var(--okbg,#EEF7F2)', tagFg: 'var(--okfg,#1D6B47)', bd: notReady.length && open.legalHi ? 'var(--wbd,#D9B872)' : 'var(--border,#E8E2DC)' }));
-    sections.push(mkSec('seo', 'Search engine listing', (d.seoTitle || d.name || 'Filled in for you') + ' — from the name and description', { action: 'Edit' }));
+    sections.push(mkSec('seo', 'Search engine listing', (d.seoTitle.trim() || d.name || 'Filled in for you') + (d.seoTitle.trim() ? (d.seoDesc.trim() ? ' — your own title and description' : ' — your own title, description from the product') : d.seoDesc.trim() ? ' — title from the product name, your own description' : ' — uses the product’s name and description'), { action: 'Edit' }));
     sections.push(mkSec('more', 'More options', 'Product code, web address, stock tracking, age check, where it ships', { action: 'Open', ...(err.sku ? { bd: '#B8541F', tag: 'code already used', tagBg: 'var(--pbg,#FDF0E8)', tagFg: 'var(--link,#B8541F)' } : {}) }));
 
     const facetRows = app.facets.map(f => ({ name: f.name + (f.private ? ' 🔒' : ''),
@@ -835,9 +842,10 @@ class Component extends DCLogic {
 
     const stockTotal = (Number(d.stock) || 0) + (d.split ? Number(d.stock2) || 0 : 0);
     const saveLabel = c.isVendorStock ? 'Save stock' : (vendorApproval ? 'Submit for approval' : (d.isNew ? 'Save product' : 'Save'));
+    const typeLocked = !d.isNew && !c.isVendor && JSON.parse(this.state.orig || '{}').type === 'physical';
     const types = [['physical', 'A physical item', 'You pack and ship it'], ['download', 'A download', 'A file or a licence key'], ['service', 'A service', 'Arranged after the order'], ['giftcard', 'A gift card', 'Sent by email']].map(([k, l, sub]) => ({ label: l, sub,
-      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: 1,
-      onClick: () => { if (roMost || d.type === k) return; this.upd({ type: k, track: k === 'physical' }); if (k !== 'physical') app.toast('No weight, box, shipping or stock for this kind — those boxes are gone'); } }));
+      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: typeLocked && k !== 'physical' ? 0.5 : 1, cur: typeLocked && k !== 'physical' ? 'not-allowed' : 'pointer',
+      onClick: () => { if (roMost || d.type === k || (typeLocked && k !== 'physical')) return; this.upd({ type: k, track: k === 'physical' }); if (k !== 'physical') app.toast('No weight, box, shipping or stock for this kind — those boxes are gone'); } }));
     const IN = R.key === 'IN'; const gcAmts = d.gcAmounts || (IN ? [500, 1000, 2000, 5000] : [25, 50, 100, 200]);
     const keys = (d.keys || '').split('\n').map(x => x.trim()).filter(Boolean);
     const kind = { dl: d.type === 'download', svc: d.type === 'service', gc: d.type === 'giftcard', dlLimit: d.dlLimit || '5', dlDays: d.dlDays || '30', svcDuration: d.svcDuration || '', svcWhere: d.svcWhere || '', gcExpiry: d.gcExpiry || (IN ? '1y' : '5y'),
@@ -867,11 +875,11 @@ class Component extends DCLogic {
       R, d, fr, frSlug: app.slug(fr.name || d.name), pad: phone ? '14px 14px 20px' : '22px 28px 28px', h1: phone ? '19px' : '24px', gridCols: phone ? '1fr' : 'minmax(0,1fr) 320px', sidePos: phone ? 'static' : 'sticky',
       priceCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', threeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
       heading: d.isNew ? (d.name || 'New product') : d.name || 'Untitled', chip: { label: st[0], bg: st[1], bd: st[2], fg: st[3] },
-      showDup: !d.isNew && c.canManage, showDelete: !d.isNew && c.canManage, canSave: c.canEdit, saveLabel,
+      showDup: !d.isNew && c.canManage, menuOpen: this.state.menuOpen, showDelete: !d.isNew && c.canManage, canSave: c.canEdit, saveLabel,
       multiLang: c.multiLang, langs, translating, notTranslating: !translating, banners,
       showTip: d.isNew && app.walkthrough && !c.isVendor && !phone, tip,
       ro, roMost, canEditMost, canManage: c.canManage,
-      types, kind, typeCols: app.phone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', twoCols: app.phone ? '1fr' : '1fr 1fr', photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
+      types, typeLocked, kind, typeCols: app.phone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', twoCols: app.phone ? '1fr' : '1fr 1fr', photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
       addPhotoLabel: phone ? 'Take or add photo' : 'Add photos', photoLimitText: c.isOwner ? `${limit} of ${limit} photos · ${c.P.rank < 1 ? 'Growth allows 5' : c.P.rank < 2 ? 'Growth Pro allows 25' : 'Business allows 50'}` : `${limit} of ${limit} photos`,
       photoMeter: `${d.photos.length} of ${limit} photos`, photoMeterFg: d.photos.length >= limit * 0.8 ? 'var(--wfg,#7A4B00)' : 'var(--muted,#5A6472)',
       photoHelp: readyPhotos.length ? 'The first photo is the one shoppers see in lists. Square photos look best. iPhone photos are converted for you.' : 'Products with a photo sell far better. On a phone, this opens the camera.',
@@ -937,7 +945,8 @@ class Component extends DCLogic {
         save: () => this.doSave(), saveAnother: () => this.doSave({ another: true }),
         discard: () => { const o = JSON.parse(s.orig); this.setState({ d: o, err: {}, saveErr: '' }); },
         hideTip: () => app.hideWalkthrough(),
-        duplicate: () => { const copy = { ...app.allProducts.find(p => p.id === d.id), id: 'p' + Date.now(), name: 'Copy of ' + d.name, status: 'hidden', stock: 0, stock2: 0, sku: (d.sku || 'PRD') + '-COPY', slug: '', updated: Date.now(), variants: (app.allProducts.find(p => p.id === d.id).variants || []).map(v => ({ ...v, stock: 0, sku: v.sku + '-C' })) }; app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
+        menuToggle: () => this.setState({ menuOpen: !this.state.menuOpen }),
+        duplicate: () => { const copy = { ...app.allProducts.find(p => p.id === d.id), id: 'p' + Date.now(), name: 'Copy of ' + d.name, status: 'hidden', stock: 0, stock2: 0, sku: '', slug: '', updated: Date.now(), variants: (app.allProducts.find(p => p.id === d.id).variants || []).map(v => ({ ...v, stock: 0, sku: '' })) }; this.setState({ menuOpen: false }); app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
         del: () => app.modal({ tag: 'Delete', danger: true, title: `Delete “${d.name}”?`, body: `It leaves ${app.collections.filter(x => app.matches(x, d)).length} collection(s). Past orders keep their record. If you might sell it again, hide it instead.`, confirm: 'Delete', alt: 'Hide instead', onAlt: () => { app.updateProducts([d.id], { status: 'hidden' }); this.upd({ status: 'hidden' }); this.setState(ss => ({ orig: JSON.stringify(ss.d) })); app.toast('Hidden from shoppers'); }, onConfirm: () => { app.deleteProducts([d.id]); app.go('products'); } }),
         addPhoto: () => this.addPhoto(),
         photoLimit: () => c.isOwner ? app.upgradeTo('More photos per product', ['starter', 'growth', 'business', 'enterprise', 'enterprise'][c.P.rank]) : app.toast('Ask your store owner for more photos per product'),
@@ -971,8 +980,8 @@ class Component extends DCLogic {
     const app = this.props.app; const d = this.state.d;
     const ready = d.photos.filter(p => !p.uploading && !p.failed);
     const current = d.variants.find(match);
-    const choices = [...ready.map((p, i) => ({ label: 'Photo ' + (i + 1) + (i === 0 ? ' · main photo' : ''), sub: p.alt || 'No description yet', value: p.id })), { label: 'Upload a new photo', sub: 'Adds it to the product’s photos too', value: '__new' }, ...(current && current.photoId ? [{ label: 'Use the main photo', sub: 'Remove this version’s own photo', value: '__none' }] : [])];
-    app.modal({ title: 'Photo for ' + label, body: 'Shoppers see this photo when they pick ' + label + '.', choices, confirm: 'Use this photo',
+    const choices = [...ready.map((p, i) => ({ label: 'Photo ' + (i + 1) + (i === 0 ? ' · main photo' : ''), sub: (() => { const n = d.variants.filter(v => !v.removed && v.photoId === p.id).length; return (p.alt || 'No description yet') + ' · ' + (n === 0 ? 'Not used yet' : n === 1 ? 'Used by 1 version' : 'Used by ' + n + ' versions'); })(), value: p.id })), { label: 'Upload new photo', sub: 'Not here? It’s added to Photos too', value: '__new' }, ...(current && current.photoId ? [{ label: 'Use the main photo', sub: 'Remove this version’s own photo', value: '__none' }] : [])];
+    app.modal({ title: 'Photo for ' + label, body: 'Pick from this product’s photos. Shoppers see it when they choose ' + label + '.', choices, confirm: 'Use this photo',
       onConfirm: val => {
         if (val === '__new') {
           const id = 'ph' + Date.now();

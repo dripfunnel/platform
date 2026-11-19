@@ -17,6 +17,8 @@ interface Repo {
   main: string | null
   commits: Map<string, Commit>
   trees: Map<string, Map<string, string>>
+  /** Blobs posted on their own (`POST /git/blobs`), by sha, until a tree names them. */
+  blobs: Map<string, string>
   settings: Record<string, unknown>
 }
 
@@ -105,7 +107,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     if (method === 'POST' && path === `/orgs/${org}/repos`) {
       const name = String(body['name'])
       if (repos.has(name)) return reply(422, { message: 'name already exists on this account' })
-      const repo: Repo = { id: repoId(), name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), settings: {} }
+      const repo: Repo = { id: repoId(), name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), blobs: new Map(), settings: {} }
       if (body['auto_init'] === true) {
         const tree = await storeTree(repo, new Map([['README.md', `# ${name}\n`]]))
         repo.main = await storeCommit(repo, { tree, parents: [], message: 'Initial commit', date: new Date().toISOString() })
@@ -140,6 +142,8 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     }
     const blobPath = /^\/git\/blobs\/([0-9a-f]{40})$/.exec(rest)
     if (method === 'GET' && blobPath) {
+      const posted = repo.blobs.get(blobPath[1] ?? '')
+      if (posted !== undefined) return reply(200, { sha: blobPath[1], encoding: 'base64', content: base64Of(posted) })
       for (const files of repo.trees.values()) for (const content of files.values()) if ((await hash(content)) === blobPath[1]) return reply(200, { sha: blobPath[1], encoding: 'base64', content: base64Of(content) })
       return reply(404, { message: 'Not Found' })
     }
@@ -158,12 +162,24 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
       for (const [path, entries] of folders) tree.push({ path, type: 'tree', sha: await hash(entries.sort(([a], [b]) => a.localeCompare(b))) })
       return reply(200, { sha: topPath[1], tree })
     }
+    if (method === 'POST' && rest === '/git/blobs') {
+      const content = body['content']
+      if (typeof content !== 'string' || (body['encoding'] !== 'base64' && body['encoding'] !== 'utf-8')) return reply(422, { message: 'Invalid request.' })
+      const kept = body['encoding'] === 'base64' ? `${binaryMark}${content}` : content
+      const sha = await hash(kept)
+      repo.blobs.set(sha, kept)
+      return reply(201, { sha })
+    }
     if (method === 'POST' && rest === '/git/trees') {
       const base = typeof body['base_tree'] === 'string' ? repo.trees.get(body['base_tree']) : new Map<string, string>()
       if (!base) return reply(422, { message: 'base_tree is not a valid tree' })
       const files = new Map(base)
-      for (const entry of body['tree'] as { path: string; content?: string; sha?: null }[]) {
-        if (entry.content === undefined) files.delete(entry.path)
+      for (const entry of body['tree'] as { path: string; content?: string; sha?: string | null }[]) {
+        if (typeof entry.sha === 'string') {
+          const posted = repo.blobs.get(entry.sha)
+          if (posted === undefined) return reply(422, { message: 'tree.sha is not a valid blob' })
+          files.set(entry.path, posted)
+        } else if (entry.content === undefined) files.delete(entry.path)
         else files.set(entry.path, entry.content)
       }
       return reply(201, { sha: await storeTree(repo, files) })

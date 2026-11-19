@@ -5,8 +5,8 @@ import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
 import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
-import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type PreviewFiles, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
-import { draftBundle, guardContextFor, previewFolder, publishedTheme, skeletonRefresh, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
+import { SandboxDown, SandboxRefused, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type PreviewFiles, type SandboxClient, type SandboxHost, type TemplateSwitch, type Upgraded } from '#integrations/sandbox/index'
+import { draftBundle, guardContextFor, previewFolder, publishedTheme, skeletonRefresh, sourceBundle, templateFiles, TemplateMissing, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { changedFiles, type KeptChange, type KeptChanges } from './kept'
 import { firstOnly, type LiveEvent } from './live'
 import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
@@ -22,6 +22,14 @@ export interface DraftsBucket {
   get: (key: string) => Promise<{ arrayBuffer: () => Promise<ArrayBuffer> } | null>
   put: (key: string, value: ArrayBuffer) => Promise<unknown>
   delete: (key: string) => Promise<unknown>
+}
+
+/** A theme image's checksum from its base64, as the sandbox compares them (apps/sandbox/src/workspace.ts `applyTemplate`). */
+const sha256Hex = async (base64: string): Promise<string> => {
+  const text = atob(base64)
+  const bytes = new Uint8Array(text.length)
+  for (let i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i)
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** At the container limit a studio waits its turn (AI-STUDIO §7). */
@@ -281,9 +289,12 @@ export class StudioRunner {
     return this.inTurn(async () => {
       await this.ensureLoaded()
       if (!this.start) throw new StudioUnavailable('Nothing is loaded to change.')
-      const { theme } = await templateFiles(this.deps.sites, this.start.coreVersion, template)
-      const files = templateChange(await this.themeNow(), theme, (await this.guardContext()).locales, keep)
-      return this.commitStep((client, context, message) => client.change(files, message, context), `Use the ${template} template`, userId, template)
+      const { coreVersion, template: replaced } = this.start
+      const { theme } = await templateFiles(this.deps.sites, coreVersion, template)
+      const words = theme.filter((f) => f.encoding !== 'base64')
+      const files = templateChange(await this.themeNow(), words, (await this.guardContext()).locales, keep)
+      const switched = { files, ...(await this.templateMedia(coreVersion, template, replaced)) }
+      return this.commitStep((client, context, message) => client.applyTemplate(switched, message, context), `Use the ${template} template`, userId, template)
     })
   }
 
@@ -359,10 +370,26 @@ export class StudioRunner {
     return taken
   }
 
-  /** The theme at `commit`, kept privately as JSON for the push once a publish of it is live (AI-STUDIO §6 step 4). */
+  /**
+   * A template's images and the replaced template's by checksum, both from the sites bucket, never the model (ARCHITECTURE
+   * §3.4 "Images"); a replaced template gone from the bucket replaces no image.
+   */
+  private async templateMedia(coreVersion: string, template: string, replaced: string): Promise<Omit<TemplateSwitch, 'files'>> {
+    const images = (files: readonly { path: string; content: string; encoding?: 'base64' | undefined }[]) => files.filter((f) => f.encoding === 'base64').map(({ path, content }) => ({ path, content }))
+    const media = images((await templateFiles(this.deps.sites, coreVersion, template)).theme)
+    const before = await templateFiles(this.deps.sites, coreVersion, replaced).then(
+      (t) => images(t.theme),
+      (error: unknown) => (error instanceof TemplateMissing ? [] : Promise.reject(error)),
+    )
+    const previous = await Promise.all(before.map(async (f) => ({ path: f.path, sha256: await sha256Hex(f.content) })))
+    return { media, previous }
+  }
+
+  /** The theme and its images at `commit`, kept privately as JSON for the push once a publish of it is live (AI-STUDIO §6 step 4). */
   private async keepTheme(client: SandboxClient, commit: string): Promise<void> {
-    const theme = await client.theme(commit)
-    const bytes = new TextEncoder().encode(JSON.stringify({ files: theme.files }))
+    // A sandbox image from before #1537 has no media call, and no change of its can have moved an image.
+    const [theme, media] = await Promise.all([client.theme(commit), client.media(commit).catch((error: unknown) => (error instanceof SandboxRefused ? { media: [], removed: [] } : Promise.reject(error)))])
+    const bytes = new TextEncoder().encode(JSON.stringify({ files: theme.files, media: media.media.map((m) => ({ ...m, encoding: 'base64' })), removed: media.removed }))
     await this.deps.drafts.put(publishedTheme(this.deps.storeId, commit), bytes.buffer)
   }
 
@@ -402,7 +429,7 @@ export class StudioRunner {
         const source = await this.deps.drafts.get(sourceBundle(storeId, ask.sourceBuildId))
         if (!source) throw new StudioUnavailable('The live build’s source is missing.')
         await client.loadBundle(await source.arrayBuffer())
-        const baseline = ask.baseline ? (await templateFiles(this.deps.sites, ask.to, baselineTemplate)).theme : null
+        const baseline = ask.baseline ? (await templateFiles(this.deps.sites, ask.to, baselineTemplate)).theme.filter((f) => f.encoding !== 'base64').map(({ path, content }) => ({ path, content })) : null
         const message = ask.baseline ? `Serve the baseline theme on storefront-core ${ask.to}` : `Upgrade storefront-core to ${ask.to}`
         const made = await client.upgrade({ from: ask.from, to: ask.to, message, baseline, skeleton })
         await this.deps.drafts.put(upgradeBundle(storeId, made.commit), await client.exportBundle())
@@ -637,7 +664,7 @@ export class StudioRunner {
     const context = await this.guardContext()
     let last: { seq: number; bundle: ClientBundle; template: string } | null = null
     for (const k of kept) {
-      const result = await client.change(k.files, k.message, context)
+      const result = k.replaced === undefined ? await client.change(k.files, k.message, context) : await client.applyTemplate({ files: k.files, ...(await this.templateMedia(k.coreVersion, k.template, k.replaced)) }, k.message, context)
       if (!result.ok) {
         logEvent({ event: 'studio_reapply_refused', api: 'store', storeId: this.deps.storeId, code: result.problems[0]?.rule ?? 'refused' })
         await this.deps.kept.remove(k.seq)
@@ -691,6 +718,15 @@ export class StudioRunner {
     const progress = input.progress ?? (() => undefined)
     let summarised = false
     const editing = firstOnly(() => progress({ type: 'step', step: 'editing' }))
+    const shownSteps = new Set<'reading' | 'editing' | 'checking'>()
+    // The frame follows the agent's passing work, and goes back to the draft when none of it is saved (AI-STUDIO §4 "The agent").
+    let showing = false
+    const show = async (changes: Parameters<SandboxClient['show']>[0]) => {
+      const shown = await this.recovering((client) => client.show(changes, context)).catch(() => null)
+      if (!shown?.ok) return
+      this.deps.onBundle(shown.bundle, shown.swap)
+      showing = changes.length > 0
+    }
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
@@ -699,7 +735,32 @@ export class StudioRunner {
           if (!this.client) return []
           return (await this.client.precheck(changes, context)).problems
         })
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: (file) => (editing(), streamed.add(file)), onIntro: (text) => progress({ type: 'thought', text }) }), stopping])
+        const proposal = await Promise.race([
+          input.model.propose({
+            request: input.request,
+            theme: [...theme].map(([path, content]) => ({ path, content })),
+            problems,
+            previous,
+            onFile: (file) => (editing(), streamed.add(file)),
+            onIntro: (text) => progress({ type: 'thought', text }),
+            // The agent's own checks (AI-STUDIO §4 "The agent"): the warm pre-check, nothing written or kept.
+            check: async (changes) => {
+              const { problems } = await this.recovering((client) => client.precheck(changes, context))
+              if (problems.length === 0) await show(changes)
+              return problems
+            },
+            screenshot: async (changes, page) => {
+              const picture = await this.recovering((client) => client.picture(changes, page, 'desktop', context))
+              return picture && picture.images.length > 0 ? picture.images.map((base64) => ({ mediaType: 'image/jpeg' as const, base64 })) : null
+            },
+            onStep: (step) => {
+              if (shownSteps.has(step)) return
+              shownSteps.add(step)
+              progress({ type: 'step', step })
+            },
+          }),
+          stopping,
+        ])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         if (proposal.summary?.reply && !summarised) {
           summarised = true
@@ -713,6 +774,11 @@ export class StudioRunner {
           return { outcome: 'unchanged', commit: before, repairs: 0, runId, summary: proposal.summary ?? null }
         }
         previous = proposal.files
+        if (proposal.problems && proposal.problems.length > 0) {
+          made.result = { ok: false, problems: proposal.problems }
+          problems = proposal.problems
+          continue
+        }
         // Edits that don't apply are a repair like a gate failure, with no sandbox run (ARCHITECTURE §6.2).
         const applied = applyEdits(theme, proposal.files)
         if (!applied.ok) {
@@ -741,6 +807,7 @@ export class StudioRunner {
       }
     } catch (error) {
       // The asks already made cost tokens and repairs are the platform's (SAAS §9.2), so they're metered as `failed`.
+      if (showing) await show([])
       await this.record(input, attempts, 'failed')
       throw error
     } finally {
@@ -748,6 +815,7 @@ export class StudioRunner {
     }
     const last = attempts.at(-1)?.result
     const repairs = attempts.length - 1
+    if (showing && !(last?.ok && saved)) await show([])
     if (!last?.ok) {
       const runId = await this.record(input, attempts, 'refused')
       return { outcome: 'refused', problems, repairs, runId }
@@ -804,6 +872,7 @@ export class StudioRunner {
       customPaths: customPaths(change.after),
       previewRef,
       files: changedFiles(change.before, change.after),
+      ...(template ? { replaced: this.start.template } : {}),
     })
     this.start = start
     this.deps.onBundle(result.bundle, result.swap)

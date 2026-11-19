@@ -15,8 +15,8 @@ let t: Tenants
 
 const staff: CallerContext = { caller: { kind: 'staff', staffId: 'st' } }
 const partner = (partnerId: string): CallerContext => ({ caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId })
-const merchant = (partnerId: string, storeId: string): CallerContext => ({
-  caller: { kind: 'person', userId: 'u', sessionId: 's' },
+const merchant = (partnerId: string, storeId: string, userId = 'u'): CallerContext => ({
+  caller: { kind: 'person', userId, sessionId: 's' },
   partnerId,
   storeId,
   sellerScope: { kind: 'all' },
@@ -364,5 +364,47 @@ describe('the Admin API query (LOGGING.md §7)', () => {
     expect(plan).toMatch(/Index Scan using activity_log_2026_10_actor_kind_actor_id_occurred_at_id_idx/)
     expect(plan).not.toMatch(/Seq Scan on activity_log_2026_10/)
     expect(plan).not.toMatch(/activity_log_2026_11/)
+  })
+})
+
+describe('the person behind an entry (LOGGING.md §4, #1488)', () => {
+  const labels = async (action: string) => (await db.sql<{ actor_label: string | null }[]>`select actor_label from activity_log where action = ${action} order by occurred_at, id`).map((r) => r.actor_label)
+
+  it('is named when the entry has no label, one by one or in bulk, while a job, a given label and an unknown person stay as recorded', async () => {
+    const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'steve@example.com', 'Steve Johnson', 'active') returning id`
+    const [bare] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'noname@example.com', '', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${t.storeA1}, 'owner', 'active'), (${bare?.id ?? ''}, ${t.storeA1}, 'manager', 'active')`
+    const context = merchant(t.partnerA, t.storeA1, u?.id ?? '')
+    const person = (action: string, id: string, actorLabel: string | null) => entry({ action, actorId: id, actorLabel, partnerId: t.partnerA, storeId: t.storeA1 })
+    await record(context, person('named.single', u?.id ?? '', null))
+    await withScope(db.sql, context, (tx) => activityLog.recordAll(tx, [person('named.bulk', u?.id ?? '', null), person('named.bulk', bare?.id ?? '', null)]))
+    await record(context, person('named.given', u?.id ?? '', 'Old Name <old@example.com>'))
+    await record(context, entry({ action: 'named.job', actorKind: 'job', actorId: null, actorLabel: null, partnerId: t.partnerA, storeId: t.storeA1 }))
+    await record(context, person('named.unknown', '00000000-0000-4000-8000-000000000000', null))
+
+    expect(await labels('named.single')).toEqual(['Steve Johnson <steve@example.com>'])
+    expect((await labels('named.bulk')).sort()).toEqual(['Steve Johnson <steve@example.com>', 'noname@example.com'])
+    expect(await labels('named.given')).toEqual(['Old Name <old@example.com>'])
+    expect(await labels('named.job')).toEqual([null])
+    expect(await labels('named.unknown')).toEqual([null])
+  })
+  it('never names a person of another partner or store, and takes an actor id that is not a uuid without error', async () => {
+    const [other] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerB}, 'bea@other.example', 'Bea Other', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${other?.id ?? ''}, ${t.storeB1}, 'owner', 'active')`
+    const [mine] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'upper@example.com', 'Upper Case', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${mine?.id ?? ''}, ${t.storeA1}, 'owner', 'active')`
+    const context = merchant(t.partnerA, t.storeA1, mine?.id ?? '')
+    const person = (action: string, id: string) => entry({ action, actorId: id, actorLabel: null, partnerId: t.partnerA, storeId: t.storeA1 })
+
+    await record(context, person('hidden.single', other?.id ?? ''))
+    await withScope(db.sql, context, (tx) => activityLog.recordAll(tx, [person('hidden.bulk', other?.id ?? ''), person('hidden.bulk', 'not-a-uuid')]))
+    await record(context, person('hidden.not_uuid', 'not-a-uuid'))
+    await record(context, person('hidden.upper', (mine?.id ?? '').toUpperCase()))
+
+    expect(await labels('hidden.single')).toEqual([null])
+    expect(await labels('hidden.bulk')).toEqual([null, null])
+    expect(await labels('hidden.not_uuid')).toEqual([null])
+    expect(await labels('hidden.upper')).toEqual(['Upper Case <upper@example.com>'])
+    expect(await db.sql`select 1 from activity_log where actor_label like '%other.example%'`).toHaveLength(0)
   })
 })

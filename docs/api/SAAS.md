@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-11 (#1416: the upgrade's commit refreshes the repo's template files from the new core, §10). Before: 2026-11-10 (#1406: a new store's default Cash on delivery and flat rate, §5 step 2). Before: 2026-11-08 (#1340: `store.domain_connected_at`, §8). Before: 2026-11-06 (#1316: a lost or crashed upgrade pins its store, `upgrade_stuck` and `upgrade_crashed`, §10). Before: 2026-11-06 (#1312: the Admin API's `coreRolloutStores` and the paused-rollouts badge, §10). Before: 2026-11-05 (#1243: a vague request's questions, plan and page-by-page build, one prompt unit with a run per page, §9.2). Before: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-18 (#1581: answerDesignQuestions and changeDesignPlan take a required `run` and start a `DesignRun` too, §9.2). Before: 2026-11-18 (#1563: askDesign and buildDesignPlan take a required `run` and start a `DesignRun` Workflow, read by `designRun`, §9.2; a DeepInfra key's models come from its own list on every call, `/api/v1` and a DeepInfra fallback included, §9.3). Before: 2026-11-17 (#1537: chooseTemplate later brings the template's own images, §9.2). Before: 2026-11-16 (#1506: the number step only while the partner's WhatsApp is on, its code by WhatsApp first and by SMS on request after 20 s, built, §4.1). Before: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the partner's WhatsApp on Meta's Cloud API first, by SMS on request after 20 s; sign-up asks for a number only while the partner's WhatsApp is on, §4.1). Before: 2026-11-13 (DeepInfra's models only from families that call tools, §9). Before: 2026-11-13 (`OUT_OF_CREDIT` for a provider account out of credit, and a model that can't see images gets a note in place of each, §9). Before: 2026-11-13 (a failed tool result reaches the OpenAI formats as `Error:` text, §9.3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-11 (#1416: the upgrade's commit refreshes the repo's template files from the new core, §10). Before: 2026-11-10 (#1406: a new store's default Cash on delivery and flat rate, §5 step 2). Before: 2026-11-08 (#1340: `store.domain_connected_at`, §8). Before: 2026-11-06 (#1316: a lost or crashed upgrade pins its store, `upgrade_stuck` and `upgrade_crashed`, §10). Before: 2026-11-06 (#1312: the Admin API's `coreRolloutStores` and the paused-rollouts badge, §10). Before: 2026-11-05 (#1243: a vague request's questions, plan and page-by-page build, one prompt unit with a run per page, §9.2). Before: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -217,8 +217,13 @@ it was started. **Built on #290** (`apis/store/signup.ts`): name, email and pass
 emailed when the email is sent (made for every sign-up, so the next step answers alike; an
 address that already has an account is emailed how to sign in instead, without it); starts
 capped per typed address, per client address and per partner (500 an hour); store name, web address and country (the partner's live plans'
-currencies decide which countries, the country decides the currency); a texted code (three per sign-up in ten minutes, three per number a day, 200 per partner an hour); then
-steps 1–3. The store starts in Trial on the partner's cheapest live plan in that currency, for
+currencies decide which countries, the country decides the currency); a code to the number (three per sign-up in ten minutes, three per number a day, 200 per partner an hour, WhatsApp and SMS counted together); then
+steps 1–3. **The number step only while the partner's WhatsApp is on** (decided 2026-11-16 with Gaurav, built on #1506): its
+code goes by WhatsApp first, by SMS on request after 20 seconds ([ACCESS.md](ACCESS.md) §4). `sign-up/store` answers
+`step: 'phone'` with `codeChannels` while the partner's WhatsApp is on; with it off it makes the store there and then, with no
+number, and answers as `verify-phone` does (`step: 'done'`, the `storeId`, the session cookie). `send-phone` and `verify-phone`
+are refused `STEP_SKIPPED` while it is off; a sign-up held at the number when it went off posts the store step again. The
+Owner adds a number later in My profile. The store starts in Trial on the partner's cheapest live plan in that currency, for
 the plan's trial days or 14 when it sets none (decided on #290). Signup, like every account endpoint, responds identically
 whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 
@@ -792,23 +797,28 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 ```
 "Your brand" saved (shop name and logo at least)
-  → chooseTemplate: the template becomes the theme; the first time, the store repo is created
-    (§5 steps 4–8); later, "keep my words" or "use template text"
+  → chooseTemplate: the template becomes the theme (the store category's own, without the gallery, when it
+    has one: #1537); the first time, the store repo is created
+    (§5 steps 4–8); later, "keep my words" or "use template text", and the template's own images replace the old
+    template's, never one the store pushed itself (storefront ARCHITECTURE §3.4 "Images")
   → Storefront › Assets: `libraryAssets` lists the merchant's files; the composer picks one as `image`
   → importDesignImage(url) (optional, before askDesign): the platform fetches a public image into the store's files
-  → askDesign(text, image?, sampleSite?, model?, page, device, mode?) (`mode: chat` answers in words only: no files, no
+  → askDesign(text, image?, sampleSite?, model?, page, device, mode?, run) (`run`, the client's UUID: it answers the run
+    id at once and runs as a `DesignRun` Workflow whose answer `designRun(run)` reads; AI-STUDIO §4 "A design run", #1563)
+    (`text` up to 10,000 characters, so a whole design
+    brief fits; the composer counts from 8,000 and won't send past it; `mode: chat` answers in words only: no files, no
     sandbox, no change; it takes one `ai_prompts` unit like a change and is metered as a `design` run): the Worker asks the model (one of
     `studioSession.models`, the account's models, the default first) with the
     store's theme files, core's theme API and its rules, the page and screen size, the last
-    four requests and the store summary (storefront ARCHITECTURE §6.2, #1242: settings, brand, collections, best
+    four requests with the AI's replies and the store summary (storefront ARCHITECTURE §6.2, #1242: settings, brand, collections, best
     sellers, top collections and cities, offers on now; never personal data), with read-only lookups it may call
   → every open studio of the store follows it live over `/api/studio/live` (#1237): each step (reading, asking,
     checking, each repair, saving, updating), a chat's words as they stream, then the outcome askDesign answers; events
     only, never the request's words or a file ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4 "Live progress")
   → a short or vague request for a new look may be answered with up to 3 quick questions, each with 2 to 4 answers from the
     store summary, or a plan, instead of edits (#1243; AI-STUDIO §4 "A plan"): answerDesignQuestions(messageId, answers,
-    skip?) → the plan (pages home first, their sections, the header and footer); changeDesignPlan(messageId, text) (≤3);
-    buildDesignPlan(messageId) → every page, home first, each its own change through the fast gate below, swapping into the
+    skip?, run) → the plan (pages home first, their sections, the header and footer); changeDesignPlan(messageId, text, run) (≤3), both design runs like askDesign;
+    buildDesignPlan(messageId, run) → every page, home first, each its own change through the fast gate below, swapping into the
     frame as it passes; cancelDesign ends it after the current page; the build is one history entry, so one Undo takes it back
   → the model answers with edits (#1238: exact search-and-replace edits, new files whole, deletions named); the store's
     Durable Object applies them to the theme it holds and runs the whole files in the store's container: the fast gate
@@ -836,7 +846,10 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
    gates pass it. The sandbox has no network and no credential; the model call, the keys, the
    draft and the push to GitHub stay in the Worker and the Durable Object.
 3. **Per-plan budgets**: AI tokens per month (or the merchant's own OpenAI or Anthropic key
-   on plans without included AI) and build minutes (meters, §6). A budget reached stops new
+   on plans without included AI; *since 2026-11-13* a DeepInfra key, `sk-di-…`, is an OpenAI key that the key's prefix
+   sends to DeepInfra's fixed OpenAI-compatible host, with the studio offering the chat models that key lists, priced from
+   DeepInfra's own list, only from families known to call tools (the studio's agent needs them: Claude, DeepSeek V3 and later,
+   Qwen3, GLM-4.5 and later, Kimi K2 and later, Gemini, gpt-oss, Llama 4); a model it doesn't tag `vision` is sent a note in place of each image: `integrations/ai/deepinfra.ts`) and build minutes (meters, §6). A budget reached stops new
    requests and publishes, never one in progress. Repairs and gate runs don't count (§9.1).
 4. **Draft before publish, always**: the AI never writes straight to live.
 
@@ -914,6 +927,9 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   never reached). Once they are used up the store's own account takes over only if its Owner switched on *Use my own AI account
   when the plan's runs are used up* (`store_ai_account.use_when_plan_used`, off by default, audited); otherwise `AI_BUDGET_REACHED`.
   A key reaches only its own provider's models (`MODEL_NOT_FOUND` otherwise): no silent switch from Claude to ChatGPT.
+  A DeepInfra key's models are the ones it lists (§9.2 rule 3), read from DeepInfra on every call, on `/api/v1` too, and never
+  kept in the Worker: a model it doesn't list is `MODEL_NOT_FOUND`, and the answer's limit and price come from that list. A
+  DeepInfra fallback runs its `preferred_model` if listed, else its first listed model, and is skipped when it lists none.
 - **Connection health** (`saas/aiConnections`, migration 0373): each key profile and the store's account carries
   `last_validated_at`, `last_validation_status`, `cooldown_until` and `preferred_model` in the database, never in a Worker. A
   provider's `Retry-After` starts a cooldown (capped at 15 minutes, never shortened) on the model that was limited
@@ -938,7 +954,8 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   rate limit, an unreachable provider or a timeout, before any streamed byte; the call says it was used (`ai_fallback_used` in the
   technical log). It never rotates credentials to get round a limit, and never switches silently.
 - **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
-  `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
+  `MODEL_NOT_FOUND`, `CONTENT_REFUSED`, `OUT_OF_CREDIT` for a 402 or an exhausted quota, never retried) with no upstream text,
+  header or key.
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
   id; the prompt column is empty and no answer is kept.
 - **Prompt caching (the studio's path, #1238):** a canonical text part may carry `cache` and a request `cacheSystem`; the
@@ -957,13 +974,14 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   order. Claude takes the system apart from the messages and caps temperature at 1, OpenAI at 2. Tool calling, structured
   outputs and images are **not** in `/api/v1`'s shape yet: a provider-only feature goes through `options` where the adapter
   lists it, and is refused otherwise. The studio's translators do take images (all three formats), tools, reasoning effort and
-  structured output where the model allows them, and refuse the rest with `UnsupportedFeature`. The ChatGPT sign-in is text only.
+  structured output where the model allows them, and refuse the rest with `UnsupportedFeature`. A failed tool result goes to the
+   OpenAI formats as text starting `Error:`, since they have no flag for it. The ChatGPT sign-in is text only.
 - **Output size:** `maxTokens` is optional and defaults to the model's maximum output; above the maximum it is refused with
   `INVALID_INPUT`. The allowance counts calls, so a bare call with the default is not charged more against it; only its tokens
   and cost are recorded.
 - **Studio failures (HTTP stays 200).** A provider failure leaves the draft untouched, records the chat's error line as
   `change_failed:{reason}` and the technical log's `code` as the error class and code. Reasons: `RATE_LIMITED`,
-  `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `SIGN_IN_EXPIRED`, `CREDENTIALS_REJECTED`, `BAD_REQUEST`, `DECLINED`; the portal words each, and any
+  `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `SIGN_IN_EXPIRED`, `CREDENTIALS_REJECTED`, `BAD_REQUEST`, `DECLINED`, `OUT_OF_CREDIT`; the portal words each, and any
   other reads as the plain "I couldn't make that change". The month's request is **still counted** after a provider failure (as before this change); only a studio that never reached the model gives it back. The code is read on the Worker's side, because
   an error's class and code do not survive the studio's RPC. A refusal, a cut-off answer or a stream error never returns text the
   studio could apply.
@@ -1070,7 +1088,7 @@ built and gated per store, and the upgrade bot must exist from day one.
   on #470).
   **Built on #485**: when the upgrade's build fails the gate, the **migration agent**
   (`StudioRunner.migrate`) asks the model with the build's failing checks and the releases' notes, on the upgrade's
-  commit in a sandbox of the new version, through the same validator and fast gate with up to three repairs; each ask
+  commit in a sandbox of the new version, through the same validator and fast gate with up to five repairs; each ask
   is an `ai_run` of kind `migration` (its repairs `repair`), billed to `platform`, asked by no one; its commit is built
   again and, live, the store reads `migrated` (a major's, `migrated` and waiting). *Decided on #485:* the agent repairs
   only what the gate refused; a build the post-deploy checks rolled back, or one that never ran, is pinned as it is. The

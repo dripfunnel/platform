@@ -54,7 +54,7 @@ const shopProducts: ShopifyProduct[] = harness
   ? ['Organic Cotton Tee', 'Linen Camp Shirt', 'Ribbed Tank', 'Cotton Poplin Dress', 'Wool Scarf', 'Canvas Cap'].map((title, i) => ({ id: `gid://shopify/Product/${i + 1}`, title, status: i === 5 ? 'DRAFT' : 'ACTIVE', versions: i % 3 === 0 ? 4 : 1, imageUrl: null }))
   : []
 
-const exportsSample: CatalogExport[] = harness ? [{ id: 'e1', state: 'ready', entries: 128, url: 'data:text/csv,', expiresAt: null, truncated: false, kind: 'products', requestedAt: '2026-10-06T09:12:00Z' }] : []
+const exportsSample: CatalogExport[] = harness ? [{ id: 'e1', state: 'ready', entries: 128, url: 'data:text/csv,', expiresAt: null, truncated: false, kind: 'products', products: 128, requestedAt: '2026-10-06T09:12:00Z' }] : []
 
 const never = <T>() => new Promise<T>(() => undefined)
 
@@ -71,12 +71,13 @@ const sampleApi = (state: ImportScreenState): ImportApi => ({
   finishShopifyConnect: never,
   startShopifyImport: never,
   loadCatalogExports: async () => exportsSample,
+  loadCatalogExport: async () => null,
   requestProductExport: never,
   loadPlaces: async () => [
     { id: 'w1', name: 'Main location', isDefault: true, units: 0, revision: 1, address: null, latitude: null, longitude: null, supplierId: null, supplierName: null },
     { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, latitude: null, longitude: null, supplierId: null, supplierName: null },
   ],
-  loadProductCounts: async () => ({ all: 128, visible: 121, hidden: 7, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0 }),
+  loadProductCounts: async () => ({ all: 128, visible: 121, hidden: 7, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0, versions: 131, hiddenVersions: 9 }),
 })
 
 export const importSample = (state: ImportScreenState | null): ImportSample | null => {

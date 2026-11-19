@@ -27,7 +27,14 @@ export const CollectionPage = () => {
           <>
             <Breadcrumbs crumbs={name ? [{ label: t('shop.crumbs.home'), href: '/' }, { label: name, href: page.collection?.href ?? '/collections/all/' }] : []} t={t} className={styles.crumbs} />
             <header className={styles.intro}>
-              <h1 className={styles.title}>{name ?? t('shop.collection.loading')}</h1>
+              {name !== null ? (
+                <h1 className={styles.title}>{name}</h1>
+              ) : (
+                <>
+                  <h1 className={styles.srOnly}>{t('shop.collection.loading')}</h1>
+                  <span className={styles.skeletonTitle} />
+                </>
+              )}
               {lead ? <p className={styles.lead}>{lead}</p> : null}
             </header>
             <ListingResults listing={page} />

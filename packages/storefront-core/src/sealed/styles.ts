@@ -61,6 +61,8 @@ ${button}`,
 ${button}`,
   // The modal's own rules come with its lazy chunk (customise.tsx), so pages that never open it don't carry them.
   customise: ':host{display:contents!important}',
+  age: `:host{display:block!important}
+label{display:flex!important;gap:8px;align-items:center;min-height:44px}`,
 }
 
 export const sealedCss = (part: SealedPart): string => locked + parts[part]

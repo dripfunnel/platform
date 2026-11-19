@@ -396,7 +396,7 @@ describe('filters', () => {
   it('shows each filter’s values with their counts, who sees it, the collections using it, and look-alikes', async () => {
     await show(owner, '/collections?tab=filters')
     const fab = within(screen.getByRole('region', { name: 'Fabric' }))
-    expect(fab.getByRole('button', { name: 'Linen 9' })).toBeTruthy()
+    expect(fab.getByRole('button', { name: 'Linen (9)' })).toBeTruthy()
     expect(fab.getByText('Used by 2 collections')).toBeTruthy()
     expect(within(screen.getByRole('region', { name: 'Reorder soon' })).getByRole('button', { name: 'Reorder soon: only you see these. Show it to shoppers' })).toBeTruthy()
     expect(screen.getByText('“Off-white” and “Off white” look like the same thing.')).toBeTruthy()
@@ -414,6 +414,21 @@ describe('filters', () => {
     expect(f.loadFilters).toHaveBeenCalledTimes(2)
   })
 
+  it('starts the Add value window in its box, adds on Enter, and keeps it open on an empty value (#1470)', async () => {
+    await show(owner, '/collections?tab=filters')
+    const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Add a value to Fabric' }))
+    const box = dialog().getByLabelText(words.filters.addValue)
+    expect(document.activeElement).toBe(box)
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(f.saveFilter).not.toHaveBeenCalled()
+    expect(dialog().getByText(words.filters.addMissing)).toBeTruthy()
+    fireEvent.change(box, { target: { value: 'Bamboo' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
+  })
+
   it('adds, renames and deletes values, keeping every other value by its id', async () => {
     await show(owner, '/collections?tab=filters')
     const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
@@ -422,7 +437,7 @@ describe('filters', () => {
     fireEvent.click(dialog().getByRole('button', { name: words.filters.addConfirm }))
     await settle()
     expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', revision: 7, values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
-    fireEvent.click(fab().getByRole('button', { name: 'Linen 9' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Linen (9)' }))
     expect(dialog().getByText('9 products use it. Renaming keeps them all; deleting takes it off them.')).toBeTruthy()
     fireEvent.click(dialog().getByRole('button', { name: words.filters.next }))
     fireEvent.change(dialog().getByLabelText(words.filters.renameTo), { target: { value: 'Pure linen' } })
@@ -430,7 +445,7 @@ describe('filters', () => {
     await settle()
     expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ values: [{ id: 'linen', name: 'Pure linen' }, { id: 'cotton', name: 'Cotton' }] }))
     expect(screen.getByText('Renamed to “Pure linen” — 9 products updated')).toBeTruthy()
-    fireEvent.click(fab().getByRole('button', { name: 'Cotton 0' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Cotton (0)' }))
     fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
     fireEvent.click(dialog().getByRole('button', { name: words.filters.next }))
     expect(dialog().getByText(words.filters.deleteNone)).toBeTruthy()
@@ -470,7 +485,7 @@ describe('filters', () => {
     await show(staff, '/collections?tab=filters')
     expect(screen.queryByRole('button', { name: words.filters.create })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Add a value to Fabric' })).toBeNull()
-    expect((screen.getByRole('button', { name: 'Linen 9' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Linen (9)' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 
@@ -494,7 +509,10 @@ describe('the main menu', () => {
     expect(desktop.getByText('Kesari')).toBeTruthy()
     expect(desktop.getByText('Shirts')).toBeTruthy()
     expect(desktop.queryByText('Staff picks')).toBeNull()
-    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Summer edit', 'Men', 'Shirts'])
+    // Home and Shop all before the items, About and Contact after, as the live header draws them (#1481).
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Home', 'Shop all', 'Summer edit', 'Men', 'Shirts', 'About', 'Contact'])
+    expect(desktop.getByText('Home')).toBeTruthy()
+    expect(desktop.getByText('Contact')).toBeTruthy()
   })
 
   it('saves each change at the revision read: add, move, nest, move out and remove', async () => {
@@ -525,6 +543,17 @@ describe('the main menu', () => {
     expect(screen.getByText(words.menus.added)).toBeTruthy()
   })
 
+  it('says why the add control is disabled when every collection is already in the menu, and says nothing while one is left to add (#1403)', async () => {
+    await show(owner, '/collections?tab=menus')
+    const add = () => screen.getByRole('combobox', { name: words.menus.addLabel }) as HTMLSelectElement
+    expect(add().disabled).toBe(true)
+    expect(add().parentElement?.getAttribute('title')).toBe(words.menus.noneToAdd)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Staff picks' }))
+    await settle()
+    expect(add().disabled).toBe(false)
+    expect(add().parentElement?.hasAttribute('title')).toBe(false)
+  })
+
   it('moves what was under a removed item up a level, never under the item above', async () => {
     await show(owner, '/collections?tab=menus')
     fireEvent.click(screen.getByRole('button', { name: 'Remove Men' }))
@@ -540,12 +569,23 @@ describe('the main menu', () => {
     )
   })
 
+  it('shows the fixed links with every visible collection while the menu is empty, as the live header does (#1481)', async () => {
+    m.loadMenu.mockResolvedValue({ name: 'Main menu', revision: 1, items: [] })
+    await show(owner, '/collections?tab=menus')
+    expect(screen.getByText(words.menus.empty)).toBeTruthy()
+    const phone = within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)
+    expect(phone.slice(0, 2)).toEqual(['Home', 'Shop all'])
+    expect(phone.slice(-2)).toEqual(['About', 'Contact'])
+    expect(phone).toContain('Summer edit')
+    expect(phone).not.toContain('Staff picks')
+  })
+
   it('shows two items with the same name in both previews, each its own', async () => {
     const link = (id: string, url: string) => ({ id, parentId: null, kind: 'url', label: 'Sale', collectionId: null, url })
     m.loadMenu.mockResolvedValue({ name: 'Main menu', revision: 1, items: [link('l1', 'https://a.example/sale'), link('l2', 'https://b.example/sale')] })
     await show(owner, '/collections?tab=menus')
     expect(within(screen.getByRole('region', { name: words.menus.desktop })).getAllByText('Sale')).toHaveLength(2)
-    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem')).toHaveLength(6)
     expect(screen.getByText('Link · https://a.example/sale')).toBeTruthy()
   })
 

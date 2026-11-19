@@ -170,12 +170,18 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
 
   /** The caller's own location: the merchant side changes only the merchant's, a supplier only its own. */
   const ownWarehouse = async (tx: ScopedSql, id: string) => {
-    const w = isUuid(id) ? await selectWarehouse(tx, storeId, id) : null
+    const w = isUuid(id) ? await selectWarehouse(tx, storeId, sellerId, id) : null
     if (!w || w.seller_id !== sellerId) throw new Refused('NOT_FOUND')
     return w
   }
 
-  const warehouses = (window: PageWindow) => inScope((tx) => selectWarehouses(tx, storeId, window))
+  /** Where the caller's own stock is counted: its own locations, and for a supplier the store's it can read (#1353). */
+  const countingPlace = async (tx: ScopedSql, id: string) => {
+    const w = isUuid(id) ? await selectWarehouse(tx, storeId, sellerId, id) : null
+    if (!w || (w.seller_id !== sellerId && !(sellerId !== null && w.seller_id === null))) throw new Refused('NOT_FOUND')
+  }
+
+  const warehouses = (window: PageWindow) => inScope((tx) => selectWarehouses(tx, storeId, sellerId, window))
 
   const saveWarehouse = (id: string | null, revision: number | null, input: WarehouseInput) =>
     run(async (tx) => {
@@ -228,7 +234,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       return true
     })
 
-  const productStock = (productId: string, window: PageWindow) => inScope((tx) => (isUuid(productId) ? selectProductStock(tx, storeId, productId, window) : Promise.resolve([])))
+  const productStock = (productId: string, window: PageWindow) => inScope((tx) => (isUuid(productId) ? selectProductStock(tx, storeId, sellerId, productId, window) : Promise.resolve([])))
 
   const moved = (versionId: string, warehouseId: string, reason: ChangeReason, delta: number, quantity: number) =>
     entry(inventoryAudit.adjusted, { type: 'product_version', id: versionId, label: `${reason} ${delta > 0 ? '+' : ''}${delta} → ${quantity} at ${warehouseId}` })
@@ -264,7 +270,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
     run(async (tx) => {
       if (!isUuid(versionId)) throw new Refused('NOT_FOUND')
       // The merchant side reads a supplier's thresholds but never sets them: they drive the supplier's chip.
-      await ownWarehouse(tx, warehouseId)
+      await countingPlace(tx, warehouseId)
       const clean = threshold === null ? null : whole(threshold, 0)
       if (!(await setLowStockThreshold(tx, storeId, sellerId, versionId, warehouseId, clean))) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(inventoryAudit.thresholdSet, { type: 'product_version', id: versionId, label: clean === null ? 'default' : String(clean) }))

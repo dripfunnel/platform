@@ -1,5 +1,83 @@
 # @dripfunnel/storefront-core
 
+## 2.0.0
+
+### Major Changes
+
+- 48d987e: The upgrade brings the starting themes' loading skeletons to existing stores (#1598). The release notes gain codemods that rewrite each loading block of a Baseline, Classic or category theme still holding the shipped markup (cart, checkout, order, account, orders, wishlist, product, collection title, blog, content and the "Loading more products" line) into grey blocks shaped like the loaded page, with a band of the page colour sweeping across them every 1.6 seconds, and add the skeleton classes and the `shimmer` keyframes to the theme's styles (`theme.css`; Classic: its shop and product styles). Core's reduced-motion rule leaves the blocks plain, and a theme that draws its own loading states is left as it is. No change to the package's behaviour or API. Major because every store's look changes (docs/code/ARCHITECTURE.md §5), so it reaches a live store at its merchant's next publish. It replaces the two patch changesets #1599 and #1603 added.
+- 8e098d8: The sign-in, create-account and reset-password pages can draw their form once (#1490). `useSignIn()` now returns `waysKnown`: false from the first draw of a live page until the Shop API has answered which ways the store signs shoppers in by, true after, at once on a preview (which never asks), and when the store can't be asked (`ways` is then email only, so no page waits for ever). A theme draws only its heading while it is false, so the tabs and fields appear once, from the store's setting, instead of an email form first and the Mobile number tab or form popping in afterwards.
+  
+  `ways` is unchanged (email only until the answer, both on a preview), so a theme that doesn't read `waysKnown` draws as it always did. This is a major (docs/code/ARCHITECTURE.md §5) because the upgrade codemods change what a store's sign-in pages draw while they load; a major reaches a live store at its merchant's next publish, not in the upgrade bot's waves (storefront ARCHITECTURE §7).
+  
+  The Classic, Baseline, Beauty, Electronics, Fashion, Grocery, Home and Jewelry themes read it. Upgrade notes (`coreUpgradeNotes`, numbered 2.0.0 until its release card renumbers it): codemods add the check to the shipped sign-in view of a store made from any of them; a theme that changed that view places `if (!s.waysKnown) return <section><h1>{title}</h1></section>` after its preview check itself. Market has no sign-in view.
+
+### Minor Changes
+
+- c297994: A theme can now tell that Add to cart is working (#1292). `<AddToCart>` and `<BuyNow>` accept a function as their children, which gets `{ busy }` (true from the press until the engine answers), and their button carries `aria-busy` while busy, so a theme can show "Adding…", for example `<AddToCart versionId={id}>{({ busy }) => (busy ? t('shop.product.adding') : t('shop.product.add'))}</AddToCart>`. Nothing else about the buttons changes: they are disabled while busy as before, and a plain child works as it did. This is a minor (docs/code/ARCHITECTURE.md §5): new behaviour, backward-compatible, no theme has to change.
+  
+  The starting Classic theme uses it, with a spinner that is not drawn under reduced motion (the words say it) and its words in `content/en/shop.json` (`shop.product.adding`); a store made before this keeps its button as it is, since an upgrade changes a theme file only through a codemod and this card has none.
+- 2a571fc: `storeCsp` takes a fourth argument, `fonts`, and names Google's font hosts (fonts.googleapis.com and fonts.gstatic.com) only when it is true, so a store whose theme lists no Google font keeps them out of its CSP. The guard exports `fontsIn`, which reads the families listed in `theme.css`. The default is false; a caller building a CSP for a theme that lists fonts passes `fontsIn(themeCss).length > 0`.
+- 7f87d08: The validator lets a theme do more of what a designer asks (2026-11-12): words and numbers may be written in the code as well as in content files, while every literal text in the code is now checked for invented prices, stock, urgency, ratings and countdowns exactly as content is; any CSS or motion property may animate (motion's values still written out); more elements and attributes (`label`, `code`, `pre`, `progress`, `meter`, SVG text, masks, clip paths and filters); `lucide-react` icons; Google Fonts listed in `theme.css`'s `@theme { --google-fonts: 'Bebas Neue'; }`, with the CSP letting fonts.googleapis.com and fonts.gstatic.com load; and the page budgets rise to 200 KB of JavaScript and 120 KB of CSS, gzipped. The rule ids `code/text-in-string`, `jsx/text-literal` and `css/animated-property` no longer exist. A theme that passed before still passes; no code change is needed. Loading Google Fonts sends each shopper's IP address to Google, so a store that lists fonts may need to disclose it.
+- dd3e57b: The Size chart window has a cm | in switch (#1571). It opens in the unit the merchant saved the chart in, and the shopper can switch to the other, both ways. Lengths and ranges convert cm ↔ in (× or ÷ 2.54, rounded to one decimal); a weight column (a name that says weight, kg or lb) converts kg ↔ lb (× or ÷ 2.2046) and its name follows ("Baby weight (kg)" ↔ "Baby weight (lb)"). Sizes, size systems and words stay as typed, the line under the table follows the switch, and switching back gives the merchant's own numbers. The window shows no switch for a chart whose unit isn't `cm` or `in`.
+  
+  New messages `sizeChart.switch`, `sizeChart.switch.cm` and `sizeChart.switch.in`. This is a minor (docs/code/ARCHITECTURE.md §5): new behaviour inside a core component, backward-compatible, no theme has to change.
+- 7f87d08: The studio frame now tells the portal when a section of the theme throws (`df-studio:problem` with the section's name, never the error), so the studio can say the page couldn't show instead of leaving a blank preview. Each catch is posted, a repeat after a hot reload too. Nothing changes on a live or preview site, and no code change is needed in a theme.
+
+### Patch Changes
+
+- 8cead5c: Dependencies only (#1511). `zod` is raised to `^4.6.7`, which fixes a high-severity advisory in the range below `4.6.6`. The storefront template's `next` pin goes from `^16.3.6` to `^16.4.6`, which fixes 2 critical advisories (remote code execution in the image optimizer and in `use cache`) and 2 high ones; a store repo picks it up through the upgrade bot with this release. No change to the package's behaviour or API.
+- fb58e39: The 2.0.1 upgrade note's text drops escapes lint rejects (#1598); the note reads the same. No change to the package's behaviour or API.
+
+## 1.0.0
+
+### Major Changes
+
+- 5b5596b: A cart with an age-restricted product now asks "Before you order: please confirm you're 18 or over." at Review (#1443). New sealed `<AgeConfirmation needed checked onChange t />` (part `age`); `useCheckout()` gains `needsAgeConfirmation`, `ageConfirmed` and `confirmAge`, and `<PlaceOrder>` stays disabled, and `place()` sends nothing, until the box is ticked. The baseline checkout places it. A theme that doesn't place `<AgeConfirmation>` still gets the box: `<PlaceOrder>` draws it just above the button, so no store's checkout is locked out.
+  
+  To choose where it sits, a theme places `<AgeConfirmation needed={c.needsAgeConfirmation} checked={c.ageConfirmed} onChange={c.confirmAge} t={t} />` above its `<PlaceOrder>`; it renders nothing for a cart without an age-restricted product. Classic does this.
+  
+  This is a major (docs/code/ARCHITECTURE.md §5): a new box appears in every store's checkout for such a cart, and `<PlaceOrder>` is disabled until it is ticked, which changes a hook's documented behaviour and the stores' look. No store is locked out, since `<PlaceOrder>` draws the box for a theme that doesn't place it, but it reaches stores with these upgrade notes at the merchant's next publish.
+- 7390a31: A live page's header menu no longer changes after the page has loaded (#1481). `useMenu()` keeps the menu the page was built with and does not ask the Shop API for another (`useShopData` gains the `keepBuilt` option behind it), so a header shows the same menu from its first paint and on every reload; a menu change reaches the live site with the next publish. The preview and the studio still load the current menu.
+  
+  The Classic and Baseline themes now always draw their fixed links around the merchant's menu items. Classic's header is Home, Shop all, the items (or every collection while there are none), About and Contact; before, the merchant's first menu item replaced Shop all, About and Contact. Baseline always draws Shop, then the items, About and Contact. The phone menu draws the same links.
+  
+  This is a major (docs/code/ARCHITECTURE.md §5): a hook's documented behaviour changes and the header of every Classic and Baseline store changes. Upgrade notes (`coreUpgradeNotes`, numbered 0.14.1 until its release card renumbers it): codemods rewrite the header of a Classic or Baseline theme that still has the shipped markup, at the merchant's next publish; a theme that draws its own header places the fixed links around `menu.items` itself and draws nothing that depends on the menu changing after load. Market draws no merchant menu and does not change.
+- 146ce4a: The sealed `<Price>` no longer puts the word "Was" before the crossed-out compare-at price (#1357): it shows the old price struck through on its own, with no text for screen readers either. This changes how every store's price looks, so it is a major.
+  
+  Upgrade notes: no code change is needed. A theme that styles `::part(was)` keeps working; a theme or visual test that expects the text "Was {price}" next to the old price must drop it. The `price.was` message stays but is no longer used.
+- 9273f5b: A product whose version has Track stock off no longer says "In stock" on the live site (#1278): the starting themes (baseline, classic, market) show the stock line only when `useProduct().stock.available` is a number, which core already gives (null for an untracked version). `@dripfunnel/storefront-core` itself does not change; this entry carries the theme edit to stores that already have their own copy of a starting theme. A store's look changes (a line disappears for an untracked version), so it is a major, and it reaches a store at its merchant's next publish, with the release it rides in.
+  
+  Upgrade notes, for the release card's `coreUpgradeNotes` entry: in `src/theme/pages/ProductPage.tsx`, show the stock `<p role="status">` only when an option is still to choose or the chosen version's stock is tracked. This `replace` codemod makes that edit in a theme still holding a starting theme's text (it changes nothing in a file whose text differs; the migration agent gets the note instead). The new starting themes read exactly as the replacement does.
+  
+  ```
+  kind: replace
+  paths: ['src/theme/pages/ProductPage.tsx']
+  find:
+              <p className={styles.stock} role="status">
+                {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
+              </p>
+  replace:
+              {firstMissing || typeof page.stock?.available === 'number' ? (
+                <p className={styles.stock} role="status">
+                  {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
+                </p>
+              ) : null}
+  ```
+
+### Minor Changes
+
+- 8d04b08: A signed-in shopper can add or change their mobile number on Account › Your details, proved by a text code at the new number (#1404). `useAccount()` gains `phoneAllowed` (the shop signs in by mobile), `phoneCodeFor` (the number a code was sent to), `sendPhoneCode(to)`, `confirmPhone(code)` and `cancelPhone()`; a refusal shows as `error` with `of: 'phone'` (`CODE_REFUSED`, `RATE_LIMITED`, `METHOD_OFF`, …). The account keeps its old number until the code is proved, and a number another account holds is refused as a wrong code is. The baseline and Classic themes draw the control; a theme that doesn't keeps showing the number it has, and nothing breaks.
+- 9335c89: A product whose versions differ in price now gives a theme its highest price (#1330): `ProductCard`, `Product` and `ProductPage` gain `maxPrice` (null when the prices are equal, and on the page once a version is chosen), and the sealed `<Price>` takes an optional `to` that draws "{lowest} – {highest}" with one tax label and no compare-at price. `from` stays as it was; a theme that doesn't pass `to` looks exactly the same.
+- d04123f: A product's published A+ content (#1351): `useProduct().product.story` holds its modules in the merchant's order (banner, image and text, features, comparison, gallery, in the box, specifications, brand story, FAQ, video; a kind core doesn't know is left out), and `<ProductStory product={…} classes={…} />` from `./theme` draws them in a "More about this product" section, nothing when there are none. Optional: a theme that doesn't place it looks as before.
+
+### Patch Changes
+
+- 8c728a4: Buy now no longer adds a product again when the cart already holds it (#1359): it opens checkout with the line at the quantity it had, so Add to cart followed by Buy now gives one, not two. A gift card is still added each time. No code change is needed in a theme.
+- 4e14432: The 0.14.0 upgrade's "Size chart" link codemod (#1462) also finds a Classic product page whose stock line is #1278's, shown only when there is stock to say, and puts the link under the options there too (#1532). It runs once in either markup; a theme that changed that markup still places `<SizeChart chart={product.sizeChart} />` itself.
+- f06709c: The upgrade now puts the "Size chart" link under the options of a Classic product page that still has the shipped markup (#1462): the `coreUpgradeNotes` entry for 0.14.0 gains codemods that add `<SizeChart>` to `ProductPage.tsx` and its `.sizeLink` style to `product.module.css`. A store made before 0.14.0 never had the link, because an upgrade changes a theme file only through a codemod. A theme that changed that markup places `<SizeChart chart={product.sizeChart} />` itself.
+- 837a0f8: The order summary at checkout shows each line's picture in the studio's preview again (#1537). It asked for the picture at the shop's own address, which the studio frame can't reach without a cookie, so it showed as a broken image in every theme; it now addresses it under the frame's path, as `<Image>` does. Live sites and previews are unchanged.
+- 9422c15: The 0.14.0 upgrade note's `<ThemeImage>` example now includes the required `ratio` (#1428).
+
 ## 0.14.0
 
 ### Minor Changes

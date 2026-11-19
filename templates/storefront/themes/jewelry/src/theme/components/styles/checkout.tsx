@@ -1,0 +1,53 @@
+import { clsx } from 'clsx'
+
+// The checkout styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const choiceBase = clsx('[&_input]:mt-0.5 [&_input]:mr-0 [&_input]:mb-0 [&_input]:ml-0 [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]')
+const stepBase = clsx('p-4.5 border [counter-increment:step] rounded-card bg-surface')
+const numberBase = clsx('group-[:nth-child(n)]/checkout-open:bg-accent group-[:nth-child(n)]/checkout-open:text-accent-ink')
+
+export const checkout = {
+  back: clsx('text-ink underline-offset-[3px] shrink-0 text-[14px]'),
+  bar: clsx('flex box-border w-[min(100%,1240px)] min-h-16 items-center justify-between gap-y-2 gap-x-4 mx-auto px-4'),
+  body: clsx('mt-3.5'),
+  change: clsx('py-0 px-1 border-0 border-current min-h-11 bg-transparent text-ink [font-family:inherit] [font-weight:inherit] [font-style:inherit] [line-height:inherit] text-[14px] underline underline-offset-[3px] cursor-pointer'),
+  choice: clsx(choiceBase, 'p-3.5 border border-line flex items-start gap-y-3 gap-x-3 rounded-card cursor-pointer'),
+  choiceBase,
+  choiceName: clsx('font-semibold'),
+  choiceNote: clsx('text-muted text-[14px]'),
+  choicePrice: clsx('shrink-0 font-semibold'),
+  choiceText: clsx('flex flex-1 flex-col gap-y-0.5 gap-x-0.5'),
+  choiceTop: clsx('flex justify-between gap-y-3 gap-x-3'),
+  choices: clsx('p-0 m-0 border-0 border-current grid gap-y-2.5 gap-x-2.5 [&_legend]:absolute [&_legend]:overflow-hidden [&_legend]:w-px [&_legend]:h-px [&_legend]:[clip-path:inset(50%)]'),
+  chosen: clsx('p-3.5 border-[2px] border-ink flex items-start gap-y-3 gap-x-3 rounded-card cursor-pointer'),
+  doneLine: clsx('mt-1.5 mr-0 mb-0 ml-9 text-ink-soft wrap-anywhere'),
+  error: clsx('py-3 px-3.5 m-0 border border-line rounded-card bg-soft text-danger'),
+  field: clsx('grid gap-y-1.5 gap-x-1.5 [&_label]:text-[14px] [&_label]:font-semibold [&_small]:text-muted [&_small]:text-[13px] [&_small]:font-normal [&_small[role="alert"]]:text-danger [&_input]:py-0 [&_input]:px-3.5 [&_input]:border [&_input]:border-line [&_input]:min-h-12 [&_input]:box-border [&_input]:rounded-[calc(var(--radius-card)_-_4px)] [&_input]:bg-surface [&_input]:text-ink [&_input]:[font-family:inherit] [&_input]:[font-size:inherit] [&_input]:[font-weight:inherit] [&_input]:[font-style:inherit] [&_input]:[line-height:inherit] [&_select]:py-0 [&_select]:px-3.5 [&_select]:border [&_select]:border-line [&_select]:min-h-12 [&_select]:box-border [&_select]:rounded-[calc(var(--radius-card)_-_4px)] [&_select]:bg-surface [&_select]:text-ink [&_select]:[font-family:inherit] [&_select]:[font-size:inherit] [&_select]:[font-weight:inherit] [&_select]:[font-style:inherit] [&_select]:[line-height:inherit] [&_input[aria-invalid="true"]]:border-danger [&>button]:py-0 [&>button]:px-5 [&>button]:border [&>button]:border-line [&>button]:inline-flex [&>button]:min-h-11 [&>button]:items-center [&>button]:justify-center [&>button]:justify-self-start [&>button]:rounded-button [&>button]:bg-surface [&>button]:text-ink [&>button]:[font-family:inherit] [&>button]:[font-size:inherit] [&>button]:[font-style:inherit] [&>button]:[line-height:inherit] [&>button]:font-semibold [&>button]:cursor-pointer [&_[role="dialog"]_button]:py-0 [&_[role="dialog"]_button]:px-5 [&_[role="dialog"]_button]:border [&_[role="dialog"]_button]:border-line [&_[role="dialog"]_button]:inline-flex [&_[role="dialog"]_button]:min-h-11 [&_[role="dialog"]_button]:items-center [&_[role="dialog"]_button]:justify-center [&_[role="dialog"]_button]:justify-self-start [&_[role="dialog"]_button]:rounded-button [&_[role="dialog"]_button]:bg-surface [&_[role="dialog"]_button]:text-ink [&_[role="dialog"]_button]:[font-family:inherit] [&_[role="dialog"]_button]:[font-size:inherit] [&_[role="dialog"]_button]:[font-style:inherit] [&_[role="dialog"]_button]:[line-height:inherit] [&_[role="dialog"]_button]:font-semibold [&_[role="dialog"]_button]:cursor-pointer [&>button:not([aria-expanded])]:p-0 [&>button:not([aria-expanded])]:border-0 [&>button:not([aria-expanded])]:border-current [&>button:not([aria-expanded])]:min-h-6 [&>button:not([aria-expanded])]:bg-transparent [&>button:not([aria-expanded])]:text-[14px] [&>button:not([aria-expanded])]:font-normal [&>button:not([aria-expanded])]:underline [&>button:not([aria-expanded])]:underline-offset-[3px] [&_button:disabled]:opacity-[0.6] [&_button:disabled]:cursor-default [&_[role="dialog"]]:p-4 [&_[role="dialog"]]:mt-1 [&_[role="dialog"]]:border [&_[role="dialog"]]:border-line [&_[role="dialog"]]:grid [&_[role="dialog"]]:grid-cols-[auto_auto_1fr] [&_[role="dialog"]]:gap-y-3 [&_[role="dialog"]]:gap-x-2.5 [&_[role="dialog"]]:rounded-card [&_[role="dialog"]]:bg-surface [&_[role="dialog"]>:not(button)]:m-0 [&_[role="dialog"]>:not(button)]:col-[1_/_-1] [&_[role="dialog"]>p:first-child]:font-semibold [&_[role="dialog"]>p]:text-muted [&_[role="dialog"]>p]:text-[14px] [&_[role="application"]]:border [&_[role="application"]]:border-line [&_[role="application"]]:overflow-hidden [&_[role="application"]]:rounded-[calc(var(--radius-card)_-_4px)] [&_[role="dialog"]>button:first-of-type]:border-accent [&_[role="dialog"]>button:first-of-type]:bg-accent [&_[role="dialog"]>button:first-of-type]:text-accent-ink [&_button:focus-visible]:[outline:2px_solid_var(--color-focus)] [&_button:focus-visible]:outline-offset-[2px] [&_[role="application"]:focus-visible]:[outline:2px_solid_var(--color-focus)] [&_[role="application"]:focus-visible]:outline-offset-[2px]'),
+  fields: clsx('grid gap-y-3.5 gap-x-3.5'),
+  footer: clsx('pt-5 pr-4 pb-6 pl-4 mt-10 mr-auto mb-0 ml-auto border-t border-t-line flex box-border w-[min(100%,1240px)] flex-wrap items-center justify-between gap-y-3 gap-x-3'),
+  form: clsx('grid gap-y-3.5 gap-x-3.5 [&>button]:justify-self-start [&>button]:min-w-40'),
+  giftCard: clsx('mt-4 grid grid-cols-[1fr_auto] gap-y-2 gap-x-2 [&_label]:col-[1_/_-1] [&_label]:text-[14px] [&_label]:font-semibold [&_input]:py-0 [&_input]:px-3.5 [&_input]:border [&_input]:border-line [&_input]:min-h-12 [&_input]:box-border [&_input]:rounded-[calc(var(--radius-card)_-_4px)] [&_input]:bg-surface [&_input]:text-ink [&_input]:[font-family:inherit] [&_input]:[font-size:inherit] [&_input]:[font-weight:inherit] [&_input]:[font-style:inherit] [&_input]:[line-height:inherit] [&_button]:py-0 [&_button]:px-5 [&_button]:border [&_button]:border-ink [&_button]:min-h-12 [&_button]:rounded-button [&_button]:bg-transparent [&_button]:text-ink [&_button]:[font-family:inherit] [&_button]:[font-size:inherit] [&_button]:[font-style:inherit] [&_button]:[line-height:inherit] [&_button]:font-semibold [&_button]:cursor-pointer [&_p]:m-0 [&_p]:col-[1_/_-1] [&_p]:text-[14px]'),
+  header: clsx('border-b border-b-line bg-header-bg text-header-ink'),
+  inline: clsx('text-ink underline-offset-[3px]'),
+  layout: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[minmax(0,1fr)_400px] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
+  lock: clsx('w-4 h-4 [fill:none] [stroke:currentcolor] [stroke-width:1.6]'),
+  note: clsx('m-0 text-ink-soft text-[14px]'),
+  number: clsx(numberBase, 'inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full bg-soft text-ink text-[13px] font-bold [&::before]:[content:counter(step)]'),
+  numberBase,
+  numberDone: clsx('inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full text-[13px] font-bold bg-accent text-accent-ink [&::before]:[content:counter(step)]'),
+  open: clsx('group/checkout-open border-ink-soft'),
+  page: clsx('pt-5 pr-4 pb-2 pl-4 flex box-border w-[min(100%,1240px)] flex-col gap-y-4 gap-x-4 mx-auto'),
+  pay: clsx('self-stretch disabled:opacity-[0.55] disabled:cursor-default'),
+  payment: clsx('[--df-sealed-size:15px]'),
+  phone: clsx('grid grid-cols-[6.5rem_minmax(0,1fr)] gap-y-2 gap-x-2'),
+  review: clsx('m-0 grid gap-y-2 gap-x-2 [&_div]:grid [&_div]:grid-cols-[minmax(90px,30%)_1fr] [&_div]:gap-y-3 [&_div]:gap-x-3 [&_dt]:text-muted [&_dd]:m-0 [&_dd]:wrap-anywhere'),
+  secure: clsx('m-0 inline-flex items-center gap-y-1.5 gap-x-1.5 text-muted text-[14px]'),
+  side: clsx('p-5 border border-line flex flex-col gap-y-3.5 gap-x-3.5 rounded-card bg-surface min-[900px]:sticky min-[900px]:top-6'),
+  sideTitle: clsx('m-0 font-heading text-[22px] font-[var(--heading-weight)]'),
+  step: clsx(stepBase, 'border-line'),
+  stepBase,
+  stepHead: clsx('flex items-center gap-y-2.5 gap-x-2.5'),
+  stepTitle: clsx('m-0 flex-1 text-[18px] font-[650]'),
+  steps: clsx('p-0 m-0 [counter-reset:step] grid gap-y-3.5 gap-x-3.5 list-none'),
+  summary: clsx('[--df-sealed-size:15px] [--df-sealed-saving:var(--color-accent)]'),
+  title: clsx('m-0 font-heading text-[26px] font-[var(--heading-weight)] leading-[1.2]'),
+}

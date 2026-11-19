@@ -1,8 +1,9 @@
 'use client'
 
-import { useId, type MouseEvent } from 'react'
+import { useId, useState, type MouseEvent } from 'react'
 import { useStorefront } from '../../platform/store/context'
 import type { SizeChart as Chart } from '../../products/product'
+import { chartIn, type ChartUnit } from './sizeChartUnits'
 
 // The size chart's modal, in its own chunk (sizeChart.tsx): only a shopper who opens a chart downloads it.
 
@@ -16,6 +17,9 @@ ${d} [data-head]{display:flex;align-items:center;justify-content:space-between;g
 ${d} h2{margin:0;font-size:22px;line-height:1.15}
 ${d} button{min-height:44px;padding:0 16px;border:1px solid currentColor;border-radius:var(--df-sealed-radius,8px);background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
 ${d} button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+${d} [data-units]{display:flex;gap:8px}
+${d} [data-units] button{min-width:44px;padding:0 12px}
+${d} button[aria-pressed=true]{background:var(--df-sealed-color,#1d1b18);color:var(--df-sealed-surface,#fff)}
 ${d} [data-scroll]{min-height:0;overflow:auto}
 ${d} [data-scroll]:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 ${d} table{width:100%;border-collapse:collapse;font-size:14px}
@@ -33,13 +37,17 @@ const style = () => {
 }
 
 const unitKeys = { cm: 'sizeChart.unit.cm', in: 'sizeChart.unit.in' } as const
+const switchKeys = { cm: 'sizeChart.switch.cm', in: 'sizeChart.switch.in' } as const
+const units: ChartUnit[] = ['cm', 'in']
 
 export type SizeChartDialogProps = { chart: Chart; onClose: () => void }
 
 export const SizeChartDialog = ({ chart, onClose }: SizeChartDialogProps) => {
   const { t } = useStorefront()
   const titleId = useId()
-  const unit = chart.unit === 'cm' || chart.unit === 'in' ? t(unitKeys[chart.unit]) : null
+  const saved = chart.unit === 'cm' || chart.unit === 'in' ? chart.unit : null
+  const [picked, pick] = useState<ChartUnit | null>(saved)
+  const shown = saved && picked ? chartIn(chart, saved, picked) : chart
 
   // A click on the backdrop lands on the dialog itself; one on its own padding is inside it.
   const onBackdrop = (e: MouseEvent<HTMLDialogElement>) => {
@@ -62,13 +70,22 @@ export const SizeChartDialog = ({ chart, onClose }: SizeChartDialogProps) => {
           {t('sizeChart.close')}
         </button>
       </div>
+      {saved ? (
+        <div data-units="" role="group" aria-label={t('sizeChart.switch')}>
+          {units.map((u) => (
+            <button key={u} type="button" aria-pressed={picked === u} onClick={() => pick(u)}>
+              {t(switchKeys[u])}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div data-scroll="" role="region" aria-labelledby={titleId} tabIndex={0}>
         <table>
           {chart.name ? <caption>{chart.name}</caption> : null}
           <thead>
             <tr>
               <th scope="col">{t('sizeChart.size')}</th>
-              {chart.measurements.map((m, i) => (
+              {shown.measurements.map((m, i) => (
                 <th key={`${i}:${m}`} scope="col">
                   {m}
                 </th>
@@ -76,7 +93,7 @@ export const SizeChartDialog = ({ chart, onClose }: SizeChartDialogProps) => {
             </tr>
           </thead>
           <tbody>
-            {chart.rows.map((r) => (
+            {shown.rows.map((r) => (
               <tr key={r.size}>
                 <th scope="row">{r.size}</th>
                 {r.values.map((v, i) => (
@@ -87,7 +104,7 @@ export const SizeChartDialog = ({ chart, onClose }: SizeChartDialogProps) => {
           </tbody>
         </table>
       </div>
-      {unit ? <p>{unit}</p> : null}
+      {picked ? <p aria-live="polite">{t(unitKeys[picked])}</p> : null}
     </dialog>
   )
 }

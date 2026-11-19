@@ -52,7 +52,14 @@ export interface CartRow {
   lines: { id: string; version_id: string; quantity: number; gift: CartGift | null; answers: StoredAnswer[] | null }[]
 }
 
-/** The shopper's open cart: the guest token's when one was presented, else the account's latest. */
+/** The shopper's open cart: the guest token's when one was presented, else the account's latest. Both readers below share it. */
+const openCart = (tx: ScopedSql, storeId: string, now: Date) => tx`
+  from "order" o
+  where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
+  order by (o.customer_id is null) desc, o.updated_at desc
+  limit 1
+`
+
 export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Promise<CartRow | null> =>
   (
     await tx<CartRow[]>`
@@ -60,12 +67,13 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
         o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes, o.gift_card_id,
         coalesce((select json_agg(json_build_object('id', l.id, 'version_id', l.version_id, 'quantity', l.quantity, 'answers', l.answers, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
           'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id, l.id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
-      from "order" o
-      where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
-      order by (o.customer_id is null) desc, o.updated_at desc
-      limit 1
+      ${openCart(tx, storeId, now)}
     `
   )[0] ?? null
+
+/** Holds the cart selectCart then reads, in one statement (#1590); false when there is none. */
+export const lockShopperCart = async (tx: ScopedSql, storeId: string, now: Date): Promise<boolean> =>
+  (await tx`select o.id ${openCart(tx, storeId, now)} for update`).length > 0
 
 /** Holds the cart's row to the end of the transaction, so two changes from two tabs apply one after the other. */
 export const lockCartRow = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
@@ -189,9 +197,15 @@ interface CartVersionRow {
   product_id: string
   tax_class_id: string | null
   has_questions: boolean
+  age_restricted: boolean
   /** Its choices in the shopper's language, in option order ("Size: M", "Colour: Red"). */
   choices: string[]
 }
+
+/** A version's choices in the shopper's language, in option order, for a query that names it `v`. */
+const choicesOf = (tx: ScopedSql, language: string) => tx`coalesce((select json_agg(${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)} || ': ' || ${translated(tx, 'choice_name', tx`lower(ch.name)`, 'name', tx`ch.name`, language)} order by o.position)
+            from product_version_option_value ov join product_option o on o.id = ov.option_id join product_option_value ch on ch.id = ov.value_id
+            where ov.version_id = v.id), '[]'::json)`
 
 /**
  * Each version's product and tax class, by id, and whether its product asks questions (#1368: one statement, so a product
@@ -202,10 +216,34 @@ export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly
     ? Promise.resolve([])
     : tx<CartVersionRow[]>`
         select v.id, v.product_id, v.tax_class_id, exists (select 1 from product_question q where q.product_id = v.product_id) as has_questions,
-          coalesce((select json_agg(${translated(tx, 'option_name', tx`lower(o.name)`, 'name', tx`o.name`, language)} || ': ' || ${translated(tx, 'choice_name', tx`lower(ch.name)`, 'name', tx`ch.name`, language)} order by o.position)
-            from product_version_option_value ov join product_option o on o.id = ov.option_id join product_option_value ch on ch.id = ov.value_id
-            where ov.version_id = v.id), '[]'::json) as choices
+          coalesce((select f.age_restricted from product_flag f where f.product_id = v.product_id), false) as age_restricted,
+          ${choicesOf(tx, language)} as choices
         from product_version v where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
+      `
+
+interface CartLineDisplayRow {
+  id: string
+  product_name: string
+  version_name: string | null
+  choices: string[]
+  /** The version's own photo, else the product's first (the same pick the shop makes for a line, #1465). */
+  photo_asset_id: string | null
+}
+
+/**
+ * What names a cart line, whatever its product's state (hidden, deleted, a version removed): for display only, so a shopper
+ * can tell which item an unavailable line was. Nothing here makes it buyable.
+ */
+export const selectCartLineDisplays = (tx: ScopedSql, storeId: string, ids: readonly string[], language: string): Promise<CartLineDisplayRow[]> =>
+  ids.length === 0
+    ? Promise.resolve([])
+    : tx<CartLineDisplayRow[]>`
+        select v.id, ${translated(tx, 'product', tx`p.id`, 'name', tx`p.name`, language)} as product_name,
+          ${translated(tx, 'version', tx`v.id`, 'name', tx`v.name`, language)} as version_name,
+          ${choicesOf(tx, language)} as choices,
+          coalesce(v.photo_asset_id, (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1)) as photo_asset_id
+        from product_version v join product p on p.id = v.product_id
+        where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
       `
 
 /**

@@ -45,7 +45,7 @@ describe.skipIf(!chrome)('the baseline theme’s content pages and blog', () => 
     }
   })
 
-  it('lists the journal’s posts with older ones on request, and opens a post with its tags', async () => {
+  it('lists the journal’s posts with older ones loading as the end nears, and opens a post with its tags', async () => {
     if (!preview) throw new Error('no browser')
     const asked: ShopRequest[] = []
     const context = await preview.open(answer(asked))
@@ -54,7 +54,6 @@ describe.skipIf(!chrome)('the baseline theme’s content pages and blog', () => 
       await page.goto(`${previewOrigin}/blog/`)
       await page.getByRole('heading', { level: 1, name: 'From the journal' }).waitFor()
       await page.getByRole('heading', { name: 'Why linen, part 2' }).waitFor()
-      await page.getByRole('button', { name: 'Older posts' }).click()
       await page.getByRole('heading', { name: 'Why linen, part 3' }).waitFor()
       expect(await page.getByRole('button', { name: 'Older posts' }).count()).toBe(0)
       await page.getByRole('link', { name: /Why linen, part 1/ }).click()

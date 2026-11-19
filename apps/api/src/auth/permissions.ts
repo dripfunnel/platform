@@ -33,11 +33,16 @@ export const staffPermissions = [
   'apps.manage',
   'fleet.read',
   'fleet.manage',
+  'storeCategories.read',
+  'storeCategories.manage',
+  'messaging.read',
+  'messaging.manage',
+  'partners.messaging',
 ] as const
 
 export type StaffPermission = (typeof staffPermissions)[number]
 
-const everyone = ['partners.read', 'stores.read', 'customers.read', 'activity.read'] as const
+const everyone = ['partners.read', 'stores.read', 'customers.read', 'activity.read', 'storeCategories.read', 'messaging.read'] as const
 
 export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {
   'staff-super-admin': staffPermissions,
@@ -50,6 +55,7 @@ export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {
     'partners.invite.resend',
     'stores.notes.write',
     'setupSessions.read',
+    'partners.messaging',
   ],
   'staff-support': [
     ...everyone,
