@@ -434,6 +434,7 @@ type Mutation {
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
   registerApp(developer: String!, name: String!, scopes: [String!]!, siteUrl: String!, webhookUrl: String!): RegisteredAppSecret
+  removePlatformMapsKey(reason: String!): PlatformMapsResult
   removePlatformSmsAccount(provider: String!, reason: String!): PlatformMessagingResult
   removePlatformWhatsAppAccount(reason: String!): PlatformMessagingResult
   removeStaff(id: ID!): StaffResult
@@ -448,6 +449,7 @@ type Mutation {
   returnToSession(id: ID!): StaffSessionStart
   revokeStaffInvite(id: ID!): StaffResult
   rollBackCoreRollout(id: ID!, reason: String!): CoreRollout
+  savePlatformMapsKey(key: String!, reason: String!): PlatformMapsResult
   savePlatformSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, reason: String!, region: String, secretAccessKey: String, senderId: String, templates: [PlatformSmsTemplateInput!]): PlatformMessagingResult
   savePlatformWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, reason: String!, templates: [PlatformWhatsAppTemplateInput!]!): PlatformMessagingResult
   saveStoreCategorySampleItems(categoryId: ID!, input: StoreCategorySampleInput!, reason: String!): StoreCategorySampleSave
@@ -456,12 +458,14 @@ type Mutation {
   setAppStatus(id: ID!, suspended: Boolean!): Boolean
   setPartnerContract(id: ID!, input: PartnerContractInput!, reason: String!): PartnerMutationOutcome
   setPartnerDfMessaging(channel: String!, enabled: Boolean!, partnerId: ID!, reason: String!): PartnerDfMessaging
+  setPlatformMapsEnabled(enabled: Boolean!, reason: String!): PlatformMapsResult
   setPlatformSmsRoute(provider: String, reason: String!, route: String!): PlatformMessagingResult
   setPlatformWhatsAppEnabled(enabled: Boolean!, reason: String!): PlatformMessagingResult
   startCoreRollout(reason: String!, security: Boolean!, version: String!): CoreRollout
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
+  testPlatformMapsKey: PlatformMapsResult
   testPlatformSmsAccount(provider: String!): PlatformMessagingResult
   testPlatformWhatsAppAccount: PlatformMessagingResult
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
@@ -571,6 +575,7 @@ input PartnerContractInput {
 }
 
 type PartnerDfMessaging {
+  maps: Boolean
   sms: Boolean
   whatsapp: Boolean
 }
@@ -689,6 +694,24 @@ type PartnerUser {
   lastSignInAt: String
   name: String
   role: String
+  status: String
+}
+
+type PlatformMaps {
+  enabled: Boolean
+  key: PlatformMapsKeyAccount
+}
+
+type PlatformMapsKeyAccount {
+  hint: String
+  lastTestedAt: String
+  status: String
+}
+
+type PlatformMapsResult {
+  ok: Boolean
+  problem: String
+  reason: String
   status: String
 }
 
@@ -818,6 +841,7 @@ type Query {
   partnerDfMessaging(partnerId: ID!): PartnerDfMessaging
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
   personTimeline(after: String, before: String, filter: ActivityFilter, first: Int, person: String!): ActivityTimeline
+  platformMapsKey: PlatformMaps
   platformSms: PlatformSms
   platformWhatsApp: PlatformWhatsApp
   provisioningJob(id: ID!): JobProgress

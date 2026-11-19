@@ -1,7 +1,14 @@
-// hooks.<host>/maps/pin (#814; storefront ARCHITECTURE §3.5): the storefront's "Pin on map" in a frame of its own, so Google
+// hooks.<host>/maps/<store id>/pin (#814; storefront ARCHITECTURE §3.5): the storefront's "Pin on map" in a frame of its own, so Google
 // Maps runs under this page's CSP and never the store's. Core's pin control talks to it by postMessage (ui/headless/pinFrame).
-export const mapFramePath = '/maps/pin'
 export const mapFrameScriptPath = '/maps/pin.js'
+
+const storeFrame = /^\/maps\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/pin$/
+
+/** The frame's address for a store (#1612): its id in the path, which is how the page finds the store's key. */
+export const mapFramePathFor = (storeId: string): string => `/maps/${storeId}/pin`
+
+/** The store a frame address names, or null where the path isn't one. */
+export const mapFrameStoreOf = (path: string): string | null => storeFrame.exec(path)?.[1] ?? null
 
 // Google's own allowlist for the Maps JavaScript API (its CSP guide), on this page only.
 const google = {
@@ -155,9 +162,10 @@ const headers = (type: string, local: boolean) => ({
   'cache-control': 'public, max-age=300',
 })
 
-/** The frame's page and its script; 404 without a key, so the store hides the button (THIRD-PARTY-ACCESS §2.12). */
+/** The script holds no key and is the same for every store; the page is that store's, and 404 without a usable key (THIRD-PARTY-ACCESS §2.12). */
 export const handleMapFrame = (request: Request, path: string, { key, local }: { key: string | null; local: boolean }): Response => {
-  if (!key || request.method !== 'GET') return new Response('Not found', { status: 404 })
+  if (request.method !== 'GET') return new Response('Not found', { status: 404 })
   if (path === mapFrameScriptPath) return new Response(script, { headers: headers('text/javascript', local) })
+  if (!key) return new Response('Not found', { status: 404 })
   return new Response(page(key), { headers: headers('text/html', local) })
 }

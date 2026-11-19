@@ -75,6 +75,7 @@ const adminContext = (staff: StaffMember): AdminContext => ({
     secrets: box,
     checkSms: async () => smsVerdict,
     checkWhatsApp: async () => whatsappVerdict,
+    checkMaps: async () => ({ status: 'ok' }),
     now: () => now,
   }),
 })

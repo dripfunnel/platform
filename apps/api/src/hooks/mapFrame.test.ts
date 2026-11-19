@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { handleMapFrame, mapFramePath, mapFrameScriptPath } from './mapFrame'
+import { handleMapFrame, mapFramePathFor, mapFrameScriptPath, mapFrameStoreOf } from './mapFrame'
+
+const storeId = '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b'
+const mapFramePath = mapFramePathFor(storeId)
 
 const key = 'AIzaSyTestTestTestTestTestTestTestTest12'
 const get = (path: string, o: { key?: string | null; local?: boolean; method?: string } = {}) =>
@@ -31,10 +34,19 @@ describe('the Pin on map frame', () => {
     expect(directive(get(mapFramePath, { local: true }).headers.get('content-security-policy'), 'frame-ancestors')).toBe('frame-ancestors https: http://localhost:* http://127.0.0.1:*')
   })
 
-  it('is not there without a key, or for anything but a GET', () => {
+  it('is not there without a key, or for anything but a GET; its script holds no key and is the same for every store', async () => {
     expect(get(mapFramePath, { key: null }).status).toBe(404)
-    expect(get(mapFrameScriptPath, { key: null }).status).toBe(404)
     expect(get(mapFramePath, { method: 'POST' }).status).toBe(404)
+    expect(get(mapFrameScriptPath, { method: 'POST' }).status).toBe(404)
+    const script = get(mapFrameScriptPath, { key: null })
+    expect(script.status).toBe(200)
+    expect(await script.text()).not.toContain('AIza')
+  })
+
+  it('names the store in its address, and no other path is a store’s frame', () => {
+    expect(mapFramePath).toBe(`/maps/${storeId}/pin`)
+    expect(mapFrameStoreOf(mapFramePath)).toBe(storeId)
+    for (const path of ['/maps/pin', '/maps/pin.js', '/maps/not-an-id/pin', `/maps/${storeId}/pin.js`, `/maps/${storeId}/pin/`, `/x/maps/${storeId}/pin`]) expect(mapFrameStoreOf(path), path).toBeNull()
   })
 })
 

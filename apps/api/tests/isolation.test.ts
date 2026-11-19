@@ -782,6 +782,7 @@ describe('the backstop itself', () => {
     const seen = await withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx<{ id: string }[]>`select id from partner where df_sms_enabled = false`)
     expect(seen.map((r) => r.id)).toEqual([t.partnerA])
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_whatsapp_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_maps_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
   })
 
   it('reserves app_definer: no login, and the one role that bypasses RLS', async () => {
