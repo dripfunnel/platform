@@ -359,6 +359,16 @@ describe('the modal’s last rules', () => {
       expect(asked.filter((a) => a.query.includes('customisationQuote')).at(-1)?.variables['answers']).toEqual([])
     })
 
+    it('moves focus to the first choice that can be picked when Clear removes itself', async () => {
+      const soldOut: Question = { ...wrap, choices: [choice('c-gone', 'Sold out', 100, false), ...wrap.choices] }
+      const { modal } = await open([soldOut])
+      await act(async () => void fireEvent.click(modal.getByRole('radio', { name: /Yes, gift wrap it/ })))
+      await act(async () => void fireEvent.click(modal.getByRole('button', { name: /^Clear/ })))
+      const host = document.querySelector('df-sealed[data-df-sealed="customise"]')
+      const focused = host && rootOf(host)?.activeElement
+      expect(focused).toBe(modal.getByRole('radio', { name: /No, thanks/ }))
+    })
+
     it('adds to the cart with no answer', async () => {
       const done = vi.fn()
       rememberQuestions({ id: 'p-g', name: 'Frock', versionIds: ['v-g'], questions: [wrap] })
