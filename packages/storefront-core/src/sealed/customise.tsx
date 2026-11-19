@@ -269,7 +269,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                     aria-label={t('customise.clearNamed', { name: q.label })}
                     onClick={(event) => {
                       // The button goes with the answer; focus moves to the list so a keyboard user isn't dropped (WCAG 2.4.3).
-                      event.currentTarget.closest('fieldset')?.querySelector('input:not(:disabled)')?.focus()
+                      event.currentTarget.closest('fieldset')?.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus()
                       set(q.id, { choices: [] })
                     }}
                   >
