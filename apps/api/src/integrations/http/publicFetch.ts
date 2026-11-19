@@ -17,6 +17,9 @@ export interface PublicFetchOptions {
   maxRedirects?: number
 }
 
+// Wikimedia answers 403 to a request with no User-Agent; the stock image picker names itself the same way.
+const userAgent = 'DripFunnel/1.0 (https://dripfunnel.ai; file fetch)'
+
 const octets = (ip: string) => ip.split('.').map(Number)
 
 /** Loopback, private, link-local, shared, multicast and reserved IPv4 ranges. */
@@ -87,7 +90,7 @@ const once = async (raw: string, o: PublicFetchOptions): Promise<PublicFetchResu
     for (let hop = 0; hop <= (o.maxRedirects ?? 3); hop++) {
       const url = await checkedUrl(next, o.lookup, signal)
       if (typeof url === 'string') return { ok: false, code: url }
-      const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { accept: 'image/*' } })
+      const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { accept: 'image/*', 'user-agent': userAgent } })
       const location = response.headers.get('location')
       if (response.status >= 300 && response.status < 400 && location) {
         await response.body?.cancel()

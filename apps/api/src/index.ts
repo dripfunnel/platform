@@ -378,7 +378,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [etaKind]: deliveryEtaDeliverer(sql, routesFor(config)),
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
-    'import.photos': importPhotosDeliverer(sql, assets, lookup),
+    'import.photos': importPhotosDeliverer(sql, assets, lookup, undefined, undefined, config.DNS_LOCAL === '1'),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),

@@ -10,6 +10,16 @@ describe('fetchPublic', () => {
     expect(result).toEqual({ ok: true, bytes: png })
   })
 
+  it('names itself in a User-Agent, which hosts such as Wikimedia require before they answer', async () => {
+    const seen: Array<Record<string, string>> = []
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      seen.push(init?.headers as Record<string, string>)
+      return new Response(png)
+    }
+    await fetchPublic('https://cdn.example.com/a.png', { lookup: lookup({ 'A cdn.example.com': ['93.184.216.34'] }), maxBytes: 10, fetchImpl })
+    expect(seen[0]?.['user-agent']).toMatch(/^DripFunnel\/\d+\.\d+ \(https:\/\/dripfunnel\.ai; /)
+  })
+
   it('refuses plain http, an address, a local name, and a name resolving to a private address, before any request', async () => {
     let asked = 0
     const fetchImpl = async () => {
