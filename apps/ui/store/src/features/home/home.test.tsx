@@ -426,7 +426,7 @@ describe('the Home screen', () => {
       await settle()
       expect(brandApi.chooseTemplate).toHaveBeenCalledWith('fashion', true)
       expect(step().getByText(sf.ready)).toBeTruthy()
-      expect(step().getByRole('button', { name: sf.preview })).toBeTruthy()
+      expect(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` })).toBeTruthy()
       expect(publishButton()).toBeTruthy()
       expect(step().queryAllByRole('link').some((l) => l.getAttribute('href')?.includes('view=studio'))).toBe(false)
     })
@@ -559,7 +559,7 @@ describe('the Home screen', () => {
       await show(siteOwner)
       expect(step().getByText('5 of 6')).toBeTruthy()
       expect(step().getByText(fill(sf.live, { host: 'kesari.my-store.one' }))).toBeTruthy()
-      const live = step().getByRole('link', { name: sf.viewLive })
+      const live = step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` })
       expect(live.getAttribute('href')).toBe('https://kesari.my-store.one')
       expect(live.getAttribute('target')).toBe('_blank')
     })
@@ -589,7 +589,7 @@ describe('the Home screen', () => {
         brandApi.previewLink.mockResolvedValue('https://kesari-preview.my-store.one/__open?t=signed')
         await made()
         await act(async () => {
-          fireEvent.click(step().getByRole('button', { name: sf.preview }))
+          fireEvent.click(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` }))
         })
         expect(open).toHaveBeenCalledWith('', '_blank')
         expect(opened.opener).toBeNull()
@@ -603,7 +603,7 @@ describe('the Home screen', () => {
         brandApi.previewLink.mockRejectedValue(new ApiError('NOT_CONNECTED', 'x'))
         await made()
         await act(async () => {
-          fireEvent.click(step().getByRole('button', { name: sf.preview }))
+          fireEvent.click(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` }))
         })
         expect(opened.close).toHaveBeenCalled()
         expect(step().getByRole('alert').textContent).toBe(messages.storefront.studio.preview.refused.NOT_CONNECTED)
@@ -615,7 +615,7 @@ describe('the Home screen', () => {
         brandApi.loadTemplates.mockResolvedValue([fashion])
         brandApi.loadOverview.mockResolvedValue({ ...overview('not_published'), draft: { template: 'fashion', changedAt: null, previewReady: false } })
         await show(siteOwner)
-        expect(step().queryByRole('button', { name: sf.preview })).toBeNull()
+        expect(step().queryByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` })).toBeNull()
         expect(publishButton()).toBeTruthy()
       })
 
@@ -632,7 +632,7 @@ describe('the Home screen', () => {
         expect(studioApi.publishDesign).toHaveBeenCalledTimes(1)
         expect(studioApi.loadPublishRun).toHaveBeenCalledWith('r1')
         expect(step().getByText('5 of 6')).toBeTruthy()
-        expect(step().getByRole('link', { name: sf.viewLive }).getAttribute('href')).toBe('https://kesari.my-store.one')
+        expect(step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` }).getAttribute('href')).toBe('https://kesari.my-store.one')
       })
 
       it('says what failed when the publish isn’t taken live, and offers Publish again', async () => {

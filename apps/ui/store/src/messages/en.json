@@ -145,6 +145,7 @@
         "checkAgain": "Check again",
         "live": "Your storefront is live at {host}.",
         "viewLive": "View your live site ↗",
+        "opensInNewTab": "(opens in a new tab)",
         "failed": "We couldn’t set up your storefront. Nothing was kept, so you can try again.",
         "unavailable": "We couldn’t check your storefront just now.",
         "retry": "Try again"

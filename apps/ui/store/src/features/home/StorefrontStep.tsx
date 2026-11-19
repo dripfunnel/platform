@@ -94,6 +94,7 @@ export const StorefrontStep = ({ label, site }: { label: string; site: SiteStep 
           host && (
             <a className="df-button" href={`https://${host}`} target="_blank" rel="noopener noreferrer">
               {words.viewLive}
+              <span className="df-visually-hidden"> {words.opensInNewTab}</span>
             </a>
           )
         ) : phase === 'open' || phase === 'publishing' ? (
@@ -101,6 +102,7 @@ export const StorefrontStep = ({ label, site }: { label: string; site: SiteStep 
             {setup?.previewReady && (
               <button type="button" className="df-button" onClick={preview}>
                 {words.preview}
+                <span className="df-visually-hidden"> {words.opensInNewTab}</span>
               </button>
             )}
             {site.lost ? (
