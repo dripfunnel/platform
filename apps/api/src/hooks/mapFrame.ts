@@ -153,19 +153,19 @@ const script = `(() => {
 })()
 `
 
-const headers = (type: string, local: boolean) => ({
+const headers = (type: string, local: boolean, cache: string) => ({
   'content-type': `${type}; charset=utf-8`,
   'content-security-policy': frameCsp(local),
   'x-content-type-options': 'nosniff',
   // Google sees this host as the referrer, which the key is restricted to (THIRD-PARTY-ACCESS §2.12).
   'referrer-policy': 'strict-origin-when-cross-origin',
-  'cache-control': 'public, max-age=300',
+  'cache-control': cache,
 })
 
-/** The script holds no key and is the same for every store; the page is that store's, and 404 without a usable key (THIRD-PARTY-ACCESS §2.12). */
+/** The script holds no key and is the same for every store; the page is that store's, never cached so a removed key stops at once, and 404 without a usable key (THIRD-PARTY-ACCESS §2.12). */
 export const handleMapFrame = (request: Request, path: string, { key, local }: { key: string | null; local: boolean }): Response => {
   if (request.method !== 'GET') return new Response('Not found', { status: 404 })
-  if (path === mapFrameScriptPath) return new Response(script, { headers: headers('text/javascript', local) })
+  if (path === mapFrameScriptPath) return new Response(script, { headers: headers('text/javascript', local, 'public, max-age=300') })
   if (!key) return new Response('Not found', { status: 404 })
-  return new Response(page(key), { headers: headers('text/html', local) })
+  return new Response(page(key), { headers: headers('text/html', local, 'no-store') })
 }

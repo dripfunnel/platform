@@ -354,14 +354,16 @@ autocomplete out). Typing in the address fields does not search. Both run in the
 the hooks host as its referrer, a 5-second timeout and no retry; a refusal names its reason (`invalid`, `geocoding_disabled`,
 `restricted` or `other`) and nothing is saved. Google's web Geocoding service refuses a key restricted to websites ("API keys
 with referer restrictions cannot be used with this API"); the check takes that answer as the key existing and passes it, since
-only the browser can show whether the referrer is allowed. A key shows back as "AIza…abcd", is sealed with `CREDENTIALS_KEK`,
+only the browser can show whether the referrer is allowed. So a key restricted to the wrong website still shows *Working* and its
+stores show a map Google then refuses to draw; a distinct "not verifiable" status is for the panels (#1613, #1614). A key shows back as "AIza…abcd", is sealed with `CREDENTIALS_KEK`,
 and is never returned, logged or put in an error or an activity entry. A store's maps use one key, found in one place
 (`saas/mapsKey`): the partner's choice (`partner.maps_account`, `own` or `dripfunnel`) where both are usable, else the one that
 is. A partner's own key is usable while its last check is *Working*; DripFunnel's while it is *Working*, Super admin turned it on
 (`platform_messaging.maps_enabled`) and Admin let the partner use it (`partner.df_maps_enabled`, §4). **No usable key means no
 maps:** `warehouseMapFrame` and `store.mapFrame` are `null` and the frame answers 404, so the warehouse form and the shopper's
 address pin show plain fields. The frame's address carries the store's id (`hooks.<host>/maps/<store id>/pin`), which is how its
-page finds the key; the key is public in that page by design. A published storefront's content-security-policy always allows the
+page finds the key; the key is public in that page by design. The page is never cached, so a removed or switched-off key stops at once, and
+the route is rate-limited per address (`SHOP_RATE_LIMITER`, key `maps-frame:<ip>`) before it reads the database; the script is cached for five minutes. A published storefront's content-security-policy always allows the
 hooks host as a frame, since the frame says whether there is a key. `GOOGLE_MAPS_BROWSER_KEY` is gone from the Worker and
 `.env.example`: deploying this leaves each environment with no map until a key is saved in the admin console.
 

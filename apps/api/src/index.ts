@@ -793,6 +793,10 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     const local = isLocalhost(config.HOOKS_HOST)
     if (!frameStore) return handleMapFrame(request, url.pathname, { key: null, local })
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const { ip } = factsOf(request)
+    if (!ip || !(await limiter.limit({ key: `maps-frame:${ip}` })).success) return tooManyRequests(60)
     const secrets = await secretsFor(config)
     return withConnection(config.HYPERDRIVE, ctx, async (sql) => handleMapFrame(request, url.pathname, { key: await storeMapsKey(sql, secrets)(frameStore), local }))
   }

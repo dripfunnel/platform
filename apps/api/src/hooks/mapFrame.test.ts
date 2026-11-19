@@ -43,6 +43,11 @@ describe('the Pin on map frame', () => {
     expect(await script.text()).not.toContain('AIza')
   })
 
+  it('never caches the page, which holds a key that can be removed, but caches the script', () => {
+    expect(get(mapFramePath).headers.get('cache-control')).toBe('no-store')
+    expect(get(mapFrameScriptPath).headers.get('cache-control')).toBe('public, max-age=300')
+  })
+
   it('names the store in its address, and no other path is a store’s frame', () => {
     expect(mapFramePath).toBe(`/maps/${storeId}/pin`)
     expect(mapFrameStoreOf(mapFramePath)).toBe(storeId)
