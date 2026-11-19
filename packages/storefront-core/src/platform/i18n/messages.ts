@@ -160,6 +160,7 @@ export const en = {
   'address.postcode': 'Postcode',
   'address.postal': 'Postal code',
   'address.phone': 'Phone for delivery',
+  'address.requiredMark': '*',
   'address.optional': 'Optional',
   'address.required': 'Fill this in.',
   'address.invalid': 'Check this; it doesn’t look right.',

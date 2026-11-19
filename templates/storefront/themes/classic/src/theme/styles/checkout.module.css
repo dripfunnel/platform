@@ -234,7 +234,7 @@
   border-color: var(--danger);
 }
 
-/* Core's "Pin on map" (#814): its controls sit in the address form's last .field. */
+/* A button in a .field: core's address form (#814). */
 .field > button,
 .field [role='dialog'] button {
   display: inline-flex;

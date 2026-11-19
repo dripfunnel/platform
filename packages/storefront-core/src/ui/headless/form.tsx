@@ -48,8 +48,10 @@ export type TextFieldProps = Styled & {
   maxLength?: number
   /** Takes focus when it appears, for a field that opens after the shopper pressed something (WCAG 2.4.3). */
   autoFocus?: boolean
-  /** Tells a screen reader the field must be filled in. */
+  /** Marks the field required for a screen reader (`aria-required`), and for the eye when `requiredMark` is given. */
   required?: boolean
+  /** The theme's mark for a required field, shown after the label. */
+  requiredMark?: string | undefined
 }
 
 /** Moves focus into the field it is given on mount, when asked. */
@@ -62,7 +64,7 @@ const useFocusOnMount = (wanted: boolean | undefined) => {
 }
 
 /** A labelled text field with its hint and its error, each tied to it for screen readers. */
-export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, className }: TextFieldProps) => {
+export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, className }: TextFieldProps) => {
   const id = useId()
   const input = useFocusOnMount(autoFocus)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
@@ -70,7 +72,7 @@ export const TextField = ({ label, value, onChange, type = 'text', autoComplete,
     <span className={className}>
       <label htmlFor={id}>
         {label}
-        {required ? <span aria-hidden="true"> *</span> : null}
+        {required && requiredMark ? <span aria-hidden="true"> {requiredMark}</span> : null}
         {note ? <small> {note}</small> : null}
       </label>
       <input ref={input} id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
@@ -176,7 +178,7 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
     <span className={fieldClassName}>
             <label htmlFor={id}>
               {t('address.country')}
-              <span aria-hidden="true"> *</span>
+              <span aria-hidden="true"> {t('address.requiredMark')}</span>
             </label>
             <select id={id} value={value.country} aria-required autoComplete="shipping country" aria-invalid={errors.country ? true : undefined} aria-describedby={errors.country ? `${id}-error` : undefined} onChange={(e) => onChange({ ...value, country: e.target.value })}>
               {value.country ? null : <option value="">{t('address.chooseCountry')}</option>}
@@ -227,6 +229,7 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
             label={t(f.label)}
             note={f.optional ? t('address.optional') : undefined}
             required={!f.optional}
+            requiredMark={t('address.requiredMark')}
             value={value[f.field]}
             autoComplete={f.autoComplete}
             error={problem(errors[f.field])}

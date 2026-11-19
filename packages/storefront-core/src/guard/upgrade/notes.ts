@@ -33,6 +33,18 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  // Numbered for the first release after 2.0.0: the release card gives it the number of the release that ships it (§7.1).
+  {
+    version: '2.0.1',
+    kind: 'major',
+    security: false,
+    notes: [
+      'The address form (checkout and My addresses) shows its map with the form and a search box above it, instead of a "Pin on map" button (#1615). No theme has to change: the map, the search and their buttons are core\'s, drawn in the `--df-sealed-*` colours, and a theme restyles them through the `df-pin-search`, `df-pin-options` and `df-pin-option` classes.',
+      'The fields follow the warehouse form: Name, Address, Apartment, City, State and PIN code, then Country, then Phone. Required fields show the `address.requiredMark` after their label and carry `aria-required`; `TextField` takes `required` and `requiredMark`.',
+      'The message keys `address.map.open`, `move`, `confirm`, `cancel`, `close`, `hide`, `finding` and `remove` are gone, and `address.map.search`, `searchPlaceholder`, `suggestions`, `searchNone`, `searchUnavailable`, `at`, `loading`, `locateFailed` and `address.requiredMark` are new. A theme that reads a removed key from core\'s messages draws it blank; none of the starting themes does.',
+    ].join('\n'),
+    codemods: [],
+  },
   // #1606: 2.0.0 ships #1490's sign-in pages and #1598's loading skeletons, with both cards' codemods.
   {
     version: '2.0.0',

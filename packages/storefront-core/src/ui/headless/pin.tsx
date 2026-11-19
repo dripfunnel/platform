@@ -50,10 +50,10 @@ type Phase = 'loading' | 'open' | 'failed' | 'liveOnly'
 type Search = 'idle' | 'none' | 'unavailable'
 
 // Neutral and in the system's own colours, so any theme reads it; a theme restyles it by the class names.
-const listStyle: CSSProperties = { position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: '17.5rem', overflowY: 'auto', margin: 0, padding: 0, listStyle: 'none', background: 'Canvas', color: 'CanvasText', border: '1px solid GrayText' }
-const buttonStyle: CSSProperties = { font: 'inherit', padding: '0.5rem 1rem', margin: '0.5rem 0', cursor: 'pointer', background: 'Canvas', color: 'CanvasText', border: '1px solid GrayText', borderRadius: '0.375rem' }
+const listStyle: CSSProperties = { position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: '17.5rem', overflowY: 'auto', margin: 0, padding: 0, listStyle: 'none', background: 'var(--df-sealed-surface,#fff)', color: 'var(--df-sealed-color,#1d1b18)', border: '1px solid var(--df-sealed-muted,currentColor)' }
+const buttonStyle: CSSProperties = { font: 'inherit', padding: '0.5rem 1rem', margin: '0.5rem 0', cursor: 'pointer', background: 'var(--df-sealed-surface,#fff)', color: 'var(--df-sealed-color,#1d1b18)', border: '1px solid var(--df-sealed-muted,currentColor)', borderRadius: 'var(--df-sealed-radius,8px)' }
 const hidden: CSSProperties = { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
-const optionStyle = (active: boolean): CSSProperties => ({ padding: '0.5rem 0.75rem', cursor: 'pointer', ...(active ? { background: 'Highlight', color: 'HighlightText' } : {}) })
+const optionStyle = (active: boolean): CSSProperties => ({ padding: '0.5rem 0.75rem', cursor: 'pointer', ...(active ? { background: 'var(--df-sealed-accent,currentColor)', color: 'var(--df-sealed-on-accent,#fff)' } : {}) })
 
 export type PinOnMapProps = {
   value: Pin | null
@@ -304,7 +304,7 @@ export const PinOnMap = ({ value, onChange, address, country, t, locale, classNa
         <p id={`${id}-title`}>{t('address.map.title')}</p>
         <p id={`${id}-help`}>{t('address.map.help')}</p>
         {/* Sized here: the map's frame fills it. */}
-        <div ref={area} tabIndex={0} role="application" aria-label={t('address.map.title')} aria-describedby={`${id}-at`} onKeyDown={nudge} style={{ height: '18rem', borderRadius: '0.375rem', overflow: 'hidden' }} />
+        <div ref={area} tabIndex={0} role="application" aria-label={t('address.map.title')} aria-describedby={`${id}-at`} onKeyDown={nudge} style={{ height: '18rem', borderRadius: 'var(--df-sealed-radius,8px)', overflow: 'hidden' }} />
         {phase === 'loading' ? <small role="status">{t('address.map.loading')}</small> : null}
         {geolocation ? (
           <div>
