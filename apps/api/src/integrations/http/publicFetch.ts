@@ -57,7 +57,7 @@ export const checkedUrl = async (raw: string, lookup: DnsLookup, signal: AbortSi
   return url
 }
 
-const readCapped = async (response: Response, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | null> => {
+export const readCapped = async (response: Response, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | null> => {
   if (Number(response.headers.get('content-length') ?? 0) > maxBytes) return null
   const reader = response.body?.getReader()
   if (!reader) return new Uint8Array(0)
