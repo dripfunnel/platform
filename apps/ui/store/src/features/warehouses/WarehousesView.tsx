@@ -6,7 +6,7 @@ import { deletePlace, loadMapFrame, loadPlaces, loadStoreCountry, makeDefaultPla
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { Pin } from './mapFrame'
-import { PinOnMap, pinText } from './PinOnMap'
+import { PinOnMap, pinText, usePlaceMap } from './PinOnMap'
 import { placesSample, placesStates } from './placesStates'
 import './warehouses.css'
 import { refusalIn } from '../common/refusal'
@@ -17,6 +17,11 @@ const words = messages.warehouses
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; places: Place[] }
 type Form = { id: string | null; revision: number | null; name: string; line1: string; line2: string; city: string; region: string; postalCode: string; country: string; pin: Pin | null }
+
+/** What a location can't be saved without (#1609); Address line 2 is optional. */
+const requiredFields = ['name', 'line1', 'city', 'region', 'postalCode', 'country'] as const
+type RequiredField = (typeof requiredFields)[number]
+type FormField = keyof Omit<Form, 'id' | 'revision' | 'pin'>
 
 const blank: Form = { id: null, revision: null, name: '', line1: '', line2: '', city: '', region: '', postalCode: '', country: '', pin: null }
 
@@ -49,35 +54,48 @@ const PlaceForm = ({ form, set, busy, mapSource, near, onSave, onCancel }: { for
   // Opened from a button or a dialog: the form takes focus so its arrival is announced (WCAG 2.4.3).
   useEffect(() => document.getElementById(`${id}-name`)?.focus(), [id])
   const [tried, setTried] = useState(false)
-  const nameMissing = form.name.trim() === ''
+  const missing = requiredFields.filter((key) => form[key].trim() === '')
   const countryBad = form.country.trim() !== '' && !/^[A-Za-z]{2}$/.test(form.country.trim())
-  const field = (key: keyof Omit<Form, 'id' | 'revision' | 'pin'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
+  const pinMap = usePlaceMap({
+    source: mapSource,
+    value: form.pin,
+    onChange: (pin, found) => set({ ...form, pin, ...(found ? { line1: found.line1 ?? '', city: found.city ?? '', region: found.region ?? '', postalCode: found.postalCode ?? '', country: found.country } : {}) }),
+    address: [form.line1, form.line2, form.city, form.region, form.postalCode].map((l) => l.trim()).filter(Boolean).join(', '),
+    country: form.country.trim().toUpperCase(),
+    near,
+  })
+  const needed = (key: FormField) => (requiredFields as readonly string[]).includes(key)
+  const problemOf = (key: RequiredField) => (tried && missing.includes(key) ? words.form.missing[key] : null)
+  const field = (key: FormField, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
     <div className="df-places-field">
-      <label htmlFor={`${id}-${key}`}>{label}</label>
-      <input id={`${id}-${key}`} value={form[key]} placeholder={extra.placeholder} maxLength={key === 'country' ? 2 : 120} aria-invalid={Boolean(extra.problem)} aria-describedby={extra.problem ? `${id}-${key}-problem` : undefined} onChange={(e) => set({ ...form, [key]: e.target.value })} />
+      <label htmlFor={`${id}-${key}`} className={needed(key) ? 'df-places-required' : undefined}>
+        {label}
+      </label>
+      <input id={`${id}-${key}`} aria-required={needed(key)} value={form[key]} placeholder={extra.placeholder} maxLength={key === 'country' ? 2 : 120} aria-invalid={Boolean(extra.problem)} aria-describedby={extra.problem ? `${id}-${key}-problem` : undefined} onChange={(e) => set({ ...form, [key]: e.target.value })} />
       {extra.problem && <span id={`${id}-${key}-problem`} className="df-places-problem">{extra.problem}</span>}
     </div>
   )
-  // Save says what's missing and goes to it, as the prototype's required name does, rather than sitting disabled.
+  // Save says what's missing and goes to the first of it, as the prototype's required name does, rather than sitting disabled.
   const trySave = () => {
-    if (!nameMissing && !countryBad) return onSave()
+    const first = requiredFields.find((key) => missing.includes(key)) ?? (countryBad ? 'country' : null)
+    if (!first) return onSave()
     setTried(true)
-    document.getElementById(`${id}-${nameMissing ? 'name' : 'country'}`)?.focus()
+    document.getElementById(`${id}-${first}`)?.focus()
   }
   return (
     <section className="df-places-form" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{form.id ? fill(words.form.editTitle, { name: form.name }) : words.form.addTitle}</h3>
       {!form.id && <p className="df-places-hint">{words.form.addBody}</p>}
+      <PinOnMap pinMap={pinMap} />
       <div className="df-places-grid">
-        {field('name', words.form.name, { placeholder: words.form.namePlaceholder, problem: tried && nameMissing ? words.form.nameMissing : null })}
-        {field('line1', words.form.line1)}
+        {field('name', words.form.name, { placeholder: words.form.namePlaceholder, problem: problemOf('name') })}
+        {field('line1', words.form.line1, { problem: problemOf('line1') })}
         {field('line2', words.form.line2)}
-        {field('city', words.form.city)}
-        {field('region', words.form.region)}
-        {field('postalCode', words.form.postalCode)}
-        {field('country', words.form.country, { problem: countryBad ? words.form.countryInvalid : null })}
+        {field('city', words.form.city, { problem: problemOf('city') })}
+        {field('region', words.form.region, { problem: problemOf('region') })}
+        {field('postalCode', words.form.postalCode, { problem: problemOf('postalCode') })}
+        {field('country', words.form.country, { problem: problemOf('country') ?? (countryBad ? words.form.countryInvalid : null) })}
       </div>
-      <PinOnMap source={mapSource} value={form.pin} onChange={(pin, found) => set({ ...form, pin, ...(found ? { line1: found.line1 ?? '', line2: '', city: found.city ?? '', region: found.region ?? '', postalCode: found.postalCode ?? '', country: found.country } : {}) })} address={[form.line1, form.line2, form.city, form.region, form.postalCode].map((l) => l.trim()).filter(Boolean).join(', ')} country={form.country.trim().toUpperCase()} near={near} />
       <div className="df-places-actions">
         <button type="button" className="df-button" disabled={busy} onClick={onCancel}>
           {words.form.cancel}
