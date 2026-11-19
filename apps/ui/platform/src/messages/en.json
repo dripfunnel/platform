@@ -2181,6 +2181,8 @@
         "splash": "Transparent, with the mark centred."
       },
       "uploading": "Uploading…",
+      "upload": "Upload",
+      "uploadLabel": "Upload {file}",
       "replace": "Replace",
       "replaceLabel": "Replace {file}",
       "remove": "Remove",
