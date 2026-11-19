@@ -95,14 +95,17 @@ const reminderSchema = z.object({
   clickedAt: z.string().nullable(),
 })
 export type CartReminder = z.infer<typeof reminderSchema>
-const detailSchema = z.object({ cart: cartSchema, lines: z.array(lineSchema), reminders: z.array(reminderSchema) })
+// What a signed-in shopper's wishlist still holds that they could buy now and that is not in the cart; empty for a guest (#1213).
+const wishSchema = z.object({ productId: z.string(), name: z.string().nullable(), photoUrl: z.string().nullable(), price: moneySchema.nullable() })
+export type WishlistItem = z.infer<typeof wishSchema>
+const detailSchema = z.object({ cart: cartSchema, lines: z.array(lineSchema), reminders: z.array(reminderSchema), wishlist: z.array(wishSchema).nullable().transform((w) => w ?? []) })
 export type CartDetail = z.infer<typeof detailSchema>
 
 /** One cart as it would be bought now (the price here and stock today), with every reminder it had. */
 export const loadCart = async (id: string): Promise<CartDetail | null> =>
   (
     await query(
-      `query C($id: ID!) { abandonedCart(id: $id) { cart { ${cartFields} } lines { versionId name versionName quantity lineTotal { amount currency } available outOfStock } reminders { id position channel state skipReason sentBy code queuedAt sentAt clickedAt } } }`,
+      `query C($id: ID!) { abandonedCart(id: $id) { cart { ${cartFields} } lines { versionId name versionName quantity lineTotal { amount currency } available outOfStock } reminders { id position channel state skipReason sentBy code queuedAt sentAt clickedAt } wishlist { productId name photoUrl price { amount currency } } } }`,
       z.object({ abandonedCart: detailSchema.nullable() }),
       { id },
     )
