@@ -1,5 +1,5 @@
 import { Link, useStorefront, type Listing } from '@dripfunnel/storefront-core/theme'
-import { FilterPanel, ListingBar, LoadMore } from './interactive/Filters'
+import { FilterPanel, ListingBar, MoreOnScroll } from './interactive/Filters'
 import { Retry } from './interactive/Retry'
 import { Notice } from './Notice'
 import { GridPlaceholder, ProductGrid } from './ProductCard'
@@ -35,7 +35,7 @@ export const ListingResults = ({ listing }: { listing: Listing }) => {
           )
         ) : null}
         {listing.status === 'ready' ? <ProductGrid products={listing.items} /> : null}
-        <LoadMore listing={listing} />
+        <MoreOnScroll listing={listing} />
       </div>
     </div>
   )

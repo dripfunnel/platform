@@ -36,6 +36,8 @@ export const shop = {
   lead: clsx('m-0 max-w-[60ch] text-muted text-[15px] wrap-anywhere'),
   listing: clsx('group/shop-listing grid gap-y-4 gap-x-4 grid-cols-[minmax(0,1fr)]'),
   listingFiltered: clsx('grid gap-y-4 gap-x-4 grid-cols-[minmax(0,1fr)] min-[900px]:gap-y-8 min-[900px]:gap-x-8 min-[900px]:grid-cols-[220px_minmax(0,1fr)]'),
+  loadingMore: clsx('m-0 inline-flex items-center text-muted text-[14px]'),
+  loadingSpinner: clsx('inline-block w-4 h-4 mr-2 border-2 border-current border-r-transparent rounded-full animate-spin motion-reduce:hidden'),
   more: clsx('pt-3 flex flex-col items-center gap-y-2 gap-x-2'),
   muted: clsx('m-0 text-muted text-[14px]'),
   priceRange: clsx('pt-1 flex flex-col gap-y-3 gap-x-3'),

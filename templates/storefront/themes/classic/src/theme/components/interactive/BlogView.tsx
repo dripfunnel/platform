@@ -1,6 +1,6 @@
 'use client'
 
-import { Image, Link, useBlog, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Image, Link, useBlog, useLoadOnScroll, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
@@ -10,6 +10,7 @@ import styles from '../../styles/content.module.css'
 export const BlogView = () => {
   const { t } = useStorefront()
   const blog = useBlog()
+  const end = useLoadOnScroll({ fetchMore: blog.loadMore, hasMore: blog.more, loadingMore: blog.loadingMore, moreFailed: blog.loadMoreFailed })
   return (
     <section className={shop.page}>
       <header className={shop.intro}>
@@ -48,16 +49,29 @@ export const BlogView = () => {
           </Link>
         ))}
       </div>
-      {blog.loadMoreFailed ? (
-        <p className={shop.lead} role="alert">
-          {t('pages.blog.olderFailed')}
-        </p>
-      ) : null}
-      {blog.more ? (
-        <button type="button" className={shop.secondary} disabled={blog.loadingMore} onClick={() => void blog.loadMore()}>
-          {t('pages.blog.older')}
-        </button>
-      ) : null}
+      <div ref={end} className={shop.more}>
+        {blog.posts.length > 0 ? (
+          <p className={shop.srOnly} role="status">
+            {t('pages.blog.showing', { count: blog.posts.length })}
+          </p>
+        ) : null}
+        {blog.loadingMore ? (
+          <p className={shop.loadingMore} role="status">
+            <span className={shop.loadingSpinner} aria-hidden="true" />
+            {t('pages.blog.loadingMore')}
+          </p>
+        ) : null}
+        {blog.loadMoreFailed ? (
+          <>
+            <p className={shop.lead} role="alert">
+              {t('pages.blog.olderFailed')}
+            </p>
+            <button type="button" className={shop.secondary} onClick={() => void blog.loadMore()}>
+              {t('shop.listing.retry')}
+            </button>
+          </>
+        ) : null}
+      </div>
     </section>
   )
 }

@@ -11,26 +11,34 @@ const walk = (dir: string, rel = ''): string[] =>
     const path = rel ? `${rel}/${name}` : name
     return statSync(join(dir, path)).isDirectory() ? walk(dir, path) : [path]
   })
-const shipped = (theme: string) =>
-  new Map(
-    walk(join(themesDir, theme), 'src/theme')
-      .filter((path) => /\.(tsx|css)$/.test(path))
-      .map((path) => [path, readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n')] as const),
-  )
 const codemods = notesBetween('1.0.0', '2.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
+const laterCodemods = notesBetween('2.0.0', '2.1.0', coreUpgradeNotes).flatMap((n) => n.codemods)
 
-/** The theme with every codemod undone, last first: what a store made before the skeletons holds. */
-const undone = (theme: ReadonlyMap<string, string>) => {
+/** The theme with `list` undone, last first. */
+const undoing = (list: typeof codemods, theme: ReadonlyMap<string, string>) => {
   const files = new Map(theme)
-  for (const c of [...codemods].reverse()) {
+  for (const c of [...list].reverse()) {
     if (c.kind !== 'replace') continue
-    for (const path of c.paths) {
-      const text = files.get(path)
-      if (text?.includes(c.replace)) files.set(path, text.replace(c.replace, c.find))
+    const globs = c.paths.map((g) => new RegExp(`^${g.replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`))
+    for (const [path, text] of files) {
+      if (globs.some((g) => g.test(path)) && text.includes(c.replace)) files.set(path, text.replace(c.replace, c.find))
     }
   }
   return files
 }
+// The themes as 2.0.0 left them: what a later release added (#1570) is undone first.
+const shipped = (theme: string) =>
+  undoing(
+    laterCodemods,
+    new Map(
+      [...walk(join(themesDir, theme), 'src/theme'), ...walk(join(themesDir, theme), 'content')]
+        .filter((path) => /\.(tsx|css|json)$/.test(path))
+        .map((path) => [path, readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n')] as const),
+    ),
+  )
+
+/** The theme with every codemod undone, last first: what a store made before the skeletons holds. */
+const undone = (theme: ReadonlyMap<string, string>) => undoing(codemods, theme)
 
 describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry'])('the loading skeletons for a %s store made before core 2.0.0', (key) => {
   const now = shipped(key)

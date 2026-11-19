@@ -33,6 +33,109 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  // #1570: lists load on scroll; the entry's number is the release card's to confirm.
+  {
+    version: '2.1.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every list on the live site loads its next page by itself (#1570): the starting themes\' Account › Orders and Blog, which asked for a "Load more" click, now load as the end of the list nears the screen, as their product grids already did (#1385), and an older store\'s product grid does the same.',
+      'No theme has to change, and core\'s API is unchanged: the new views call `useLoadOnScroll` with the lists\' own `loadMore`, `more`, `loadingMore` and `loadMoreFailed` (`useOrders()` and `useBlog()`). To match in a theme of your own, call it from a component that is always on screen with the list (a component that returns early while loading never attaches its observer), put the returned ref on an element after the list, draw a "Loading more…" line while `loadingMore`, a message with a Try again button while `loadMoreFailed`, and nothing at the end; announce the number shown with a polite `role="status"` line, and remove the Load more button.',
+      'The codemods rewrite the Orders and Blog views of a Baseline, Classic or category theme that still has the shipped markup, add `loadingMore` and `spinner` to its shop styles and the new words (`shop.orders.loadingMore`, `shop.orders.showing`, `pages.blog.loadingMore`, `pages.blog.showing`) to its content, and turn the "Load more" button of a product grid from before core 0.12.0 into the scroll-loading one (`MoreOnScroll`). A theme that changed those views is not rewritten whole: the migration agent applies the steps above to what the codemods did not.',
+    ].join('\n'),
+    codemods: [
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/AccountView.tsx'],
+        find: 'useAccount, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress }',
+        replace: 'useAccount, useLoadOnScroll, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type OrdersPage, type SavedAddress }',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/AccountView.tsx'],
+        find: '/** D1\'s Orders: a row per order, newest first, each opening its page; Load more brings the next 20. */\nconst Orders = () => {',
+        replace: '/** Infinite scroll: the next 20 orders load as the end of the list nears the screen; a page that didn\'t load offers a retry. */\nconst MoreOrders = ({ page }: { page: OrdersPage }) => {\n  const { t } = useStorefront()\n  const end = useLoadOnScroll({ fetchMore: page.loadMore, hasMore: page.more, loadingMore: page.loadingMore, moreFailed: page.loadMoreFailed })\n  return (\n    <div ref={end} className={shop.more}>\n      <p className={shop.srOnly} role="status">\n        {t(\'shop.orders.showing\', { count: page.orders.length })}\n      </p>\n      {page.loadingMore ? (\n        <p className={shop.loadingMore} role="status">\n          <span className={shop.loadingSpinner} aria-hidden="true" />\n          {t(\'shop.orders.loadingMore\')}\n        </p>\n      ) : null}\n      {page.loadMoreFailed ? (\n        <>\n          <p className={styles.alert} role="alert">\n            {t(\'shop.orders.loadMoreFailed\')}\n          </p>\n          <button type="button" className={shop.secondary} onClick={() => void page.loadMore()}>\n            {t(\'shop.listing.retry\')}\n          </button>\n        </>\n      ) : null}\n    </div>\n  )\n}\n\n/** D1\'s Orders: a row per order, newest first, each opening its page; the next 20 load as the end of the list nears the screen. */\nconst Orders = () => {',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/AccountView.tsx'],
+        find: '      {page.loadMoreFailed ? (\n        <p className={styles.alert} role="alert">\n          {t(\'shop.orders.loadMoreFailed\')}\n        </p>\n      ) : null}\n      {page.more ? (\n        <button type="button" className={shop.secondary} disabled={page.loadingMore} aria-busy={page.loadingMore} onClick={() => void page.loadMore()}>\n          {t(\'shop.orders.loadMore\')}\n        </button>\n      ) : null}\n',
+        replace: '      <MoreOrders page={page} />\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/BlogView.tsx'],
+        find: 'import { Image, Link, useBlog, useStorefront }',
+        replace: 'import { Image, Link, useBlog, useLoadOnScroll, useStorefront }',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/BlogView.tsx'],
+        find: '  const blog = useBlog()\n  return (\n',
+        replace: '  const blog = useBlog()\n  const end = useLoadOnScroll({ fetchMore: blog.loadMore, hasMore: blog.more, loadingMore: blog.loadingMore, moreFailed: blog.loadMoreFailed })\n  return (\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/BlogView.tsx'],
+        find: '      {blog.loadMoreFailed ? (\n        <p className={shop.lead} role="alert">\n          {t(\'pages.blog.olderFailed\')}\n        </p>\n      ) : null}\n      {blog.more ? (\n        <button type="button" className={shop.secondary} disabled={blog.loadingMore} onClick={() => void blog.loadMore()}>\n          {t(\'pages.blog.older\')}\n        </button>\n      ) : null}\n',
+        replace: '      <div ref={end} className={shop.more}>\n        {blog.posts.length > 0 ? (\n          <p className={shop.srOnly} role="status">\n            {t(\'pages.blog.showing\', { count: blog.posts.length })}\n          </p>\n        ) : null}\n        {blog.loadingMore ? (\n          <p className={shop.loadingMore} role="status">\n            <span className={shop.loadingSpinner} aria-hidden="true" />\n            {t(\'pages.blog.loadingMore\')}\n          </p>\n        ) : null}\n        {blog.loadMoreFailed ? (\n          <>\n            <p className={shop.lead} role="alert">\n              {t(\'pages.blog.olderFailed\')}\n            </p>\n            <button type="button" className={shop.secondary} onClick={() => void blog.loadMore()}>\n              {t(\'shop.listing.retry\')}\n            </button>\n          </>\n        ) : null}\n      </div>\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/styles/shop.tsx'],
+        find: '  listingFiltered: clsx(\'grid gap-y-4 gap-x-4 grid-cols-[minmax(0,1fr)] min-[900px]:gap-y-8 min-[900px]:gap-x-8 min-[900px]:grid-cols-[220px_minmax(0,1fr)]\'),\n  more: clsx(\'pt-3 flex flex-col items-center gap-y-2 gap-x-2\'),\n',
+        replace: '  listingFiltered: clsx(\'grid gap-y-4 gap-x-4 grid-cols-[minmax(0,1fr)] min-[900px]:gap-y-8 min-[900px]:gap-x-8 min-[900px]:grid-cols-[220px_minmax(0,1fr)]\'),\n  loadingMore: clsx(\'m-0 inline-flex items-center text-muted text-[14px]\'),\n  loadingSpinner: clsx(\'inline-block w-4 h-4 mr-2 border-2 border-current border-r-transparent rounded-full animate-spin motion-reduce:hidden\'),\n  more: clsx(\'pt-3 flex flex-col items-center gap-y-2 gap-x-2\'),\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/styles/shop.module.css'],
+        find: '@media (prefers-reduced-motion: reduce) {\n  .spinner {\n    display: none;\n  }\n}\n\n.noticeActions .primary,',
+        replace: '@media (prefers-reduced-motion: reduce) {\n  .spinner {\n    display: none;\n  }\n}\n\n.loadingMore {\n  display: flex;\n  align-items: center;\n  margin: 0;\n  color: var(--muted);\n  font-size: 14px;\n}\n\n.loadingSpinner {\n  display: inline-block;\n  width: 16px;\n  height: 16px;\n  margin-right: 8px;\n  border: 2px solid currentColor;\n  border-right-color: transparent;\n  border-radius: 50%;\n  animation: spin 0.8s linear infinite;\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .loadingSpinner {\n    display: none;\n  }\n}\n\n.noticeActions .primary,',
+      },
+      {
+        kind: 'replace',
+        paths: ['content/*/shop.json'],
+        find: '    "loadMoreFailed": "We couldn\'t load more orders. Try again."\n  }',
+        replace: '    "loadMoreFailed": "We couldn\'t load more orders. Try again.",\n    "loadingMore": "Loading more orders…",\n    "showing": "{count, plural, one {Showing # order} other {Showing # orders}}"\n  }',
+      },
+      {
+        kind: 'replace',
+        paths: ['content/*/pages.json'],
+        find: '    "olderFailed": "We couldn\'t load older posts. Try again."\n  }',
+        replace: '    "olderFailed": "We couldn\'t load older posts. Try again.",\n    "loadingMore": "Loading more posts…",\n    "showing": "{count, plural, one {Showing # post} other {Showing # posts}}"\n  }',
+      },
+      {
+        kind: 'replace',
+        paths: ['content/*/shop.json'],
+        find: '    "more": "Load more",\n    "moreFailed": "More products didn\'t load. Try again."',
+        replace: '    "loadingMore": "Loading more products…",\n    "moreFailed": "More products didn\'t load. Try again."',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/Filters.tsx'],
+        find: 'Select, useStorefront, type Listing',
+        replace: 'Select, useLoadOnScroll, useStorefront, type Listing',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/Filters.tsx'],
+        find: '/** "Load more" through fetchMore, and the retry when the next page didn\'t load. */\nexport const LoadMore = ({ listing }: { listing: Listing }) => {\n  const { t } = useStorefront()\n  if (!listing.hasMore) return null\n  return (\n    <div className={styles.more}>\n      {listing.moreFailed ? (\n        <p className={styles.muted} role="alert">\n          {t(\'shop.listing.moreFailed\')}\n        </p>\n      ) : null}\n      <button type="button" className={styles.secondary} disabled={listing.loadingMore} onClick={listing.fetchMore}>\n        {t(\'shop.listing.more\')}\n      </button>\n    </div>\n  )\n}\n',
+        replace: '/** Infinite scroll: the next page loads as the end of the grid nears the screen, and a page that didn\'t load offers a retry. */\nexport const MoreOnScroll = ({ listing }: { listing: Listing }) => {\n  const { t } = useStorefront()\n  const end = useLoadOnScroll(listing)\n  return (\n    <div ref={end} className={styles.more}>\n      {listing.loadingMore ? (\n        <p className={styles.muted} role="status">\n          {t(\'shop.listing.loadingMore\')}\n        </p>\n      ) : null}\n      {listing.moreFailed ? (\n        <>\n          <p className={styles.muted} role="alert">\n            {t(\'shop.listing.moreFailed\')}\n          </p>\n          <button type="button" className={styles.secondary} onClick={listing.fetchMore}>\n            {t(\'shop.listing.retry\')}\n          </button>\n        </>\n      ) : null}\n    </div>\n  )\n}\n',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ListingResults.tsx'],
+        find: 'import { FilterPanel, ListingBar, LoadMore } from \'./interactive/Filters\'',
+        replace: 'import { FilterPanel, ListingBar, MoreOnScroll } from \'./interactive/Filters\'',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/ListingResults.tsx'],
+        find: '<LoadMore listing={listing} />',
+        replace: '<MoreOnScroll listing={listing} />',
+      },
+    ],
+  },
   // #1606: 2.0.0 ships #1490's sign-in pages and #1598's loading skeletons, with both cards' codemods.
   {
     version: '2.0.0',

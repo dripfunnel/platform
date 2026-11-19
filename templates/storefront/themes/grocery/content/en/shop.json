@@ -230,7 +230,9 @@
     "emptyLead": "When you place an order, it shows here.",
     "items": "{count, plural, one {# item} other {# items}}",
     "loadMore": "Load more",
-    "loadMoreFailed": "We couldn't load more orders. Try again."
+    "loadMoreFailed": "We couldn't load more orders. Try again.",
+    "loadingMore": "Loading more orders…",
+    "showing": "{count, plural, one {Showing # order} other {Showing # orders}}"
   },
   "account": {
     "preview": "Signing in works on the live shop. On this preview you check out as a guest.",
