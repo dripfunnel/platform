@@ -72,10 +72,13 @@ export const Home = () => {
     // The locale check is a hint: when its read fails the checklist leaves it out rather than Home failing.
     const localeFacts = seat.owner ? loadLocaleFacts().catch(() => null) : Promise.resolve(null)
     const category = seat.owner ? loadShopCategory().catch(() => null) : Promise.resolve(null)
-    const storefront = seat.site ? loadStorefrontSetup().catch(() => null) : Promise.resolve(null)
-    void Promise.all([loadHome(), localeFacts, category, storefront]).then(
-      ([home, locale, choice, site]) => {
-        if (mine === latest.current) setView(home ? { kind: 'ready', home, locale, category: choice, storefront: site } : { kind: 'error' })
+    void Promise.all([loadHome(), localeFacts, category]).then(
+      async ([home, locale, choice]) => {
+        if (mine !== latest.current) return
+        if (!home) return setView({ kind: 'error' })
+        // The storefront step lives in the checklist, so the site is read only while the checklist can show.
+        const site = seat.site && home.setup && !home.hasOrders ? await loadStorefrontSetup().catch(() => null) : null
+        if (mine === latest.current) setView({ kind: 'ready', home, locale, category: choice, storefront: site })
       },
       () => {
         if (mine === latest.current) setView({ kind: 'error' })

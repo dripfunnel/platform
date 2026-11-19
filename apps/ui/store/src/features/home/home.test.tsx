@@ -432,6 +432,64 @@ describe('the Home screen', () => {
       expect((step().getByRole('button', { name: sf.creatingCta }) as HTMLButtonElement).disabled).toBe(true)
     })
 
+    describe('while the site is being made', () => {
+      // Only the 5 s interval is faked, so the screen's own promises and settle() still run.
+      beforeEach(() => void vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }))
+      afterEach(() => void vi.useRealTimers())
+      const tick = () => act(async () => void vi.advanceTimersByTime(5_000))
+
+      it('reads the site again every 5 s and offers Open storefront once it is made', async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        brandApi.loadOverview.mockResolvedValueOnce(overview('creating')).mockResolvedValueOnce(overview('creating')).mockResolvedValue(overview('not_published'))
+        await show(siteOwner)
+        expect(step().getByRole('status').textContent).toBe(sf.creating)
+        await tick()
+        await settle()
+        expect(brandApi.loadOverview).toHaveBeenCalledTimes(3)
+        expect(href(sf.open)).toBe('/storefront?view=studio')
+      })
+
+      it('never lets an older answer replace a newer one', async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        let answerFirst: (o: ReturnType<typeof overview>) => void = () => undefined
+        brandApi.loadOverview
+          .mockResolvedValueOnce(overview('creating'))
+          .mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)))
+          .mockResolvedValue(overview('not_published'))
+        await show(siteOwner)
+        await tick()
+        await settle()
+        expect(href(sf.open)).toBe('/storefront?view=studio')
+        await act(async () => answerFirst(overview('creating')))
+        await settle()
+        // The stale "creating" is dropped: the step stays open and no new round of reads starts.
+        expect(href(sf.open)).toBe('/storefront?view=studio')
+        expect(brandApi.loadOverview).toHaveBeenCalledTimes(3)
+      })
+
+      it('keeps waiting quietly when a read fails, and moves on with the next', async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        brandApi.loadOverview.mockResolvedValueOnce(overview('creating')).mockRejectedValueOnce(new Error('down')).mockResolvedValue(overview('not_published'))
+        await show(siteOwner)
+        expect(step().getByRole('status').textContent).toBe(sf.creating)
+        expect(step().queryByRole('alert')).toBeNull()
+        await tick()
+        await settle()
+        expect(href(sf.open)).toBe('/storefront?view=studio')
+      })
+    })
+
+    it('never reads the site once the store has an order, as the checklist is gone', async () => {
+      api.loadHome.mockResolvedValue(busy)
+      await show(siteOwner)
+      expect(screen.queryByText(sf.label)).toBeNull()
+      expect(brandApi.loadOverview).not.toHaveBeenCalled()
+      expect(brandApi.loadTemplates).not.toHaveBeenCalled()
+    })
+
     it('starts from Classic when the category has no template of its own', async () => {
       api.loadHome.mockResolvedValue(ready)
       brandApi.loadOverview.mockResolvedValue(overview('not_started'))
