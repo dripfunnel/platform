@@ -62,7 +62,7 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       await page.getByRole('button', { name: 'Continue' }).click()
       await page.getByLabel('Full name').waitFor()
       await page.getByLabel('Full name').fill('Maya Chen')
-      await page.getByLabel('Address', { exact: true }).fill('88 Neil Ave')
+      await page.getByRole('textbox', { name: 'Address', exact: true }).fill('88 Neil Ave')
       await page.getByLabel('City').fill('Columbus')
       await page.getByLabel('State').fill('OH')
       await page.getByLabel('ZIP code').fill('43215')
