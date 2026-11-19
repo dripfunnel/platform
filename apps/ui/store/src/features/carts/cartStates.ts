@@ -1,4 +1,5 @@
 import type { AbandonedCart, CartCounts, CartDetail, CartSummary, ReminderSettings } from '../../api/carts'
+import type { WishlistCounts, WishlistReminderSettings, WishlistShopper, WishlistShopperDetail, WishlistSummary } from '../../api/wishlists'
 
 // Abandoned carts' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly,
 // denied, and youSend (a plan where the merchant sends reminders).
@@ -57,9 +58,70 @@ export const sampleDetail = (id: string): CartDetail | null => {
       { versionId: 'v1', name: cart.firstItem?.split(' · ')[0] ?? 'Linen kurta', versionName: cart.firstItem?.split(' · ')[1] ?? null, quantity: 1, lineTotal: inr('249900'), available: 3, outOfStock: false },
       ...(cart.lineCount > 1 ? [{ versionId: 'v2', name: 'Block-print dupatta', versionName: null, quantity: 1, lineTotal: inr('168100'), available: 0, outOfStock: true }] : []),
     ],
+    wishlist: cart.customerId ? [{ productId: 'w1', name: 'Chanderi stole', photoUrl: null, price: inr('129900') }] : [],
     reminders: cart.remindersSent ? [{ id: 'r1', position: 1, channel: 'email', state: 'sent', skipReason: null, sentBy: null, code: null, queuedAt: ago(121), sentAt: ago(120), clickedAt: ago(100) }] : [],
   }
 }
+
+const wishers: WishlistShopper[] = harness
+  ? [
+      { customerId: 'c1', name: 'Ananya Rao', email: 'ananya.rao@mail.com', items: 2, lastSavedAt: ago(90), firstProduct: 'Chanderi stole', remindersSent: 1, lastSentAt: ago(30), stoppedAt: null, stoppedBy: null, stoppedNote: null },
+      { customerId: 'c2', name: 'Rohan Mehta', email: 'rohan@mail.com', items: 1, lastSavedAt: ago(2900), firstProduct: 'Linen kurta', remindersSent: 0, lastSentAt: null, stoppedAt: ago(600), stoppedBy: 'Asha Nair', stoppedNote: 'Ordering by phone' },
+    ]
+  : []
+
+/** The Wishlists tab's shoppers: none for ?state=empty or noMatch (its search then finds nothing), no sample while loading, failing or denied. */
+export const sampleWishlists = (state: CartState | null): WishlistShopper[] | null => {
+  if (!harness || !state || state === 'loading' || state === 'error' || state === 'denied') return null
+  return state === 'empty' ? [] : wishers
+}
+
+/** The Wishlists tab's tab counts and tiles, from the same shoppers. */
+export const sampleWishlistCounts = (rows: readonly WishlistShopper[]): WishlistCounts => ({
+  waiting: rows.filter((s) => !s.stoppedAt && s.remindersSent === 0).length,
+  reminded: rows.filter((s) => !s.stoppedAt && s.remindersSent > 0).length,
+  stopped: rows.filter((s) => s.stoppedAt).length,
+})
+export const sampleWishlistSummary = (rows: readonly WishlistShopper[]): WishlistSummary => ({
+  days: 14,
+  shoppers: rows.length,
+  products: rows.reduce((n, s) => n + s.items, 0),
+  reachable: rows.filter((s) => s.email && !s.stoppedAt).length,
+  remindersSent: rows.reduce((n, s) => n + s.remindersSent, 0),
+  reminded: rows.filter((s) => s.remindersSent > 0).length,
+})
+
+/** The harness's wishlist page: the shopper's list as the row says. */
+export const sampleWishlistShopper = (id: string): WishlistShopperDetail | null => {
+  const shopper = wishers.find((s) => s.customerId === id)
+  if (!shopper) return null
+  return {
+    shopper,
+    items: [
+      { productId: 'w1', name: shopper.firstProduct, photoUrl: null, inStock: true, price: inr('129900') },
+      ...(shopper.items > 1 ? [{ productId: 'w2', name: 'Block-print dupatta', photoUrl: null, inStock: false, price: inr('168100') }] : []),
+    ],
+    reminders: shopper.remindersSent ? [{ id: 'r1', position: 1, state: 'sent', skipReason: null, sentBy: null, queuedAt: ago(31), sentAt: ago(30) }] : [],
+  }
+}
+
+/** The Wishlists Reminders tab as a new store on the plan's automatic has it, or on "you send" for ?state=youSend. */
+export const sampleWishlistSettings = (state: CartState | null): WishlistReminderSettings | null =>
+  harness && state && state !== 'loading' && state !== 'error' && state !== 'denied'
+    ? {
+        enabled: state !== 'youSend',
+        skipOutOfStock: true,
+        quietHours: true,
+        weeklyCap: true,
+        revision: null,
+        level: state === 'youSend' ? 'youSend' : 'automatic',
+        steps: [
+          { position: 1, enabled: true, delayMinutes: 1440, subject: 'Still thinking about these?', body: 'The things you saved are still here.' },
+          { position: 2, enabled: true, delayMinutes: 2880, subject: 'Your wishlist is waiting', body: 'Take another look when you have a minute.' },
+          { position: 3, enabled: false, delayMinutes: 4320, subject: 'Last look at your wishlist', body: 'Popular items sell out.' },
+        ],
+      }
+    : null
 
 /** The Reminders tab as a new store on the plan's automatic has it, or on "you send" for ?state=youSend. */
 export const sampleSettings = (state: CartState | null): ReminderSettings | null =>
