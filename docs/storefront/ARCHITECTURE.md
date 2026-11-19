@@ -904,10 +904,9 @@ their own cards.
     after the last change, the newest answer winning, and the total shows its answer ("Working out
     the total…" until one comes); nothing is worked out in the browser. Confirm asks a fresh quote
     of exactly the answers on screen and decides on it: its `problems` show under their questions
-    (announced) and nothing is added; a request that never reached the shop says "We couldn't add
-    it. Try again.", and each refusal the cart gives (full, no longer available, expired, too many
-    new carts, an invalid choice or quantity, other choices already in the cart) says its own reason
-    in plain words (#1574). A file removed while still uploading is never kept, and files the modal
+    (announced) and nothing is added; a quote that can't be had, or a refusal, says so plainly
+    ("We couldn't add it. Try again.", "Your cart already has this with other choices. Edit that item
+    in your cart instead."). A file removed while still uploading is never kept, and files the modal
     uploaded are taken back on Cancel or Escape.
   - **Edit on the cart line**: `useCart()` lines carry `lineId`, `slug`, `answers` (each question's
     label, the choices with their quantities, the text, the files' ids and kinds (no file name is
