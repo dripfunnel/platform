@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { fill, locale, messages } from '../../messages'
-import { frameMap, type FoundAddress, type FrameLoader, type FrameMap, type Pin } from './mapFrame'
+import { frameMap, type FoundAddress, type FrameLoader, type FrameMap, type Pin, type Suggestion } from './mapFrame'
 
 const words = messages.warehouses.map
 
@@ -13,27 +13,47 @@ const keyed: Record<string, [number, number]> = { ArrowUp: [1, 0], ArrowDown: [-
 const clamp = (value: number, limit: number) => Math.min(limit, Math.max(-limit, value))
 const coordinate = new Intl.NumberFormat(locale, { minimumFractionDigits: 5, maximumFractionDigits: 5 })
 
+// Typing waits for a pause before asking for places; the keyboard waits for the pin to rest before asking for its address.
+const typedWaitMs = 250
+const nudgedWaitMs = 500
+const shortestSearch = 3
+
 /** "Pin at 18.52040, 73.85670": the pin as text, for the list, the form and screen readers. */
 export const pinText = (p: Pin) => fill(words.at, { latitude: coordinate.format(p.latitude), longitude: coordinate.format(p.longitude) })
 
-type Phase = 'closed' | 'loading' | 'open' | 'failed'
+type Phase = 'loading' | 'open' | 'failed'
+type Search = 'idle' | 'none' | 'unavailable'
+
+type Inputs = { source: string | null; value: Pin | null; onChange: (pin: Pin | null, found?: FoundAddress | null) => void; address: string; country: string; near: string }
 
 /**
- * "Pin on map" in the location form (#815): the map loads only when it's opened, in #814's frame on the hooks host, and the
- * control hides itself without a frame or once the map fails, so the form works as before.
+ * The location form's map (#815, #1609): it loads with the form, in #814's frame on the hooks host, and is unavailable without
+ * a frame or once the map fails, so the form works as before. The pin and the address follow each other from the map:
+ * dropping the pin fills the address fields, and choosing a place found in the search box above the map moves the pin.
  */
-export const PinOnMap = ({ source, value, onChange, address, country, near }: { source: string | null; value: Pin | null; onChange: (pin: Pin | null, found?: FoundAddress | null) => void; address: string; country: string; near: string }) => {
-  const id = useId()
-  const [phase, setPhase] = useState<Phase>('closed')
-  const [confirming, setConfirming] = useState(false)
+export const usePlaceMap = ({ source, value, onChange, address, country, near }: Inputs) => {
+  const [phase, setPhase] = useState<Phase>('loading')
   const [map, setMap] = useState<FrameMap | null>(null)
-  const [draft, setDraft] = useState<Pin | null>(null)
+  const [at, setAt] = useState<Pin | null>(null)
   const [locating, setLocating] = useState<'idle' | 'busy' | 'failed'>('idle')
+  const [query, setQuery] = useState('')
+  const [options, setOptions] = useState<Suggestion[]>([])
+  const [active, setActive] = useState(-1)
+  const [search, setSearch] = useState<Search>('idle')
   const area = useRef<HTMLDivElement>(null)
-  const opener = useRef<HTMLButtonElement>(null)
+  const latest = useRef({ onChange, value, address, country, near })
+  const touched = useRef(false)
+  const addressTurn = useRef(0)
+  const addressTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const typedTurn = useRef(0)
+  const typedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
-    if (phase !== 'loading' || !source || !area.current) return
+    latest.current = { onChange, value, address, country, near }
+  })
+
+  useEffect(() => {
+    if (!source || !area.current) return
     const stop = new AbortController()
     const framed = new URL(source)
     framed.searchParams.set('language', locale)
@@ -47,37 +67,67 @@ export const PinOnMap = ({ source, value, onChange, address, country, near }: { 
       },
     )
     return () => stop.abort()
-  }, [phase, source])
+  }, [source])
 
   useEffect(() => (map ? () => map.close() : undefined), [map])
+  useEffect(
+    () => () => {
+      addressTurn.current += 1
+      typedTurn.current += 1
+      clearTimeout(addressTimer.current)
+      clearTimeout(typedTimer.current)
+    },
+    [],
+  )
+
+  /** The pin is set at once; the address there is asked for after `wait`, and used only if the pin hasn't moved since (#1609). */
+  const pinAt = (pin: Pin, wait: number) => {
+    touched.current = true
+    setAt(pin)
+    latest.current.onChange(pin)
+    const mine = ++addressTurn.current
+    clearTimeout(addressTimer.current)
+    addressTimer.current = setTimeout(async () => {
+      const found = (await map?.place(pin)) ?? null
+      if (mine === addressTurn.current && found) latest.current.onChange(pin, found)
+    }, wait)
+  }
+  const dropped = (to: Pin) => pinAt(to, 0)
 
   useEffect(() => {
     if (phase !== 'open' || !map) return
     let gone = false
     void (async () => {
+      const now = latest.current
       // The pin, else the address, else its country's (or the default location's) middle; the world only when nothing names a place.
-      const start = value ?? (address || country ? await map.find(address, country) : null) ?? (country || near ? await map.find('', country || near) : null)
+      const start = now.value ?? (now.address || now.country ? await map.find(now.address, now.country) : null) ?? (now.country || now.near ? await map.find('', now.country || now.near) : null)
       if (gone) return
-      const at = start ?? { latitude: 0, longitude: 0 }
-      setDraft(at)
-      map.draw(at, start ? 17 : 2, setDraft)
-      area.current?.focus()
+      const first = start ?? { latitude: 0, longitude: 0 }
+      setAt(first)
+      map.draw(first, start ? 17 : 2, dropped)
+      // A new location with nothing to go on opens at the map's best guess, then moves to where the browser says the person is, unless they have already moved the pin.
+      if (now.value || now.address || now.country || !navigator.geolocation) return
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          if (gone || touched.current || latest.current.value) return
+          const here = { latitude: coords.latitude, longitude: coords.longitude }
+          setAt(here)
+          map.draw(here, 17, dropped)
+        },
+        () => undefined,
+        { timeout: 10_000, maximumAge: 60_000 },
+      )
     })()
     return () => {
       gone = true
     }
-    // Drawn once per opening, from the pin or the address as it was when the map was opened.
+    // Drawn once, from the pin or the address as it was when the form opened (#1609); the pin is saved only once it is set by hand.
   }, [phase, map])
 
-  if (!source || phase === 'failed') return null
-
-  const close = () => {
-    setMap(null)
-    setDraft(null)
-    setLocating('idle')
-    setConfirming(false)
-    setPhase('closed')
-    opener.current?.focus()
+  const showAt = (pin: Pin) => {
+    setAt(pin)
+    map?.draw(pin, 17, dropped)
+    pinAt(pin, 0)
   }
   // The browser's own location, asked for only when the button is pressed; no Google request.
   const geolocation = typeof navigator === 'undefined' ? undefined : navigator.geolocation
@@ -86,97 +136,158 @@ export const PinOnMap = ({ source, value, onChange, address, country, near }: { 
     setLocating('busy')
     geolocation.getCurrentPosition(
       ({ coords }) => {
-        const here = { latitude: coords.latitude, longitude: coords.longitude }
         setLocating('idle')
-        setDraft(here)
-        // Drawn afresh at street level: a move would keep the world view the map may have opened on.
-        map?.draw(here, 17, setDraft)
+        showAt({ latitude: coords.latitude, longitude: coords.longitude })
       },
       () => setLocating('failed'),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     )
   }
   const nudge = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') return close()
     const by = keyed[e.key]
-    if (!by || !draft) return
+    if (!by || !at) return
     e.preventDefault()
     const far = e.shiftKey ? 10 : 1
-    const next = { latitude: clamp(draft.latitude + by[0] * step * far, 90), longitude: clamp(draft.longitude + by[1] * step * far, 180) }
-    setDraft(next)
+    const next = { latitude: clamp(at.latitude + by[0] * step * far, 90), longitude: clamp(at.longitude + by[1] * step * far, 180) }
     map?.move(next)
+    pinAt(next, nudgedWaitMs)
+  }
+  const remove = () => {
+    addressTurn.current += 1
+    clearTimeout(addressTimer.current)
+    onChange(null)
   }
 
+  /** What the search box now says: places matching it are asked for after a pause in typing. */
+  const typed = (text: string) => {
+    setQuery(text)
+    setActive(-1)
+    clearTimeout(typedTimer.current)
+    const mine = ++typedTurn.current
+    if (!map || text.trim().length < shortestSearch) {
+      setOptions([])
+      setSearch('idle')
+      return
+    }
+    typedTimer.current = setTimeout(async () => {
+      const inCountry = /^[A-Z]{2}$/.test(latest.current.country) ? latest.current.country : ''
+      const found = await map.suggest(text.trim(), inCountry)
+      if (mine !== typedTurn.current) return
+      setOptions(found ?? [])
+      setSearch(found === null ? 'unavailable' : found.length === 0 ? 'none' : 'idle')
+    }, typedWaitMs)
+  }
+  const choose = async (option: Suggestion) => {
+    typedTurn.current += 1
+    setOptions([])
+    setActive(-1)
+    setQuery(option.secondary ? `${option.main}, ${option.secondary}` : option.main)
+    const found = (await map?.select(option.id)) ?? null
+    if (found) showAt(found)
+    else setSearch('unavailable')
+  }
+  const searchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (options.length === 0) return
+      e.preventDefault()
+      setActive((i) => (e.key === 'ArrowDown' ? (i + 1) % options.length : (i <= 0 ? options.length : i) - 1))
+    } else if (e.key === 'Enter') {
+      const option = options[active]
+      if (!option) return
+      e.preventDefault()
+      void choose(option)
+    } else if (e.key === 'Escape' && options.length > 0) {
+      e.preventDefault()
+      setOptions([])
+      setActive(-1)
+    }
+  }
+
+  return { available: Boolean(source) && phase !== 'failed', phase, area, value, locating, geolocation, locate, nudge, remove, query, options, active, search, typed, choose, searchKey }
+}
+
+export type PlaceMap = ReturnType<typeof usePlaceMap>
+
+/** The search box and the map, above the name and the address fields, with the pin's own controls. */
+export const PinOnMap = ({ pinMap }: { pinMap: PlaceMap }) => {
+  const id = useId()
+  const { available, phase, area, value, locating, geolocation, query, options, active, search } = pinMap
+  if (!available) return null
   return (
     <div className="df-places-pin">
-      <div className="df-places-pin-row">
-        <button ref={opener} type="button" className="df-button" aria-expanded={phase !== 'closed'} aria-controls={phase === 'open' ? id : undefined} disabled={phase === 'loading'} onClick={phase === 'closed' ? () => setPhase('loading') : close}>
-          {value ? words.move : words.open}
-        </button>
-        {value && phase === 'closed' && (
-          <button type="button" className="df-places-link" onClick={() => onChange(null)}>
-            {words.remove}
-          </button>
+      <div className="df-places-field df-places-search">
+        <label htmlFor={`${id}-search`}>{words.search}</label>
+        <input
+          id={`${id}-search`}
+          role="combobox"
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={options.length > 0}
+          aria-controls={`${id}-options`}
+          aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined}
+          placeholder={words.searchPlaceholder}
+          maxLength={200}
+          disabled={phase !== 'open'}
+          value={query}
+          onChange={(e) => pinMap.typed(e.target.value)}
+          onKeyDown={pinMap.searchKey}
+        />
+        {options.length > 0 && (
+          <ul id={`${id}-options`} role="listbox" aria-label={words.suggestions} className="df-places-options">
+            {options.map((o, i) => (
+              <li
+                key={o.id}
+                id={`${id}-option-${i}`}
+                role="option"
+                aria-selected={i === active}
+                className="df-places-option"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  void pinMap.choose(o)
+                }}
+              >
+                <strong>{o.main}</strong> {o.secondary && <span>{o.secondary}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {search !== 'idle' && (
+          <p className="df-places-hint" role="status">
+            {search === 'none' ? words.searchNone : words.searchUnavailable}
+          </p>
         )}
       </div>
-      {value && <p className="df-places-hint">{fill(words.pinned, { at: pinText(value) })}</p>}
-      {phase === 'loading' && (
-        <p className="df-places-hint" role="status">
-          {words.loading}
+      <div className="df-places-map">
+        <p className="df-places-hint" id={`${id}-help`}>
+          {words.help}
         </p>
-      )}
-      {phase !== 'closed' && (
-        <div id={id} className="df-places-map" role="group" aria-labelledby={`${id}-title`} aria-describedby={`${id}-help`}>
-          <p id={`${id}-title`} className="df-places-map-title">
-            {words.title}
+        <div ref={area} className="df-places-map-area" tabIndex={0} role="application" aria-label={words.title} aria-describedby={`${id}-help ${id}-at`} onKeyDown={pinMap.nudge} />
+        {phase === 'loading' && (
+          <p className="df-places-hint" role="status">
+            {words.loading}
           </p>
-          <p id={`${id}-help`} className="df-places-hint">
-            {words.help}
+        )}
+        {locating === 'failed' && (
+          <p className="df-places-problem" role="alert">
+            {words.locateFailed}
           </p>
-          <div ref={area} className="df-places-map-area" tabIndex={0} role="application" aria-label={words.title} aria-describedby={`${id}-at`} onKeyDown={nudge} />
+        )}
+        <div className="df-places-pin-row">
           {geolocation && (
-            <div>
-              <button type="button" className="df-button" disabled={!draft || locating === 'busy'} aria-busy={locating === 'busy'} onClick={locate}>
-                {words.locate}
-              </button>
-            </div>
-          )}
-          {locating === 'busy' && (
-            <p className="df-places-hint" role="status">
-              {words.locating}
-            </p>
-          )}
-          {locating === 'failed' && (
-            <p className="df-places-problem" role="alert">
-              {words.locateFailed}
-            </p>
-          )}
-          <p id={`${id}-at`} className="df-places-hint" aria-live="polite">
-            {draft ? pinText(draft) : words.loading}
-          </p>
-          <div className="df-places-actions">
-            <button type="button" className="df-button" onClick={close}>
-              {words.cancel}
+            <button type="button" className="df-button" disabled={phase !== 'open' || locating === 'busy'} aria-busy={locating === 'busy'} onClick={pinMap.locate}>
+              {locating === 'busy' ? words.locating : words.locate}
             </button>
-            <button
-              type="button"
-              className="df-button df-button--primary"
-              disabled={!draft || confirming}
-              aria-busy={confirming}
-              onClick={async () => {
-                if (!draft) return close()
-                setConfirming(true)
-                // The address at the pin replaces the typed one (decided on #815); none found leaves it as typed.
-                const found = map ? await map.place(draft) : null
-                onChange(draft, found)
-                close()
-              }}
-            >
-              {words.confirm}
+          )}
+          {value && (
+            <button type="button" className="df-places-link" onClick={pinMap.remove}>
+              {words.remove}
             </button>
-          </div>
+          )}
         </div>
-      )}
+        <p id={`${id}-at`} className="df-places-hint" aria-live="polite">
+          {value ? fill(words.pinned, { at: pinText(value) }) : words.unpinned}
+        </p>
+      </div>
     </div>
   )
 }
