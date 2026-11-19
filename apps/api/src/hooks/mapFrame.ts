@@ -30,8 +30,8 @@ const frameCsp = (local: boolean) =>
 const page = (key: string) =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Map</title><style>html,body,#map{margin:0;height:100%}</style></head><body><div id="map"></div><script src="${mapFrameScriptPath}" data-key="${key}"></script></body></html>`
 
-// The frame's half of the messages core's pinFrame.ts sends: hello, draw, move, find and place; it answers ready or failed,
-// moved, and answer. It replies only to the window that framed it, at the origin its first message came from.
+// The frame's half of the messages core's pinFrame.ts sends: hello, draw, move, find, place, suggest and select; it answers
+// ready or failed, moved, and answer. It replies only to the window that framed it, at the origin its first message came from.
 const script = `(() => {
   const key = document.currentScript.dataset.key
   // The store page's language, so Google names streets and states in it, never its own guess.
@@ -41,6 +41,10 @@ const script = `(() => {
   let failed = false
   let map = null
   let marker = null
+  // One Places session per search, from the first suggestion to the place chosen (it bills as one).
+  let session = null
+  let predictions = new Map()
+  const lang = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(language || '') ? language : null
   const send = (message) => { if (parentOrigin) parent.postMessage(message, parentOrigin) }
   const fail = () => { failed = true; send({ type: 'failed' }) }
   const finite = (n, limit) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= limit
@@ -68,8 +72,9 @@ const script = `(() => {
   window.__dfMapsReady = async () => {
     try {
       const maps = window.google.maps
-      const [{ Map }, { Marker }, { Geocoder }] = await Promise.all([maps.importLibrary('maps'), maps.importLibrary('marker'), maps.importLibrary('geocoding')])
-      lib = { Map, Marker, geocoder: new Geocoder() }
+      // Without Places (the API not enabled on the key) the map still works; search then answers nothing.
+      const [{ Map }, { Marker }, { Geocoder }, places] = await Promise.all([maps.importLibrary('maps'), maps.importLibrary('marker'), maps.importLibrary('geocoding'), maps.importLibrary('places').catch(() => ({}))])
+      lib = { Map, Marker, geocoder: new Geocoder(), AutocompleteSuggestion: places.AutocompleteSuggestion, AutocompleteSessionToken: places.AutocompleteSessionToken }
       send({ type: 'ready' })
     } catch {
       fail()
@@ -88,13 +93,20 @@ const script = `(() => {
     if (m.type === 'draw') {
       const at = latLng(m.at)
       if (!at) return
-      map = new lib.Map(document.getElementById('map'), { center: at, zoom: finite(m.zoom, 22) ? m.zoom : 17, disableDefaultUI: true, zoomControl: true, keyboardShortcuts: false })
+      const zoom = finite(m.zoom, 22) ? m.zoom : 17
+      if (map) {
+        map.setCenter(at)
+        map.setZoom(zoom)
+        marker.setPosition(at)
+        return
+      }
+      map = new lib.Map(document.getElementById('map'), { center: at, zoom, disableDefaultUI: true, zoomControl: true, keyboardShortcuts: false })
       marker = new lib.Marker({ map, position: at, draggable: true })
       marker.addListener('dragend', () => { const p = marker.getPosition(); if (p) send({ type: 'moved', at: pinOf(p) }) })
     } else if (m.type === 'move') {
       const at = latLng(m.at)
       if (at && marker) { marker.setPosition(at); map.panTo(at) }
-    } else if ((m.type === 'find' || m.type === 'place') && Number.isInteger(m.id)) {
+    } else if ((m.type === 'find' || m.type === 'place' || m.type === 'suggest' || m.type === 'select') && Number.isInteger(m.id)) {
       let result = null
       try {
         if (m.type === 'find' && typeof m.country === 'string' && /^([A-Z]{2})?$/.test(m.country) && typeof m.address === 'string' && m.address.length <= 500 && (m.address || m.country)) {
@@ -105,6 +117,20 @@ const script = `(() => {
         } else if (m.type === 'place' && latLng(m.at)) {
           const found = await lib.geocoder.geocode({ location: latLng(m.at) })
           result = placeOf(found.results)
+        } else if (m.type === 'suggest' && typeof m.text === 'string' && m.text.trim().length >= 2 && m.text.length <= 200 && typeof m.country === 'string' && /^([A-Z]{2})?$/.test(m.country) && lib.AutocompleteSuggestion) {
+          session = session || new lib.AutocompleteSessionToken()
+          const found = await lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: m.text, sessionToken: session, ...(m.country ? { includedRegionCodes: [m.country.toLowerCase()] } : {}), ...(lang ? { language: lang } : {}) })
+          predictions = new Map()
+          result = found.suggestions.filter((x) => x.placePrediction).slice(0, 5).map((x) => {
+            const p = x.placePrediction
+            predictions.set(p.placeId, p)
+            return { id: p.placeId, main: p.mainText ? p.mainText.text : p.text.text, secondary: p.secondaryText ? p.secondaryText.text : '' }
+          })
+        } else if (m.type === 'select' && typeof m.choice === 'string' && predictions.has(m.choice)) {
+          const place = predictions.get(m.choice).toPlace()
+          await place.fetchFields({ fields: ['location'] })
+          session = null
+          result = place.location ? pinOf(place.location) : null
         }
       } catch {
         result = null
@@ -113,7 +139,7 @@ const script = `(() => {
     }
   })
   const s = document.createElement('script')
-  s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&loading=async&callback=__dfMapsReady' + (/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(language || '') ? '&language=' + language : '')
+  s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&loading=async&callback=__dfMapsReady' + (lang ? '&language=' + lang : '')
   s.async = true
   s.onerror = fail
   document.head.appendChild(s)
