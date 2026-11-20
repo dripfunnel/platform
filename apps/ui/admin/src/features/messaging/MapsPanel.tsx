@@ -12,8 +12,12 @@ const look: Record<NonNullable<PlatformMaps['key']>['status'], { tone: StatusTon
   rejected: { tone: 'danger', icon: 'cross' },
 }
 
-/** The map page's host in this environment, where the key's website restriction must allow: admin.<host> becomes hooks.<host>. */
-export const hooksHostFor = (hostname: string): string => (/^admin\./.test(hostname) ? hostname.replace(/^admin\./, 'hooks.') : `hooks.${hostname}`)
+/** The map page's host in this environment, where the key's website restriction must allow: `admin.x` becomes `hooks.x` and `dev-admin.x` becomes `dev-hooks.x`. */
+export const hooksHostFor = (hostname: string): string => {
+  const host = hostname.toLowerCase()
+  const swapped = host.replace(/^([^.]*?)admin(?=\.)/, '$1hooks')
+  return swapped !== host ? swapped : `hooks.${host}`
+}
 
 const HowToGetKey = ({ hooksHost }: { hooksHost: string }) => {
   const referrer = `https://${hooksHost}/*`

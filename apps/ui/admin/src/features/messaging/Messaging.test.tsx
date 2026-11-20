@@ -178,6 +178,8 @@ describe('Google Maps', () => {
   it('names the map page’s host from the console’s own', () => {
     expect(hooksHostFor('admin.dripfunnel.ai')).toBe('hooks.dripfunnel.ai')
     expect(hooksHostFor('admin.dripfunnel.dev')).toBe('hooks.dripfunnel.dev')
+    expect(hooksHostFor('dev-admin.actuateminds.com')).toBe('dev-hooks.actuateminds.com')
+    expect(hooksHostFor('Admin.DripFunnel.ai')).toBe('hooks.dripfunnel.ai')
     expect(hooksHostFor('admin.localhost')).toBe('hooks.localhost')
     expect(hooksHostFor('localhost')).toBe('hooks.localhost')
   })
