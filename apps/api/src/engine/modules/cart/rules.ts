@@ -53,7 +53,7 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
 }
 
 /** A delivery address checkout can go on with: the one the courier calls needs its phone (#1584), which a cart set before that may lack. */
-export const isDeliveryAddress = (address: CartAddress | null): boolean => address !== null && address.phone !== null
+export const isDeliveryAddress = (address: CartAddress | null): boolean => Boolean(address?.phone)
 
 export const cleanContact = (input: { email?: string | null | undefined; phone?: string | null | undefined }): { email: string | null; phone: string | null } | null => {
   const typed = input.email?.trim() || null

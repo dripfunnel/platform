@@ -56,6 +56,15 @@ describe('the delivery phone in the address form', () => {
     expect(document.activeElement).toBe(phone())
   })
 
+  it('leaves focus alone when a field above the phone is wrong too, so the first problem is not skipped', async () => {
+    show()
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: '' } })
+    screen.getByRole('button', { name: 'Continue' }).focus()
+    await press()
+    expect(screen.getAllByRole('alert').map((a) => a.textContent)).toContain('Add a phone number for delivery.')
+    expect(document.activeElement).not.toBe(phone())
+  })
+
   it('says a wrong number is wrong, as before, and shows no message once it is right', async () => {
     show()
     fireEvent.change(phone(), { target: { value: '12' } })

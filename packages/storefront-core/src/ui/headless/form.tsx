@@ -178,9 +178,9 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
   const names = new Intl.DisplayNames([locale], { type: 'region' })
   const problem = (p: FieldProblem | undefined) => (p === 'required' ? t('address.required') : p === 'invalid' ? t('address.invalid') : null)
   const root = useRef<HTMLDivElement>(null)
-  // A missing phone is the one problem the shopper can't see from the form alone, so it takes focus on every refused Continue.
+  // The phone is the last field, so it takes focus on a refused Continue only when nothing above it is wrong.
   useEffect(() => {
-    if (errors.phone === 'required') root.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus()
+    if (errors.phone === 'required' && Object.keys(errors).length === 1) root.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus()
   }, [errors])
   const countryField = (
     <span className={fieldClassName}>

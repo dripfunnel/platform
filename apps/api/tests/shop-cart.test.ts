@@ -127,6 +127,15 @@ describe('a guest’s cart', () => {
     expect((await gql(`mutation { checkout { readyToPay } }`, { token })).data?.['checkout']).toEqual({ readyToPay: true })
   })
 
+  it('is not ready to pay when the delivery address it already holds has no phone (a cart from before the phone was required)', async () => {
+    const held = (await gql('{ cart { id } }', { token })).data?.['cart'] as { id: string }
+    await db.sql`update "order" set shipping_address = shipping_address - 'phone' where id = ${held.id}`
+    const refused = await gql('mutation { checkout { id } }', { token })
+    expect([refused.code, refused.problems]).toEqual(['NOT_READY', ['NO_ADDRESS']])
+    await mutate(token, 'setShippingAddress', '(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" })')
+    expect((await gql(`mutation { checkout { readyToPay } }`, { token })).data?.['checkout']).toEqual({ readyToPay: true })
+  })
+
   it('quotes no delivery before an address when the store has no country, never inventing one', async () => {
     await db.sql`update store set country = null where id = ${stores.other}`
     try {
