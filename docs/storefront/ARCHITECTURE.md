@@ -238,7 +238,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   then makes a new one.
 - **Buy now** opens checkout with the version in the active cart, since the active order is the only cart: it adds the version, unless the cart already holds it, in which case the line keeps its quantity and nothing is added (#1359). A gift card is added every time.
 - **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
-  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too, and given
+  checkout" until chosen, "Free" at zero; at checkout a flat rate that is on shows its price from the first step, else "Next step", #1521), tax and the total, worded by core; at checkout it lists the lines too, and given
   a placed `order` (the order's page) its lines and what was charged. While a
   change waits for its answer it says "Updating the totals…", since its amounts are still the last answer's.
 - **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer
