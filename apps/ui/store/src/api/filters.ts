@@ -49,6 +49,9 @@ export const saveFilter = async (input: FilterInput): Promise<string> =>
     )
   ).saveFacet
 
+/** The filter, its values on every product and the automatic-collection rules that use them; refused as an ApiError (NOT_FOUND once it is gone). */
+export const deleteFilter = async (id: string): Promise<boolean> => (await query('mutation D($id: ID!) { deleteFacet(id: $id) }', z.object({ deleteFacet: z.boolean() }), { id })).deleteFacet
+
 /** Look-alike values into one; answers how many values went. */
 export const mergeValues = async (into: string, from: string[]): Promise<number> =>
   (await query('mutation M($into: ID!, $from: [ID!]!) { mergeFacetValues(into: $into, from: $from) }', z.object({ mergeFacetValues: z.number().int() }), { into, from })).mergeFacetValues

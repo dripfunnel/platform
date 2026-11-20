@@ -3064,7 +3064,21 @@
         "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
       },
       "usesNone": "No products use it yet.",
-      "deleteNone": "Nothing uses it."
+      "deleteNone": "Nothing uses it.",
+      "deleteFilter": "Delete",
+      "deleteFilterLabel": "Delete the {name} filter",
+      "deleteFilterTitle": "Delete the {name} filter?",
+      "deleteFilterTagged": {
+        "one": "1 product tag goes.",
+        "other": "{count} product tags go."
+      },
+      "deleteFilterCollections": {
+        "one": "1 automatic collection uses it and will change.",
+        "other": "{count} automatic collections use it and will change."
+      },
+      "deleteFilterNone": "Nothing uses it yet.",
+      "deleteFilterConfirm": "Delete",
+      "filterDeleted": "{name} deleted"
     },
     "menus": {
       "title": "Main menu",
