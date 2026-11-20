@@ -291,7 +291,7 @@ export const setCollectionImage = async (tx: ScopedSql, storeId: string, id: str
   )[0]?.name ?? null
 
 /** At the revision the editor read; null when it was stale or isn't here. */
-export const updateCollection =async (tx: ScopedSql, storeId: string, id: string, revision: number, f: CollectionFields, now: Date): Promise<string | null> => {
+export const updateCollection = async (tx: ScopedSql, storeId: string, id: string, revision: number, f: CollectionFields, now: Date): Promise<string | null> => {
   const { value, slug } = await slugFree(tx, f.slug, async (slug, sp) =>
     (
       await sp`
