@@ -562,6 +562,10 @@
       "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
       "retry": "Try again"
     },
+    "suspended": {
+      "title": "{store} is suspended",
+      "switch": "Choose another store"
+    },
     "stockOnly": "stock only"
   },
   "nav": {
