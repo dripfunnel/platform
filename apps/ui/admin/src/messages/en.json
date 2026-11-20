@@ -435,11 +435,11 @@
       },
       "dfMessaging": {
         "title": "DripFunnel’s messaging",
-        "note": "Lets this partner use DripFunnel’s own SMS and WhatsApp accounts (Platform settings › Messaging) where it has no account of its own, or where it picks DripFunnel’s. Its own On or Off still decides whether each channel is used.",
+        "note": "Lets this partner use DripFunnel’s own SMS and WhatsApp accounts and its Google Maps key (Platform settings › Messaging) where it has none of its own, or where it picks DripFunnel’s. Its own On or Off still decides whether SMS and WhatsApp are used; a store shows a map only while a key is Working.",
         "loading": "Loading DripFunnel’s messaging",
         "error": "These switches didn’t load. Nothing was changed.",
         "retry": "Try again",
-        "channels": { "sms": "DripFunnel’s SMS", "whatsapp": "DripFunnel’s WhatsApp" },
+        "channels": { "sms": "DripFunnel’s SMS", "whatsapp": "DripFunnel’s WhatsApp", "maps": "DripFunnel’s Google Maps key" },
         "on": "On",
         "off": "Off",
         "turnOn": "Turn on",
@@ -457,6 +457,12 @@
             "onConsequence": "{name} may send codes and cart reminders from DripFunnel’s WhatsApp number, if it has no account of its own or chooses DripFunnel’s, while DripFunnel’s WhatsApp is on. Its own WhatsApp switch still decides whether WhatsApp is used.",
             "offTitle": "Turn off DripFunnel’s WhatsApp for {name}?",
             "offConsequence": "If {name} sends through DripFunnel’s WhatsApp, it goes back to its own account or, without one, to no WhatsApp: sign-up stops asking for a number, codes are texted and cart reminders go by email. Its choice is kept for when you turn it on again."
+          },
+          "maps": {
+            "onTitle": "Turn on DripFunnel’s Google Maps key for {name}?",
+            "onConsequence": "{name}’s stores will use DripFunnel’s Google Maps key for the warehouse map and the shopper’s address pin: wherever {name} has no key of its own, or picks DripFunnel’s, while DripFunnel’s key is on and Working. Where there is no usable key a store shows no map.",
+            "offTitle": "Turn off DripFunnel’s Google Maps key for {name}?",
+            "offConsequence": "Each store of {name} that uses DripFunnel’s key goes back to {name}’s own key or, without one, shows no map: the warehouse form and the address pin become plain fields. Its choice is kept for when you turn it on again."
           }
         },
         "reason": { "label": "Reason", "hint": "Recorded in the activity log, which this partner sees too." },
@@ -2884,6 +2890,99 @@
         "rejected": "{provider} rejected DripFunnel’s account.",
         "route": "Route saved.",
         "removed": "DripFunnel’s {provider} account removed."
+      }
+    },
+    "maps": {
+      "title": "Google Maps",
+      "note": "DripFunnel’s Google Maps browser key, for the warehouse form’s map and the shopper’s address pin. While it’s on, partners you switch DripFunnel’s Google Maps key on for may use it where they have no key of their own, or choose it. A store shows a map only while a key is Working.",
+      "none": "No key yet. Stores of partners with no key of their own show no map until one is set up and turned on.",
+      "on": "On",
+      "off": "Off",
+      "keyLabel": "Browser key",
+      "statusLabel": "Status",
+      "statuses": { "ok": "Working", "untested": "Not checked", "rejected": "Rejected" },
+      "lastChecked": "Last checked {when}",
+      "neverChecked": "Never checked",
+      "rejectedNote": "Google rejected this key at its last check, so it stays off. Fix it in Google Cloud and Test it again, or replace it.",
+      "needsWorking": "Turning on needs the key Working at its last check.",
+      "restrictedNote": "A key restricted to websites can’t be fully tested from here: Test shows only that Google knows the key. Open a store’s warehouse form to see the map itself.",
+      "setUp": "Set up Google Maps key",
+      "replace": "Replace key",
+      "test": "Test",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "remove": "Remove",
+      "dialog": {
+        "title": "DripFunnel’s Google Maps key",
+        "consequence": "Checked with Google before saving, with one Geocoding request. Nothing is charged to a store. A key you replace stops working here at once.",
+        "save": "Check and save",
+        "show": "Show key",
+        "hide": "Hide key",
+        "keyHint": "Starts with AIza. It is public in the map’s page by design: what protects it is the website and API restrictions in the steps above. It is never shown again here, only its last 4 characters.",
+        "incomplete": "Paste the whole key: it starts with AIza and has 39 characters, letters, digits, dashes and underscores."
+      },
+      "onDialog": {
+        "title": "Turn on DripFunnel’s Google Maps key?",
+        "consequence": "Partners you switched DripFunnel’s Google Maps key on for can use it: those with no key of their own, or that choose it, show the warehouse map and the address pin in their stores.",
+        "confirm": "Turn on"
+      },
+      "offDialog": {
+        "title": "Turn off DripFunnel’s Google Maps key?",
+        "consequence": "Every partner using it goes back to its own key or, without one, to no map: the warehouse form and the address pin become plain fields. Their choices are kept for when it’s on again.",
+        "confirm": "Turn off"
+      },
+      "removeDialog": {
+        "title": "Remove DripFunnel’s Google Maps key?",
+        "consequence": "The key is deleted, and DripFunnel’s Google Maps key goes off: every partner using it goes back to its own key or, without one, to no map.",
+        "confirm": "Remove key"
+      },
+      "problems": {
+        "invalid": "Google doesn’t know this key. Check you copied all of it.",
+        "geocoding_disabled": "The Geocoding API isn’t enabled for this key’s project, or the key’s API restriction leaves it out. Enable it, and allow all three APIs on the key.",
+        "restricted": "Google refused this key from here: a restriction on it doesn’t allow the request. Check the key’s website and API restrictions.",
+        "other": "Google refused this key without a reason this console knows. Check it in Google Cloud."
+      },
+      "refusals": {
+        "INVALID_INPUT": "That isn’t a Google API key, or the reason is missing.",
+        "KEY_REJECTED": "Google rejected the key.",
+        "PROVIDER_UNAVAILABLE": "Google couldn’t be reached. Nothing was changed. Try again in a minute.",
+        "NOT_CONFIGURED": "Secrets can’t be stored on this server: CREDENTIALS_KEK isn’t set. Nothing was changed.",
+        "NOT_FOUND": "There’s no Google Maps key saved any more. Reload the page.",
+        "NO_KEY": "Set up a key and test it Working before turning it on."
+      },
+      "toasts": {
+        "saved": "DripFunnel’s Google Maps key saved.",
+        "ok": "The key works: Google answered it.",
+        "rejected": "Google rejected DripFunnel’s Google Maps key.",
+        "rejectedOff": "Google rejected DripFunnel’s Google Maps key, so it is off.",
+        "on": "DripFunnel’s Google Maps key is on.",
+        "off": "DripFunnel’s Google Maps key is off.",
+        "removed": "DripFunnel’s Google Maps key removed."
+      },
+      "howTo": {
+        "summary": "How to get a key",
+        "intro": "Do this in Google Cloud once for each environment, then paste the key into Set up.",
+        "steps": [
+          "Create a Google Cloud project, or pick one, and turn billing on for it.",
+          "Enable three APIs: Maps JavaScript API, Geocoding API and Places API (New), not the older “Places API”.",
+          "Go to Credentials, Create credentials, API key.",
+          "Under Application restrictions choose Websites, and allow {referrer}",
+          "Under API restrictions choose Restrict key, and allow those three APIs only. Set a daily quota.",
+          "Paste the key into Set up Google Maps key here, and press Test."
+        ],
+        "hostNote": "This environment’s map page is on {host}.",
+        "referrerUnknown": "https://hooks.<this environment’s host>/*",
+        "rolesTitle": "Roles you need in Google Cloud",
+        "roles": [
+          "Service Usage Admin, to enable the APIs.",
+          "API Keys Admin, to create the key and restrict it."
+        ],
+        "linksTitle": "Google’s pages",
+        "links": [
+          { "label": "Get an API key", "href": "https://developers.google.com/maps/documentation/javascript/get-api-key" },
+          { "label": "API key security best practices", "href": "https://developers.google.com/maps/api-security-best-practices" },
+          { "label": "Roles for enabling APIs", "href": "https://cloud.google.com/service-usage/docs/access-control" }
+        ]
       }
     },
     "whatsapp": {

@@ -383,6 +383,7 @@ type Mutation {
   recheckMerchantDomain(storeId: ID!): PartnerDomainResult
   recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  removeMapsKey: PartnerMapsResult
   removePartnerAiKey(id: ID!): PartnerAiKeyResult
   removePartnerDomain(kind: String!): PartnerDomainResult
   removeSmsAccount(provider: String!): PartnerSmsResult
@@ -395,11 +396,13 @@ type Mutation {
   retryProvisioningStep(id: ID!): StoreActionResult
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
+  saveMapsKey(key: String!): PartnerMapsResult
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
   saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
   saveWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, templates: [PartnerWhatsAppTemplateInput!]!): PartnerWhatsAppResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
+  setMapsChoice(account: String!): PartnerMapsResult
   setPaymentMethod(token: String!): BillingResult
   setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
@@ -411,6 +414,7 @@ type Mutation {
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
+  testMapsKey: PartnerMapsResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
   testSmsAccount(provider: String!): PartnerSmsResult
   testWhatsAppAccount: PartnerWhatsAppResult
@@ -637,6 +641,26 @@ type PartnerInvoice {
 type PartnerInvoicesPage {
   items: [PartnerInvoice!]
   pageInfo: BillingPageInfo
+}
+
+type PartnerMaps {
+  choice: String
+  dripfunnel: Boolean
+  key: PartnerMapsKey
+  sender: String
+}
+
+type PartnerMapsKey {
+  hint: String
+  lastTestedAt: String
+  status: String
+}
+
+type PartnerMapsResult {
+  ok: Boolean
+  problem: String
+  reason: String
+  status: String
 }
 
 type PartnerPayout {
@@ -955,6 +979,7 @@ type Query {
   dashboard(range: String!): PartnerDashboard
   downloadInvoice(id: ID!): InvoiceLink
   health: String
+  mapsKey: PartnerMaps
   me: Me
   merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
   merchantPayments(after: String, before: String, first: Int): MerchantPaymentsPage

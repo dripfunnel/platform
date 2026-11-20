@@ -562,6 +562,10 @@
       "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
       "retry": "Try again"
     },
+    "suspended": {
+      "title": "{store} is suspended",
+      "switch": "Choose another store"
+    },
     "stockOnly": "stock only"
   },
   "nav": {
@@ -3064,7 +3068,21 @@
         "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
       },
       "usesNone": "No products use it yet.",
-      "deleteNone": "Nothing uses it."
+      "deleteNone": "Nothing uses it.",
+      "deleteFilter": "Delete",
+      "deleteFilterLabel": "Delete the {name} filter",
+      "deleteFilterTitle": "Delete the {name} filter?",
+      "deleteFilterTagged": {
+        "one": "1 product tag goes.",
+        "other": "{count} product tags go."
+      },
+      "deleteFilterCollections": {
+        "one": "1 automatic collection uses it and will change.",
+        "other": "{count} automatic collections use it and will change."
+      },
+      "deleteFilterNone": "Nothing uses it yet.",
+      "deleteFilterConfirm": "Delete",
+      "filterDeleted": "{name} deleted"
     },
     "menus": {
       "title": "Main menu",
@@ -8281,6 +8299,12 @@
       "demo": "View demo ↗",
       "use": "Use this template",
       "scratch": "Start from scratch",
+      "filter": {
+        "label": "Category",
+        "all": "All categories",
+        "placeholder": "Search or pick one",
+        "noMatches": "No category matches that."
+      },
       "choosing": "Starting…",
       "emptyTitle": "No templates yet",
       "emptyBody": "There are no templates to pick from yet. Try again later.",

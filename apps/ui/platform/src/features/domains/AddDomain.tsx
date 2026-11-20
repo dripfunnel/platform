@@ -5,7 +5,7 @@ import { useId, type FormEvent } from 'react'
 import type { Address, DomainKind } from '../../api/domains'
 import { fill, messages, plural } from '../../messages'
 import { exampleFor, helpText } from './addDomainRules'
-import { statusPill } from './domainLook'
+import { statusPill } from '../common/hostStatusLook'
 import { RecordTable } from './RecordTable'
 import './domains.css'
 

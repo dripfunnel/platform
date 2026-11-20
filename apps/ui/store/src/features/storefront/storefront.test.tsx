@@ -549,6 +549,32 @@ describe('the overview’s rolled-back notice', () => {
 })
 
 describe('the template gallery', () => {
+  it('filters by a searchable category, starting on All, and shows "Start from scratch" only under All', async () => {
+    const tagged = (t: StorefrontTemplate, tag: string) => ({ ...t, tag })
+    api.loadOverview.mockResolvedValue(notStarted)
+    api.loadTemplates.mockResolvedValue([tagged(templates[0] as StorefrontTemplate, 'Blank'), tagged(templates[1] as StorefrontTemplate, 'Fashion & apparel'), tagged(templates[2] as StorefrontTemplate, 'Food & grocery'), tagged(templates[3] as StorefrontTemplate, 'Food & grocery')])
+    await show()
+    const field = screen.getByRole('combobox', { name: g.filter.label })
+    expect((field as HTMLInputElement).value).toBe(g.filter.all)
+    const names = () => screen.getAllByRole('listitem').map((li) => li.querySelector('h2')?.textContent)
+    expect(names()).toEqual(['Start from scratch', 'Linen', 'Bloom', 'Market'])
+    fireEvent.focus(field)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([g.filter.all, 'Fashion & apparel', 'Food & grocery'])
+    fireEvent.change(field, { target: { value: 'groc' } })
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Food & grocery'])
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Food & grocery' }))
+    expect(names()).toEqual(['Bloom', 'Market'])
+    fireEvent.focus(field)
+    fireEvent.mouseDown(screen.getByRole('option', { name: g.filter.all }))
+    expect(names()).toEqual(['Start from scratch', 'Linen', 'Bloom', 'Market'])
+  })
+
+  it('shows no category filter while every template shares one', async () => {
+    api.loadOverview.mockResolvedValue(notStarted)
+    await show()
+    expect(screen.queryByRole('combobox', { name: g.filter.label })).toBeNull()
+  })
+
   it('comes first for the Owner and starts the site with the template picked, without asking about words', async () => {
     api.loadOverview.mockResolvedValueOnce(notStarted).mockResolvedValue({ status: 'creating', template: 'bloom', live: null, draft: null, lastPublish: null, publishing: null })
     api.chooseTemplate.mockResolvedValue('creating')

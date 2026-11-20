@@ -27,7 +27,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', (_: string, init: RequestInit) => {
     const body = String(init.body)
     sent.push(body)
-    const data = body.includes('whatsAppAccount')
+    const data = body.includes('mapsKey')
+      ? { mapsKey: { key: null, dripfunnel: false, choice: null, sender: null } }
+      : body.includes('whatsAppAccount')
       ? { whatsAppAccount: { enabled: false, account: null, dripfunnel: false, choice: null, sender: null } }
       : body.includes('smsAccounts')
       ? { smsAccounts: { enabled: true, dripfunnel: false, routes: [{ route: 'india', provider: null, dripfunnel: false, sender: null }, { route: 'rest', provider: null, dripfunnel: false, sender: null }], accounts: [] } }
@@ -74,12 +76,13 @@ describe('Integrations', () => {
     expect(await screen.findByText(words.empty)).toBeTruthy()
   })
 
-  it('gives an impersonation WhatsApp’s and SMS’s reasons, and reads neither', async () => {
+  it('gives an impersonation WhatsApp’s, SMS’s and Google Maps’ reasons, and reads none', async () => {
     render(<IntegrationsTab mayChange actingAs="Ana" onToast={vi.fn()} />)
     await screen.findByText('Production')
     expect(screen.getByText(fill(words.whatsapp.blocked, { user: 'Ana' }))).toBeTruthy()
     expect(screen.getByText(fill(words.sms.blocked, { user: 'Ana' }))).toBeTruthy()
-    expect(sent.some((b) => b.includes('whatsAppAccount') || b.includes('smsAccounts'))).toBe(false)
+    expect(screen.getByText(fill(words.maps.blocked, { user: 'Ana' }))).toBeTruthy()
+    expect(sent.some((b) => b.includes('whatsAppAccount') || b.includes('smsAccounts') || b.includes('mapsKey'))).toBe(false)
   })
 
   it('offers no change to a role that may not', async () => {

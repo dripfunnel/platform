@@ -782,6 +782,30 @@ describe('the backstop itself', () => {
     const seen = await withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx<{ id: string }[]>`select id from partner where df_sms_enabled = false`)
     expect(seen.map((r) => r.id)).toEqual([t.partnerA])
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_whatsapp_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`update partner set df_maps_enabled = true where id = ${t.partnerA}`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('lets a partner write its own Google Maps choice and key only, never another partner’s (#1612)', async () => {
+    const credential = (partnerId: string) =>
+      db.sql`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, created_by) values (${partnerId}, 'maps', 'google', 'Google Maps', 'sealed', 'AIza…TEST', 'ok', 'test')`
+    await credential(t.partnerA)
+    await credential(t.partnerB)
+    const as = (partnerId: string) => partnerCaller(partnerId)
+
+    // maps_account: A's own row changes, B's is not touched.
+    const own = await withScope(db.sql, as(t.partnerA), (tx) => tx`update partner set maps_account = 'own' where id = ${t.partnerA} returning id`)
+    expect(own.map((r) => r.id)).toEqual([t.partnerA])
+    const theirs = await withScope(db.sql, as(t.partnerA), (tx) => tx`update partner set maps_account = 'dripfunnel' where id = ${t.partnerB} returning id`)
+    expect(theirs).toEqual([])
+    expect((await db.sql<{ maps_account: string | null }[]>`select maps_account from partner where id = ${t.partnerB}`)[0]?.maps_account).toBeNull()
+
+    // The key: A sees, changes and removes its own row only.
+    const seen = await withScope(db.sql, as(t.partnerA), (tx) => tx<{ partner_id: string }[]>`select partner_id from partner_credential where kind = 'maps'`)
+    expect(seen.map((r) => r.partner_id)).toEqual([t.partnerA])
+    expect(await withScope(db.sql, as(t.partnerA), (tx) => tx`update partner_credential set status = 'rejected' where partner_id = ${t.partnerB} and kind = 'maps' returning id`)).toEqual([])
+    expect(await withScope(db.sql, as(t.partnerA), (tx) => tx`delete from partner_credential where partner_id = ${t.partnerB} and kind = 'maps' returning id`)).toEqual([])
+    await expect(withScope(db.sql, as(t.partnerA), (tx) => tx`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, created_by) values (${t.partnerB}, 'maps', 'google', 'Google Maps', 'x', 'AIza…EVIL', 'ok', 'test')`)).rejects.toThrow(/row-level security|permission denied|violates/i)
+    expect((await db.sql<{ status: string }[]>`select status from partner_credential where partner_id = ${t.partnerB} and kind = 'maps'`).map((r) => r.status)).toEqual(['ok'])
   })
 
   it('reserves app_definer: no login, and the one role that bypasses RLS', async () => {

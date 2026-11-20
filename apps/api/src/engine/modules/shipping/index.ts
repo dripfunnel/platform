@@ -136,6 +136,8 @@ export interface DeliveryQuote {
   currency: string
   /** False when the address is outside where the store delivers: only collection in person is offered. */
   deliverable: boolean
+  /** Whether the flat rate is switched on, not just kept as the courier's fallback: only then is it shown before an address (#1521). */
+  flatRate: boolean
   options: DeliveryOption[]
 }
 
@@ -522,7 +524,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     if (!loaded.store || (request.marketId !== null && !loaded.market)) return { ok: false, reason: 'NOT_FOUND' }
     if (loaded.versions.length !== request.lines.length) return { ok: false, reason: 'NOT_FOUND' }
     // Never saved: nothing to offer yet, which checkout tells the shopper.
-    if (!settings?.saved_at) return { ok: true, value: { currency, deliverable: false, options: [] } }
+    if (!settings?.saved_at) return { ok: true, value: { currency, deliverable: false, flatRate: false, options: [] } }
     const deliverable = settings.area_mode === 'everywhere' || loaded.listed
     const weightGrams = request.lines.reduce((sum, l) => sum + (loaded.versions.find((v) => v.id === l.versionId.toLowerCase())?.weight_grams ?? defaultWeightGrams) * l.quantity, 0)
     const delivering = deliverable && settings.own_delivery_enabled ? await ownDeliveryFor(request, currency) : null
@@ -553,7 +555,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       subtotal: request.subtotal,
       own: delivering,
     })
-    return { ok: true, value: { currency, deliverable, options } }
+    return { ok: true, value: { currency, deliverable, flatRate: settings.flat_enabled, options } }
   }
 
   return { settings, save, replaceArea, connect, usePricing, disconnect, saveOptions, test, quote, quoteIn }

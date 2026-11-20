@@ -137,7 +137,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.remove {
+.remove,
+.edit {
   min-height: 44px;
   padding: 0 4px;
   border: 0;
@@ -148,6 +149,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+.edit {
+  align-self: flex-start;
+  padding: 0;
 }
 
 .side {

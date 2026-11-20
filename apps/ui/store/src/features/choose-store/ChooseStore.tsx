@@ -99,6 +99,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
   if (view.kind === 'none')
     return (
       <AuthFrame panel="in" title={words.none.title} sub={words.none.body} icon={{ name: 'alert', tone: 'warning' }}>
+        <Secondary onClick={() => void navigate({ to: '/stores/new' })}>{words.create.action}</Secondary>
         <Foot text={words.notYou} link={words.none.signOut} onClick={leave} />
       </AuthFrame>
     )

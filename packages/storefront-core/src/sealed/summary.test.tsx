@@ -36,6 +36,14 @@ describe('OrderSummary', () => {
     expect(renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)).toContain('Next step')
   })
 
+  it('shows a flat delivery price on the first step as the engine carries it, Free for nothing, and Next step with none (#1521)', () => {
+    const at = (shipping: ReturnType<typeof usd> | null) => renderToStaticMarkup(<OrderSummary cart={shownCart(cartOf([line('v1', 1)], { shipping, total: usd(1000) }))} at="checkout" locale="en-US" t={t} />)
+    expect(at(usd(500))).toContain('$5.00')
+    expect(at(usd(500))).not.toContain('Next step')
+    expect(at(usd(0))).toContain('Free')
+    expect(at(null)).toContain('Next step')
+  })
+
   it('says the totals are being updated while a change waits, and lists a line that can’t be bought', () => {
     const cart = { ...shownCart(cartOf([line('v1', 2)])), pending: true }
     const html = renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)

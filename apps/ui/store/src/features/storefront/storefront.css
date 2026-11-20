@@ -1256,3 +1256,12 @@
 .df-assets-delete {
   color: var(--df-color-danger);
 }
+
+.df-sf-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
