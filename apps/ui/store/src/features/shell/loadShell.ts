@@ -27,6 +27,13 @@ export interface ShellData {
 
 const shellFields: readonly string[] = ['me', 'myStores', 'storeState', 'navBadges']
 
+/** The acting store is suspended (SAAS §4.2): the shell says so and whom to contact, never the load error. */
+export class StoreSuspended extends Error {
+  constructor(readonly store: string, readonly otherStores: boolean, readonly inSupport: boolean) {
+    super('The store is suspended.')
+  }
+}
+
 /**
  * The signed-in person in their acting store, before any screen loads (ACCESS.md §4). Nobody signed
  * in goes to sign-in and comes back; no acting store, or one no longer held, goes to the chooser.
@@ -64,6 +71,10 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
   const support = isApiError(storesRefused, 'BLOCKED_FOR_SUPPORT')
   const failed = [refused('storeState'), support ? undefined : storesRefused].filter((e): e is ApiError => e !== undefined)
   if (failed.some((e) => isApiError(e, 'FORBIDDEN'))) throw forget()
+  if (isApiError(refused('storeState'), 'STORE_SUSPENDED')) {
+    const others = data.myStores ? data.myStores.nodes.length > 1 || data.myStores.pageInfo.hasNextPage : false
+    throw new StoreSuspended(me.acting.store.name, others, support)
+  }
   if (failed[0]) throw failed[0]
   if (support) return { me, acting: me.acting, seat, stores: [], state: data.storeState, badges: badgesOf(data.navBadges), inSupport: true }
   if (!data.myStores) throw new ApiError('EMPTY_RESPONSE', 'The API returned no stores.')

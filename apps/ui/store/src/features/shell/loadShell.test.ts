@@ -94,9 +94,19 @@ describe('loadShell', () => {
     expect(actingStore()).toBeNull()
   })
 
+  it('says the store is suspended, keeping it, and whether the person has another store to choose', async () => {
+    answer({ me: me(acting), myStores: onePage }, { storeState: 'STORE_SUSPENDED', navBadges: 'STORE_SUSPENDED' })
+    expect(await outcome()).toMatchObject({ error: { store: 'Kesari Threads', otherStores: false, inSupport: false } })
+    answer({ me: me(acting), myStores: { nodes: [choice('s1'), choice('s2')], pageInfo: { hasNextPage: false, endCursor: null } } }, { storeState: 'STORE_SUSPENDED' })
+    expect(await outcome()).toMatchObject({ error: { otherStores: true } })
+    answer({ me: me(acting) }, { myStores: 'BLOCKED_FOR_SUPPORT', storeState: 'STORE_SUSPENDED' })
+    expect(await outcome()).toMatchObject({ error: { otherStores: false, inSupport: true } })
+    expect(actingStore()).toEqual({ storeId: 's1', supplierId: null })
+  })
+
   it('lets any other refusal of the store’s reads through to the error screen, keeping the store', async () => {
-    answer({ me: me(acting), myStores: onePage }, { storeState: 'STORE_SUSPENDED' })
-    expect(await outcome()).toMatchObject({ error: { code: 'STORE_SUSPENDED' } })
+    answer({ me: me(acting), myStores: onePage }, { storeState: 'INTERNAL' })
+    expect(await outcome()).toMatchObject({ error: { code: 'INTERNAL' } })
     answer({ me: me(acting) }, { myStores: 'UNAUTHENTICATED' })
     expect(await outcome()).toMatchObject({ error: { code: 'UNAUTHENTICATED' } })
     expect(actingStore()).toEqual({ storeId: 's1', supplierId: null })
