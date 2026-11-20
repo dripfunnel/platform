@@ -699,6 +699,7 @@ type PartnerUser {
 
 type PlatformMaps {
   enabled: Boolean
+  hooksHost: String
   key: PlatformMapsKeyAccount
 }
 

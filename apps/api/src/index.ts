@@ -551,6 +551,7 @@ const handleAdmin = async (
             checkSms: config.SMS_LOCAL === '1' ? localSmsCheck : checkSmsAccount,
             checkWhatsApp: config.SMS_LOCAL === '1' ? localWhatsAppCheck : checkMetaWhatsAppAccount,
             checkMaps: mapsCheckFor(config),
+            hooksHost: config.HOOKS_HOST,
             now: () => new Date(),
           })
         : null,
