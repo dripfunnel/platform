@@ -1094,7 +1094,13 @@ type StoreCategorySampleCollection {
 
 type StoreCategorySampleCollectionDetail {
   name: String
+  photo: StoreCategorySamplePhoto
   products: Int
+}
+
+input StoreCategorySampleCollectionPhotoInput {
+  name: String!
+  photo: String!
 }
 
 type StoreCategorySampleDetail {
@@ -1105,6 +1111,7 @@ type StoreCategorySampleDetail {
 }
 
 input StoreCategorySampleInput {
+  collectionPhotos: [StoreCategorySampleCollectionPhotoInput!]
   collections: [String!]!
   currency: String!
   products: [StoreCategorySampleProductInput!]!
@@ -1127,7 +1134,7 @@ type StoreCategorySampleProduct {
   description: String
   handle: String
   name: String
-  photo: StoreCategorySamplePhoto
+  photos: [StoreCategorySamplePhoto!]
   price: String
   sku: String
   stock: Int
@@ -1138,7 +1145,7 @@ input StoreCategorySampleProductInput {
   collections: [String!]!
   description: String!
   name: String!
-  photo: String
+  photos: [String!]
   price: String!
   sku: String!
   stock: Int

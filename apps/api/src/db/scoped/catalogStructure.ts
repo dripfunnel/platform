@@ -280,8 +280,18 @@ export const insertCollection = async (tx: ScopedSql, storeId: string, id: strin
     `)
   ).slug
 
+/** A collection's image where it has none yet, answering its name; null when it isn't here or already has one. */
+export const setCollectionImage = async (tx: ScopedSql, storeId: string, id: string, assetId: string, now: Date): Promise<string | null> =>
+  (
+    await tx<{ name: string }[]>`
+      update collection set image_asset_id = ${assetId}, updated_at = ${now}, revision = revision + 1
+      where id = ${id} and store_id = ${storeId} and image_asset_id is null and deleted_at is null
+      returning name
+    `
+  )[0]?.name ?? null
+
 /** At the revision the editor read; null when it was stale or isn't here. */
-export const updateCollection = async (tx: ScopedSql, storeId: string, id: string, revision: number, f: CollectionFields, now: Date): Promise<string | null> => {
+export const updateCollection =async (tx: ScopedSql, storeId: string, id: string, revision: number, f: CollectionFields, now: Date): Promise<string | null> => {
   const { value, slug } = await slugFree(tx, f.slug, async (slug, sp) =>
     (
       await sp`

@@ -3,8 +3,9 @@ import { useRef, useState } from 'react'
 import { categoryManagers, englishName, type SampleProblem, type StoreCategory } from '../../api/storeCategories'
 import { saveStoreCategorySampleItems, uploadSamplePhoto, type SampleDetail } from '../../api/storeCategorySample'
 import { fill, formatDate, messages } from '../../messages'
-import { ConfirmDialog, EmptyState, ErrorState, LoadingState, ReadOnlyNotice, Toast } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, EmptyState, ErrorState, LoadingState, plainTextOf, ReadOnlyNotice, Toast } from '@dripfunnel/shared/ui'
 import { SampleProblems } from './SampleFields'
+import { SamplePhotoField, SampleThumb } from './SamplePhotoField'
 import { SampleProductFields } from './SampleProductFields'
 import {
   addCollection,
@@ -22,6 +23,7 @@ import {
   putProduct,
   renameCollection,
   sameDraft,
+  setCollectionPhoto,
   type DraftProduct,
   type SampleDraft,
 } from './sampleDraft'
@@ -252,10 +254,12 @@ export const SampleEditor = ({ category, detail, canManage }: SampleEditorProps)
               <tbody>
                 {draft.products.map((p) => (
                   <tr key={p.key}>
-                    <td>{p.photo?.previewUrl ? <img src={p.photo.previewUrl} alt={fill(words.photoAlt, { name: p.name })} className="df-sample-thumb" /> : <span className="df-field-hint">{words.noPhoto}</span>}</td>
+                    <td>
+                      <SampleThumb photo={p.photos[0]} alt={fill(words.photoAlt, { name: p.name })} />
+                    </td>
                     <td>
                       <strong>{p.name}</strong>
-                      {p.description && <div className="df-field-hint df-sample-description">{p.description}</div>}
+                      {p.description && <div className="df-field-hint df-sample-description">{plainTextOf(p.description)}</div>}
                     </td>
                     <td>{p.sku}</td>
                     <td>{`${p.price} ${draft.currency}`}</td>
@@ -299,6 +303,7 @@ export const SampleEditor = ({ category, detail, canManage }: SampleEditorProps)
               <thead>
                 <tr>
                   <th scope="col">{words.columns.collection}</th>
+                  <th scope="col">{words.columns.photo}</th>
                   <th scope="col">{words.columns.products}</th>
                   {canManage && <th scope="col">{words.columns.actions}</th>}
                 </tr>
@@ -307,6 +312,13 @@ export const SampleEditor = ({ category, detail, canManage }: SampleEditorProps)
                 {draft.collections.map((c) => (
                   <tr key={c}>
                     <td>{c}</td>
+                    <td>
+                      {canManage ? (
+                        <SamplePhotoField photo={draft.collectionPhotos.get(c) ?? null} name={c} onChange={(photo) => setDraft((d) => setCollectionPhoto(d, c, photo))} upload={(file) => uploadSamplePhoto(category.id, file)} />
+                      ) : (
+                        <SampleThumb photo={draft.collectionPhotos.get(c)} alt={fill(words.photoAlt, { name: c })} />
+                      )}
+                    </td>
                     <td>{productsIn(draft, c)}</td>
                     {canManage && (
                       <td>

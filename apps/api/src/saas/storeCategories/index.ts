@@ -34,7 +34,7 @@ import {
 } from '#db/scoped/storeCategories'
 import { reasonText, staffEntry } from '#saas/staff/index'
 import { fileOf, itemsOf, previewShaOf, productCountOf, sampleItemsInput, type SampleItem } from './editor'
-import { checkSampleFile, copySamplePhotos, samplePhotoKey, storeSamplePhoto, type PhotoCopier, type SampleProblem } from './sample'
+import { attachCollectionPhotos, checkSampleFile, copySamplePhotos, samplePhotoKey, storeSamplePhoto, type PhotoCopier, type SampleProblem } from './sample'
 
 // Store categories (DATA-MODEL §7.2; admin FIRST-RELEASE §2a): staff keep the list, Super admin alone changes it
 // (`storeCategories.manage`); a store's Owner picks one. Archiving never takes a category from a store.
@@ -58,8 +58,8 @@ export type StaffCategory = StaffCategoryRow & { sample: (CategorySampleSummary 
 export interface SampleDetail {
   currency: string
   uploaded_at: Date
-  products: (SampleItem & { previewSha: string | null })[]
-  collections: { name: string; products: number }[]
+  products: (Omit<SampleItem, 'photos'> & { photos: { ref: string; previewSha: string | null }[] })[]
+  collections: { name: string; products: number; photo: string | null; previewSha: string | null }[]
 }
 export type SampleSaveResult = { ok: true; value: StaffCategory } | { ok: false; reason: StoreCategoryRefusal } | { ok: false; reason: 'SAMPLE_INVALID'; problems: SampleProblem[] }
 
@@ -210,7 +210,7 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
   }
 
   /** Checked as a merchant's import would read it, its photos copied once, then saved; nothing is kept from a refused file. */
-  const saveSample = async (id: string, file: string, currency: string, reason: unknown): Promise<SampleSaveResult> => {
+  const saveSample = async (id: string, file: string, currency: string, reason: unknown, collectionPhotos: readonly { name: string; photo: string }[] = []): Promise<SampleSaveResult> => {
     const why = reasonText.safeParse(reason)
     const code = currency.trim().toUpperCase()
     if (!isUuid(id) || !why.success || !/^[A-Z]{3}$/.test(code) || file.trim() === '') return { ok: false, reason: 'INVALID_INPUT' }
@@ -222,10 +222,13 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
     const current = (await asStaff((tx) => selectSample(tx, id)))?.photos ?? {}
     const copied = await copySamplePhotos(id, checked.plan, photos ?? null, current)
     if (!copied.ok) return { ok: false, reason: 'SAMPLE_INVALID', problems: copied.problems }
+    const attached = await attachCollectionPhotos(id, checked.collections, collectionPhotos, photos?.assets ?? null)
+    if (!attached.ok) return { ok: false, reason: 'SAMPLE_INVALID', problems: attached.problems }
+    const kept = { ...copied.photos, ...attached.photos }
     return asStaff(async (tx) => {
       const row = await selectCategory(tx, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' } as const
-      await upsertSample(tx, { category_id: id, file, currency: code, collections: checked.collections, photos: copied.photos, uploadedBy: staff.id }, now())
+      await upsertSample(tx, { category_id: id, file, currency: code, collections: attached.collections, photos: kept, uploadedBy: staff.id }, now())
       await activity.record(
         tx,
         entry({
@@ -236,8 +239,8 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
           changes: [
             { field: 'currency', before: null, after: code },
             { field: 'collections', before: null, after: checked.collections.map((c) => c.name).join(', ') },
-            { field: 'photos', before: String(Object.keys(current).length), after: String(Object.keys(copied.photos).length) },
-            { field: 'photos_added', before: null, after: Object.keys(copied.photos).filter((ref) => !Object.hasOwn(current, ref)).join(', ') || null },
+            { field: 'photos', before: String(Object.keys(current).length), after: String(Object.keys(kept).length) },
+            { field: 'photos_added', before: null, after: Object.keys(kept).filter((ref) => !Object.hasOwn(current, ref)).join(', ') || null },
           ],
         }),
       )
@@ -273,8 +276,11 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
     return {
       currency: sample.currency,
       uploaded_at: sample.uploaded_at,
-      products: items.products.map((p) => ({ ...p, previewSha: previewShaOf(p.photo, sample.photos) })),
-      collections: items.collections.map((name) => ({ name, products: items.products.filter((p) => p.collections.includes(name)).length })),
+      products: items.products.map((p) => ({ ...p, photos: p.photos.map((ref) => ({ ref, previewSha: previewShaOf(ref, sample.photos) })) })),
+      collections: items.collections.map((name) => {
+        const photo = sample.collections.find((c) => c.name === name)?.photo ?? null
+        return { name, products: items.products.filter((p) => p.collections.includes(name)).length, photo, previewSha: previewShaOf(photo, sample.photos) }
+      }),
     }
   }
 
@@ -291,7 +297,8 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
       if (!input.products.some((p) => p.collections.includes(name)))
         early.push(problem(0, 'collection', 'COLLECTION_EMPTY', `“${name}” has no products. Add a product to it or delete it.`))
     if (early.length > 0) return { ok: false, reason: 'SAMPLE_INVALID', problems: early }
-    return saveSample(id, fileOf(input), input.currency, reason)
+    if (input.collectionPhotos.some((c) => !input.collections.includes(c.name))) return { ok: false, reason: 'INVALID_INPUT' }
+    return saveSample(id, fileOf(input), input.currency, reason, input.collectionPhotos)
   }
 
   /** The editor's Upload: an image stored once under the category, answered as the ref a product names. It changes no

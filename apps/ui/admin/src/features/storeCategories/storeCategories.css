@@ -122,6 +122,12 @@
   height: 96px;
 }
 
+/* Names the description's editor, which is no form control a <label> can point at; as `.df-field label` (states.css). */
+.df-sample-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .df-sample-description {
   max-width: 360px;
   overflow: hidden;
@@ -149,7 +155,31 @@
   gap: var(--df-space-2);
 }
 
+/* A label, not a button: centred as `a.df-button` is (shared/ui/states.css). */
+.df-sample-photo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-3);
+  margin: 0 0 var(--df-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.df-sample-photo-item {
+  display: grid;
+  justify-items: start;
+  gap: var(--df-space-1);
+}
+
+.df-sample-upload[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .df-sample-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
 }
 

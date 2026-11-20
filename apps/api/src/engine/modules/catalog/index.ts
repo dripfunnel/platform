@@ -92,6 +92,7 @@ export {
 export type { ShopProduct } from './shopifyFile'
 export {
   attachImportPhoto,
+  attachSampleCollectionPhoto,
   catalogImportAudit,
   catalogImportKind,
   catalogImportLifetimeMs,
@@ -102,6 +103,8 @@ export {
   importPhotoPayload,
   importPhotosKind,
   runImportChunk,
+  sampleCollectionPhotoKind,
+  sampleCollectionPhotoPayload,
   skipImportPhoto,
   type CatalogImportDto,
   type CatalogImportRefusal,

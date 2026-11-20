@@ -4,6 +4,7 @@ import type { SecretBox } from '#auth/secretBox'
 import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import {
   attachImportPhoto,
+  attachSampleCollectionPhoto,
   catalogJobPayload,
   checkImport,
   createAssetService,
@@ -14,6 +15,7 @@ import {
   importPhotoPayload,
   jobContextOf,
   runImportChunk,
+  sampleCollectionPhotoPayload,
   skipImportPhoto,
   type CatalogJobPayload,
   type ImportJobDeps,
@@ -43,6 +45,7 @@ const maxPhotoBytes = 20 * 1024 * 1024
 // A fetch names the page it reads (null for the first), so delivering it twice adds that page once.
 const jobPayload = catalogJobPayload.extend({ phase: z.enum(['fetch', 'check', 'run']), after: z.string().max(2000).nullable().optional(), expect: z.enum(['csv', 'shopify']).optional(), currency: z.string().regex(/^[A-Z]{3}$/).optional() }).strict()
 const photoPayload = catalogJobPayload.extend(importPhotoPayload.shape).strict()
+const collectionPhotoPayload = catalogJobPayload.extend(sampleCollectionPhotoPayload.shape).strict()
 
 /** The run's catalogue, translations and outbox, in the importer's own scope. */
 export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effect: Pick<Effect, 'id'>, now: () => Date): ImportJobDeps => {
@@ -108,6 +111,11 @@ const readAsset = async (assets: AssetStore, key: string): Promise<{ ok: true; b
   return object ? { ok: true, bytes: new Uint8Array(await new Response(object.body).arrayBuffer()) } : { ok: false, code: 'GONE' }
 }
 
+const storeAsImage = async (deps: ImportJobDeps, assets: AssetStore, bytes: Uint8Array<ArrayBuffer>): ReturnType<PhotoFetch> => {
+  const stored = await createAssetService({ sql: deps.sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(bytes)
+  return stored.ok && stored.asset.kind === 'image' ? { ok: true, assetId: stored.asset.id } : { ok: false, code: 'PHOTO_REFUSED' }
+}
+
 export interface PhotoDeliveryOptions {
   now?: () => Date
   fetchImpl?: typeof fetch
@@ -135,8 +143,7 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
           ? await fetchLocal(local, { maxBytes: maxPhotoBytes, timeoutMs: 3_500, ...(fetchImpl ? { fetchImpl } : {}) })
           : await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })
       if (!got.ok) return { ok: false, code: got.code === 'TOO_LARGE' ? 'PHOTO_REFUSED' : 'PHOTO_UNAVAILABLE' }
-      const stored = await createAssetService({ sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(got.bytes)
-      return stored.ok && stored.asset.kind === 'image' ? { ok: true, assetId: stored.asset.id } : { ok: false, code: 'PHOTO_REFUSED' }
+      return storeAsImage(deps, assets, got.bytes)
     }
     // A photo is a line of the import, not its end: after the last attempt it's reported and the run goes on (K6).
     try {
@@ -145,5 +152,20 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
       if (effect.attempt >= defaultRelayOptions.maxAttempts) return skipImportPhoto(deps, p.jobId, p)
       throw error
     }
+  },
+})
+
+/** A sample collection's photo (DATA-MODEL §7.2): only that sample's own copy in R2, never an address. */
+export const sampleCollectionPhotoDeliverer = (sql: postgres.Sql, assets: AssetStore | null, now: () => Date = () => new Date()): Deliverer => ({
+  deliver: async (effect) => {
+    const parsed = collectionPhotoPayload.safeParse(effect.payload)
+    if (!parsed.success) throw new Error('import.collection_photo: bad payload')
+    const p = parsed.data
+    const deps = catalogImportDeps(sql, p, effect, now)
+    await attachSampleCollectionPhoto(deps, p, async (ref) => {
+      const key = assets ? await withScope(sql, deps.context, (tx) => selectSamplePhotoKey(tx, p.sampleCategoryId, ref)) : null
+      const got = assets && key ? await readAsset(assets, key) : null
+      return assets && got?.ok ? storeAsImage(deps, assets, got.bytes) : { ok: false, code: 'PHOTO_UNAVAILABLE' }
+    })
   },
 })

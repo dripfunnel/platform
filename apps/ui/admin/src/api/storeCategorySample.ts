@@ -15,7 +15,7 @@ const productSchema = z.object({
   price: z.string(),
   stock: z.number().int().nullable(),
   visible: z.boolean(),
-  photo: photoSchema.nullable(),
+  photos: z.array(photoSchema),
   collections: z.array(z.string()),
 })
 export type SampleProduct = z.infer<typeof productSchema>
@@ -24,7 +24,7 @@ const detailSchema = z.object({
   currency: z.string(),
   uploadedAt: isoString,
   products: z.array(productSchema),
-  collections: z.array(z.object({ name: z.string(), products: z.number().int() })),
+  collections: z.array(z.object({ name: z.string(), products: z.number().int(), photo: photoSchema.nullable() })),
 })
 export type SampleDetail = z.infer<typeof detailSchema>
 
@@ -33,8 +33,8 @@ const problemSchema = z.object({ line: z.number().int(), column: z.string().null
 export const loadStoreCategorySample = async (categoryId: string): Promise<SampleDetail | null> => {
   const { storeCategorySample } = await query(
     `query StoreCategorySample($categoryId: ID!) { storeCategorySample(categoryId: $categoryId) {
-      currency uploadedAt collections { name products }
-      products { handle name description sku price stock visible photo { ref previewUrl } collections } } }`,
+      currency uploadedAt collections { name products photo { ref previewUrl } }
+      products { handle name description sku price stock visible photos { ref previewUrl } collections } } }`,
     z.object({ storeCategorySample: detailSchema.nullable() }),
     { categoryId },
   )
@@ -43,8 +43,9 @@ export const loadStoreCategorySample = async (categoryId: string): Promise<Sampl
 
 export interface SampleItemsInput {
   currency: string
-  products: { name: string; description: string; sku: string; price: string; stock: number | null; visible: boolean; photo: string | null; collections: string[] }[]
+  products: { name: string; description: string; sku: string; price: string; stock: number | null; visible: boolean; photos: string[]; collections: string[] }[]
   collections: string[]
+  collectionPhotos: { name: string; photo: string }[]
 }
 
 /** The editor's Save: problems (with `saved` false) when the sample didn't pass its check; nothing is kept then. */
@@ -63,7 +64,7 @@ export type PhotoRefusal = (typeof photoRefusals)[number]
 
 const uploadAnswer = z.union([z.object({ ok: z.literal(true), ref: z.string(), previewUrl: z.string() }), z.object({ ok: z.literal(false), code: z.string() })])
 
-/** A photo for a sample product, stored once under the category (Super admin); answers the ref the product names. */
+/** A photo for a sample product or collection, stored once under the category (Super admin); answers the ref the product names. */
 export const uploadSamplePhoto = async (categoryId: string, file: Blob): Promise<{ ok: true; ref: string; previewUrl: string } | { ok: false; code: PhotoRefusal }> => {
   try {
     const response = await fetch(`/api/store-category-photos?${new URLSearchParams({ category: categoryId })}`, {

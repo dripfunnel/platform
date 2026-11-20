@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-20 (in the sample editor: up to 20 photos a product with a main one, a photo per collection, and a product description with the merchant portal's formatting, §11b). Before: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -445,9 +445,11 @@ reads it (`storeCategories.read`); only a Super admin adds, edits, archives or r
   once; a refused check keeps the dialog open with its problems by line. Remove takes a reason and says stores that added it
   keep their products.
 - **Sample editor** (decided 2026-11-16, not in the prototype): **View sample** (every role) or **Create sample** (Super admin)
-  opens `/categories/{id}/sample`: the products (photo, name, SKU, price, stock, shown, collections) and the collections.
+  opens `/categories/{id}/sample`: the products (photo, name, formatted description as the merchant portal's, SKU, price, stock,
+  shown, collections) and the collections.
   A Super admin adds, edits and deletes products (1 to 50, each with a unique SKU), adds, renames and deletes collections
-  (1 to 10, each with a product), uploads a photo per product (stored once in DripFunnel's storage), and **Save changes**
+  (1 to 10, each with a product), uploads up to 20 photos per product, several at a time (the first is its main photo; **Make main** moves another to the front; 60 in the whole sample), and a photo per collection (each stored once in DripFunnel's storage;
+  a collection's becomes the shop collection's image when a shop adds the sample), and **Save changes**
   sends the whole sample with a reason; refused lines are listed in place and a leave guard keeps unsaved edits.
 
 ## 11c. Platform settings › Messaging

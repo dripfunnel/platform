@@ -27,7 +27,7 @@ import {
   type CatalogImportRow,
   type CatalogImportSummary,
 } from '#db/scoped/catalogImports'
-import { addCollectionProducts, insertCollection } from '#db/scoped/catalogStructure'
+import { addCollectionProducts, insertCollection, setCollectionImage } from '#db/scoped/catalogStructure'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { markSampleCatalogAdded, selectSample } from '#db/scoped/storeCategories'
 import { setStockTargets } from '#db/scoped/inventory'
@@ -47,6 +47,8 @@ import type { ProductTranslationInput, TranslationResult } from './translations'
 
 export const catalogImportKind = 'import.catalog'
 export const importPhotosKind = 'import.photos'
+/** A sample collection's photo, set as the shop's collection image once the sample import has made it (DATA-MODEL §7.2). */
+export const sampleCollectionPhotoKind = 'import.collection_photo'
 export const catalogImportAudit = { started: 'catalog.import_started', confirmed: 'catalog.imported' } as const
 /** The error file is kept for a day after the run (DATA-MODEL §7.10: days, not weeks). */
 export const catalogImportLifetimeMs = 24 * 60 * 60 * 1000
@@ -552,10 +554,10 @@ const importStock = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRo
   }
 }
 
-type FinishDeps = Pick<ImportJobDeps, 'context' | 'now'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>
+type FinishDeps = Pick<ImportJobDeps, 'context' | 'now' | 'queue'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>
 
 /** A sample import's collections (DATA-MODEL §7.2), made once as it finishes, holding its products found by SKU. */
-const finishSample = async (tx: ScopedSql, d: FinishDeps, categoryId: string): Promise<void> => {
+const finishSample = async (tx: ScopedSql, d: FinishDeps, jobId: string, categoryId: string): Promise<void> => {
   const { storeId } = d.context
   const sample = await selectSample(tx, categoryId)
   if (sample) {
@@ -566,6 +568,8 @@ const finishSample = async (tx: ScopedSql, d: FinishDeps, categoryId: string): P
       const found = new Map((await selectOwnSkus(tx, storeId, null, c.skus)).map((r) => [r.sku, r.product_id]))
       await addCollectionProducts(tx, storeId, id, [...new Set(c.skus.flatMap((sku) => found.get(sku.toLowerCase()) ?? []))])
       if (d.activity && d.actor && d.facts) await d.activity.record(tx, entryOf({ context: d.context, actor: d.actor, facts: d.facts })('collection.saved', { type: 'collection', id, label: c.name }))
+      const payload = c.photo ? jobPayloadOf(d.context, jobId) : null
+      if (payload && c.photo) await d.queue(tx, sampleCollectionPhotoKind, `${jobId}:collection-photo:${id}`, { ...payload, collectionId: id, sampleCategoryId: categoryId, ref: c.photo })
     }
   }
   await markSampleCatalogAdded(tx)
@@ -584,7 +588,7 @@ const finishIfDone = async (tx: ScopedSql, d: FinishDeps, jobId: string, held?: 
   })
   await addImportProblems(tx, jobId, leftOut)
   await finishImport(tx, jobId, { problemsCsv: problemsCsv(job.file, plan, [...problemsOf(job.problems), ...leftOut]), at, expiresAt: new Date(at.getTime() + catalogImportLifetimeMs) })
-  if (job.sample_category_id) await finishSample(tx, d, job.sample_category_id)
+  if (job.sample_category_id) await finishSample(tx, d, job.id, job.sample_category_id)
 }
 
 /** The error file (K3): the file's own rows that had a problem, each product's rows together, with a problem column. */
@@ -733,13 +737,25 @@ export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: 
 }
 
 /** A photo that won't be attached (its job gave up, or the importer can't import now): reported on its line, the run going on. */
-export const skipImportPhoto = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>, jobId: string, photo: Pick<z.infer<typeof importPhotoPayload>, 'line'>, code: ProblemCode = 'PHOTO_UNAVAILABLE'): Promise<void> =>
+export const skipImportPhoto = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now' | 'queue'> & Partial<Pick<ImportJobDeps, 'activity' | 'actor' | 'facts'>>, jobId: string, photo: Pick<z.infer<typeof importPhotoPayload>, 'line'>, code: ProblemCode = 'PHOTO_UNAVAILABLE'): Promise<void> =>
   withScope(d.sql, d.context, async (tx) => {
     const job = await lockCatalogImport(tx, d.context.storeId, jobId)
     if (job?.state !== 'running') return
     await saveImportPhotos(tx, jobId, [{ line: photo.line, column: 'image', code }])
     await finishIfDone(tx, d, jobId)
   })
+
+export const sampleCollectionPhotoPayload = z.object({ collectionId: z.guid(), sampleCategoryId: z.guid(), ref: z.string().max(importLimits.photoUrl) })
+
+/** A sample collection's photo stored as the store's file and set as its image; one that can't be read leaves it without. */
+export const attachSampleCollectionPhoto = async (d: Pick<ImportJobDeps, 'sql' | 'context' | 'actor' | 'activity' | 'facts' | 'now'>, p: z.infer<typeof sampleCollectionPhotoPayload>, fetchPhoto: PhotoFetch): Promise<void> => {
+  const got = await fetchPhoto(p.ref)
+  if (!got.ok) return
+  await withScope(d.sql, d.context, async (tx) => {
+    const name = await setCollectionImage(tx, d.context.storeId, p.collectionId, got.assetId, d.now())
+    if (name !== null) await d.activity.record(tx, entryOf(d)('collection.saved', { type: 'collection', id: p.collectionId, label: name }, [{ field: 'image', before: null, after: got.assetId }]))
+  })
+}
 
 /** After the last attempt: the job says failed, so the banner stops waiting. */
 export const failCatalogImport = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'>, jobId: string): Promise<void> =>

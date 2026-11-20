@@ -3,10 +3,27 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { messages } from '../../messages'
-import { RichTextField } from './RichTextField'
+import { RichTextField, type RichTextWords } from './RichTextField'
 
-const words = messages.editor.description
+const words = {
+  label: 'Description',
+  placeholder: 'What makes it special?',
+  toolbar: 'Formatting',
+  tools: {
+    bold: { text: 'B', label: 'Bold' },
+    italic: { text: 'I', label: 'Italic' },
+    bulleted: { text: '• List', label: 'Bulleted list' },
+    numbered: { text: '1. List', label: 'Numbered list' },
+    link: { text: 'Link', label: 'Add or change a link' },
+  },
+  linkAddress: 'Web address',
+  linkPlaceholder: 'https://',
+  addLink: 'Add link',
+  removeLink: 'Remove link',
+  cancelLink: 'Cancel',
+  badLink: 'Use a web address that starts with https://',
+  tooLong: 'The description is at its limit.',
+} satisfies RichTextWords & { label: string; placeholder: string }
 
 afterEach(cleanup)
 
@@ -20,6 +37,7 @@ const Field = ({ initial, readOnly = false, onChange }: { initial: string; readO
         readOnly={readOnly}
         labelledBy="label"
         placeholder={words.placeholder}
+        words={words}
         onChange={(html) => {
           setValue(html)
           onChange(html)

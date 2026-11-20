@@ -116,6 +116,34 @@ export const storeSamplePhoto = async (
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
+/** Each collection's uploaded photo, by name, checked in R2 as a product's ref is; a missing one is a problem. */
+export const attachCollectionPhotos = async (
+  categoryId: string,
+  collections: readonly SampleCollection[],
+  chosen: readonly { name: string; photo: string }[],
+  assets: AssetStore | null,
+): Promise<{ ok: true; collections: SampleCollection[]; photos: Record<string, string> } | { ok: false; problems: SampleProblem[] }> => {
+  if (chosen.length === 0) return { ok: true, collections: [...collections], photos: {} }
+  if (!assets) return { ok: false, problems: [problem(0, 'collection', 'NO_STORAGE')] }
+  const refOf = new Map(chosen.map((c) => [c.name, c.photo]))
+  const photos: Record<string, string> = {}
+  const problems: SampleProblem[] = []
+  const attached = await Promise.all(
+    collections.map(async (c) => {
+      const ref = refOf.get(c.name)
+      const key = ref === undefined ? undefined : sampleRefKey(categoryId, ref)
+      if (!ref || key === undefined) return c
+      if (key === null || !(await assets.get(key))) {
+        problems.push(problem(0, 'collection', 'PHOTO_UNAVAILABLE'))
+        return c
+      }
+      photos[ref] = key
+      return { ...c, photo: ref }
+    }),
+  )
+  return problems.length > 0 ? { ok: false, problems } : { ok: true, collections: attached, photos }
+}
+
 /** Every photo the file names, fetched once (SSRF-guarded) and kept under the category's R2 prefix: {url: key}. */
 export const copySamplePhotos = async (
   categoryId: string,

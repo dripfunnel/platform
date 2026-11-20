@@ -2703,7 +2703,8 @@
         "stock": "Stock (empty: not tracked)",
         "visible": "Shown in the shop",
         "collections": "Collections",
-        "photo": "Photo"
+        "photo": "Photo",
+        "photos": "Photos"
       },
       "nameRequired": "Enter the product’s name.",
       "skuRequired": "Enter a SKU.",
@@ -2711,6 +2712,31 @@
       "priceInvalid": "Enter a price such as 499 or 499.50.",
       "stockInvalid": "Enter the stock as a whole number, or leave it empty.",
       "collectionNeeded": "Put the product in at least one collection.",
+      "descriptionPlaceholder": "What makes it special? What’s it made of? How does it fit?",
+      "description": {
+        "toolbar": "Formatting",
+        "tools": {
+          "bold": { "text": "B", "label": "Bold" },
+          "italic": { "text": "I", "label": "Italic" },
+          "bulleted": { "text": "• List", "label": "Bulleted list" },
+          "numbered": { "text": "1. List", "label": "Numbered list" },
+          "link": { "text": "Link", "label": "Add or change a link" }
+        },
+        "linkAddress": "Web address",
+        "linkPlaceholder": "https://",
+        "addLink": "Add link",
+        "removeLink": "Remove link",
+        "cancelLink": "Cancel",
+        "badLink": "Use a web address that starts with https://, or an email address that starts with mailto:",
+        "tooLong": "The description is at its limit of 5,000 characters, counting its formatting, so your last change was not kept. Shorten it to add more."
+      },
+      "addPhotos": "Add photos",
+      "photosHint": "Pick several at once, up to {count}. The first is the product’s main photo.",
+      "photoNumber": "Photo {number} of {name}",
+      "mainPhoto": "Main photo",
+      "makeMain": "Make main",
+      "photoLimit": "A product can have up to {count} photos, so the rest weren’t added.",
+      "tooManyPhotos": "A sample catalog can have up to 60 photos. Remove some before you save.",
       "uploadPhoto": "Upload photo",
       "replacePhoto": "Replace photo",
       "removePhoto": "Remove photo",
