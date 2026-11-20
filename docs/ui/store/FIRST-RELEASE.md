@@ -210,7 +210,11 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 | **Environment marker** | Non-production hosts | The shared Dev, Feature or Local strip (`environmentFor`, #65); nothing in production |
 
 **Built on #291**: the header (§3.2) and the banners for trial and its last day, past due,
-suspended, cancelled, provisioning, partner support and offline, in the prototype's words. The
+suspended, cancelled, provisioning, partner support and offline, in the prototype's words. A
+suspended store's reads are refused `STORE_SUSPENDED`, so the shell draws a page in place of the load
+error: "{store} is suspended", the partner's support contact, and Choose another store (only with
+another), Create another store and Sign out. The chooser's "no store" page, where a person whose only
+store was archived lands, also offers Create another store. The
 import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny is built on #331: `storeState.support` adds the session's id, its access, who allowed it and the agent's request (`writeRequest`: note, state), answered with `allowSupportWrite` and `denySupportWrite` (ACCESS §8). The portal's banner (`features/shell/SupportBanner.tsx`) shows them, polling the banner every 15 seconds while a session is open, with the agent's `requestSupportWrite` and the write code (`issueSupportWriteCode`, `redeemSupportWriteCode`); until then only the merchant app answered.
 
 ---
