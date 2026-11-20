@@ -50,6 +50,7 @@
 }
 
 .df-messaging-reveal input {
+  box-sizing: border-box;
   width: 100%;
   padding-right: 2.75rem;
 }
