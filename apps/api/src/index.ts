@@ -795,8 +795,8 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
     const limiter = env.SHOP_RATE_LIMITER
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
-    const { ip } = factsOf(request)
-    if (!ip || !(await limiter.limit({ key: `maps-frame:${ip}` })).success) return tooManyRequests(60)
+    // Without an address (wrangler dev sends none) the requests share one bucket, as the couriers' hooks do.
+    if (!(await limiter.limit({ key: `maps-frame:${factsOf(request).ip ?? 'unknown'}` })).success) return tooManyRequests(60)
     const secrets = await secretsFor(config)
     return withConnection(config.HYPERDRIVE, ctx, async (sql) => handleMapFrame(request, url.pathname, { key: await storeMapsKey(sql, secrets)(frameStore), local }))
   }
