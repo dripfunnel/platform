@@ -6,13 +6,12 @@ import { studioDevices, type DesignMessage, type PublishRun, type StudioDevice, 
 import { currentBrand } from '../../brand/current'
 import { fill, formatCount, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
-import { refusalIn } from '../common/refusal'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { useChatWidth } from './useChatWidth'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, previewRefusal, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import { usePublishRun } from './usePublishRun'
 import { useStudioActivity } from './useStudioActivity'
@@ -20,7 +19,6 @@ import { useStudioLive } from './useStudioLive'
 import './studio.css'
 
 const words = messages.storefront.studio
-const previewRefusal = refusalIn(words.preview.refused)
 
 const studioPanes = ['chat', 'preview'] as const
 type StudioPane = (typeof studioPanes)[number]

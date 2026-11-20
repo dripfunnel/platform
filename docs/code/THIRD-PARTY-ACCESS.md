@@ -363,7 +363,8 @@ is. A partner's own key is usable while its last check is *Working*; DripFunnel'
 maps:** `warehouseMapFrame` and `store.mapFrame` are `null` and the frame answers 404, so the warehouse form and the shopper's
 address pin show plain fields. The frame's address carries the store's id (`hooks.<host>/maps/<store id>/pin`), which is how its
 page finds the key; the key is public in that page by design. The page is never cached, so a removed or switched-off key stops at once, and
-the route is rate-limited per address (`SHOP_RATE_LIMITER`, key `maps-frame:<ip>`) before it reads the database; the script is cached for five minutes. A published storefront's content-security-policy always allows the
+the route is rate-limited per address (`SHOP_RATE_LIMITER`, key `maps-frame:<ip>`) before it reads the database; the script is cached for five minutes.
+**Decided on #1612: the frame's address is not signed.** The key is in the page of every shopper's browser by design, so binding the address to a store's origin would protect nothing a shopper can't already read; what limits a key is Google's website restriction and daily quota. An unrestricted key is therefore usable by anyone who holds it, store id or not, and the instructions on both panels (#1613, #1614) say to restrict it to the hooks host and the three APIs and to set a quota. A published storefront's content-security-policy always allows the
 hooks host as a frame, since the frame says whether there is a key. `GOOGLE_MAPS_BROWSER_KEY` is gone from the Worker and
 `.env.example`: deploying this leaves each environment with no map until a key is saved in the admin console.
 

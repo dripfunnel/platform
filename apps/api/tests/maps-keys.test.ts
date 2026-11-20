@@ -54,6 +54,7 @@ const adminContext = (staff: StaffMember): AdminContext => ({
     checkSms: async () => 'ok',
     checkWhatsApp: async () => ({ status: 'ok' }),
     checkMaps: async () => verdict,
+    hooksHost: 'hooks.dripfunnel.ai',
     now: () => now,
   }),
 })
@@ -88,7 +89,7 @@ const as = (role: StaffRole): StaffMember => {
 }
 const sa = () => as('staff-super-admin')
 
-const readOurs = `{ platformMapsKey { enabled key { hint status lastTestedAt } } }`
+const readOurs = `{ platformMapsKey { enabled hooksHost key { hint status lastTestedAt } } }`
 const saveOurs = `mutation($key: String!, $reason: String!) { savePlatformMapsKey(key: $key, reason: $reason) { ok reason status problem } }`
 const testOurs = `mutation { testPlatformMapsKey { ok reason status problem } }`
 const onOurs = `mutation($enabled: Boolean!, $reason: String!) { setPlatformMapsEnabled(enabled: $enabled, reason: $reason) { ok reason } }`
@@ -141,7 +142,7 @@ afterAll(async () => {
 
 describe('DripFunnel’s key in the admin console', () => {
   it('saves it sealed, shows only “AIza…abcd”, tests it and removes it, and no entry carries the key', async () => {
-    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, key: null } })
+    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, hooksHost: 'hooks.dripfunnel.ai', key: null } })
     expect((await admin(saveOurs, sa(), { key: ourKey, ...why })).data?.['savePlatformMapsKey']).toEqual({ ok: true, reason: null, status: 'ok', problem: null })
     const shown = await admin(readOurs, as('staff-read-only'))
     expect(shown.data?.['platformMapsKey']).toMatchObject({ enabled: false, key: { hint: 'AIza…OURS', status: 'ok' } })
@@ -151,7 +152,7 @@ describe('DripFunnel’s key in the admin console', () => {
     expect(JSON.stringify(row)).not.toContain(ourKey)
     expect((await admin(testOurs, sa())).data?.['testPlatformMapsKey']).toMatchObject({ ok: true, status: 'ok' })
     expect((await admin(removeOurs, sa(), why)).data?.['removePlatformMapsKey']).toEqual({ ok: true, reason: null })
-    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, key: null } })
+    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, hooksHost: 'hooks.dripfunnel.ai', key: null } })
     const entries = await db.sql`select * from activity_log where action like 'platform.maps_%'`
     expect(entries.map((e) => e['action']).sort()).toEqual(['platform.maps_key_removed', 'platform.maps_key_saved', 'platform.maps_key_tested'])
     expect(JSON.stringify(entries)).not.toContain(ourKey)
@@ -164,7 +165,7 @@ describe('DripFunnel’s key in the admin console', () => {
     expect((await admin(saveOurs, sa(), { key: ourKey, ...why })).data?.['savePlatformMapsKey']).toEqual({ ok: false, reason: 'KEY_REJECTED', status: null, problem: 'geocoding_disabled' })
     verdict = { status: 'unavailable' }
     expect((await admin(saveOurs, sa(), { key: ourKey, ...why })).data?.['savePlatformMapsKey']).toMatchObject({ ok: false, reason: 'PROVIDER_UNAVAILABLE' })
-    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, key: null } })
+    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, hooksHost: 'hooks.dripfunnel.ai', key: null } })
     verdict = { status: 'ok' }
     await admin(saveOurs, sa(), { key: ourKey, ...why })
     verdict = { status: 'rejected', problem: 'invalid' }
@@ -184,7 +185,7 @@ describe('DripFunnel’s key in the admin console', () => {
     await admin(testOurs, sa())
     await admin(onOurs, sa(), { enabled: true, ...why })
     expect((await admin(removeOurs, sa(), why)).data?.['removePlatformMapsKey']).toEqual({ ok: true, reason: null })
-    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, key: null } })
+    expect((await admin(readOurs, sa())).data).toEqual({ platformMapsKey: { enabled: false, hooksHost: 'hooks.dripfunnel.ai', key: null } })
   })
 
   it('lets every staff role read it and only a Super admin change it', async () => {

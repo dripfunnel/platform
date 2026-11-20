@@ -138,3 +138,4 @@ export const refusedText = (run: PublishRun): string => {
 export const rolledBackText = (run: PublishRun, back: number): string => fill(words.publish.rolledBack, { number: String(back), reason: failedWords(run)[0] ?? words.publish.rolledBackFallback })
 
 export const publishRefusal = refusalIn(words.publish.refused)
+export const previewRefusal = refusalIn(words.preview.refused)

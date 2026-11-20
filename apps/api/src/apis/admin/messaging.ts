@@ -92,6 +92,8 @@ const MapsType = builder.objectRef<Maps>('PlatformMaps').implement({
   fields: (t) => ({
     enabled: t.exposeBoolean('enabled'),
     key: t.field({ type: MapsKeyType, nullable: true, resolve: (m) => m.key }),
+    // The host the key's website restriction must allow, so the console need not work it out.
+    hooksHost: t.string({ nullable: true, resolve: (m) => m.hooksHost }),
   }),
 })
 

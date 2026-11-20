@@ -84,6 +84,8 @@ export interface PlatformMessagingDeps {
   checkSms: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
   checkWhatsApp: (account: PartnerWhatsAppAccount) => Promise<WhatsAppAccountCheck>
   checkMaps: (key: string) => Promise<MapsKeyCheck>
+  // Where a Maps key's website restriction must allow (config.HOOKS_HOST), for the console to show.
+  hooksHost?: string | undefined
   now: () => Date
 }
 
@@ -97,7 +99,7 @@ const switchAudit = {
   maps: { on: platformMessagingAudit.partnerMapsEnabled, off: platformMessagingAudit.partnerMapsDisabled },
 } as const
 
-export const createPlatformMessagingService = ({ sql, staff, facts, activity, secrets, checkSms, checkWhatsApp, checkMaps, now }: PlatformMessagingDeps) => {
+export const createPlatformMessagingService = ({ sql, staff, facts, activity, secrets, checkSms, checkWhatsApp, checkMaps, hooksHost, now }: PlatformMessagingDeps) => {
   const entry = staffEntry(staff, facts)
   const madeBy = `${staff.name} <${staff.email}>`
   const smsTarget = (provider: SmsProvider) => ({ type: 'platform_sms_account', id: provider, label: smsProviderName[provider] })
@@ -277,7 +279,7 @@ export const createPlatformMessagingService = ({ sql, staff, facts, activity, se
   const mapsKey = () =>
     withSystemScope(sql, async (tx) => {
       const row = (await selectOurAccounts(tx, 'maps'))[0]
-      return { enabled: (await selectOurMessaging(tx)).mapsEnabled, key: row ? mapsKeyDto(row) : null }
+      return { enabled: (await selectOurMessaging(tx)).mapsEnabled, key: row ? mapsKeyDto(row) : null, hooksHost: hooksHost ?? null }
     })
 
   const saveMapsKey = async (raw: unknown, reason: unknown): Promise<MapsKeyResult> => {

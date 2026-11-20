@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Checkbox, Select, useStorefront, type Listing, type SortKey } from '@dripfunnel/storefront-core/theme'
+import { Checkbox, Select, useLoadOnScroll, useStorefront, type Listing, type SortKey } from '@dripfunnel/storefront-core/theme'
 import styles from '../../styles/shop.module.css'
 
 /** The filter values, a sidebar on wide screens and a panel the Filters button opens on narrow ones. */
@@ -66,20 +66,27 @@ export const ListingBar = ({ listing }: { listing: Listing }) => {
   )
 }
 
-/** "Load more" through fetchMore, and the retry when the next page didn't load. */
-export const LoadMore = ({ listing }: { listing: Listing }) => {
+/** Infinite scroll: the next page loads as the end of the grid nears the screen, and a page that didn't load offers a retry. */
+export const MoreOnScroll = ({ listing }: { listing: Listing }) => {
   const { t } = useStorefront()
-  if (!listing.hasMore) return null
+  const end = useLoadOnScroll(listing)
   return (
-    <div className={styles.more}>
-      {listing.moreFailed ? (
-        <p className={styles.muted} role="alert">
-          {t('shop.listing.moreFailed')}
+    <div ref={end} className={styles.more}>
+      {listing.loadingMore ? (
+        <p className={styles.muted} role="status">
+          {t('shop.listing.loadingMore')}
         </p>
       ) : null}
-      <button type="button" className={styles.secondary} disabled={listing.loadingMore} onClick={listing.fetchMore}>
-        {t('shop.listing.more')}
-      </button>
+      {listing.moreFailed ? (
+        <>
+          <p className={styles.muted} role="alert">
+            {t('shop.listing.moreFailed')}
+          </p>
+          <button type="button" className={styles.secondary} onClick={listing.fetchMore}>
+            {t('shop.listing.retry')}
+          </button>
+        </>
+      ) : null}
     </div>
   )
 }

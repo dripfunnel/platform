@@ -49,14 +49,19 @@ export const tasksOf = (home: StoreHome): Task[] => {
 
 export type SetupKey = 'locale' | 'category' | 'products' | 'collections' | 'brand' | 'storefront'
 
-/** Where the store's first site is: waiting on the category and brand, ready to create, being made, failed, made, published, or not read. */
-export type StorefrontPhase = 'locked' | 'ready' | 'creating' | 'failed' | 'open' | 'done' | 'unavailable'
+/** Where the store's first site is: waiting on the category and brand, ready to create, being made, failed, made, being published, published, or not read. */
+export type StorefrontPhase = 'locked' | 'ready' | 'creating' | 'failed' | 'open' | 'publishing' | 'done' | 'unavailable'
 
 /** What the storefront step reads (`storefront` and `storefrontTemplates`); the Owner's, who may publish. */
 export interface StorefrontSetup {
   status: StorefrontStatus
   published: boolean
   template: StorefrontTemplate | null
+  previewReady: boolean
+  /** The publish under way, followed until it ends. */
+  publishing: string | null
+  /** Where shoppers reach the live site, for "View your live site". */
+  host: string | null
 }
 
 export interface SetupItem {
@@ -67,6 +72,7 @@ export interface SetupItem {
 
 export const storefrontPhaseOf = (site: StorefrontSetup, prepared: boolean): StorefrontPhase => {
   if (site.published) return 'done'
+  if (site.publishing) return 'publishing'
   if (site.status === 'creating') return 'creating'
   if (site.status === 'not_started' || site.status === 'create_failed') return !prepared ? 'locked' : site.status === 'create_failed' ? 'failed' : 'ready'
   return 'open'

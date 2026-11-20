@@ -19,8 +19,10 @@ const categories = vi.hoisted(() => ({ loadShopCategory: vi.fn(), chooseShopCate
 vi.mock('../../api/shopCategory', () => categories)
 const importsApi = vi.hoisted(() => ({ loadImport: vi.fn() }))
 vi.mock('../../api/imports', async (actual) => ({ ...(await actual<typeof import('../../api/imports')>()), ...importsApi }))
-const brandApi = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), chooseTemplate: vi.fn() }))
+const brandApi = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), chooseTemplate: vi.fn(), loadDomains: vi.fn(), previewLink: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...brandApi }))
+const studioApi = vi.hoisted(() => ({ publishDesign: vi.fn(), loadPublishRun: vi.fn() }))
+vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studioApi }))
 const editorApi = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editorApi }))
 
@@ -394,7 +396,11 @@ describe('the Home screen', () => {
     const ready = { ...fresh, setup: { category: true, products: true, collections: false, brand: true } }
     const fashion = { key: 'fashion', name: 'Thread', tag: 'Fashion & apparel', description: '', demoUrl: null, current: false, forCategory: true }
     const classic = { ...fashion, key: 'classic', name: 'Classic', tag: 'Traditional & ethnic', forCategory: false }
-    const overview = (status: string, live: unknown = null) => ({ status, template: null, live, draft: null, lastPublish: null, publishing: false })
+    const overview = (status: string, live: unknown = null, publishing: string | null = null) => ({ status, template: null, live, draft: status === 'not_published' ? { template: 'fashion', changedAt: null, previewReady: true } : null, lastPublish: null, publishing })
+    const firstLive = { number: 1, publishedAt: '2026-11-19T08:00:00.000Z', template: 'fashion', portalOrigin: null }
+    const freeAddress = { customDomainAllowed: false, domains: [{ host: 'kesari.my-store.one', kind: 'free', primary: true, status: 'live' }] }
+    const run = (step: string, checks: unknown[] = []) => ({ id: 'r1', step, version: step === 'live' ? 1 : null, repairAttempts: 0, checks, bisectMessageId: null })
+    const publishButton = () => step().getByRole('button', { name: sf.publish })
     const step = () => within(screen.getByRole('region', { name: words.setup.title }))
 
     it('waits for the category and the logo and favicon before it creates', async () => {
@@ -407,7 +413,7 @@ describe('the Home screen', () => {
       expect(step().getByText('3 of 6')).toBeTruthy()
     })
 
-    it('creates the site from the category’s template, then opens the studio once it is made', async () => {
+    it('creates the site from the category’s template, then offers Preview and Publish on Home once it is made', async () => {
       api.loadHome.mockResolvedValue(ready)
       brandApi.loadOverview.mockResolvedValueOnce(overview('not_started')).mockResolvedValue(overview('not_published'))
       brandApi.loadTemplates.mockResolvedValue([classic, fashion])
@@ -420,7 +426,9 @@ describe('the Home screen', () => {
       await settle()
       expect(brandApi.chooseTemplate).toHaveBeenCalledWith('fashion', true)
       expect(step().getByText(sf.ready)).toBeTruthy()
-      expect(href(sf.open)).toBe('/storefront?view=studio')
+      expect(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` })).toBeTruthy()
+      expect(publishButton()).toBeTruthy()
+      expect(step().queryAllByRole('link').some((l) => l.getAttribute('href')?.includes('view=studio'))).toBe(false)
     })
 
     it('says the site is being made while it is', async () => {
@@ -438,7 +446,7 @@ describe('the Home screen', () => {
       afterEach(() => void vi.useRealTimers())
       const tick = () => act(async () => void vi.advanceTimersByTime(5_000))
 
-      it('reads the site again every 5 s and offers Open storefront once it is made', async () => {
+      it('reads the site again every 5 s and offers Publish once it is made', async () => {
         api.loadHome.mockResolvedValue(ready)
         brandApi.loadTemplates.mockResolvedValue([fashion])
         brandApi.loadOverview.mockResolvedValueOnce(overview('creating')).mockResolvedValueOnce(overview('creating')).mockResolvedValue(overview('not_published'))
@@ -447,7 +455,7 @@ describe('the Home screen', () => {
         await tick()
         await settle()
         expect(brandApi.loadOverview).toHaveBeenCalledTimes(3)
-        expect(href(sf.open)).toBe('/storefront?view=studio')
+        expect(publishButton()).toBeTruthy()
       })
 
       it('never lets an older answer replace a newer one', async () => {
@@ -461,11 +469,11 @@ describe('the Home screen', () => {
         await show(siteOwner)
         await tick()
         await settle()
-        expect(href(sf.open)).toBe('/storefront?view=studio')
+        expect(publishButton()).toBeTruthy()
         await act(async () => answerFirst(overview('creating')))
         await settle()
         // The stale "creating" is dropped: the step stays open and no new round of reads starts.
-        expect(href(sf.open)).toBe('/storefront?view=studio')
+        expect(publishButton()).toBeTruthy()
         expect(brandApi.loadOverview).toHaveBeenCalledTimes(3)
       })
 
@@ -478,7 +486,7 @@ describe('the Home screen', () => {
         expect(step().queryByRole('alert')).toBeNull()
         await tick()
         await settle()
-        expect(href(sf.open)).toBe('/storefront?view=studio')
+        expect(publishButton()).toBeTruthy()
       })
     })
 
@@ -543,13 +551,145 @@ describe('the Home screen', () => {
       expect(step().getByRole('alert').textContent).toBe(messages.storefront.gallery.refused.BRAND_NOT_READY)
     })
 
-    it('is done once the site is published, opening Storefront', async () => {
+    it('is done once the site is published, linking to the live site', async () => {
       api.loadHome.mockResolvedValue(ready)
-      brandApi.loadOverview.mockResolvedValue(overview('same_as_live', { number: 1, publishedAt: '2026-11-19T08:00:00.000Z', template: 'fashion', portalOrigin: null }))
+      brandApi.loadOverview.mockResolvedValue(overview('same_as_live', firstLive))
       brandApi.loadTemplates.mockResolvedValue([fashion])
+      brandApi.loadDomains.mockResolvedValue(freeAddress)
+      await show(siteOwner)
+      expect(step().getByText('5 of 6')).toBeTruthy()
+      expect(step().getByText(fill(sf.live, { host: 'kesari.my-store.one' }))).toBeTruthy()
+      const live = step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` })
+      expect(live.getAttribute('href')).toBe('https://kesari.my-store.one')
+      expect(live.getAttribute('target')).toBe('_blank')
+    })
+
+    it('is done, opening Storefront, when the live address can’t be read', async () => {
+      api.loadHome.mockResolvedValue(ready)
+      brandApi.loadOverview.mockResolvedValue(overview('same_as_live', firstLive))
+      brandApi.loadTemplates.mockResolvedValue([fashion])
+      brandApi.loadDomains.mockRejectedValue(new Error('down'))
       await show(siteOwner)
       expect(step().getByText('5 of 6')).toBeTruthy()
       expect(href(new RegExp(sf.label))).toBe('/storefront?tab=design')
+    })
+
+    describe('preview and publish on Home', () => {
+      const made = async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        brandApi.loadOverview.mockResolvedValue(overview('not_published'))
+        await show(siteOwner)
+      }
+      const tab = () => ({ opener: {} as unknown, location: { href: '' }, close: vi.fn() })
+
+      it('opens the signed preview link in a new tab that carries nothing back', async () => {
+        const opened = tab()
+        const open = vi.spyOn(window, 'open').mockReturnValue(opened as unknown as Window)
+        brandApi.previewLink.mockResolvedValue('https://kesari-preview.my-store.one/__open?t=signed')
+        await made()
+        await act(async () => {
+          fireEvent.click(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` }))
+        })
+        expect(open).toHaveBeenCalledWith('', '_blank')
+        expect(opened.opener).toBeNull()
+        expect(opened.location.href).toBe('https://kesari-preview.my-store.one/__open?t=signed')
+        open.mockRestore()
+      })
+
+      it('closes the tab and says why when the preview can’t open', async () => {
+        const opened = tab()
+        const open = vi.spyOn(window, 'open').mockReturnValue(opened as unknown as Window)
+        brandApi.previewLink.mockRejectedValue(new ApiError('NOT_CONNECTED', 'x'))
+        await made()
+        await act(async () => {
+          fireEvent.click(step().getByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` }))
+        })
+        expect(opened.close).toHaveBeenCalled()
+        expect(step().getByRole('alert').textContent).toBe(messages.storefront.studio.preview.refused.NOT_CONNECTED)
+        open.mockRestore()
+      })
+
+      it('hides Preview until the draft has one', async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        brandApi.loadOverview.mockResolvedValue({ ...overview('not_published'), draft: { template: 'fashion', changedAt: null, previewReady: false } })
+        await show(siteOwner)
+        expect(step().queryByRole('button', { name: `${sf.preview} ${sf.opensInNewTab}` })).toBeNull()
+        expect(publishButton()).toBeTruthy()
+      })
+
+      it('publishes from Home, follows the publish, then is done with the live site', async () => {
+        await made()
+        studioApi.publishDesign.mockResolvedValue('r1')
+        studioApi.loadPublishRun.mockResolvedValue(run('live'))
+        brandApi.loadOverview.mockResolvedValue(overview('same_as_live', firstLive))
+        brandApi.loadDomains.mockResolvedValue(freeAddress)
+        await act(async () => {
+          fireEvent.click(publishButton())
+        })
+        await settle()
+        expect(studioApi.publishDesign).toHaveBeenCalledTimes(1)
+        expect(studioApi.loadPublishRun).toHaveBeenCalledWith('r1')
+        expect(step().getByText('5 of 6')).toBeTruthy()
+        expect(step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` }).getAttribute('href')).toBe('https://kesari.my-store.one')
+      })
+
+      it('says what failed when the publish isn’t taken live, and offers Publish again', async () => {
+        await made()
+        studioApi.publishDesign.mockResolvedValue('r1')
+        studioApi.loadPublishRun.mockResolvedValue(run('failed', [{ name: 'links', passed: false, words: 'A link on your home page is broken.' }]))
+        await act(async () => {
+          fireEvent.click(publishButton())
+        })
+        await settle()
+        expect(step().getByRole('alert').textContent).toContain('A link on your home page is broken.')
+        expect((publishButton() as HTMLButtonElement).disabled).toBe(false)
+      })
+
+      it('says why a publish can’t start', async () => {
+        await made()
+        studioApi.publishDesign.mockRejectedValue(new ApiError('STUDIO_QUEUED', 'x'))
+        await act(async () => {
+          fireEvent.click(publishButton())
+        })
+        expect(step().getByRole('alert').textContent).toBe(messages.storefront.studio.publish.refused.STUDIO_QUEUED)
+        expect(studioApi.loadPublishRun).not.toHaveBeenCalled()
+      })
+
+      it('follows a publish already under way when Home opens', async () => {
+        api.loadHome.mockResolvedValue(ready)
+        brandApi.loadTemplates.mockResolvedValue([fashion])
+        brandApi.loadOverview.mockResolvedValue(overview('not_published', null, 'r9'))
+        studioApi.loadPublishRun.mockReturnValue(new Promise(() => undefined))
+        await show(siteOwner)
+        expect(step().getByRole('status').textContent).toBe(sf.publishing)
+        expect((step().getByRole('button', { name: sf.publishingCta }) as HTMLButtonElement).disabled).toBe(true)
+        expect(studioApi.loadPublishRun).toHaveBeenCalledWith('r9')
+      })
+
+      it('says when the publish can’t be read, and Check again reads it and follows it to done', async () => {
+        await made()
+        studioApi.publishDesign.mockResolvedValue('r1')
+        studioApi.loadPublishRun.mockRejectedValue(new ApiError('FORBIDDEN', 'x'))
+        await act(async () => {
+          fireEvent.click(publishButton())
+        })
+        await settle()
+        expect(step().getByText(sf.lost)).toBeTruthy()
+        expect(step().queryByRole('status')).toBeNull()
+        expect(step().queryByRole('button', { name: sf.publish })).toBeNull()
+
+        studioApi.loadPublishRun.mockResolvedValue(run('live'))
+        brandApi.loadOverview.mockResolvedValue(overview('same_as_live', firstLive))
+        brandApi.loadDomains.mockResolvedValue(freeAddress)
+        await act(async () => {
+          fireEvent.click(step().getByRole('button', { name: sf.checkAgain }))
+        })
+        await settle()
+        expect(studioApi.loadPublishRun).toHaveBeenCalledTimes(2)
+        expect(step().getByRole('link', { name: `${sf.viewLive} ${sf.opensInNewTab}` }).getAttribute('href')).toBe('https://kesari.my-store.one')
+      })
     })
 
     it('is not on a seat that can’t publish, which never reads the site', async () => {
