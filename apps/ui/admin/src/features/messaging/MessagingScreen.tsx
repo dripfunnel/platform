@@ -4,14 +4,20 @@ import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import {
   messagingManagers,
+  removePlatformMapsKey,
   removePlatformSms,
   removePlatformWhatsApp,
+  savePlatformMapsKey,
   savePlatformSms,
   savePlatformWhatsApp,
+  setPlatformMapsEnabled,
   setPlatformSmsRoute,
   setPlatformWhatsAppEnabled,
+  testPlatformMapsKey,
   testPlatformSms,
   testPlatformWhatsApp,
+  type MapsProblem,
+  type MapsResult,
   type MessagingResult,
   type PlatformSms,
 } from '../../api/messaging'
@@ -19,7 +25,8 @@ import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { failureText } from '../common/failure'
 import { RouteError } from '../common/RouteError'
-import { SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
+import { MapsKeyDialog, SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
+import { hooksHostFor } from './MapsPanel'
 import { Messaging, MessagingError, problemText, providerName, type MessagingAction, type TestTarget } from './Messaging'
 import { messagingStates } from './messagingHarness'
 
@@ -28,6 +35,10 @@ const appRoute = getRouteApi('/_app')
 const words = messages.messaging
 const sms = words.sms
 const wa = words.whatsapp
+const maps = words.maps
+
+/** A refusal of a Google Maps change in words: what Google refused for a rejected key, else the code's sentence. */
+export const mapsRefusalText = (r: Extract<MapsResult, { ok: false }>): string => (r.reason === 'KEY_REJECTED' && r.problem ? maps.problems[r.problem] : maps.refusals[r.reason])
 
 /** A refusal in words: an SMS one names its provider; a WhatsApp key refusal names what Meta refused. */
 export const refusalText = (r: Extract<MessagingResult, { ok: false }>, provider: SmsProvider | null, problem: (rejection: WhatsAppRejection) => string): string => {
@@ -61,6 +72,7 @@ export const MessagingScreen = () => {
   const [error, setError] = useState<string | null>(null)
   const [testing, setTesting] = useState<TestTarget | null>(null)
   const [rejection, setRejection] = useState<WhatsAppRejection | null>(null)
+  const [mapsProblem, setMapsProblem] = useState<MapsProblem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const problem = (r: WhatsAppRejection) => problemText(r, messaging.whatsapp)
@@ -83,7 +95,38 @@ export const MessagingScreen = () => {
       (failure: unknown) => setError(failureText(failure, words.failed)),
     )
   }
+  // A confirmed Google Maps change, as run() is for the others.
+  const runMaps = (work: Promise<MapsResult>, done: string) => {
+    setError(null)
+    work.then(
+      (r) => {
+        if (!r.ok) return setError(mapsRefusalText(r))
+        close()
+        setMapsProblem(null)
+        setToast(done)
+        void router.invalidate()
+      },
+      (failure: unknown) => setError(failureText(failure, words.failed)),
+    )
+  }
+  const testMaps = () => {
+    setTesting('maps')
+    testPlatformMapsKey()
+      .then(
+        (r) => {
+          if (!r.ok) return setToast(mapsRefusalText(r))
+          setMapsProblem(r.status === 'rejected' ? r.problem : null)
+          setToast(r.status === 'rejected' ? (messaging.maps.enabled ? maps.toasts.rejectedOff : maps.toasts.rejected) : maps.toasts.ok)
+        },
+        (failure: unknown) => setToast(failureText(failure, words.failed)),
+      )
+      .finally(() => {
+        setTesting(null)
+        void router.invalidate()
+      })
+  }
   const test = (target: TestTarget) => {
+    if (target === 'maps') return testMaps()
     setTesting(target)
     const provider = target === 'whatsapp' ? null : target
     const name = provider ? providerName(provider) : ''
@@ -119,6 +162,29 @@ export const MessagingScreen = () => {
             onCancel={close}
           />
         )
+      case 'mapsSave':
+        return <MapsKeyDialog error={error} onSave={(key, why) => runMaps(savePlatformMapsKey(key, why), maps.toasts.saved)} onCancel={close} />
+      case 'mapsOn':
+      case 'mapsOff':
+      case 'mapsRemove': {
+        const text = pending.kind === 'mapsOn' ? maps.onDialog : pending.kind === 'mapsOff' ? maps.offDialog : maps.removeDialog
+        const work = (why: string) => (pending.kind === 'mapsRemove' ? removePlatformMapsKey(why) : setPlatformMapsEnabled(pending.kind === 'mapsOn', why))
+        return (
+          <ConfirmDialog
+            open
+            danger={pending.kind !== 'mapsOn'}
+            title={text.title}
+            target=""
+            consequence={text.consequence}
+            confirmLabel={text.confirm}
+            cancelLabel={words.cancel}
+            reason={reason}
+            error={error}
+            onConfirm={(why) => runMaps(work(why ?? ''), pending.kind === 'mapsOn' ? maps.toasts.on : pending.kind === 'mapsOff' ? maps.toasts.off : maps.toasts.removed)}
+            onCancel={close}
+          />
+        )
+      }
       case 'smsRemove': {
         const name = providerName(pending.provider)
         return (
@@ -209,6 +275,8 @@ export const MessagingScreen = () => {
         canManage={messagingManagers.includes(me.role)}
         testing={testing}
         rejection={rejection}
+        mapsProblem={mapsProblem}
+        hooksHost={hooksHostFor(window.location.hostname)}
         onAction={(action) => (setError(null), setPending(action))}
         onTest={test}
         onReload={() => void router.invalidate()}

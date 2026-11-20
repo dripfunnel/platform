@@ -1,5 +1,5 @@
 import { smsAccountInput, smsMessages, smsSecretFields, whatsAppAccountInput, whatsAppMessages, type SmsAccountInput, type SmsField, type SmsMessage, type SmsProvider, type WhatsAppAccountInput, type WhatsAppMessage } from '@dripfunnel/shared/messaging'
-import { ConfirmDialog } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, Icon } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
 import type { PlatformWhatsAppAccount } from '../../api/messaging'
 import { fill, messages } from '../../messages'
@@ -8,6 +8,7 @@ import { providerName } from './Messaging'
 const words = messages.messaging
 const sms = words.sms
 const wa = words.whatsapp
+const maps = words.maps
 
 interface DialogProps<Input> {
   error: string | null
@@ -15,13 +16,26 @@ interface DialogProps<Input> {
   onCancel: () => void
 }
 
-const Field = ({ id, label, hint, value, secret, maxLength, onChange }: { id: string; label: string; hint?: string; value: string; secret: boolean; maxLength: number; onChange: (value: string) => void }) => (
-  <div className="df-field">
-    <label htmlFor={id}>{label}</label>
-    <input id={id} type={secret ? 'password' : 'text'} autoComplete="off" spellCheck={false} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
-    {hint && <p className="df-field-hint">{hint}</p>}
-  </div>
-)
+const Field = ({ id, label, hint, value, secret, maxLength, reveal, onChange }: { id: string; label: string; hint?: string; value: string; secret: boolean; maxLength: number; reveal?: { show: string; hide: string }; onChange: (value: string) => void }) => {
+  const [shown, setShown] = useState(false)
+  const input = <input id={id} type={secret && !shown ? 'password' : 'text'} autoComplete="off" spellCheck={false} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} />
+  return (
+    <div className="df-field">
+      <label htmlFor={id}>{label}</label>
+      {reveal ? (
+        <div className="df-messaging-reveal">
+          {input}
+          <button type="button" className="df-messaging-reveal-button" aria-label={shown ? reveal.hide : reveal.show} aria-pressed={shown} onClick={() => setShown(!shown)}>
+            <Icon name={shown ? 'eyeOff' : 'eye'} />
+          </button>
+        </div>
+      ) : (
+        input
+      )}
+      {hint && <p className="df-field-hint">{hint}</p>}
+    </div>
+  )
+}
 
 /** DripFunnel's account with one SMS provider, typed in full on every save: the API reads back no field but the hint. */
 export const SmsAccountDialog = ({ provider, error, onSave, onCancel }: DialogProps<SmsAccountInput> & { provider: SmsProvider }) => {
@@ -55,6 +69,36 @@ export const SmsAccountDialog = ({ provider, error, onSave, onCancel }: DialogPr
         {provider === 'msg91' && [field('authKey'), <p key="templates" className="df-muted">{sms.dialog.templatesMsg91}</p>, ...templateFields]}
         {provider === 'twilio' && [field('accountSid'), field('authToken'), field('messagingServiceSid')]}
         {provider === 'sns' && [field('accessKeyId'), field('secretAccessKey'), field('region'), <p key="india" className="df-muted">{sms.dialog.indiaSns}</p>, field('senderId'), field('entityId'), ...templateFields]}
+      </div>
+    </ConfirmDialog>
+  )
+}
+
+// A Google API key's shape, which the API checks again (saas/partnerCredentials parseMapsKey).
+const mapsKeyShape = /^AIza[0-9A-Za-z_-]{35}$/
+
+/** DripFunnel's Google Maps key, typed in full on every save: the API reads back only its last four. */
+export const MapsKeyDialog = ({ error, onSave, onCancel }: DialogProps<string>) => {
+  const id = useId()
+  const [key, setKey] = useState('')
+  const trimmed = key.trim()
+  return (
+    <ConfirmDialog
+      open
+      wide
+      title={maps.dialog.title}
+      target=""
+      consequence={maps.dialog.consequence}
+      confirmLabel={maps.dialog.save}
+      cancelLabel={words.cancel}
+      reason={{ label: words.reason.label, hint: words.reason.hint }}
+      blocked={mapsKeyShape.test(trimmed) ? null : maps.dialog.incomplete}
+      error={error}
+      onConfirm={(reason) => mapsKeyShape.test(trimmed) && onSave(trimmed, reason ?? '')}
+      onCancel={onCancel}
+    >
+      <div className="df-messaging-dialog">
+        <Field id={id} label={maps.keyLabel} hint={maps.dialog.keyHint} value={key} secret maxLength={64} reveal={{ show: maps.dialog.show, hide: maps.dialog.hide }} onChange={setKey} />
       </div>
     </ConfirmDialog>
   )

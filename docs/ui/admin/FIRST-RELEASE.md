@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-19 (#1612: the API behind Platform settings › Google Maps, and the maps switch among a partner's DripFunnel's messaging switches, §4.3, §12; the panel is #1613's). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -471,10 +471,10 @@ ACCESS §5.4), and every other role sees "Status only". No one ever sees a secre
   token typed again each time; while On, `code.portal` can't be blank), **Test** (naming what Meta refused; a rejection turns it
   off), **Turn on** (only with `code.portal` named and *Working*, else it says why), **Turn off** and **Remove**, which restate that
   every partner using it goes back to its own account or, without one, to no WhatsApp.
-- **Google Maps** (#1613, on #1612's API, which is built; the panel is not): DripFunnel's browser key for the warehouse form's map and
+- **Google Maps** (built on #1613, on #1612's API): DripFunnel's browser key for the warehouse form's map and
   the shopper's address pin, shown as "AIza…abcd", On or Off, *Working*, *Not checked* or *Rejected* and when last checked, with
   **Set up** or **Replace key**, **Test** (naming what Google refused), **Remove**, and a collapsible **How to get a key** that
-  names the three APIs, the referrer to allow (this environment's real hooks host) and the Google roles. On is offered only with a
+  names the three APIs, the referrer to allow (this environment's real hooks host, from the console's own: `admin.<host>` becomes `hooks.<host>`), the API restriction and the Google roles, with links to Google's pages. A key restricted to websites can't be fully tested from here, so *Working* means Google knows the key (THIRD-PARTY-ACCESS §2.12). On is offered only with a
   *Working* key. Partners use it only where Admin switched it on for the partner (§4.3) and the partner chose it or has no key of
   its own; with no usable key a store shows no map (THIRD-PARTY-ACCESS §2.12).
 - Every change but Test asks for a reason and is audited (LOGGING §4); each refusal is in words. States: loading, error, empty (no

@@ -1,10 +1,12 @@
 // States (?state=): loading, empty, error, readonly; see messagingHarness.ts.
 import { routeProviders, smsProviders, smsRoutes, servesCodes, type SmsProvider, type SmsRoute, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
 import { ErrorState, ListHeader, LoadingState, ReadOnlyNotice, StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
-import { useId, type ReactNode } from 'react'
-import type { Messaging as MessagingData, PlatformSmsAccount, PlatformWhatsApp } from '../../api/messaging'
+import { useId } from 'react'
+import type { MapsProblem, Messaging as MessagingData, PlatformSmsAccount, PlatformWhatsApp } from '../../api/messaging'
 import { fill, formatTime, messages } from '../../messages'
+import { MapsPanel } from './MapsPanel'
 import type { MessagingScreenState } from './messagingHarness'
+import { Button, Fact } from './parts'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/detail.css'
 import '../common/records.css'
@@ -19,8 +21,8 @@ const look: Record<PlatformSmsAccount['status'], { tone: StatusTone; icon: Statu
   rejected: { tone: 'danger', icon: 'cross' },
 }
 
-export type MessagingAction = { kind: 'smsSave' | 'smsRemove'; provider: SmsProvider } | { kind: 'smsRoute'; route: SmsRoute } | { kind: 'waSave' | 'waOn' | 'waOff' | 'waRemove' }
-export type TestTarget = SmsProvider | 'whatsapp'
+export type MessagingAction = { kind: 'smsSave' | 'smsRemove'; provider: SmsProvider } | { kind: 'smsRoute'; route: SmsRoute } | { kind: 'waSave' | 'waOn' | 'waOff' | 'waRemove' } | { kind: 'mapsSave' | 'mapsOn' | 'mapsOff' | 'mapsRemove' }
+export type TestTarget = SmsProvider | 'whatsapp' | 'maps'
 
 export interface MessagingProps {
   messaging: MessagingData
@@ -29,6 +31,9 @@ export interface MessagingProps {
   testing: TestTarget | null
   // What Meta refused at the last Test of DripFunnel's WhatsApp in this visit.
   rejection: WhatsAppRejection | null
+  // What Google refused at the last Test of DripFunnel's Google Maps key in this visit.
+  mapsProblem: MapsProblem | null
+  hooksHost: string
   onAction: (action: MessagingAction) => void
   onTest: (target: TestTarget) => void
   onReload: () => void
@@ -40,6 +45,7 @@ const tested = (at: string | null) => (at ? fill(words.lastTested, { when: forma
 export const emptyMessaging: MessagingData = {
   sms: { routes: smsRoutes.map((route) => ({ route, provider: null, serving: null })), accounts: [] },
   whatsapp: { enabled: false, account: null },
+  maps: { enabled: false, key: null },
 }
 
 /** What Meta refused, by name: the token, the number, the business account, or which template in which language. */
@@ -63,12 +69,6 @@ export const MessagingError = ({ onRetry }: { onRetry: () => void }) => (
     <Header />
     <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
   </div>
-)
-
-const Button = ({ label, short, primary = false, disabled, onClick }: { label: string; short?: string; primary?: boolean; disabled: boolean; onClick: () => void }) => (
-  <button type="button" className={primary ? 'df-button df-button--primary' : 'df-button'} aria-label={short ? label : undefined} disabled={disabled} onClick={onClick}>
-    {short ?? label}
-  </button>
 )
 
 const SmsPanel = ({ data, manage, testing, onAction, onTest }: { data: MessagingData['sms']; manage: boolean } & Pick<MessagingProps, 'testing' | 'onAction' | 'onTest'>) => {
@@ -140,13 +140,6 @@ const SmsPanel = ({ data, manage, testing, onAction, onTest }: { data: Messaging
   )
 }
 
-const Fact = ({ term, children }: { term: string; children: ReactNode }) => (
-  <>
-    <dt>{term}</dt>
-    <dd>{children}</dd>
-  </>
-)
-
 const WhatsAppPanel = ({ data, manage, testing, rejection, onAction, onTest }: { data: PlatformWhatsApp; manage: boolean } & Pick<MessagingProps, 'testing' | 'rejection' | 'onAction' | 'onTest'>) => {
   const noteId = useId()
   const { enabled, account } = data
@@ -215,7 +208,7 @@ const WhatsAppPanel = ({ data, manage, testing, rejection, onAction, onTest }: {
   )
 }
 
-export const Messaging = ({ messaging, forced, canManage, testing, rejection, onAction, onTest, onReload }: MessagingProps) => {
+export const Messaging = ({ messaging, forced, canManage, testing, rejection, mapsProblem, hooksHost, onAction, onTest, onReload }: MessagingProps) => {
   if (forced === 'loading') return <MessagingLoading />
   if (forced === 'error') return <MessagingError onRetry={onReload} />
   const data = forced === 'empty' ? emptyMessaging : messaging
@@ -227,6 +220,7 @@ export const Messaging = ({ messaging, forced, canManage, testing, rejection, on
       <div className="df-panels">
         <SmsPanel data={data.sms} manage={manage} testing={testing} onAction={onAction} onTest={onTest} />
         <WhatsAppPanel data={data.whatsapp} manage={manage} testing={testing} rejection={rejection} onAction={onAction} onTest={onTest} />
+        <MapsPanel data={data.maps} manage={manage} testing={testing} problem={mapsProblem} hooksHost={hooksHost} onAction={onAction} onTest={onTest} />
       </div>
     </div>
   )

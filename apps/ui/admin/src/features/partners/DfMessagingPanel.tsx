@@ -6,7 +6,7 @@ import { failureText } from '../common/failure'
 import '../common/records.css'
 
 const words = messages.partner.overview.dfMessaging
-const channels: readonly MessagingChannel[] = ['sms', 'whatsapp']
+const channels: readonly MessagingChannel[] = ['sms', 'whatsapp', 'maps']
 
 type Loaded = { state: 'loading' } | { state: 'error' } | { state: 'ready'; switches: PartnerSwitches | null }
 
@@ -17,7 +17,7 @@ export interface DfMessagingPanelProps {
   onToast: (message: string) => void
 }
 
-/** Admin's two switches for one partner (#1543): whether it may use DripFunnel's SMS and WhatsApp accounts, each with a reason. */
+/** Admin's three switches for one partner (#1543, #1613): whether it may use DripFunnel's SMS and WhatsApp accounts and Google Maps key, each with a reason. */
 export const DfMessagingPanel = ({ partner, mayChange, onToast }: DfMessagingPanelProps) => {
   const [loaded, setLoaded] = useState<Loaded>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
