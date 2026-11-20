@@ -113,6 +113,19 @@ describe('a new offer', () => {
     expect(saveButton(words.saveOff)).toHaveProperty('disabled', true)
   })
 
+  it('shows which quick pick is in effect, one at a time, and none once a date is typed that matches no pick (#1663)', async () => {
+    await show(owner, '/offers/new?type=order')
+    const pill = (name: string) => screen.getByRole('button', { name })
+    const pressed = () => [words.quick.weekend, words.quick.week, words.quick.month].filter((name) => pill(name).getAttribute('aria-pressed') === 'true')
+    expect(pressed()).toEqual([])
+    fireEvent.click(pill(words.quick.weekend))
+    expect(pressed()).toEqual([words.quick.weekend])
+    fireEvent.click(pill(words.quick.month))
+    expect(pressed()).toEqual([words.quick.month])
+    fireEvent.change(screen.getByLabelText(words.endAt), { target: { value: '2099-01-02T10:00' } })
+    expect(pressed()).toEqual([])
+  })
+
   it('asks Start now, Schedule or Keep off, and saves a code offer that combines with nothing (#337)', async () => {
     await show(owner, '/offers/new?recipe=welcome')
     touch()
@@ -357,6 +370,15 @@ describe('editing an offer', () => {
     fireEvent.click(saveButton(words.saveChanges))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(api.saveOffer).not.toHaveBeenCalled()
+  })
+
+  it('opens an offer that ends at the end of the month with that quick pick shown (#1663)', async () => {
+    const inKolkata = new Date(Date.now() + 5.5 * 3_600_000)
+    const monthEnd = new Date(Date.UTC(inKolkata.getUTCFullYear(), inKolkata.getUTCMonth() + 1, 0)).toISOString().slice(0, 10)
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false, endsAt: `${monthEnd}T18:29:00.000Z` })
+    await show(owner, '/offers/o1/edit')
+    expect(screen.getByRole('button', { name: words.quick.month }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: words.quick.weekend }).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('says when someone else saved first, and saves over them only when asked', async () => {

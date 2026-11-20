@@ -643,7 +643,7 @@ const When = ({ draft: d, set, errors: e, facts, disabled }: { draft: OfferDraft
       {!disabled && (
         <div className="df-offer-chips">
           {quick.map((q) => (
-            <button key={q.label} type="button" className="df-chip" onClick={() => set({ startsAt: q.starts, endsAt: q.ends })}>
+            <button key={q.label} type="button" className="df-chip" aria-pressed={d.startsAt === q.starts && d.endsAt === q.ends} onClick={() => set({ startsAt: q.starts, endsAt: q.ends })}>
               {q.label}
             </button>
           ))}
