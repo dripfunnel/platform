@@ -2,7 +2,7 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
 import type { CollectionSummary } from '../../api/collections'
-import { mergeValues, saveFilter, type Filter } from '../../api/filters'
+import { deleteFilter, mergeValues, saveFilter, type Filter } from '../../api/filters'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
 
 const words = messages.collections.filters
@@ -126,6 +126,28 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
       onConfirm: (_, __, picks) => (picks['what'] === 'delete' ? remove(f, v) : rename(f, v)),
     })
 
+  // Product tags are the values' counts added up, so a product with two of this filter's values counts twice.
+  const removeFilter = (f: Filter) => {
+    const tagged = f.values.reduce((n, v) => n + v.products, 0)
+    const collectionsUsing = usedBy(f, collections)
+    const lost = [
+      tagged > 0 ? fill(plural(words.deleteFilterTagged, tagged), { count: formatCount(tagged) }) : '',
+      collectionsUsing > 0 ? fill(plural(words.deleteFilterCollections, collectionsUsing), { count: formatCount(collectionsUsing) }) : '',
+    ].filter(Boolean)
+    setAsk({
+      title: fill(words.deleteFilterTitle, { name: f.name }),
+      target: f.name,
+      consequence: lost.length > 0 ? lost.join(' ') : words.deleteFilterNone,
+      confirmLabel: words.deleteFilterConfirm,
+      danger: true,
+      onConfirm: () =>
+        void run(async () => {
+          await deleteFilter(f.id)
+          return fill(words.filterDeleted, { name: f.name })
+        }),
+    })
+  }
+
   const merge = (f: Filter, group: { id: string; name: string }[]) => {
     const [keep, ...drop] = group
     if (!keep) return
@@ -180,6 +202,11 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
                     {f.shopperVisible ? words.shopper : words.internal}
                   </button>
                   {used > 0 && <span className="df-coll-hint">{fill(plural(words.usedBy, used), { count: formatCount(used) })}</span>}
+                  {canEdit && (
+                    <button type="button" className="df-filter-delete" disabled={busy} aria-label={fill(words.deleteFilterLabel, { name: f.name })} onClick={() => removeFilter(f)}>
+                      {words.deleteFilter}
+                    </button>
+                  )}
                 </span>
               </div>
               <div className="df-filter-values">
