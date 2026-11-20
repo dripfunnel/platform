@@ -33,7 +33,7 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   const tags = [...new Set(templates.filter((t) => t.key !== scratchTemplate).map((t) => t.tag))]
   const shown = tag === allTags ? templates : templates.filter((t) => t.key !== scratchTemplate && t.tag === tag)
 
-  const choose =(template: StorefrontTemplate, keepWords: boolean) => {
+  const choose = (template: StorefrontTemplate, keepWords: boolean) => {
     if (working.current) return
     working.current = true
     setAsking(null)
