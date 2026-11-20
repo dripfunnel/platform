@@ -436,11 +436,11 @@ export const OfferEditor = () => {
               </Link>
             )}
             {isNew && (
-              <button type="button" className="df-button" disabled={saving} onClick={() => save(true)}>
+              <button type="button" className="df-button" disabled={saving || !dirty} onClick={() => save(true)}>
                 {words.saveOff}
               </button>
             )}
-            <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => save(false)}>
+            <button type="button" className="df-button df-button--primary" disabled={saving || !dirty} onClick={() => save(false)}>
               {saving ? words.saving : isNew ? (startsLater ? words.schedule : words.save) : words.saveChanges}
             </button>
           </span>

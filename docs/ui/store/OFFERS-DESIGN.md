@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
+Last updated: 2026-11-20 (#1661: the save buttons stay disabled until something changes, C4). Before: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -491,7 +491,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
   everything else.
 - C3. **Name shoppers see** (§3 fact 13), prefilled from the offer ("20% off Summer"), with a
   cart-line preview, and a separate internal note `(release: decide)`.
-- C4. Save and turn on / Save as off / Schedule. Unsaved-changes guard, and the draft kept
+- C4. Save and turn on / Save as off / Schedule, and Save changes on an edit, are disabled
+  until the form differs from how it opened (#1661). Unsaved-changes guard, and the draft kept
   locally after a lost connection or session expiry.
 - C5. Validation in plain words: "Choose at least one product", "Percentage must be between 1
   and 100", "End date is before the start date", "That code is already used by 'Summer
