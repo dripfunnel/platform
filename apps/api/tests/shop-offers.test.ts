@@ -152,7 +152,7 @@ describe('offers in the cart (OFFERS fact 16)', () => {
     const token = await add(kurta, 1)
     await add(scarf, 2, token)
     const cart = await cartOf(token)
-    expect([cart.subtotal.amount, cart.discount.amount, cart.total.amount]).toEqual(['140000', '14000', '126000'])
+    expect([cart.subtotal.amount, cart.discount.amount, cart.total.amount]).toEqual(['140000', '14000', '131000'])
     expect(cart.discounts).toEqual([{ name: '10% off everything', code: null, amount: { amount: '14000' } }])
     expect(cart.lines.map((l) => l.discount?.amount)).toEqual(['10000', '4000'])
   })

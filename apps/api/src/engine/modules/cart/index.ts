@@ -309,17 +309,16 @@ export const createCartService = (deps: CartDeps) => {
     const address = row.shipping_address
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
-    // Without an address, only collection from the store's own country is quoted (loadView); a store with none offers nothing yet.
+    // Without an address the quote is against the store's own country (loadView): collection and a switched-on flat rate are offered, a store with no country nothing yet (#1521).
     if (sent.length > 0 && loaded.quoted) {
       // Free delivery's threshold and the parcel's declared value are what is sent, never a download or gift card.
       const quoted = await loaded.quoted({ amount: sent.reduce((sum, l) => sum + l.lineTotal.amount, 0n), currency })
       if (quoted.ok) {
-        // Without an address only collection in person can be priced honestly.
-        shippingOptions = address ? quoted.value.options : quoted.value.options.filter((o) => o.id === 'pickup')
+        shippingOptions = address ? quoted.value.options : quoted.value.options.filter((o) => o.id === 'pickup' || (o.id === 'flat' && quoted.value.flatRate))
         deliverable = address ? quoted.value.deliverable : null
       }
     }
-    const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
+    const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? (address ? null : (shippingOptions.find((o) => o.id === 'flat') ?? null))
     const offers = priceCartOffers(await loaded.offerFacts, {
       storeId,
       cartId: row.id,
