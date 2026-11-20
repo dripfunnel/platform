@@ -6,8 +6,11 @@ import { isHttps } from '@dripfunnel/shared/format'
 import { chooseRefusal, hasSite } from './overviewView'
 import type { StorefrontApi } from './storefrontApi'
 import { wakeStudio } from './useStudioActivity'
+import { SearchSelect } from '../common/SearchSelect'
 
 const words = messages.storefront.gallery
+// Tags are never empty (storefront_template's check), so '' can stand for every category.
+const allTags = ''
 
 export interface TemplateGalleryProps {
   templates: readonly StorefrontTemplate[]
@@ -24,8 +27,13 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(status === 'create_failed' ? words.failed : null)
   const working = useRef(false)
+  const filterId = useId()
+  const [tag, setTag] = useState(allTags)
+  // A template's tag is its category; "Start from scratch" isn't one, so it shows only under All.
+  const tags = [...new Set(templates.filter((t) => t.key !== scratchTemplate).map((t) => t.tag))]
+  const shown = tag === allTags ? templates : templates.filter((t) => t.key !== scratchTemplate && t.tag === tag)
 
-  const choose = (template: StorefrontTemplate, keepWords: boolean) => {
+  const choose =(template: StorefrontTemplate, keepWords: boolean) => {
     if (working.current) return
     working.current = true
     setAsking(null)
@@ -66,11 +74,26 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
       {templates.length === 0 ? (
         <EmptyState title={words.emptyTitle} body={words.emptyBody} />
       ) : (
-        <ul className="df-sf-templates">
-          {templates.map((t) => (
-            <TemplateCard key={t.key} template={t} busy={busy} onPick={() => pick(t)} />
-          ))}
-        </ul>
+        <>
+          {tags.length > 1 && (
+            <div className="df-sf-filter">
+              <span id={filterId}>{words.filter.label}</span>
+              <SearchSelect
+                labelledBy={filterId}
+                options={[{ id: allTags, label: words.filter.all }, ...tags.map((t) => ({ id: t, label: t }))]}
+                value={tag}
+                onChange={setTag}
+                placeholder={words.filter.placeholder}
+                noMatches={words.filter.noMatches}
+              />
+            </div>
+          )}
+          <ul className="df-sf-templates">
+            {shown.map((t) => (
+              <TemplateCard key={t.key} template={t} busy={busy} onPick={() => pick(t)} />
+            ))}
+          </ul>
+        </>
       )}
       <KeepWordsDialog template={asking} onCancel={() => setAsking(null)} onChoose={choose} />
     </div>

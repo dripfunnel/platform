@@ -8295,6 +8295,12 @@
       "demo": "View demo ↗",
       "use": "Use this template",
       "scratch": "Start from scratch",
+      "filter": {
+        "label": "Category",
+        "all": "All categories",
+        "placeholder": "Search or pick one",
+        "noMatches": "No category matches that."
+      },
       "choosing": "Starting…",
       "emptyTitle": "No templates yet",
       "emptyBody": "There are no templates to pick from yet. Try again later.",
