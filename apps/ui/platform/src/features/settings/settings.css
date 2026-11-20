@@ -177,6 +177,21 @@
   padding-top: var(--df-space-3);
   border-top: 1px solid var(--df-color-border);
 }
+.df-settings-help {
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+.df-settings-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.df-settings-help ol,
+.df-settings-help ul {
+  display: grid;
+  gap: var(--df-space-2);
+  padding-left: var(--df-space-5);
+}
 .df-settings-signin {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
