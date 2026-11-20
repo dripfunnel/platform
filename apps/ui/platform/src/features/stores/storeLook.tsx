@@ -2,7 +2,7 @@ import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/sh
 import type { SearchStatus } from '../../api/search'
 import type { BillingMode, StoreDomain, StoreState, StorefrontState } from '../../api/stores'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
-import { statusPill } from '../domains/domainLook'
+import { statusPill } from '../common/hostStatusLook'
 
 const words = messages.stores
 

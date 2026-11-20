@@ -79,6 +79,15 @@ describe('loadStore', () => {
     expect(store?.actions.archive).toEqual({ allowed: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
   })
 
+  it('reads every custom domain and DNS record status the API sends on the store page (SAAS.md §8)', async () => {
+    const domain = { host: 'juniperco.com', custom: true, status: 'broken' }
+    const records = ['verifying', 'issuing', 'expiring', 'broken'].map((status) => ({ host: 'juniperco.com', status, type: 'CNAME', value: 'shops.northstar.example', found: null, since: '2026-11-01T00:00:00.000Z' }))
+    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { data: { provisioning: null } } : { data: { store: { ...detail, row: { ...detail.row, domain }, records } } }))
+    const store = await loadStore('s1')
+    expect(store?.domain?.status).toBe('broken')
+    expect(store?.records.map((r) => r.status)).toEqual(['verifying', 'issuing', 'expiring', 'broken'])
+  })
+
   it('reads a store that isn’t the partner’s as null', async () => {
     answer.mockReturnValue({ data: { store: null } })
     expect(await loadStore('elsewhere')).toBeNull()

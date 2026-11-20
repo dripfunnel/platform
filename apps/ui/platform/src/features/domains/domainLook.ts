@@ -1,23 +1,11 @@
 import type { PartnerRole } from '../shell/partnerRoles'
 import { mayManage } from '../settings/teamRules'
 import { ApiError } from '@dripfunnel/shared/graphql'
-import type { PortalStaffSession, StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
+import type { PortalStaffSession } from '@dripfunnel/shared/ui'
 import type { Address, DnsRecord, DomainKind, HostStatus, RemoveResult } from '../../api/domains'
 import { fill, formatDate, formatWait, messages } from '../../messages'
 
 const words = messages.domains
-
-export const statusLook: Record<HostStatus, { tone: StatusTone; icon: StatusIconName }> = {
-  waiting: { tone: 'warning', icon: 'hour' },
-  verifying: { tone: 'info', icon: 'clock' },
-  issuing: { tone: 'info', icon: 'clock' },
-  live: { tone: 'success', icon: 'ok' },
-  failed: { tone: 'danger', icon: 'cross' },
-  expiring: { tone: 'warning', icon: 'alert' },
-  broken: { tone: 'danger', icon: 'alert' },
-}
-
-export const statusPill = (status: HostStatus) => ({ ...statusLook[status], label: words.status[status] })
 
 // Still being set up: waiting since it was added. Anything else, live or past it: when DNS was last read (§9.1).
 const settingUp: readonly HostStatus[] = ['waiting', 'verifying', 'issuing']

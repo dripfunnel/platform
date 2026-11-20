@@ -2,7 +2,7 @@ import { StatusPill } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
 import type { Store } from '../../../api/stores'
 import { fill, formatDate, messages } from '../../../messages'
-import { statusPill } from '../../domains/domainLook'
+import { statusPill } from '../../common/hostStatusLook'
 
 const words = messages.store.domains
 
