@@ -222,9 +222,9 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
   builder.mutationFields((t) => ({
     addCustomer: t.field({
       type: Added,
-      args: { name: t.arg.string({ required: true }), email: t.arg.string({ required: true }), phone: t.arg.string() },
+      args: { name: t.arg.string({ required: true }), email: t.arg.string({ required: true }), phone: t.arg.string(), address: t.arg({ type: AddressInput }) },
       extensions: { access: write(customersAudit.added) },
-      resolve: async (_, args, ctx) => answered(await service(ctx).add({ name: args.name, email: args.email, phone: args.phone ?? null })),
+      resolve: async (_, args, ctx) => answered(await service(ctx).add({ name: args.name, email: args.email, phone: args.phone ?? null, address: args.address })),
     }),
     // Past orders keep the details they were placed with; the address is the customer's default.
     updateCustomer: t.boolean({
