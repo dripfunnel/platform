@@ -1,6 +1,7 @@
 import { Strip, useNow } from '@dripfunnel/shared/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
 import type { Brand } from '../../api/brand'
+import { supportContact } from '../../brand/current'
 import type { Acting, StoreState } from '../../api/shell'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { Seat } from '../../nav'
@@ -10,6 +11,12 @@ import { SupportBanner } from './SupportBanner'
 import { trialDaysLeft } from './trial'
 
 const words = messages.shell.banners
+
+/** Why a suspended store can't be used, and whom to ask: the banner's and the suspended page's one sentence. */
+export const suspendedBody = (brand: Brand | null): string => {
+  const support = supportContact(brand)
+  return fill(words.suspended.body, { contact: support ? fill(words.suspended.contact, { support }) : words.suspended.noContact })
+}
 
 const Said = ({ title, body }: { title: string; body: string }) => (
   <>
@@ -24,7 +31,6 @@ export const StoreBanners = ({ seat, acting, state, brand, inSupport = false }: 
   const now = new Date(useNow(60_000))
   const owner = seat.side === 'merchant' && seat.role === 'owner'
   const days = state?.status === 'trial' ? trialDaysLeft(state.trialEndsAt, now) : null
-  const support = brand?.supportEmail ?? brand?.supportUrl ?? null
   const run = useImportRun()
   const onImports = useRouterState({ select: (r) => r.location.pathname === '/products/import' })
   const importing = isRunning(run) && !onImports ? run : null
@@ -52,7 +58,7 @@ export const StoreBanners = ({ seat, acting, state, brand, inSupport = false }: 
       )}
       {state?.status === 'suspended' && (
         <Strip tone="danger">
-          <Said title={words.suspended.title} body={fill(words.suspended.body, { contact: support ? fill(words.suspended.contact, { support }) : words.suspended.noContact })} />
+          <Said title={words.suspended.title} body={suspendedBody(brand)} />
         </Strip>
       )}
       {state?.status === 'cancelled' && (

@@ -7,19 +7,16 @@ import { fill, messages } from '../../messages'
 import { AuthFrame } from '../auth/AuthFrame'
 import { Foot, Secondary } from '../auth/fields'
 import { StoreSuspended } from './loadShell'
+import { suspendedBody } from './StoreBanners'
 
 const words = messages.shell.loadError
 
 // Why and whom to contact, the partner's support never DripFunnel's (SAAS §4.2), and a way on.
 const Suspended = ({ suspended }: { suspended: StoreSuspended }) => {
   const navigate = useNavigate()
-  const said = messages.shell.banners.suspended
-  const brand = currentBrand()
-  const support = brand?.supportEmail ?? brand?.supportUrl ?? null
-  const body = fill(said.body, { contact: support ? fill(said.contact, { support }) : said.noContact })
   const chooser = messages.chooseStore
   return (
-    <AuthFrame panel="in" title={fill(messages.shell.suspended.title, { store: suspended.store })} sub={body} icon={{ name: 'alert', tone: 'warning' }}>
+    <AuthFrame panel="in" title={fill(messages.shell.suspended.title, { store: suspended.store })} sub={suspendedBody(currentBrand())} icon={{ name: 'alert', tone: 'warning' }}>
       {!suspended.inSupport && (
         <>
           {suspended.otherStores && <Secondary onClick={() => void navigate({ to: '/stores' })}>{messages.shell.suspended.switch}</Secondary>}

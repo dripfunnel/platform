@@ -3,7 +3,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { rememberActing } from '../../acting'
-import { currentBrand } from '../../brand/current'
+import { currentBrand, supportContact } from '../../brand/current'
 import { createAnotherStore, isRefusal, newStoreOptions, type AuthRefusal, type Country } from '../../api/auth'
 import { fill, formatCount, messages } from '../../messages'
 import { AuthFrame } from '../auth/AuthFrame'
@@ -18,8 +18,7 @@ type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'refused'; text: s
 
 /** Past a person's stores, support opens the next one: the partner's own contact, as the sign-in footer shows it. */
 const limitText = (limit: number): string => {
-  const brand = currentBrand()
-  const support = brand?.supportEmail ?? brand?.supportUrl ?? null
+  const support = supportContact(currentBrand())
   const count = formatCount(limit)
   return support ? fill(words.create.limit, { limit: count, support }) : fill(words.create.limitNoContact, { limit: count })
 }
