@@ -371,6 +371,19 @@ describe('the sample editor', () => {
     expect(shown.data?.storeCategorySample.collections).toEqual([{ name: 'Sneakers', photo: { ref, previewUrl: `/api/store-category-photos/${ids.footwear}/${up.ok ? up.sha : ''}` } }])
   })
 
+  it('counts a collection’s photo in the sample’s 60', async () => {
+    const svc = service('staff-super-admin')
+    const refs: string[] = []
+    for (let i = 0; i < 61; i++) {
+      const up = await svc.uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 7, i]))
+      refs.push(up.ok ? up.ref : '')
+    }
+    const input = inputOf((await detail()) as Detail)
+    const products = input.products.map((p, i) => (i < 3 ? { ...p, photos: refs.slice(i * 20, i * 20 + 20) } : { ...p, photos: [] }))
+    const refused = await svc.saveSampleItems(ids.footwear, { ...input, products, collectionPhotos: [{ name: 'Sneakers', photo: refs[60] ?? '' }] }, 'Too many photos')
+    expect(refused).toMatchObject({ ok: false, reason: 'SAMPLE_INVALID', problems: [{ code: 'TOO_MANY_PHOTOS' }] })
+  })
+
   it('adds an edited sample to a store with exactly its products, collection and uploaded photos, read from R2', async () => {
     fetched.length = 0
     // Store B1's test order (above) is taken away, so it can add the sample as a new store would.

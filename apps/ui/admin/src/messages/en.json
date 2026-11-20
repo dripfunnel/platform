@@ -2728,7 +2728,7 @@
         "removeLink": "Remove link",
         "cancelLink": "Cancel",
         "badLink": "Use a web address that starts with https://, or an email address that starts with mailto:",
-        "tooLong": "The description is at its limit of 5,000 characters, counting its formatting, so your last change was not kept. Shorten it to add more."
+        "tooLong": "The description is at its limit of {count} characters, counting its formatting, so your last change was not kept. Shorten it to add more."
       },
       "addPhotos": "Add photos",
       "photosHint": "Pick several at once, up to {count}. The first is the product’s main photo.",
@@ -2736,7 +2736,7 @@
       "mainPhoto": "Main photo",
       "makeMain": "Make main",
       "photoLimit": "A product can have up to {count} photos, so the rest weren’t added.",
-      "tooManyPhotos": "A sample catalog can have up to 60 photos. Remove some before you save.",
+      "tooManyPhotos": "A sample catalog can have up to {count} photos. Remove some before you save.",
       "uploadPhoto": "Upload photo",
       "replacePhoto": "Replace photo",
       "removePhoto": "Remove photo",

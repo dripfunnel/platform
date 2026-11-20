@@ -34,7 +34,7 @@ import {
 } from '#db/scoped/storeCategories'
 import { reasonText, staffEntry } from '#saas/staff/index'
 import { fileOf, itemsOf, previewShaOf, productCountOf, sampleItemsInput, type SampleItem } from './editor'
-import { attachCollectionPhotos, checkSampleFile, copySamplePhotos, samplePhotoKey, storeSamplePhoto, type PhotoCopier, type SampleProblem } from './sample'
+import { attachCollectionPhotos, checkSampleFile, copySamplePhotos, maxSamplePhotos, samplePhotoKey, storeSamplePhoto, tooManySamplePhotos, type PhotoCopier, type SampleProblem } from './sample'
 
 // Store categories (DATA-MODEL §7.2; admin FIRST-RELEASE §2a): staff keep the list, Super admin alone changes it
 // (`storeCategories.manage`); a store's Owner picks one. Archiving never takes a category from a store.
@@ -225,6 +225,7 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
     const attached = await attachCollectionPhotos(id, checked.collections, collectionPhotos, photos?.assets ?? null)
     if (!attached.ok) return { ok: false, reason: 'SAMPLE_INVALID', problems: attached.problems }
     const kept = { ...copied.photos, ...attached.photos }
+    if (Object.keys(kept).length > maxSamplePhotos) return { ok: false, reason: 'SAMPLE_INVALID', problems: [tooManySamplePhotos] }
     return asStaff(async (tx) => {
       const row = await selectCategory(tx, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' } as const

@@ -1,6 +1,6 @@
 import { RichTextField } from '@dripfunnel/shared/ui'
 import { useId } from 'react'
-import { fill, messages } from '../../messages'
+import { fill, formatCount, messages } from '../../messages'
 import type { DraftProduct } from './sampleDraft'
 import { type SamplePhotoUpload } from './SamplePhotoField'
 import { SamplePhotosField } from './SamplePhotosField'
@@ -8,6 +8,7 @@ import '../partners/partners.css'
 import './storeCategories.css'
 
 const words = messages.storeCategories.editor
+const maxDescription = 5000
 
 export interface SampleProductFieldsProps {
   value: DraftProduct
@@ -33,7 +34,7 @@ export const SampleProductFields = ({ value, collections, currency, onChange, up
           {words.fields.description}
         </span>
         {/* The sample's own limit (apps/api saas/storeCategories/editor.ts). */}
-        <RichTextField value={value.description} readOnly={false} labelledBy={`${id}-description`} placeholder={words.descriptionPlaceholder} words={words.description} maxLength={5000} onChange={(description) => set({ description })} />
+        <RichTextField value={value.description} readOnly={false} labelledBy={`${id}-description`} placeholder={words.descriptionPlaceholder} words={{ ...words.description, tooLong: fill(words.description.tooLong, { count: formatCount(maxDescription) }) }} maxLength={maxDescription} onChange={(description) => set({ description })} />
       </div>
       <div className="df-sample-row">
         <div className="df-field">

@@ -1,5 +1,5 @@
 import type { SampleDetail, SampleItemsInput } from '../../api/storeCategorySample'
-import { messages } from '../../messages'
+import { fill, formatCount, messages } from '../../messages'
 
 // The sample editor's unsaved state (admin FIRST-RELEASE §11b): products and collections as staff change them, sent
 // whole on Save. The API checks it again as a merchant's import would (CATALOG-DESIGN K13a).
@@ -141,7 +141,8 @@ export const draftProblem = (draft: SampleDraft): string | null => {
   const empty = draft.collections.find((c) => productsIn(draft, c) === 0)
   if (empty !== undefined) return words.emptyCollection.replace('{name}', empty)
   if (!/^[A-Z]{3}$/.test(draft.currency)) return words.currencyInvalid
-  if (new Set(draft.products.flatMap((p) => p.photos.map((x) => x.ref))).size > maxSamplePhotos) return words.tooManyPhotos
+  const refs = [...draft.products.flatMap((p) => p.photos.map((x) => x.ref)), ...[...draft.collectionPhotos.values()].map((x) => x.ref)]
+  if (new Set(refs).size > maxSamplePhotos) return fill(words.tooManyPhotos, { count: formatCount(maxSamplePhotos) })
   return null
 }
 

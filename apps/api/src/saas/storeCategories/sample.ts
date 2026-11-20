@@ -10,7 +10,7 @@ import type { SampleCollection } from '#db/scoped/storeCategories'
 
 export const maxSampleProducts = 50
 export const maxSampleCollections = 10
-const maxSamplePhotos = 60
+export const maxSamplePhotos = 60
 const maxPhotoBytes = 20 * 1024 * 1024
 export const maxSampleFileBytes = 1024 * 1024
 
@@ -53,6 +53,7 @@ export interface PhotoCopier {
 }
 
 const problem = (line: number, column: string | null, code: SampleProblemCode): SampleProblem => ({ line, column, code, message: sampleWords[code] })
+export const tooManySamplePhotos = problem(0, 'image', 'TOO_MANY_PHOTOS')
 
 /** Each product's collections from the sample-only `collection` column (names split on `;`), in first-seen order. */
 const collectionsOf = (file: string, plan: ImportPlan): SampleCollection[] | SampleProblem => {
@@ -154,7 +155,7 @@ export const copySamplePhotos = async (
   const lineOf = new Map<string, number>()
   for (const p of plan.products) for (const photo of p.photos) if (!lineOf.has(photo.url)) lineOf.set(photo.url, photo.line)
   if (lineOf.size === 0) return { ok: true, photos: {} }
-  if (lineOf.size > maxSamplePhotos) return { ok: false, problems: [problem(0, 'image', 'TOO_MANY_PHOTOS')] }
+  if (lineOf.size > maxSamplePhotos) return { ok: false, problems: [tooManySamplePhotos] }
   const assets = c?.assets
   if (!c || !assets) return { ok: false, problems: [problem(0, 'image', 'NO_STORAGE')] }
   const photos: Record<string, string> = {}

@@ -6,6 +6,7 @@ import type { StoreCategory } from '../../api/storeCategories'
 import type { SampleDetail } from '../../api/storeCategorySample'
 import type { StaffRole } from '../shell/staffRoles'
 import { fill, messages } from '../../messages'
+import { draftOf, draftProblem, emptyProduct, maxSamplePhotos, putProduct, setCollectionPhoto } from './sampleDraft'
 
 // The sample editor (admin FIRST-RELEASE §11b): every role sees a category's sample products and collections; Super
 // admin adds, edits and deletes them, uploads photos, and saves the whole sample with a reason.
@@ -211,3 +212,12 @@ describe('the sample editor', () => {
   })
 })
 
+describe('the sample’s photo count', () => {
+  it('counts a collection’s photo in the 60', () => {
+    const photo = (n: number) => ({ ref: `sample-photo:${String(n).padStart(64, '0')}`, previewUrl: null })
+    let draft = { ...draftOf(null), collections: ['Shoes'] }
+    for (let i = 0; i < 3; i++) draft = putProduct(draft, { ...emptyProduct(['Shoes']), photos: Array.from({ length: 20 }, (_, n) => photo(i * 20 + n)) })
+    expect(draftProblem(draft)).toBeNull()
+    expect(draftProblem(setCollectionPhoto(draft, 'Shoes', photo(60)))).toBe(fill(messages.storeCategories.editor.tooManyPhotos, { count: String(maxSamplePhotos) }))
+  })
+})
