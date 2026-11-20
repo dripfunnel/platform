@@ -260,6 +260,32 @@ describe('the Products list', () => {
     expect(screen.getByText('Showing 11–12')).toBeTruthy()
   })
 
+  it('moves "Showing" one page per page that loads, however fast Next is clicked, and asks for it once (#1666)', async () => {
+    let arrive: (page: unknown) => void = () => undefined
+    await show(owner)
+    api.loadProducts.mockImplementation((_q: unknown, cursor: { after?: string }) => (cursor.after ? new Promise((resolve) => (arrive = resolve)) : Promise.resolve({ rows: [kurta, dupatta], next: 'c2', previous: null })))
+    for (let click = 0; click < 3; click += 1) fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await act(async () => arrive({ rows: [kurta, dupatta], next: 'c3', previous: 'c1' }))
+    expect(screen.getByText('Showing 11–12')).toBeTruthy()
+    expect(api.loadProducts.mock.calls.filter(([, cursor]) => cursor.after === 'c2')).toHaveLength(1)
+  })
+
+  it('moves back one page per page that loads, however fast Previous is clicked (#1666)', async () => {
+    let arrive: (page: unknown) => void = () => undefined
+    await show(owner)
+    const next = () => fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    api.loadProducts.mockImplementation((_q: unknown, cursor: { after?: string; before?: string }) => Promise.resolve({ rows: [kurta, dupatta], next: 'c9', previous: cursor.after || cursor.before ? 'c1' : null }))
+    next()
+    await settle()
+    next()
+    await settle()
+    expect(screen.getByText('Showing 21–22')).toBeTruthy()
+    api.loadProducts.mockImplementation(() => new Promise((resolve) => (arrive = resolve)))
+    for (let click = 0; click < 3; click += 1) fireEvent.click(screen.getByRole('button', { name: words.pages.previous }))
+    await act(async () => arrive({ rows: [kurta, dupatta], next: 'c9', previous: 'c1' }))
+    expect(screen.getByText('Showing 11–12')).toBeTruthy()
+  })
+
   it('reviews a waiting product and approves it, naming the supplier', async () => {
     api.approveProduct.mockResolvedValue(undefined)
     await show(owner)
