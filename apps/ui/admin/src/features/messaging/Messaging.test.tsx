@@ -5,13 +5,13 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@dripfunnel/shared/graphql'
-import { savePlatformSms, setPlatformSmsRoute, type Messaging as MessagingData, type PlatformSmsAccount } from '../../api/messaging'
-import { fill, messages } from '../../messages'
+import { removePlatformMapsKey, savePlatformMapsKey, savePlatformSms, setPlatformMapsEnabled, setPlatformSmsRoute, testPlatformMapsKey, type Messaging as MessagingData, type PlatformMaps, type PlatformSmsAccount } from '../../api/messaging'
+import { fill, formatTime, messages } from '../../messages'
 import { stubApi } from '../../testing/apiStub'
 import { textOf } from '../../testing/textOf'
-import { SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
+import { MapsKeyDialog, SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
 import { emptyMessaging, Messaging, problemText, type MessagingProps } from './Messaging'
-import { refusalText, removeConsequence, routeSentence } from './MessagingScreen'
+import { mapsRefusalText, refusalText, removeConsequence, routeSentence } from './MessagingScreen'
 
 // Admin › Platform settings › Messaging (#1544): DripFunnel's SMS accounts, routes and WhatsApp account; Super admin edits.
 
@@ -23,6 +23,7 @@ afterEach(() => {
 const words = messages.messaging
 const sms = words.sms
 const wa = words.whatsapp
+const maps = words.maps
 const noop = () => undefined
 const account = (provider: PlatformSmsAccount['provider'], o: Partial<PlatformSmsAccount> = {}): PlatformSmsAccount => ({
   provider,
@@ -47,12 +48,15 @@ const data: MessagingData = {
     accounts: [account('msg91'), account('sns', { templatesComplete: false, status: 'rejected', hint: '…WXYZ' })],
   },
   whatsapp: { enabled: true, account: whatsAppAccount() },
+  maps: { enabled: true, hooksHost: 'hooks.dripfunnel.ai', key: { hint: 'AIza…Ici4', status: 'ok', lastTestedAt: '2026-11-19T09:00:00Z' } },
 }
+const mapsKey = (o: Partial<NonNullable<PlatformMaps['key']>> = {}): NonNullable<PlatformMaps['key']> => ({ hint: 'AIza…Ici4', status: 'ok', lastTestedAt: '2026-11-19T09:00:00Z', ...o })
+const withMaps = (maps: PlatformMaps): MessagingData => ({ ...data, maps })
 // MSG91 alone: nothing sends outside India.
 const indiaOnly: MessagingData = { ...data, sms: { routes: [{ route: 'india', provider: null, serving: 'msg91' }, { route: 'rest', provider: null, serving: null }], accounts: [account('msg91')] } }
 
 const page = async (props: Partial<MessagingProps> = {}) => {
-  const node: ReactNode = <Messaging messaging={data} forced={null} canManage testing={null} rejection={null} onAction={noop} onTest={noop} onReload={noop} {...props} />
+  const node: ReactNode = <Messaging messaging={data} forced={null} canManage testing={null} rejection={null} mapsProblem={null} onAction={noop} onTest={noop} onReload={noop} {...props} />
   const router = createRouter({ routeTree: createRootRoute({ component: () => node }), history: createMemoryHistory({ initialEntries: ['/settings'] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
@@ -110,6 +114,81 @@ describe('Messaging', () => {
     const empty = textOf(await page({ forced: 'empty' }))
     expect(empty).toContain(wa.none)
     expect(empty.split(sms.unsent)).toHaveLength(3)
+  })
+})
+
+describe('Google Maps', () => {
+  const buttons = (html: string) => [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1])
+
+  it('shows the key only as its last four, with its status and when it was last checked', async () => {
+    const text = textOf(await page())
+    expect(text).toContain(maps.title)
+    expect(text).toContain('AIza…Ici4')
+    expect(text).toContain(maps.statuses.ok)
+    expect(text).toContain(fill(maps.lastChecked, { when: formatTime('2026-11-19T09:00:00Z') }))
+    expect(text).toContain(maps.on)
+  })
+
+  it('says no key, never checked, rejected with Google’s reason, and off', async () => {
+    expect(textOf(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: null }) }))).toContain(maps.none)
+    expect(textOf(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status: 'untested', lastTestedAt: null }) }) }))).toContain(maps.neverChecked)
+    const rejected = withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status: 'rejected' }) })
+    const text = textOf(await page({ messaging: rejected, mapsProblem: 'geocoding_disabled' }))
+    expect(text).toContain(maps.statuses.rejected)
+    expect(text).toContain(maps.rejectedNote)
+    expect(text).toContain(maps.problems.geocoding_disabled)
+    expect(text).toContain(maps.off)
+  })
+
+  it('offers Turn on only for a Working key, and says why not', async () => {
+    const off = (status: 'ok' | 'untested') => page({ messaging: withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status }) }) })
+    const untested = await off('untested')
+    expect(untested).toMatch(new RegExp(`<button[^>]*disabled[^>]*>${maps.turnOn}</button>`))
+    expect(textOf(untested)).toContain(maps.needsWorking)
+    expect(await off('ok')).not.toMatch(new RegExp(`<button[^>]*disabled[^>]*>${maps.turnOn}</button>`))
+  })
+
+  it('gives a Super admin Replace, Test, Turn off and Remove, and set-up alone when there is no key', async () => {
+    const all = buttons(await page())
+    for (const label of [maps.replace, maps.test, maps.turnOff, maps.remove]) expect(all).toContain(label)
+    expect(buttons(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: null }) }))).toContain(maps.setUp)
+  })
+
+  it('gives other staff the status only, no button of the panel, and no way to change it when forced read-only', async () => {
+    for (const html of [await page({ canManage: false }), await page({ forced: 'readonly' })]) {
+      expect(buttons(html)).not.toContain(maps.replace)
+      expect(buttons(html)).not.toContain(maps.test)
+      expect(textOf(html)).toContain('AIza…Ici4')
+    }
+  })
+
+  it('has the instructions: the three APIs, this environment’s real host, the API restriction and the roles', async () => {
+    const html = await page({ messaging: withMaps({ enabled: true, hooksHost: 'dev-hooks.actuateminds.com', key: mapsKey() }) })
+    const text = textOf(html)
+    expect(html).toContain('<details')
+    expect(text).toContain(maps.howTo.summary)
+    for (const api of ['Maps JavaScript API', 'Geocoding API', 'Places API (New)']) expect(text).toContain(api)
+    expect(text).toContain('https://dev-hooks.actuateminds.com/*')
+    expect(text).toContain(fill(maps.howTo.hostNote, { host: 'dev-hooks.actuateminds.com' }))
+    expect(text).toContain('Restrict key')
+    for (const role of ['Service Usage Admin', 'API Keys Admin']) expect(text).toContain(role)
+    for (const link of maps.howTo.links) expect(html).toContain(`href="${link.href}"`)
+  })
+
+  it('never works the host out from the console’s own address: without one from the API it says so', async () => {
+    const text = textOf(await page({ messaging: withMaps({ enabled: true, hooksHost: null, key: mapsKey() }) }))
+    expect(text).toContain(maps.howTo.referrerUnknown)
+    expect(text).not.toContain('This environment’s map page is on')
+  })
+
+  it('words a refusal by what Google refused, else by its code', () => {
+    expect(mapsRefusalText({ ok: false, reason: 'KEY_REJECTED', problem: 'invalid' })).toBe(maps.problems.invalid)
+    expect(mapsRefusalText({ ok: false, reason: 'KEY_REJECTED', problem: null })).toBe(maps.refusals.KEY_REJECTED)
+    expect(mapsRefusalText({ ok: false, reason: 'NO_KEY', problem: null })).toBe(maps.refusals.NO_KEY)
+  })
+
+  it('shows the empty state with no key', async () => {
+    expect(textOf(await page({ forced: 'empty' }))).toContain(maps.none)
   })
 })
 
@@ -173,7 +252,59 @@ describe('the account dialogs', () => {
   })
 })
 
+describe('the Google Maps key dialog', () => {
+  const show = (dialog: HTMLElement) => dialog.setAttribute('open', '')
+  const key = `AIza${'a'.repeat(35)}`
+
+  it('holds the key back until it is a whole Google key with a reason, hides it as it is typed, then hands it over', async () => {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      show(this)
+    }
+    const onSave = vi.fn()
+    render(<MapsKeyDialog error={null} onSave={onSave} onCancel={noop} />)
+    const input = screen.getByLabelText(maps.keyLabel) as HTMLInputElement
+    expect(input.type).toBe('password')
+    const reveal = screen.getByRole('button', { name: maps.dialog.show, hidden: true })
+    fireEvent.click(reveal)
+    expect(input.type).toBe('text')
+    expect(screen.getByRole('button', { name: maps.dialog.hide, hidden: true }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: maps.dialog.hide, hidden: true }))
+    expect(input.type).toBe('password')
+    fireEvent.change(input, { target: { value: 'AIza-too-short' } })
+    expect(screen.getByText(maps.dialog.incomplete)).toBeTruthy()
+    fireEvent.change(input, { target: { value: `  ${key}  ` } })
+    expect(screen.queryByText(maps.dialog.incomplete)).toBeNull()
+    const save = screen.getByRole('button', { name: maps.dialog.save, hidden: true }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText(words.reason.label), { target: { value: 'New project' } })
+    await act(async () => fireEvent.click(save))
+    expect(onSave).toHaveBeenCalledWith(key, 'New project')
+  })
+})
+
 describe('the Admin API calls', () => {
+  it('save, test, switch and remove the Google Maps key with the reason, and word a refusal by what Google refused', async () => {
+    const ok = { ok: true, reason: null, status: 'ok', problem: null }
+    const saved = stubApi({ data: { savePlatformMapsKey: ok } })
+    expect(await savePlatformMapsKey('AIza-key', 'Rotated')).toEqual({ ok: true, status: 'ok', problem: null })
+    expect(saved.calls[0]?.variables).toEqual({ key: 'AIza-key', reason: 'Rotated' })
+    stubApi({ data: { savePlatformMapsKey: { ok: false, reason: 'KEY_REJECTED', status: null, problem: 'restricted' } } })
+    expect(await savePlatformMapsKey('AIza-key', 'x')).toEqual({ ok: false, reason: 'KEY_REJECTED', problem: 'restricted' })
+    stubApi({ data: { testPlatformMapsKey: { ok: true, reason: null, status: 'rejected', problem: 'invalid' } } })
+    expect(await testPlatformMapsKey()).toEqual({ ok: true, status: 'rejected', problem: 'invalid' })
+    const on = stubApi({ data: { setPlatformMapsEnabled: ok } })
+    await setPlatformMapsEnabled(true, 'Ready')
+    expect(on.calls[0]?.variables).toEqual({ enabled: true, reason: 'Ready' })
+    const removed = stubApi({ data: { removePlatformMapsKey: ok } })
+    await removePlatformMapsKey('Rotating')
+    expect(removed.calls[0]?.variables).toEqual({ reason: 'Rotating' })
+  })
+
+  it('throws on a Maps code this console doesn’t know', async () => {
+    stubApi({ data: { setPlatformMapsEnabled: { ok: false, reason: 'SOMETHING_NEW', status: null, problem: null } } })
+    await expect(setPlatformMapsEnabled(true, 'x')).rejects.toBeInstanceOf(ApiError)
+  })
+
   it('send the account and the reason, and word a refusal by its code', async () => {
     const api = stubApi({ data: { savePlatformSmsAccount: { ok: false, reason: 'KEY_REJECTED', status: null, problem: null, template: null } } })
     const result = await savePlatformSms({ provider: 'twilio', accountSid: 'AC1', authToken: 't', messagingServiceSid: 'MG1' }, 'Rotated')

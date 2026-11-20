@@ -27,7 +27,7 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('../../api/collections', () => api)
 const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn(), uploadPhoto: vi.fn() }))
-const filtersApi = vi.hoisted(() => ({ loadFilters: vi.fn(), saveFilter: vi.fn(), mergeValues: vi.fn() }))
+const filtersApi = vi.hoisted(() => ({ loadFilters: vi.fn(), saveFilter: vi.fn(), mergeValues: vi.fn(), deleteFilter: vi.fn() }))
 vi.mock('../../api/filters', () => filtersApi)
 vi.mock('../../api/productEditor', () => editorApi)
 const menuApi = vi.hoisted(() => ({ loadMenu: vi.fn(), saveMenu: vi.fn() }))
@@ -391,6 +391,7 @@ describe('filters', () => {
   beforeEach(() => {
     f.loadFilters.mockResolvedValue([fabric, colour, tag])
     f.saveFilter.mockResolvedValue('x')
+    f.deleteFilter.mockResolvedValue(true)
   })
 
   it('shows each filter’s values with their counts, who sees it, the collections using it, and look-alikes', async () => {
@@ -481,8 +482,53 @@ describe('filters', () => {
     expect(f.loadFilters.mock.calls.length).toBe(loads + 1)
   })
 
+  it('puts a Delete button on each filter’s card, and asks first what the filter takes with it (#1567)', async () => {
+    await show(owner, '/collections?tab=filters')
+    for (const name of ['Fabric', 'Colour', 'Reorder soon']) expect(within(screen.getByRole('region', { name })).getByRole('button', { name: fill(words.filters.deleteFilterLabel, { name }) })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Fabric filter' }))
+    expect(dialog().getByRole('heading', { name: 'Delete the Fabric filter?' })).toBeTruthy()
+    expect(dialog().getByText('9 product tags go. 2 automatic collections use it and will change.')).toBeTruthy()
+    cleanup()
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Reorder soon filter' }))
+    expect(dialog().getByText(words.filters.deleteFilterNone)).toBeTruthy()
+  })
+
+  it('words one product tag and one collection in the singular', async () => {
+    f.loadFilters.mockResolvedValue([{ ...fabric, values: [{ id: 'linen', name: 'Linen', products: 1 }] }])
+    api.loadCollections.mockResolvedValue([summer])
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Fabric filter' }))
+    expect(dialog().getByText(/^1 product tag goes./)).toBeTruthy()
+  })
+
+  it('changes nothing on Cancel, and deletes the filter on Delete with a message, then loads the list again', async () => {
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Fabric filter' }))
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.cancel }))
+    await settle()
+    expect(f.deleteFilter).not.toHaveBeenCalled()
+    expect(f.loadFilters).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Fabric filter' }))
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.deleteFilterConfirm }))
+    await settle()
+    expect(f.deleteFilter).toHaveBeenCalledWith('fabric')
+    expect(screen.getByText('Fabric deleted')).toBeTruthy()
+    expect(f.loadFilters).toHaveBeenCalledTimes(2)
+  })
+
+  it('says so when the filter is already gone', async () => {
+    f.deleteFilter.mockRejectedValueOnce(new ApiError('NOT_FOUND', 'gone'))
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the Reorder soon filter' }))
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.deleteFilterConfirm }))
+    await settle()
+    expect(screen.getByText(words.filters.refused.NOT_FOUND)).toBeTruthy()
+  })
+
   it('lets staff look without changing anything', async () => {
     await show(staff, '/collections?tab=filters')
+    expect(screen.queryByRole('button', { name: 'Delete the Fabric filter' })).toBeNull()
     expect(screen.queryByRole('button', { name: words.filters.create })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Add a value to Fabric' })).toBeNull()
     expect((screen.getByRole('button', { name: 'Linen (9)' }) as HTMLButtonElement).disabled).toBe(true)

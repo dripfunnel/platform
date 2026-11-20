@@ -1,4 +1,4 @@
-// DripFunnel's own SMS and WhatsApp accounts, and Admin's per-partner switches, on the Admin API (#1543, THIRD-PARTY-ACCESS §4).
+// DripFunnel's own SMS and WhatsApp accounts and Google Maps key, and Admin's per-partner switches, on the Admin API (#1543, #1612, THIRD-PARTY-ACCESS §4).
 // Every role reads the status; a Super admin changes the accounts; a secret goes up once and comes back as its last four.
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { rejectionOf, smsProviders, smsRoutes, whatsAppMessages, type SmsAccountInput, type SmsProvider, type SmsRoute, type WhatsAppAccountInput, type WhatsAppRejection } from '@dripfunnel/shared/messaging'
@@ -28,22 +28,30 @@ const whatsAppAccountSchema = z.object({
   lastTestedAt: isoString.nullable(),
 })
 const whatsAppSchema = z.object({ enabled: z.boolean(), account: whatsAppAccountSchema.nullable() })
+// hooksHost is where the key's website restriction must allow: the Worker's own HOOKS_HOST, never worked out here.
+const mapsSchema = z.object({ enabled: z.boolean(), hooksHost: z.string().nullable(), key: z.object({ hint: z.string(), status, lastTestedAt: isoString.nullable() }).nullable() })
 
 export type PlatformSmsAccount = z.infer<typeof smsAccountSchema>
 export type PlatformSms = z.infer<typeof smsSchema>
 export type PlatformWhatsAppAccount = z.infer<typeof whatsAppAccountSchema>
 export type PlatformWhatsApp = z.infer<typeof whatsAppSchema>
+export type PlatformMaps = z.infer<typeof mapsSchema>
 export interface Messaging {
   sms: PlatformSms
   whatsapp: PlatformWhatsApp
+  maps: PlatformMaps
 }
 
 const smsFields = 'routes { route provider serving } accounts { provider hint status lastTestedAt templatesComplete }'
+const mapsFields = 'enabled hooksHost key { hint status lastTestedAt }'
 const whatsAppFields = 'enabled account { hint businessAccountId phoneNumberId language templates { message name } status lastTestedAt }'
 
 export const loadMessaging = async (): Promise<Messaging> => {
-  const { platformSms, platformWhatsApp } = await query(`query Messaging { platformSms { ${smsFields} } platformWhatsApp { ${whatsAppFields} } }`, z.object({ platformSms: smsSchema, platformWhatsApp: whatsAppSchema }))
-  return { sms: platformSms, whatsapp: platformWhatsApp }
+  const { platformSms, platformWhatsApp, platformMapsKey } = await query(
+    `query Messaging { platformSms { ${smsFields} } platformWhatsApp { ${whatsAppFields} } platformMapsKey { ${mapsFields} } }`,
+    z.object({ platformSms: smsSchema, platformWhatsApp: whatsAppSchema, platformMapsKey: mapsSchema }),
+  )
+  return { sms: platformSms, whatsapp: platformWhatsApp, maps: platformMapsKey }
 }
 
 // The codes a change answers with (apps/api saas/platformMessaging MessagingRefusal), worded by the screen.
@@ -94,19 +102,49 @@ export const setPlatformWhatsAppEnabled = (enabled: boolean, reason: string) => 
 
 export const removePlatformWhatsApp = (reason: string) => change('removePlatformWhatsAppAccount', '($reason: String!)', '(reason: $reason)', { reason })
 
-const switchesSchema = z.object({ sms: z.boolean(), whatsapp: z.boolean() })
+// What Google refused (apps/api integrations/googleMaps), and the codes a Maps change answers with (saas/platformMessaging).
+export const mapsProblems = ['invalid', 'geocoding_disabled', 'restricted', 'other'] as const
+export type MapsProblem = (typeof mapsProblems)[number]
+export const mapsRefusals = ['INVALID_INPUT', 'KEY_REJECTED', 'PROVIDER_UNAVAILABLE', 'NOT_CONFIGURED', 'NOT_FOUND', 'NO_KEY'] as const
+export type MapsRefusal = (typeof mapsRefusals)[number]
+export type MapsResult = { ok: true; status: 'ok' | 'rejected' | null; problem: MapsProblem | null } | { ok: false; reason: MapsRefusal; problem: MapsProblem | null }
+
+const mapsResultSchema = z.object({ ok: z.boolean(), reason: z.string().nullable(), status: z.string().nullable(), problem: z.string().nullable() })
+const mapsProblemOf = (value: string | null): MapsProblem | null => mapsProblems.find((p) => p === value) ?? null
+
+const mapsChange = async (field: string, args: string, call: string, variables: Record<string, unknown> = {}): Promise<MapsResult> => {
+  const answer = await query(`mutation ${field}${args} { ${field}${call} { ok reason status problem } }`, z.object({ [field]: mapsResultSchema }), variables)
+  const r = answer[field]
+  if (!r) throw new ApiError('BAD_RESPONSE', `No ${field} in the answer.`)
+  const problem = mapsProblemOf(r.problem)
+  if (r.ok) return { ok: true, status: r.status === 'ok' || r.status === 'rejected' ? r.status : null, problem }
+  const known = mapsRefusals.find((code) => code === r.reason)
+  if (!known) throw new ApiError(r.reason ?? 'UNKNOWN', 'The API refused with a code this console does not know.')
+  return { ok: false, reason: known, problem }
+}
+
+/** The key is checked with Google before it is kept, and goes up once: the API reads back only its last four. */
+export const savePlatformMapsKey = (key: string, reason: string) => mapsChange('savePlatformMapsKey', '($key: String!, $reason: String!)', '(key: $key, reason: $reason)', { key, reason })
+
+export const testPlatformMapsKey = () => mapsChange('testPlatformMapsKey', '', '')
+
+export const setPlatformMapsEnabled = (enabled: boolean, reason: string) => mapsChange('setPlatformMapsEnabled', '($enabled: Boolean!, $reason: String!)', '(enabled: $enabled, reason: $reason)', { enabled, reason })
+
+export const removePlatformMapsKey = (reason: string) => mapsChange('removePlatformMapsKey', '($reason: String!)', '(reason: $reason)', { reason })
+
+const switchesSchema = z.object({ sms: z.boolean(), whatsapp: z.boolean(), maps: z.boolean() })
 export type PartnerSwitches = z.infer<typeof switchesSchema>
 export type MessagingChannel = keyof PartnerSwitches
 
-/** Admin's two switches for a partner; null when it doesn't exist. */
+/** Admin's three switches for a partner; null when it doesn't exist. */
 export const loadPartnerSwitches = async (partnerId: string): Promise<PartnerSwitches | null> =>
-  (await query(`query PartnerDfMessaging($partnerId: ID!) { partnerDfMessaging(partnerId: $partnerId) { sms whatsapp } }`, z.object({ partnerDfMessaging: switchesSchema.nullable() }), { partnerId })).partnerDfMessaging
+  (await query(`query PartnerDfMessaging($partnerId: ID!) { partnerDfMessaging(partnerId: $partnerId) { sms whatsapp maps } }`, z.object({ partnerDfMessaging: switchesSchema.nullable() }), { partnerId })).partnerDfMessaging
 
 /** Refused as an ApiError: FORBIDDEN outside the caller's role or assignment, NOT_FOUND, INVALID_INPUT. */
 export const setPartnerSwitch = async (partnerId: string, channel: MessagingChannel, enabled: boolean, reason: string): Promise<PartnerSwitches> =>
   (
     await query(
-      `mutation SetPartnerDfMessaging($partnerId: ID!, $channel: String!, $enabled: Boolean!, $reason: String!) { setPartnerDfMessaging(partnerId: $partnerId, channel: $channel, enabled: $enabled, reason: $reason) { sms whatsapp } }`,
+      `mutation SetPartnerDfMessaging($partnerId: ID!, $channel: String!, $enabled: Boolean!, $reason: String!) { setPartnerDfMessaging(partnerId: $partnerId, channel: $channel, enabled: $enabled, reason: $reason) { sms whatsapp maps } }`,
       z.object({ setPartnerDfMessaging: switchesSchema }),
       { partnerId, channel, enabled, reason },
     )

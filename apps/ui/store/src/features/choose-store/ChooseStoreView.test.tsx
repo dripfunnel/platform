@@ -71,6 +71,13 @@ describe('the store chooser for a person in no store (#1356)', () => {
     }
   })
 
+  it('lets them create a store, as a person whose only store was archived needs', async () => {
+    shell.loadMe.mockResolvedValue(me)
+    shell.loadMyStores.mockResolvedValue([])
+    await openChooser()
+    expect(await screen.findByRole('button', { name: words.create.action })).toBeTruthy()
+  })
+
   it('follows an invitation link instead of refusing them, so signing in joins the store without a second click on the email', async () => {
     serveInvitation()
     shell.loadMe.mockResolvedValue(me)

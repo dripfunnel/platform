@@ -413,3 +413,45 @@ describe('a line that can’t be bought any more keeps what names it (#1465)', (
     expect(await withSystemScope(db.sql, (tx) => selectCartLineDisplays(tx, stores.india, [mine ?? ''], 'en-US'))).toHaveLength(1)
   })
 })
+
+describe('delivery before an address (#1521)', () => {
+  const setShipping = (set: string) => db.sql.unsafe(`update store_shipping set ${set} where store_id = '${stores.india}'`)
+  const fresh = async () => {
+    const added = await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)
+    return (added.data?.['addToCart'] as { cartToken: string }).cartToken
+  }
+  const restore = () => setShipping(`flat_enabled = true, flat_amount = 4900, area_mode = 'everywhere'`)
+
+  it('carries a switched-on flat rate as the delivery price, in the total, from the first step', async () => {
+    const guest = await fresh()
+    expect(await cart(guest)).toMatchObject({ shippingOptions: [{ id: 'flat', amount: { amount: '4900' } }, { id: 'pickup', amount: { amount: '0' } }], shipping: { amount: '4900' }, total: { amount: '109900' } })
+  })
+
+  it('says free for a flat rate of nothing, and carries no price when the flat rate is off', async () => {
+    try {
+      await setShipping('flat_amount = 0')
+      expect(await cart(await fresh())).toMatchObject({ shipping: { amount: '0' }, total: { amount: '105000' } })
+      await setShipping('flat_enabled = false, flat_amount = 4900')
+      expect(await cart(await fresh())).toMatchObject({ shippingOptions: [{ id: 'pickup', amount: { amount: '0' } }], shipping: null, total: { amount: '105000' } })
+    } finally {
+      await restore()
+    }
+  })
+
+  it('leaves the price to the chosen option with an address, and loses it when the address is outside where the store delivers', async () => {
+    const guest = await fresh()
+    const address = 'address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }'
+    try {
+      await gql(`mutation { setShippingAddress(${address}) { cart { id } } }`, { token: guest })
+      expect(await cart(guest)).toMatchObject({ shipping: null, total: { amount: '105000' } })
+      await mutate(guest, 'setShippingOption', '(option: "flat")')
+      expect(await cart(guest)).toMatchObject({ shipping: { amount: '4900' } })
+      await setShipping(`area_mode = 'list'`)
+      const outside = await cart(guest)
+      expect(outside).toMatchObject({ shippingOptions: [{ id: 'pickup' }], shipping: null })
+      expect(outside?.['problems']).toContain('SHIPPING_UNAVAILABLE')
+    } finally {
+      await restore()
+    }
+  })
+})

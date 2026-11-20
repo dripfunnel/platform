@@ -193,3 +193,46 @@ export const selectWhatsAppState = async (tx: ScopedSql, partnerId: string): Pro
 export const updateWhatsAppEnabled = async (tx: ScopedSql, partnerId: string, enabled: boolean): Promise<void> => {
   await tx`update partner set whatsapp_enabled = ${enabled} where id = ${partnerId}`
 }
+
+// A partner's own Google Maps key (#1612): one row, sealed in key_enc, read in system scope only (db/scoped/mapsKey).
+export type MapsKeyRow = Pick<PartnerWhatsAppAccountRow, 'id' | 'key_prefix' | 'status' | 'last_tested_at'>
+const mapsColumns = `id, key_prefix, status, last_tested_at`
+
+export const selectMapsKey = async (tx: ScopedSql, partnerId: string): Promise<MapsKeyRow | null> =>
+  (await tx<MapsKeyRow[]>`select ${tx.unsafe(mapsColumns)} from partner_credential where partner_id = ${partnerId} and kind = 'maps' and provider = 'google' for update`)[0] ?? null
+
+export const insertMapsKey = async (tx: ScopedSql, input: SmsAccountWrite & { partnerId: string; createdBy: string }): Promise<string> =>
+  (
+    await tx<{ id: string }[]>`
+      insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, last_tested_at, created_by, created_at, updated_at)
+      values (${input.partnerId}, 'maps', 'google', 'Google Maps', ${input.keyEnc}, ${input.keyPrefix}, ${input.status}, ${input.testedAt}, ${input.createdBy}, ${input.at}, ${input.at})
+      returning id`
+  )[0]?.id ?? ''
+
+export const updateMapsKey = async (tx: ScopedSql, id: string, input: SmsAccountWrite): Promise<void> => {
+  await tx`
+    update partner_credential set key_enc = ${input.keyEnc}, key_prefix = ${input.keyPrefix}, status = ${input.status}, last_tested_at = ${input.testedAt}, updated_at = ${input.at}
+    where id = ${id} and kind = 'maps'`
+}
+
+export const updateMapsKeyTest = async (tx: ScopedSql, id: string, status: 'ok' | 'rejected', at: Date): Promise<void> => {
+  await tx`update partner_credential set status = ${status}, last_tested_at = ${at}, last_validated_at = ${at}, last_validation_status = ${status}, updated_at = ${at} where id = ${id} and kind = 'maps'`
+}
+
+export const deleteMapsKey = async (tx: ScopedSql, id: string): Promise<void> => {
+  await tx`delete from partner_credential where id = ${id} and kind = 'maps'`
+}
+
+/** System scope only: the sealed key, for a test. */
+export const selectSealedMapsKey = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
+  (await tx<{ key_enc: string }[]>`select key_enc from partner_credential where partner_id = ${partnerId} and kind = 'maps' and provider = 'google'`)[0]?.key_enc ?? null
+
+export type MapsChoice = 'own' | 'dripfunnel'
+
+/** Whose key the partner's stores use, as it chose; null leaves it to its own, if it has one. */
+export const selectMapsChoice = async (tx: ScopedSql, partnerId: string): Promise<MapsChoice | null> =>
+  (await tx<{ maps_account: MapsChoice | null }[]>`select maps_account from partner where id = ${partnerId}`)[0]?.maps_account ?? null
+
+export const updateMapsChoice = async (tx: ScopedSql, partnerId: string, choice: MapsChoice): Promise<void> => {
+  await tx`update partner set maps_account = ${choice} where id = ${partnerId}`
+}

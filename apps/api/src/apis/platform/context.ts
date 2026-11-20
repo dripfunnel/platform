@@ -10,7 +10,8 @@ import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
-import { createPartnerCredentialsService, createPartnerSmsService, createPartnerWhatsAppService } from '#saas/partnerCredentials/index'
+import { createPartnerCredentialsService, createPartnerMapsService, createPartnerSmsService, createPartnerWhatsAppService } from '#saas/partnerCredentials/index'
+import type { MapsKeyCheck } from '#core/mapsKey'
 import type { SmsAccountCheck } from '#core/sms'
 import type { WhatsAppAccountCheck } from '#core/whatsapp'
 import { checkMetaWhatsAppAccount } from '#integrations/meta/index'
@@ -53,6 +54,8 @@ export interface PlatformContextDeps {
   checkSms?: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
   /** Checks a partner's WhatsApp account with Meta; locally (SMS_LOCAL) the stand-in's. */
   checkWhatsApp?: (account: PartnerWhatsAppAccount) => Promise<WhatsAppAccountCheck>
+  /** Checks a Google Maps key against Google (#1612); absent, Google can't be asked and nothing is saved. */
+  checkMaps?: (key: string) => Promise<MapsKeyCheck>
   /** DripFunnel's SMS and WhatsApp as each partner may use them (#1543); absent, none. */
   ourSms?: OurSms
   ourWhatsApp?: OurWhatsApp
@@ -62,10 +65,10 @@ export interface PlatformContextDeps {
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> =>
   provider === 'anthropic' ? checkAnthropicKey(key) : openaiChat(key).validateCredentials()
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, maps: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, ourSms = async () => ({}), ourWhatsApp = async () => null, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, checkMaps = async () => ({ status: 'unavailable' }), ourSms = async () => ({}), ourWhatsApp = async () => null, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -81,6 +84,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     googleSignIn: createGoogleSignInService({ ...deps, secrets }),
     sms: createPartnerSmsService({ ...deps, secrets, checkSms, ourSms }),
     whatsapp: createPartnerWhatsAppService({ ...deps, secrets, checkWhatsApp, ourWhatsApp }),
+    maps: createPartnerMapsService({ ...deps, secrets, checkMaps }),
     profile: createPartnerProfileService({ ...deps, sessionId }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),

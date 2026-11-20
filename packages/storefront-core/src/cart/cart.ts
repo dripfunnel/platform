@@ -156,17 +156,20 @@ export type Cart = {
 }
 
 type Decoded = z.infer<typeof cartSchema>
-type Overlay = { id: number; versionId: string; quantity: number; kind: 'set' | 'add' }
+type Overlay = { id: number; versionId: string; lineId: string | null; quantity: number; kind: 'set' | 'add' }
 type Snapshot = { status: 'loading' | 'ready' | 'error'; code: string | null; cart: Decoded | null; overlay: readonly Overlay[]; error: string | null }
 
 const steps: readonly CheckoutStep[] = ['contact', 'ship', 'pay']
 
 /** The engine's cart with the changes it hasn't answered yet laid over it; no amount is ever worked out here. */
 export const viewCart = (cart: Decoded, overlay: readonly Overlay[] = []): Cart => {
-  const set = new Map(overlay.filter((o) => o.kind === 'set').map((o) => [o.versionId, o.quantity]))
+  const sets = overlay.filter((o) => o.kind === 'set')
+  const setOfLine = new Map(sets.flatMap((o) => (o.lineId ? [[o.lineId, o.quantity] as const] : [])))
+  const setOfVersion = new Map(sets.flatMap((o) => (o.lineId ? [] : [[o.versionId, o.quantity] as const])))
   const added = (v: string) => overlay.filter((o) => o.kind === 'add' && o.versionId === v).reduce((n, o) => n + o.quantity, 0)
   const lines = cart.lines.flatMap((l): CartLine[] => {
-    const quantity = (set.get(l.versionId) ?? l.quantity) + added(l.versionId)
+    const own = (l.id ? setOfLine.get(l.id) : undefined) ?? ((l.answers?.length ?? 0) === 0 ? setOfVersion.get(l.versionId) : undefined)
+    const quantity = (own ?? l.quantity) + added(l.versionId)
     if (quantity <= 0) return []
     const photo = l.photoUrl ? photoOf(l.photoUrl, l.productName ?? null) : null
     const problem = lineProblems.find((p) => p === l.problem) ?? null
@@ -335,10 +338,10 @@ export const useCartState = () => {
   return { store, snapshot, cart }
 }
 
-const lineChange = (name: string, args: string) => `mutation ${name}($versionId: ID!, $quantity: Int!) { ${args} { cartToken cart { ${cartFields} } } }`
+const lineChange = (name: string, args: string) => `mutation ${name}($versionId: ID!, $quantity: Int!, $lineId: ID) { ${args} { cartToken cart { ${cartFields} } } }`
 const addMutation = `mutation Add($versionId: ID!, $quantity: Int!, $gift: ShopGiftCardInput, $answers: [ShopAnswerInput!]) { addToCart(versionId: $versionId, quantity: $quantity, gift: $gift, answers: $answers) { cartToken cart { ${cartFields} } } }`
 const answersMutation = `mutation Answers($lineId: ID!, $answers: [ShopAnswerInput!]!) { updateCartLineAnswers(lineId: $lineId, answers: $answers) { cartToken cart { ${cartFields} } } }`
-const quantityMutation = lineChange('Quantity', 'setCartQuantity(versionId: $versionId, quantity: $quantity)')
+const quantityMutation = lineChange('Quantity', 'setCartQuantity(versionId: $versionId, quantity: $quantity, lineId: $lineId)')
 const applyMutation = `mutation Apply($code: String!) { applyCode(code: $code) { state cart { ${cartFields} } } }`
 const removeCodeMutation = `mutation RemoveCode($code: String!) { removeCode(code: $code) { cart { ${cartFields} } } }`
 const codeSchema = z.object({ cart: cartSchema.nullable().optional(), state: text })
@@ -356,8 +359,9 @@ export type CartPage = {
   error: string | null
   /** `gift`: a gift card's recipient, which the engine needs to sell one. */
   add: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
-  setQuantity: (versionId: string, quantity: number) => Promise<boolean>
-  remove: (versionId: string) => Promise<boolean>
+  /** `lineId` names a line with answers, which a version alone can't (two lines of one version differ by their answers). */
+  setQuantity: (versionId: string, quantity: number, lineId?: string | null) => Promise<boolean>
+  remove: (versionId: string, lineId?: string | null) => Promise<boolean>
   /** The code's state as the engine answers it, such as APPLIED or INVALID; null when it couldn't be asked. */
   applyCode: (code: string) => Promise<string | null>
   removeCode: (code: string) => Promise<boolean>
@@ -373,14 +377,23 @@ export type CartPage = {
   retry: () => void
 }
 
+/** A theme from before #1641 names no line: the version's only line, when it has answers, is the one it means. */
+const soleLineWithAnswers = (cart: Decoded | null, versionId: string): string | null => {
+  const held = cart?.lines.filter((l) => l.versionId === versionId) ?? []
+  return held.length === 1 && (held[0]?.answers?.length ?? 0) > 0 ? (held[0]?.id ?? null) : null
+}
+
 /** The shopper's cart and what can be done to it (ARCHITECTURE §2.1 `cart`); nothing here prices anything. */
 export const useCart = (): CartPage => {
   const { store, snapshot, cart } = useCartState()
   const send = async (versionId: string, quantity: number, gift: GiftRecipient | undefined, answers?: readonly Answer[]) =>
-    (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, quantity, kind: 'add' })) !== null
+    (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, lineId: null, quantity, kind: 'add' })) !== null
   const add = (versionId: string, quantity = 1, gift?: GiftRecipient) => send(versionId, quantity, gift)
   const codeOf = (done: boolean) => (done ? null : (store.get().error ?? 'UNKNOWN'))
-  const setQuantity = async (versionId: string, quantity: number) => (await store.change(quantityMutation, { versionId, quantity }, changeSchema, { versionId, quantity, kind: 'set' })) !== null
+  const setQuantity = async (versionId: string, quantity: number, named: string | null = null) => {
+    const lineId = named ?? soleLineWithAnswers(store.get().cart, versionId)
+    return (await store.change(quantityMutation, { versionId, quantity, ...(lineId ? { lineId } : {}) }, changeSchema, { versionId, lineId, quantity, kind: 'set' })) !== null
+  }
   return {
     status: snapshot.status,
     code: snapshot.code,
@@ -389,7 +402,7 @@ export const useCart = (): CartPage => {
     error: snapshot.error,
     add,
     setQuantity,
-    remove: (versionId) => setQuantity(versionId, 0),
+    remove: (versionId, lineId) => setQuantity(versionId, 0, lineId),
     applyCode: async (code) => (await store.change(applyMutation, { code }, codeSchema))?.state ?? null,
     removeCode: async (code) => (await store.change(removeCodeMutation, { code }, changeSchema)) !== null,
     applyGiftCard: async (number) => ((await store.change(giftCardMutation, { number: number.replace(/\s+/g, '') }, changeSchema)) !== null ? null : (store.get().error ?? 'UNKNOWN')),

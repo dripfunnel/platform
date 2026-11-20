@@ -111,6 +111,9 @@ export const rejectionOf = (r: { problem: string | null; template: string | null
   return r.problem === 'template' && template ? { problem: 'template', template } : null
 }
 
+/** A Google Maps browser key: "AIza" and 35 more characters. The API checks it again (saas/partnerCredentials parseMapsKey). */
+export const googleMapsKeyShape = /^AIza[0-9A-Za-z_-]{35}$/
+
 /** On needs an account naming `code.portal` whose last check said Working (ACCESS §4). */
 export const servesCodes = (account: { status: string; templates: readonly { message: string; name: string | null }[] }): boolean =>
   account.status === 'ok' && account.templates.some((t) => t.message === 'code.portal' && t.name)

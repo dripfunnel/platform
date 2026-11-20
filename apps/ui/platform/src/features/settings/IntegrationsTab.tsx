@@ -4,6 +4,7 @@ import { addAiKey, aiProviders, beginAiOauth, finishAiOauth, loadAiKeys, loadAiS
 import { fill, locale, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
 import { GoogleSignInPanel } from './GoogleSignInPanel'
+import { MapsPanel } from './MapsPanel'
 import { SmsPanel } from './SmsPanel'
 import { WhatsAppPanel } from './WhatsAppPanel'
 const words = messages.settings.integrations
@@ -272,6 +273,7 @@ export const IntegrationsTab = ({ mayChange, actingAs, onToast }: IntegrationsTa
       {mayChange && <GoogleSignInPanel mayChange={mayChange} onToast={onToast} />}
       <WhatsAppPanel mayChange={mayChange} blocked={actingAs === null ? null : fill(words.whatsapp.blocked, { user: actingAs })} onToast={onToast} />
       <SmsPanel mayChange={mayChange} blocked={actingAs === null ? null : fill(words.sms.blocked, { user: actingAs })} onToast={onToast} />
+      <MapsPanel mayChange={mayChange} blocked={actingAs === null ? null : fill(words.maps.blocked, { user: actingAs })} onToast={onToast} />
       {open?.kind === 'add' && (
         <AddDialog
           onDone={() => {

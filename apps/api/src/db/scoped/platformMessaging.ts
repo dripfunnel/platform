@@ -4,8 +4,8 @@ import type { ScopedSql } from './index'
 // DripFunnel's own SMS and WhatsApp accounts (#1543, migration 0410): system scope only, every column, as the Admin API
 // reads and writes them for staff. A partner reads only its own two switches on `partner`.
 
-export type MessagingKind = 'sms' | 'whatsapp'
-export type OurProvider = SmsProvider | 'meta'
+export type MessagingKind = 'sms' | 'whatsapp' | 'maps'
+export type OurProvider = SmsProvider | 'meta' | 'google'
 
 export interface OurAccountRow {
   id: string
@@ -54,11 +54,12 @@ export interface OurMessaging {
   /** DripFunnel's provider per route; null leaves it to the route's first provider it holds an account for. */
   routes: Record<SmsRoute, SmsProvider | null>
   whatsappEnabled: boolean
+  mapsEnabled: boolean
 }
 
 export const selectOurMessaging = async (tx: ScopedSql): Promise<OurMessaging> => {
-  const row = (await tx<{ sms_route_india: SmsProvider | null; sms_route_rest: SmsProvider | null; whatsapp_enabled: boolean }[]>`select sms_route_india, sms_route_rest, whatsapp_enabled from platform_messaging`)[0]
-  return { routes: { india: row?.sms_route_india ?? null, rest: row?.sms_route_rest ?? null }, whatsappEnabled: row?.whatsapp_enabled ?? false }
+  const row = (await tx<{ sms_route_india: SmsProvider | null; sms_route_rest: SmsProvider | null; whatsapp_enabled: boolean; maps_enabled: boolean }[]>`select sms_route_india, sms_route_rest, whatsapp_enabled, maps_enabled from platform_messaging`)[0]
+  return { routes: { india: row?.sms_route_india ?? null, rest: row?.sms_route_rest ?? null }, whatsappEnabled: row?.whatsapp_enabled ?? false, mapsEnabled: row?.maps_enabled ?? false }
 }
 
 export const updateOurSmsRoute = async (tx: ScopedSql, route: SmsRoute, provider: SmsProvider | null, at: Date): Promise<void> => {
@@ -66,19 +67,24 @@ export const updateOurSmsRoute = async (tx: ScopedSql, route: SmsRoute, provider
   else await tx`update platform_messaging set sms_route_rest = ${provider}, updated_at = ${at}`
 }
 
+export const updateOurMapsEnabled = async (tx: ScopedSql, enabled: boolean, at: Date): Promise<void> => {
+  await tx`update platform_messaging set maps_enabled = ${enabled}, updated_at = ${at}`
+}
+
 export const updateOurWhatsAppEnabled = async (tx: ScopedSql, enabled: boolean, at: Date): Promise<void> => {
   await tx`update platform_messaging set whatsapp_enabled = ${enabled}, updated_at = ${at}`
 }
 
-/** Admin's switches for one partner; a partner not found reads as both off. */
+/** Admin's switches for one partner; a partner not found reads as all off. */
 export const selectDfMessaging = async (tx: ScopedSql, partnerId: string): Promise<Record<MessagingKind, boolean>> => {
-  const row = (await tx<{ df_sms_enabled: boolean; df_whatsapp_enabled: boolean }[]>`select df_sms_enabled, df_whatsapp_enabled from partner where id = ${partnerId}`)[0]
-  return { sms: row?.df_sms_enabled ?? false, whatsapp: row?.df_whatsapp_enabled ?? false }
+  const row = (await tx<{ df_sms_enabled: boolean; df_whatsapp_enabled: boolean; df_maps_enabled: boolean }[]>`select df_sms_enabled, df_whatsapp_enabled, df_maps_enabled from partner where id = ${partnerId}`)[0]
+  return { sms: row?.df_sms_enabled ?? false, whatsapp: row?.df_whatsapp_enabled ?? false, maps: row?.df_maps_enabled ?? false }
 }
 
 export const updateDfMessaging = async (tx: ScopedSql, partnerId: string, kind: MessagingKind, enabled: boolean): Promise<void> => {
   if (kind === 'sms') await tx`update partner set df_sms_enabled = ${enabled} where id = ${partnerId}`
-  else await tx`update partner set df_whatsapp_enabled = ${enabled} where id = ${partnerId}`
+  else if (kind === 'whatsapp') await tx`update partner set df_whatsapp_enabled = ${enabled} where id = ${partnerId}`
+  else await tx`update partner set df_maps_enabled = ${enabled} where id = ${partnerId}`
 }
 
 export const selectPartnerName = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>

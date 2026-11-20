@@ -1,15 +1,18 @@
 import { GraphQLError } from 'graphql'
+import type { MapsKeyResult } from '#saas/partnerCredentials/index'
 import { platformMessagingAudit, type MessagingResult, type PlatformMessagingService } from '#saas/platformMessaging/index'
 import { builder } from './builder'
 import { compact, iso, signedIn } from './types'
 
-// DripFunnel's own SMS and WhatsApp on the Admin API (#1543; #1544 draws the screens). Thin: saas/platformMessaging decides.
+// DripFunnel's own SMS, WhatsApp and Google Maps key on the Admin API (#1543, #1612; #1544 and #1613 draw the screens). Thin: saas/platformMessaging decides.
 // Every role reads the status; Super admin alone changes an account; Super admin and Partner manager switch it per partner.
 // A secret goes in once and comes back as its last four characters.
 
 type Sms = Awaited<ReturnType<PlatformMessagingService['smsAccounts']>>
 type WhatsApp = Awaited<ReturnType<PlatformMessagingService['whatsAppAccount']>>
 type WhatsAppAccount = NonNullable<WhatsApp['account']>
+type Maps = Awaited<ReturnType<PlatformMessagingService['mapsKey']>>
+type Switches = NonNullable<Awaited<ReturnType<PlatformMessagingService['partnerSwitches']>>>
 
 const read = { access: { api: 'admin' as const, scope: 'platform' as const, permission: 'messaging.read' as const, target: 'none' as const } }
 const manage = (audit: string) => ({ access: { api: 'admin' as const, scope: 'platform' as const, permission: 'messaging.manage' as const, target: 'none' as const, audit } })
@@ -76,8 +79,36 @@ const OutcomeType = builder.objectRef<MessagingResult>('PlatformMessagingResult'
   }),
 })
 
-const SwitchesType = builder.objectRef<{ sms: boolean; whatsapp: boolean }>('PartnerDfMessaging').implement({
-  fields: (t) => ({ sms: t.exposeBoolean('sms'), whatsapp: t.exposeBoolean('whatsapp') }),
+const MapsKeyType = builder.objectRef<NonNullable<Maps['key']>>('PlatformMapsKeyAccount').implement({
+  fields: (t) => ({
+    // "AIza…abcd", never the key.
+    hint: t.exposeString('hint'),
+    status: t.exposeString('status'),
+    lastTestedAt: t.string({ nullable: true, resolve: (k) => iso(k.lastTestedAt) }),
+  }),
+})
+
+const MapsType = builder.objectRef<Maps>('PlatformMaps').implement({
+  fields: (t) => ({
+    enabled: t.exposeBoolean('enabled'),
+    key: t.field({ type: MapsKeyType, nullable: true, resolve: (m) => m.key }),
+    // The host the key's website restriction must allow, so the console need not work it out.
+    hooksHost: t.string({ nullable: true, resolve: (m) => m.hooksHost }),
+  }),
+})
+
+const MapsOutcomeType = builder.objectRef<MapsKeyResult>('PlatformMapsResult').implement({
+  fields: (t) => ({
+    ok: t.exposeBoolean('ok'),
+    reason: t.string({ nullable: true, resolve: (o) => (o.ok ? null : o.reason) }),
+    status: t.string({ nullable: true, resolve: (o) => (o.ok ? (o.status ?? null) : null) }),
+    // What Google refused: invalid, geocoding_disabled, restricted or other.
+    problem: t.string({ nullable: true, resolve: (o) => o.problem ?? null }),
+  }),
+})
+
+const SwitchesType = builder.objectRef<Switches>('PartnerDfMessaging').implement({
+  fields: (t) => ({ sms: t.exposeBoolean('sms'), whatsapp: t.exposeBoolean('whatsapp'), maps: t.exposeBoolean('maps') }),
 })
 
 const SmsTemplateInput = builder.inputType('PlatformSmsTemplateInput', {
@@ -92,6 +123,7 @@ const words = { INVALID_INPUT: 'Something here isn’t valid.', NOT_FOUND: 'That
 builder.queryFields((t) => ({
   platformSms: t.field({ type: SmsType, extensions: read, resolve: (_, __, ctx) => signedIn(ctx.messaging ?? null).smsAccounts() }),
   platformWhatsApp: t.field({ type: WhatsAppType, extensions: read, resolve: (_, __, ctx) => signedIn(ctx.messaging ?? null).whatsAppAccount() }),
+  platformMapsKey: t.field({ type: MapsType, extensions: read, resolve: (_, __, ctx) => signedIn(ctx.messaging ?? null).mapsKey() }),
   partnerDfMessaging: t.field({
     type: SwitchesType,
     nullable: true,
@@ -170,7 +202,30 @@ builder.mutationFields((t) => ({
     extensions: manage(platformMessagingAudit.whatsappRemove),
     resolve: (_, { reason }, ctx) => signedIn(ctx.messaging ?? null).removeWhatsApp(reason),
   }),
-  // Lets the partner use DripFunnel's account for `channel` (`sms` or `whatsapp`), or stops it; always with a reason.
+  savePlatformMapsKey: t.field({
+    type: MapsOutcomeType,
+    args: { key: t.arg.string({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: manage(platformMessagingAudit.mapsSave),
+    resolve: (_, { reason, ...args }, ctx) => signedIn(ctx.messaging ?? null).saveMapsKey(args, reason),
+  }),
+  testPlatformMapsKey: t.field({
+    type: MapsOutcomeType,
+    extensions: manage(platformMessagingAudit.mapsTest),
+    resolve: (_, __, ctx) => signedIn(ctx.messaging ?? null).testMapsKey(),
+  }),
+  setPlatformMapsEnabled: t.field({
+    type: MapsOutcomeType,
+    args: { enabled: t.arg.boolean({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: manage(platformMessagingAudit.mapsEnabled),
+    resolve: (_, { enabled, reason }, ctx) => signedIn(ctx.messaging ?? null).setMapsEnabled(enabled, reason),
+  }),
+  removePlatformMapsKey: t.field({
+    type: MapsOutcomeType,
+    args: { reason: t.arg.string({ required: true }) },
+    extensions: manage(platformMessagingAudit.mapsRemove),
+    resolve: (_, { reason }, ctx) => signedIn(ctx.messaging ?? null).removeMapsKey(reason),
+  }),
+  // Lets the partner use DripFunnel's account for `channel` (`sms`, `whatsapp` or `maps`), or stops it; always with a reason.
   setPartnerDfMessaging: t.field({
     type: SwitchesType,
     args: { partnerId: t.arg.id({ required: true }), channel: t.arg.string({ required: true }), enabled: t.arg.boolean({ required: true }), reason: t.arg.string({ required: true }) },

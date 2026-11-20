@@ -85,7 +85,7 @@ export const registerCatalog = ({ builder, pageInfo, image }: ShopBuilder) => {
       currency: t.string({ resolve: (_, __, ctx) => shopOf(ctx).shopper.currency }),
       marketId: t.id({ nullable: true, resolve: (_, __, ctx) => shopOf(ctx).shopper.marketId }),
       // "Pin on map"'s frame (#814); null hides it.
-      mapFrame: t.string({ nullable: true, resolve: (_, __, ctx) => ctx.mapFrame ?? null }),
+      mapFrame: t.string({ nullable: true, resolve: (_, __, ctx) => ctx.mapFrame?.(shopOf(ctx).shopper.context.storeId) ?? null }),
     }),
   })
   const MenuItem = builder.objectRef<ShopMenuItem>('ShopMenuItem')

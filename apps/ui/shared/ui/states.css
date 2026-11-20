@@ -197,6 +197,10 @@
   margin-bottom: var(--df-space-3);
 }
 
+.df-dialog > .df-field-hint {
+  margin: var(--df-space-2) 0 var(--df-space-3);
+}
+
 .df-dialog-body {
   display: grid;
   gap: var(--df-space-1);

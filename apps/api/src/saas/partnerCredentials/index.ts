@@ -241,4 +241,5 @@ export const partnerAiProvider = async (sql: postgres.Sql, secrets: SecretBox | 
 export type PartnerCredentialsService = ReturnType<typeof createPartnerCredentialsService>
 
 export { createPartnerSmsService, hintOf, parseSmsAccount, smsAccountDto, smsAudit, smsProviderName, type PartnerSmsService, type SmsAccountRefusal } from './sms'
+export { createPartnerMapsService, mapsAudit, mapsHintOf, mapsKeyDto, mapsProblemOf, parseMapsKey, type MapsKeyRefusal, type MapsKeyResult, type PartnerMapsService } from './maps'
 export { createPartnerWhatsAppService, parseWhatsAppAccount, servesCodes, whatsappAccountDto, whatsappAudit, whatsappProblemOf, type PartnerWhatsAppService, type WhatsAppAccountRefusal } from './whatsapp'

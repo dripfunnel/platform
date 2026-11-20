@@ -68,13 +68,24 @@ const shopperOn = async (host: string, headers: Record<string, string> = {}): Pr
   if (found.kind !== 'found') throw new Error(`no store on ${host}`)
   return found.shopper
 }
-const gql = async (host: string, source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}) => {
+const gql = async (host: string, source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}, context: Partial<ShopContext> = {}) => {
   const shopper = await shopperOn(host, headers)
-  const contextValue: ShopContext = { sql: db.sql, shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => true, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => true, now: () => new Date(), ...context }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 const asShopper = (storeId: string, partnerId = t.partnerA): TenantContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+
+describe('the address pin’s frame (#1612)', () => {
+  it('is the frame address of the shopper’s own store, and null where the store has no usable Maps key', async () => {
+    const asked: string[] = []
+    const mapFrame = async (storeId: string) => (asked.push(storeId), storeId === t.storeA1 ? `https://hooks.example/maps/${storeId}/pin` : null)
+    expect((await gql('store-a1.shop.example', '{ store { mapFrame } }', {}, {}, { mapFrame })).data?.['store']).toEqual({ mapFrame: `https://hooks.example/maps/${t.storeA1}/pin` })
+    expect((await gql('store-b1.shop.example', '{ store { mapFrame } }', {}, {}, { mapFrame })).data?.['store']).toEqual({ mapFrame: null })
+    expect(asked).toEqual([t.storeA1, t.storeB1])
+    expect((await gql('store-a1.shop.example', '{ store { mapFrame } }')).data?.['store']).toEqual({ mapFrame: null })
+  })
+})
 
 describe('finding the store', () => {
   it('takes it from the storefront’s host: its code under the partner’s shops wildcard, or its live domain', async () => {

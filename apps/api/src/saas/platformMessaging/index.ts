@@ -4,6 +4,7 @@ import type { SecretBox } from '#auth/secretBox'
 import type { StaffMember } from '#auth/staff'
 import { isUuid } from '#core/ids'
 import { routeProviders, smsProviders, smsRoutes, type SmsAccountCheck, type SmsProvider } from '#core/sms'
+import type { MapsKeyCheck } from '#core/mapsKey'
 import type { WhatsAppAccountCheck } from '#core/whatsapp'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -15,6 +16,7 @@ import {
   selectPartnerName,
   updateDfMessaging,
   updateOurAccountTest,
+  updateOurMapsEnabled,
   updateOurSmsRoute,
   updateOurWhatsAppEnabled,
   upsertOurAccount,
@@ -23,6 +25,10 @@ import {
 } from '#db/scoped/platformMessaging'
 import {
   hintOf,
+  mapsHintOf,
+  mapsKeyDto,
+  mapsProblemOf,
+  parseMapsKey,
   parseSmsAccount,
   parseWhatsAppAccount,
   servesCodes,
@@ -30,6 +36,7 @@ import {
   smsProviderName,
   whatsappAccountDto,
   whatsappProblemOf,
+  type MapsKeyResult,
   type SmsAccountRefusal,
   type WhatsAppAccountRefusal,
 } from '#saas/partnerCredentials/index'
@@ -55,6 +62,13 @@ export const platformMessagingAudit = {
   partnerSmsDisabled: 'partner.df_sms_disabled',
   partnerWhatsAppEnabled: 'partner.df_whatsapp_enabled',
   partnerWhatsAppDisabled: 'partner.df_whatsapp_disabled',
+  mapsSave: 'platform.maps_key_saved',
+  mapsTest: 'platform.maps_key_tested',
+  mapsRemove: 'platform.maps_key_removed',
+  mapsEnabled: 'platform.maps_enabled',
+  mapsDisabled: 'platform.maps_disabled',
+  partnerMapsEnabled: 'partner.df_maps_enabled',
+  partnerMapsDisabled: 'partner.df_maps_disabled',
 } as const
 
 export type MessagingRefusal = SmsAccountRefusal | WhatsAppAccountRefusal
@@ -69,18 +83,28 @@ export interface PlatformMessagingDeps {
   secrets: SecretBox | null
   checkSms: (account: PartnerSmsAccount) => Promise<SmsAccountCheck>
   checkWhatsApp: (account: PartnerWhatsAppAccount) => Promise<WhatsAppAccountCheck>
+  checkMaps: (key: string) => Promise<MapsKeyCheck>
+  // Where a Maps key's website restriction must allow (config.HOOKS_HOST), for the console to show.
+  hooksHost?: string | undefined
   now: () => Date
 }
 
 const isSmsRow = (row: OurAccountRow): row is OurAccountRow & { provider: SmsProvider } => (smsProviders as readonly string[]).includes(row.provider)
 const isProvider = (value: string): value is SmsProvider => (smsProviders as readonly string[]).includes(value)
-const channels: readonly MessagingKind[] = ['sms', 'whatsapp']
+const channels: readonly MessagingKind[] = ['sms', 'whatsapp', 'maps']
 
-export const createPlatformMessagingService = ({ sql, staff, facts, activity, secrets, checkSms, checkWhatsApp, now }: PlatformMessagingDeps) => {
+const switchAudit = {
+  sms: { on: platformMessagingAudit.partnerSmsEnabled, off: platformMessagingAudit.partnerSmsDisabled },
+  whatsapp: { on: platformMessagingAudit.partnerWhatsAppEnabled, off: platformMessagingAudit.partnerWhatsAppDisabled },
+  maps: { on: platformMessagingAudit.partnerMapsEnabled, off: platformMessagingAudit.partnerMapsDisabled },
+} as const
+
+export const createPlatformMessagingService = ({ sql, staff, facts, activity, secrets, checkSms, checkWhatsApp, checkMaps, hooksHost, now }: PlatformMessagingDeps) => {
   const entry = staffEntry(staff, facts)
   const madeBy = `${staff.name} <${staff.email}>`
   const smsTarget = (provider: SmsProvider) => ({ type: 'platform_sms_account', id: provider, label: smsProviderName[provider] })
   const whatsappTarget = { type: 'platform_whatsapp_account', id: 'meta', label: 'WhatsApp' }
+  const mapsTarget = { type: 'platform_maps_key', id: 'google', label: 'Google Maps' }
   const record = (tx: ScopedSql, action: string, target: { type: string; id: string; label: string }, reason: string | null, changes: { field: string; before: unknown; after: unknown }[] = []) =>
     activity.record(tx, entry({ action, target, reason, changes, visibility: 'staff' }))
 
@@ -250,6 +274,87 @@ export const createPlatformMessagingService = ({ sql, staff, facts, activity, se
     })
   }
 
+  // DripFunnel's Google Maps browser key (#1612): one key, sealed like an account, shown as "AIza…abcd". On needs a Working key;
+  // off stops every partner's use of it. A partner's own key and its choice are untouched either way.
+  const mapsKey = () =>
+    withSystemScope(sql, async (tx) => {
+      const row = (await selectOurAccounts(tx, 'maps'))[0]
+      return { enabled: (await selectOurMessaging(tx)).mapsEnabled, key: row ? mapsKeyDto(row) : null, hooksHost: hooksHost ?? null }
+    })
+
+  const saveMapsKey = async (raw: unknown, reason: unknown): Promise<MapsKeyResult> => {
+    const why = reasonText.safeParse(reason)
+    const parsed = parseMapsKey(raw)
+    if (!why.success || !parsed.ok) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!secrets) return { ok: false, reason: 'NOT_CONFIGURED' }
+    const checked = await checkMaps(parsed.key)
+    if (checked.status === 'unavailable') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
+    if (checked.status === 'rejected') return { ok: false, reason: 'KEY_REJECTED', ...mapsProblemOf(checked) }
+    const keyEnc = await secrets.seal(parsed.key)
+    return withSystemScope(sql, async (tx): Promise<MapsKeyResult> => {
+      await serialise(tx, 'platform_messaging:maps')
+      const before = await selectOurAccount(tx, 'maps', 'google')
+      await upsertOurAccount(tx, 'maps', 'google', { keyEnc, keyPrefix: mapsHintOf(parsed.key), settings: {}, testedAt: now(), createdBy: madeBy })
+      await record(tx, platformMessagingAudit.mapsSave, mapsTarget, why.data, before ? [{ field: 'key', before: 'saved', after: 'replaced' }] : [])
+      return { ok: true, status: 'ok' }
+    })
+  }
+
+  const testMapsKey = async (): Promise<MapsKeyResult> => {
+    const sealed = await withSystemScope(sql, (tx) => selectOurAccount(tx, 'maps', 'google'))
+    if (!sealed) return { ok: false, reason: 'NOT_FOUND' }
+    const key = secrets ? await secrets.open(sealed.key_enc) : null
+    if (!key) return { ok: false, reason: 'NOT_CONFIGURED' }
+    const checked = await checkMaps(key)
+    if (checked.status === 'unavailable') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
+    const status = checked.status === 'ok' ? 'ok' : 'rejected'
+    return withSystemScope(sql, async (tx): Promise<MapsKeyResult> => {
+      await serialise(tx, 'platform_messaging:maps')
+      const row = await selectOurAccount(tx, 'maps', 'google')
+      if (!row) return { ok: false, reason: 'NOT_FOUND' }
+      await updateOurAccountTest(tx, row.id, status, now())
+      await record(tx, platformMessagingAudit.mapsTest, mapsTarget, checked.status === 'rejected' ? checked.problem : null, [{ field: 'status', before: row.status, after: status }])
+      // A rejected key draws no map, so it goes off with it, as a rejected WhatsApp account does.
+      if (status === 'rejected' && (await selectOurMessaging(tx)).mapsEnabled) {
+        await updateOurMapsEnabled(tx, false, now())
+        await record(tx, platformMessagingAudit.mapsDisabled, mapsTarget, 'test_rejected', [{ field: 'maps_enabled', before: true, after: false }])
+      }
+      return { ok: true, status, ...(checked.status === 'rejected' ? mapsProblemOf(checked) : {}) }
+    })
+  }
+
+  const setMapsEnabled = (enabled: boolean, reason: unknown): Promise<MapsKeyResult> => {
+    const why = reasonText.safeParse(reason)
+    if (!why.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+    return withSystemScope(sql, async (tx): Promise<MapsKeyResult> => {
+      await serialise(tx, 'platform_messaging:maps')
+      const before = (await selectOurMessaging(tx)).mapsEnabled
+      if (before === enabled) return { ok: true }
+      if (enabled) {
+        const row = await selectOurAccount(tx, 'maps', 'google')
+        if (row?.status !== 'ok') return { ok: false, reason: 'NO_KEY' }
+      }
+      await updateOurMapsEnabled(tx, enabled, now())
+      await record(tx, enabled ? platformMessagingAudit.mapsEnabled : platformMessagingAudit.mapsDisabled, mapsTarget, why.data, [{ field: 'maps_enabled', before, after: enabled }])
+      return { ok: true }
+    })
+  }
+
+  const removeMapsKey = (reason: unknown): Promise<MapsKeyResult> => {
+    const why = reasonText.safeParse(reason)
+    if (!why.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+    return withSystemScope(sql, async (tx): Promise<MapsKeyResult> => {
+      await serialise(tx, 'platform_messaging:maps')
+      const row = await selectOurAccount(tx, 'maps', 'google')
+      if (!row) return { ok: false, reason: 'NOT_FOUND' }
+      const wasOn = (await selectOurMessaging(tx)).mapsEnabled
+      await deleteOurAccount(tx, row.id)
+      if (wasOn) await updateOurMapsEnabled(tx, false, now())
+      await record(tx, platformMessagingAudit.mapsRemove, mapsTarget, why.data, wasOn ? [{ field: 'maps_enabled', before: true, after: false }] : [])
+      return { ok: true }
+    })
+  }
+
   const asStaff = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, { caller: { kind: 'staff', staffId: staff.id } }, work)
   const partnerName = (tx: ScopedSql, partnerId: string) => selectPartnerName(tx, partnerId)
 
@@ -275,13 +380,13 @@ export const createPlatformMessagingService = ({ sql, staff, facts, activity, se
       const before = await selectDfMessaging(tx, partnerId)
       if (before[kind] === enabled) return { ok: true, value: before }
       await updateDfMessaging(tx, partnerId, kind, enabled)
-      const action = kind === 'sms' ? (enabled ? platformMessagingAudit.partnerSmsEnabled : platformMessagingAudit.partnerSmsDisabled) : enabled ? platformMessagingAudit.partnerWhatsAppEnabled : platformMessagingAudit.partnerWhatsAppDisabled
+      const action = switchAudit[kind][enabled ? 'on' : 'off']
       await activity.record(tx, entry({ action, reason: why.data, partnerId, target: { type: 'partner', id: partnerId, label: name }, visibility: 'partner', changes: [{ field: `df_${kind}_enabled`, before: before[kind], after: enabled }] }))
       return { ok: true, value: { ...before, [kind]: enabled } }
     })
   }
 
-  return { smsAccounts, saveSms, testSms, removeSms, setSmsRoute, whatsAppAccount, saveWhatsApp, testWhatsApp, setWhatsAppEnabled, removeWhatsApp, partnerSwitches, setPartnerSwitch }
+  return { smsAccounts, saveSms, testSms, removeSms, setSmsRoute, whatsAppAccount, saveWhatsApp, testWhatsApp, setWhatsAppEnabled, removeWhatsApp, mapsKey, saveMapsKey, testMapsKey, setMapsEnabled, removeMapsKey, partnerSwitches, setPartnerSwitch }
 }
 
 export type PlatformMessagingService = ReturnType<typeof createPlatformMessagingService>
