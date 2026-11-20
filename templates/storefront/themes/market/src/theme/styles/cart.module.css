@@ -137,7 +137,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.remove {
+.remove,
+.edit {
   min-height: 44px;
   padding: 0 4px;
   border: 0;
