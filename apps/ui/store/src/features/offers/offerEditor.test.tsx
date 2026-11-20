@@ -66,6 +66,8 @@ const show = async (acting: Acting, entry: string, { readOnly = false } = {}) =>
 const settle = (ms = 0) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)))
 const saveButton = (name: RegExp | string = /^Save$/) => screen.getByRole('button', { name })
 const dialog = () => screen.getByRole('dialog')
+// Save stays disabled until the form differs from how it opened (#1661), so a test that saves types a team note first.
+const touch = () => fireEvent.change(screen.getByRole('textbox', { name: /^Note for your team/ }), { target: { value: 'checked' } })
 
 beforeEach(() => {
   api.loadOfferFacts.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {}, hasCustomisation: false })
@@ -97,8 +99,23 @@ describe('a new offer', () => {
     expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Free delivery')
   })
 
+  it('keeps Save and Save as Off disabled on the form as it opened, for a type and for a recipe, until something changes (#1661)', async () => {
+    await show(owner, '/offers/new?type=order')
+    expect(saveButton()).toHaveProperty('disabled', true)
+    expect(saveButton(words.saveOff)).toHaveProperty('disabled', true)
+    fireEvent.change(screen.getByRole('textbox', { name: words.name }), { target: { value: 'Spring sale' } })
+    expect(saveButton()).toHaveProperty('disabled', false)
+    expect(saveButton(words.saveOff)).toHaveProperty('disabled', false)
+    cleanup()
+    sessionStorage.clear()
+    await show(owner, '/offers/new?recipe=welcome')
+    expect(saveButton()).toHaveProperty('disabled', true)
+    expect(saveButton(words.saveOff)).toHaveProperty('disabled', true)
+  })
+
   it('asks Start now, Schedule or Keep off, and saves a code offer that combines with nothing (#337)', async () => {
     await show(owner, '/offers/new?recipe=welcome')
+    touch()
     fireEvent.click(saveButton())
     expect(within(dialog()).getByText(/10% off the whole order · code WELCOME10 · first order only/)).toBeTruthy()
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
@@ -109,6 +126,7 @@ describe('a new offer', () => {
 
   it('keeps an offer off when asked, and won’t schedule one without a start date', async () => {
     await show(owner, '/offers/new?recipe=welcome')
+    touch()
     fireEvent.click(saveButton())
     const when = within(dialog()).getByRole('combobox')
     fireEvent.change(when, { target: { value: 'schedule' } })
@@ -201,12 +219,14 @@ describe('a new offer', () => {
     const limit = new ApiError('PLAN_LIMIT', 'no', { key: 'live_offers', limit: 3, unlockedBy: { id: 'p', name: 'Growth Pro' } })
     api.saveOffer.mockRejectedValue(limit)
     await show(owner, '/offers/new?recipe=welcome')
+    touch()
     fireEvent.click(saveButton())
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
     await settle()
     expect(within(dialog()).getByText('Your plan allows 3 live offers. Growth Pro has more. See plans in Billing.')).toBeTruthy()
     cleanup()
     await show(manager, '/offers/new?recipe=welcome')
+    touch()
     fireEvent.click(saveButton())
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
     await settle()
@@ -266,6 +286,7 @@ describe('a new offer', () => {
     api.loadProductNames.mockResolvedValue(new Map([['p1', 'Linen kurta']]))
     await show(owner, '/offers/o1/edit')
     expect(screen.getByText(words.gone)).toBeTruthy()
+    touch()
     fireEvent.click(saveButton(words.saveChanges))
     expect(screen.getAllByText(words.errors.gone).length).toBeGreaterThan(0)
     expect(api.saveOffer).not.toHaveBeenCalled()
@@ -277,6 +298,7 @@ describe('a new offer', () => {
   it('names a taken code’s holder without guessing a state it didn’t give', async () => {
     api.saveOffer.mockRejectedValueOnce(new ApiError('CODE_TAKEN', 'taken', { offerId: 'o5', name: 'Summer 2025', status: 'archived' }))
     await show(owner, '/offers/new?recipe=welcome')
+    touch()
     fireEvent.click(saveButton())
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
     await settle()
@@ -317,6 +339,24 @@ describe('editing an offer', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: words.live.confirm }))
     await settle()
     expect(api.saveOffer).toHaveBeenCalledWith('o1', 3, expect.objectContaining({ enabled: true, code: 'HELLO10' }))
+  })
+
+  it('keeps Save changes disabled until something differs from the offer as it opened, and again once it is put back (#1661)', async () => {
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false })
+    await show(owner, '/offers/o1/edit')
+    expect(saveButton(words.saveChanges)).toHaveProperty('disabled', true)
+    fireEvent.change(screen.getByRole('textbox', { name: words.name }), { target: { value: 'Welcome back' } })
+    expect(saveButton(words.saveChanges)).toHaveProperty('disabled', false)
+    fireEvent.change(screen.getByRole('textbox', { name: words.name }), { target: { value: 'Welcome 10% off' } })
+    expect(saveButton(words.saveChanges)).toHaveProperty('disabled', true)
+  })
+
+  it('never saves a live offer that hasn’t changed, so shoppers aren’t told of a new version (#1661)', async () => {
+    await show(owner, '/offers/o1/edit')
+    expect(saveButton(words.saveChanges)).toHaveProperty('disabled', true)
+    fireEvent.click(saveButton(words.saveChanges))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(api.saveOffer).not.toHaveBeenCalled()
   })
 
   it('says when someone else saved first, and saves over them only when asked', async () => {
