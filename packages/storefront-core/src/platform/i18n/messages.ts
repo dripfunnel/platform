@@ -164,6 +164,7 @@ export const en = {
   'address.optional': 'Optional',
   'address.required': 'Fill this in.',
   'address.invalid': 'Check this; it doesn’t look right.',
+  'address.phoneRequired': 'Add a phone number for delivery.',
   'address.phoneInvalid': 'Check the country code and the number.',
   'address.countryCode': 'Country code',
   'address.map.title': 'Pin your delivery address',

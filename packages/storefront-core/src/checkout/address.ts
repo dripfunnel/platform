@@ -35,7 +35,7 @@ export const addressFields = (country: string): { field: AddressField; label: Me
     { field: 'city', label: 'address.city', optional: false, autoComplete: 'shipping address-level2' },
     { field: 'region', label: rules.region.label, optional: !rules.region.required, autoComplete: 'shipping address-level1' },
     { field: 'postalCode', label: rules.postal.label, optional: !rules.postal.required, autoComplete: 'shipping postal-code' },
-    { field: 'phone', label: 'address.phone', optional: true, autoComplete: 'shipping tel' },
+    { field: 'phone', label: 'address.phone', optional: false, autoComplete: 'shipping tel' },
   ]
 }
 

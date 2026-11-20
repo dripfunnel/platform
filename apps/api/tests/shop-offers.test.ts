@@ -107,7 +107,7 @@ const ready = async (quantity: number, o: { email?: string | null; phone?: strin
   if (o.code) await apply(token, o.code)
   const contact = [o.email === null ? '' : `email: "${o.email ?? 'asha@example.com'}"`, o.phone ? `phone: "${o.phone}"` : ''].filter(Boolean).join(', ')
   await shop(`mutation { setCartContact(${contact}) { cart { id } } }`, token)
-  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token)
+  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
   await shop('mutation { checkout { id } }', token)
   return token
@@ -278,7 +278,7 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
       expect(await db.sql`select 1 from promotion_usage where order_id = ${order}`).toHaveLength(0)
       expect((await apply(before, 'PLACE20')).state).toBe('APPLIED')
       await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', before)
-      await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', before)
+      await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', before)
       await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', before)
       await shop('mutation { checkout { id } }', before)
       expect((await place(before)).data?.['placeOrder']).toMatchObject({ total: { amount: '85000' } })
@@ -445,7 +445,7 @@ describe('the preview storefront (storefront PREVIEW)', () => {
     const token = ((await p(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
     expect(((await p('mutation { applyCode(code: "TRYME") { state } }', token)).data?.['applyCode'] as { state: string }).state).toBe('APPLIED')
     await p('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
-    await p('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token)
+    await p('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
     await p('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
     await p('mutation { checkout { id } }', token)
     const placed = (await p('mutation { placeOrder(provider: "cod") { orderId total { amount } } }', token)).data?.['placeOrder'] as { orderId: string; total: { amount: string } }

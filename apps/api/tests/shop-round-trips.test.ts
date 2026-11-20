@@ -85,7 +85,7 @@ const counted = async (source: string, token: string) => {
   }
 }
 
-const address = '{ name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }'
+const address = '{ name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }'
 const add = async (versionId: string, token: string | null, host = hostOf.jaipur) =>
   (await shop(`mutation { addToCart(versionId: "${versionId}", quantity: 1) { cartToken } }`, token, db.sql, host)).data?.['addToCart'] as { cartToken: string | null } | null
 const filled = async (code = 'TEN') => {

@@ -75,7 +75,7 @@ describe('a refused checkout call', () => {
   it('holds nothing of the cart, the shopper, the amount or the address, even when the cart has all of them', async () => {
     const token = ((await shop(`mutation { addToCart(versionId: "${mug}", quantity: 2) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
     await shop('mutation { setCartContact(email: "sam@example.com") { cart { id } } }', token)
-    await shop('mutation { setShippingAddress(address: { name: "Sam Rao", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US" }) { cart { id } } }', token)
+    await shop('mutation { setShippingAddress(address: { name: "Sam Rao", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US", phone: "+919800000000" }) { cart { id } } }', token)
     const { raw, refused } = await linesOf(() => shop('mutation { placeOrder(provider: "nope") { orderId } }', token))
     expect(refused).toHaveLength(1)
     const written = raw.join('\n')

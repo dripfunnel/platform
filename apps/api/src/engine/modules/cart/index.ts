@@ -20,7 +20,7 @@ import { createStorefrontCatalog, type CartItem, type CartLineDisplay } from '#e
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
 import { accepted, maxCartUploads, maxUploadBytes, sha256Hex, sniffMime, uploadsIn } from './uploads'
 import { checkAnswers, inputOf, type AnswerInput, type AnswerProblem, type CheckedAnswers, type PricedAnswer, type ShopQuestion } from './answers'
-import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, cleanGift, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type GiftInput, type PricedLine } from './rules'
+import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, cleanGift, isDeliveryAddress, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type GiftInput, type PricedLine } from './rules'
 
 export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './rules'
 export type { AnswerInput, AnswerProblem, AnswerReason, PricedAnswer, ExtraChoice, ShopQuestion, StoredAnswer } from './answers'
@@ -353,7 +353,7 @@ export const createCartService = (deps: CartDeps) => {
       hasContact: Boolean(row.email || row.phone),
       needsShipping,
       shippingOption: row.shipping_option,
-      hasShippingAddress: address !== null,
+      hasShippingAddress: isDeliveryAddress(address),
       optionOffered: chosen !== null,
       taxKnown: tax !== null,
     })
@@ -574,7 +574,7 @@ export const createCartService = (deps: CartDeps) => {
   const setShippingAddress = async (input: AddressInput) =>
     change(async (tx, row) => {
       const address = cleanAddress(input)
-      if (!address) throw new Refused('INVALID_INPUT')
+      if (!address?.phone) throw new Refused('INVALID_INPUT')
       await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
     }, keepDeliveryWarehouse)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkoutProblems, cleanAddress, cleanContact, cleanGift, priceLine } from './rules'
+import { checkoutProblems, cleanAddress, cleanContact, cleanGift, isDeliveryAddress, priceLine } from './rules'
 
 const inr = (amount: bigint) => ({ amount, currency: 'INR' })
 const item = { price: inr(99900n), available: 3, inStock: true, continueSelling: false, soldHere: true }
@@ -48,6 +48,13 @@ describe('an address and a contact', () => {
     expect(cleanContact({ email: ' Asha@Example.com ', phone: '+1 614-555-0100' })).toEqual({ email: 'asha@example.com', phone: '+16145550100' })
     expect(cleanContact({ email: 'not-an-email' })).toBeNull()
     expect(cleanContact({ phone: '0614555' })).toBeNull()
+  })
+
+  it('goes on to payment only with a delivery address that has its phone', () => {
+    const held = cleanAddress(address)
+    expect(isDeliveryAddress(held)).toBe(true)
+    expect(isDeliveryAddress(held && { ...held, phone: null })).toBe(false)
+    expect(isDeliveryAddress(null)).toBe(false)
   })
 })
 
