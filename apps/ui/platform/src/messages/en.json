@@ -755,6 +755,106 @@
           "failed": "That didn’t go through. Nothing was changed. Try again."
         }
       },
+      "maps": {
+        "title": "Google Maps",
+        "note": "Your own Google Maps key, so your merchants’ warehouse map and address search and your shoppers’ address pin use your Google Cloud project and quota. The key is stored encrypted and never shown again; only its first and last 4 characters are.",
+        "loading": "Loading Google Maps",
+        "error": { "title": "Google Maps couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+        "none": "No key yet. Your stores show no map: the warehouse map and address search and the shopper’s address pin are hidden, and merchants and shoppers type addresses by hand.",
+        "noneOurs": "No key of your own yet. DripFunnel’s key draws your stores’ maps.",
+        "noMap": "Maps and address search are off for your stores: the warehouse map and address search and the shopper’s address pin are hidden, and merchants and shoppers type addresses by hand.",
+        "available": "DripFunnel’s Google Maps key is available to you. If DripFunnel turns it off for you, your own key draws the maps or, without a working one, they go off.",
+        "sender": {
+          "label": "Sent by",
+          "own": "Your key",
+          "ours": "DripFunnel’s key",
+          "none": "No key"
+        },
+        "choiceDialog": {
+          "change": "Change whose key",
+          "title": "Whose key draws your stores’ maps?",
+          "label": "Key",
+          "own": "Your key",
+          "ownHint": "Maps and address search count against your Google Cloud project.",
+          "ownMissing": "Not working yet: DripFunnel’s key draws the maps until yours is set up and Working.",
+          "ours": "DripFunnel’s key",
+          "oursHint": "Maps and address search count against DripFunnel’s project. If DripFunnel turns it off for you, your own key draws them, or none.",
+          "consequenceOwn": "Your key will draw your stores’ maps and address search.",
+          "consequenceNoOwn": "DripFunnel’s key keeps drawing the maps until your own key is set up and Working; then yours does.",
+          "consequenceOurs": "DripFunnel’s key will draw your stores’ maps and address search, even once your own key works.",
+          "confirm": "Save"
+        },
+        "on": "On",
+        "off": "Off",
+        "keyLabel": "Browser key",
+        "statuses": { "ok": "Working", "untested": "Not checked", "rejected": "Rejected" },
+        "lastTested": "Last checked {when}",
+        "neverTested": "Never checked",
+        "rejectedNote": "Google rejected this key at its last check, so it draws no maps. Test it again once it’s fixed in Google Cloud, or replace it.",
+        "setUp": "Set up Google Maps",
+        "replace": "Replace key",
+        "test": "Test",
+        "testing": "Testing…",
+        "remove": "Remove",
+        "blocked": "Support can’t see or change Google Maps while signed in as {user}. Only the partner’s Owners and Admins can.",
+        "dialog": {
+          "title": "Google Maps key",
+          "replaceTitle": "Replace the Google Maps key",
+          "target": "Your Google Maps browser key",
+          "consequence": "DripFunnel checks it with one Geocoding request before saving. A key you replace stops drawing maps at once.",
+          "save": "Check and save",
+          "hint": "Starts with AIza and is 39 characters. Create it in Google Cloud under Credentials; see How to get a key below.",
+          "incomplete": "Paste the whole key: it starts with AIza and is 39 characters."
+        },
+        "removeDialog": {
+          "title": "Remove the Google Maps key?",
+          "target": "Your Google Maps browser key",
+          "consequence": "The key is deleted here and your stores show no map: the warehouse map and address search and the shopper’s address pin are hidden, and merchants and shoppers type addresses by hand.",
+          "consequenceOurs": "The key is deleted here. While DripFunnel’s key is available to you, it draws your stores’ maps from now on.",
+          "confirm": "Remove key"
+        },
+        "problems": {
+          "invalid": "Google refused the key. Check you copied it whole from Credentials.",
+          "geocoding_disabled": "Google says Geocoding API isn’t enabled for this key’s project. Enable it, then Test again.",
+          "restricted": "This key’s restrictions refuse the check. Allow the Websites referrer shown in How to get a key and the three APIs listed there.",
+          "other": "Google refused the key for another reason. Check the key in Google Cloud, then Test again."
+        },
+        "refusals": {
+          "INVALID_INPUT": "That isn’t a Google Maps key: it starts with AIza and is 39 characters.",
+          "KEY_REJECTED": "Google rejected the key.",
+          "PROVIDER_UNAVAILABLE": "Google couldn’t be reached. Nothing was changed. Try again in a minute.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "There’s no Google Maps key saved any more. Reload the page.",
+          "DRIPFUNNEL_UNAVAILABLE": "DripFunnel’s key isn’t available to you any more. Nothing was changed. Reload the page.",
+          "NO_KEY": "Set up a Google Maps key first."
+        },
+        "toasts": {
+          "saved": "Google Maps key saved.",
+          "ok": "Google Maps works: Google accepted the key.",
+          "rejected": "Google rejected the Google Maps key.",
+          "removed": "Google Maps key removed.",
+          "chosenOwn": "Your key draws your stores’ maps.",
+          "chosenOurs": "DripFunnel’s key draws your stores’ maps.",
+          "failed": "That didn’t go through. Nothing was changed. Try again."
+        },
+        "how": {
+          "title": "How to get a key",
+          "project": "In Google Cloud, create or pick a project and turn billing on for it.",
+          "enable": "Enable these three APIs for it (APIs & Services › Library):",
+          "apis": ["Maps JavaScript API", "Geocoding API", "Places API (New), not the older “Places API”"],
+          "create": "Go to APIs & Services › Credentials › Create credentials › API key.",
+          "websites": "Application restrictions: choose Websites and add {referrer}",
+          "restrictApis": "API restrictions: choose Restrict key and tick only those three APIs.",
+          "quota": "Set a daily quota for the key’s APIs, so a leaked key can’t run up a bill.",
+          "paste": "Paste the key here with Set up Google Maps, then press Test.",
+          "roles": "Google roles needed: Service Usage Admin to enable the APIs, and API Keys Admin to create and restrict a key.",
+          "links": [
+            { "label": "Google’s guide to API keys", "href": "https://developers.google.com/maps/documentation/javascript/get-api-key" },
+            { "label": "Enable APIs in Google Cloud", "href": "https://console.cloud.google.com/apis/library" },
+            { "label": "Credentials in Google Cloud", "href": "https://console.cloud.google.com/apis/credentials" }
+          ]
+        }
+      },
       "sms": {
         "title": "SMS",
         "note": "Your own SMS accounts, so sign-in codes, order updates and rider invites go out under your sender name. Each secret is stored encrypted and never shown again; only its last 4 characters are.",
