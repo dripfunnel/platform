@@ -297,44 +297,46 @@ export const OffersPage = () => {
             )}
 
             {list.kind === 'ready' && rows.length > 0 && !phone && (
-              <div className="df-offers-table" role="table" aria-label={fill(words.table.label, { tab: words.tabs[tab] })}>
-                <div className="df-offers-row df-offers-row--head" role="row">
-                  <span role="columnheader">{words.table.offer}</span>
-                  <span role="columnheader">{words.table.code}</span>
-                  <span role="columnheader">{words.table.status}</span>
-                  <span role="columnheader">{words.table.uses}</span>
-                  <span role="columnheader">
-                    <span className="df-visually-hidden">{words.row.actions}</span>
-                  </span>
+              <div className="df-offers-rows">
+                <div className="df-offers-table" role="table" aria-label={fill(words.table.label, { tab: words.tabs[tab] })}>
+                  <div className="df-offers-row df-offers-row--head" role="row">
+                    <span role="columnheader">{words.table.offer}</span>
+                    <span role="columnheader">{words.table.code}</span>
+                    <span role="columnheader">{words.table.status}</span>
+                    <span role="columnheader">{words.table.uses}</span>
+                    <span role="columnheader">
+                      <span className="df-visually-hidden">{words.row.actions}</span>
+                    </span>
+                  </div>
+                  {rows.map((offer) => {
+                    const key = statusKeyOf(offer, now)
+                    const pct = meter(offer)
+                    return (
+                      <div key={offer.id} className="df-offers-row" role="row">
+                        <span role="cell" className="df-offers-cell">
+                          <Link className="df-offers-name" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)}>
+                            {offer.name}
+                          </Link>
+                          <span className="df-offers-sub">{whatText(offer, region, names)}</span>
+                        </span>
+                        <span role="cell">{offer.code ? <code className="df-offers-code">{offer.code}</code> : <span className="df-offers-sub">{offer.trigger === 'code' ? words.row.singleUse : words.row.automatic}</span>}</span>
+                        <span role="cell" className="df-offers-cell">
+                          <StatusPill tone={statusLook[key].tone} icon={statusLook[key].icon} label={words.status[key]} />
+                          <span className="df-offers-sub">{timeLine(offer, now, timeZone)}</span>
+                        </span>
+                        <span role="cell" className="df-offers-cell df-offers-uses">
+                          {usesOf(offer)}
+                          {pct !== null && (
+                            <span className="df-offers-meter" aria-hidden="true">
+                              <span style={{ width: `${pct}%` }} data-full={pct >= 100 || undefined} />
+                            </span>
+                          )}
+                        </span>
+                        <span role="cell">{menu(offer)}</span>
+                      </div>
+                    )
+                  })}
                 </div>
-                {rows.map((offer) => {
-                  const key = statusKeyOf(offer, now)
-                  const pct = meter(offer)
-                  return (
-                    <div key={offer.id} className="df-offers-row" role="row">
-                      <span role="cell" className="df-offers-cell">
-                        <Link className="df-offers-name" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)}>
-                          {offer.name}
-                        </Link>
-                        <span className="df-offers-sub">{whatText(offer, region, names)}</span>
-                      </span>
-                      <span role="cell">{offer.code ? <code className="df-offers-code">{offer.code}</code> : <span className="df-offers-sub">{offer.trigger === 'code' ? words.row.singleUse : words.row.automatic}</span>}</span>
-                      <span role="cell" className="df-offers-cell">
-                        <StatusPill tone={statusLook[key].tone} icon={statusLook[key].icon} label={words.status[key]} />
-                        <span className="df-offers-sub">{timeLine(offer, now, timeZone)}</span>
-                      </span>
-                      <span role="cell" className="df-offers-cell df-offers-uses">
-                        {usesOf(offer)}
-                        {pct !== null && (
-                          <span className="df-offers-meter" aria-hidden="true">
-                            <span style={{ width: `${pct}%` }} data-full={pct >= 100 || undefined} />
-                          </span>
-                        )}
-                      </span>
-                      <span role="cell">{menu(offer)}</span>
-                    </div>
-                  )
-                })}
               </div>
             )}
 
