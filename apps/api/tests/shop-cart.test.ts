@@ -443,7 +443,7 @@ describe('delivery before an address (#1521)', () => {
     const address = 'address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }'
     try {
       await gql(`mutation { setShippingAddress(${address}) { cart { id } } }`, { token: guest })
-      expect(await cart(guest)).toMatchObject({ shipping: null })
+      expect(await cart(guest)).toMatchObject({ shipping: null, total: { amount: '105000' } })
       await mutate(guest, 'setShippingOption', '(option: "flat")')
       expect(await cart(guest)).toMatchObject({ shipping: { amount: '4900' } })
       await setShipping(`area_mode = 'list'`)

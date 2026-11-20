@@ -419,7 +419,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   cart prices only what needs no address, collection in person and a flat rate that is switched on (not one
   kept as the courier's fallback). With the flat rate on, its price is the cart's `shipping` ("Free" at 0)
   and is in the total until the shopper chooses another option; courier rates wait for the address; with
-  an address the options are as quoted for it (decided 2026-11-16 on #1521).
+  an address the options are as quoted for it and the price follows the option the shopper has chosen, so
+  with none chosen yet the flat price leaves the total until they pick one (decided 2026-11-16 on #1521).
 - **Product customisation** (decided 2026-11-09 on #1367; the rules are CATALOG-DESIGN §3
   facts 49–57, the tables DATA-MODEL §7.3 and §7.6; names *(proposed)*). A product's questions
   are answered when its version goes in the cart, and the engine prices and checks the answers
