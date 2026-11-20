@@ -1140,7 +1140,7 @@ input MoneyInput {
 }
 
 type Mutation {
-  addCustomer(email: String!, name: String!, phone: String): AddedCustomer
+  addCustomer(address: CustomerAddressInput, email: String!, name: String!, phone: String): AddedCustomer
   addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
   addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int

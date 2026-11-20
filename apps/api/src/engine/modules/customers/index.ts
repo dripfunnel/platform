@@ -145,8 +145,16 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
   const detail = (id: string): Promise<CustomerDetailRow | null> => (isUuid(id) ? read((tx) => selectStoreCustomer(tx, storeId, id), null) : Promise.resolve(null))
   const groups = (): Promise<GroupRow[]> => read((tx) => selectCustomerGroups(tx, storeId), [])
 
+  /** An address is optional as a whole; a partly typed one is refused naming its field. */
+  const checkedAddress = (input: AddressInput | null | undefined) => {
+    if (!input) return null
+    const address = cleanAddress(input)
+    if (!address) throw new Refused('INVALID_INPUT', isCountry(input.country.trim().toUpperCase()) ? 'address' : 'country')
+    return address
+  }
+
   /** For people who buy in person or by phone (PortalOrders "Add a customer"): no email goes to them. */
-  const add = (input: { name: string; email: string; phone: string | null }): Promise<CustomersResult<{ id: string; existed: boolean }>> =>
+  const add = (input: { name: string; email: string; phone: string | null; address?: AddressInput | null | undefined }): Promise<CustomersResult<{ id: string; existed: boolean }>> =>
     write(async (tx) => {
       const name = cleanName(input.name, 200)
       if (!name) throw new Refused('INVALID_INPUT', 'name')
@@ -155,6 +163,7 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
       const typedPhone = input.phone?.trim()
       const phone = typedPhone ? cleanContact({ phone: await fullNumber(tx, typedPhone) })?.phone : null
       if (phone === undefined) throw new Refused('INVALID_INPUT', 'phone')
+      const address = checkedAddress(input.address)
       const existing = await selectCustomerByContact(tx, storeId, email, null)
       if (existing) {
         if (existing.status === 'deleted') throw new Refused('DELETED')
@@ -168,6 +177,7 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
         if (!raced) throw new Refused('NUMBER_TAKEN', 'phone')
         return { id: raced.id, existed: true }
       }
+      if (address) await saveDefaultAddress(tx, storeId, id, address)
       await activity.record(tx, entry(customersAudit.added, customerTarget(id)))
       return { id, existed: false }
     })
@@ -178,10 +188,9 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
       const found = await locked(tx, id)
       const name = input.name === undefined || input.name === null ? (found.name ?? '') : cleanName(input.name, 200)
       const phone = input.phone === undefined ? found.phone : input.phone === null || input.phone.trim() === '' ? null : (cleanContact({ phone: await fullNumber(tx, input.phone) })?.phone ?? undefined)
-      const address = input.address ? cleanAddress(input.address) : null
       if (name === null || name === '') throw new Refused('INVALID_INPUT', 'name')
       if (phone === undefined) throw new Refused('INVALID_INPUT', 'phone')
-      if (input.address && !address) throw new Refused('INVALID_INPUT', isCountry(input.address.country.trim().toUpperCase()) ? 'address' : 'country')
+      const address = checkedAddress(input.address)
       if (phone !== found.phone && found.phone_verified) throw new Refused('VERIFIED', 'phone')
       if (phone !== null && phone !== found.phone && (await selectCustomerByContact(tx, storeId, null, phone))) throw new Refused('NUMBER_TAKEN', 'phone')
       const changed = [...(name !== found.name ? ['name'] : []), ...(phone !== found.phone ? ['phone'] : []), ...(address ? ['address'] : [])]

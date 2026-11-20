@@ -18,6 +18,7 @@ import {
   requestCustomerExport,
   setCustomerTags,
   type Customer,
+  type CustomerAddressInput,
   type CustomerGroup,
   type CustomerPage,
 } from '../../api/customers'
@@ -215,14 +216,14 @@ export const CustomersPage = () => {
   }
 
   /** The field the API refused, for the form to mark; null once added, or for a refusal that names none (a toast). */
-  const add = async (name: string, email: string, phoneNumber: string | null): Promise<CustomerFault | null> => {
+  const add = async (name: string, email: string, phoneNumber: string | null, address: CustomerAddressInput | null): Promise<CustomerFault | null> => {
     if (sample) {
       setAdding(false)
       return null
     }
     setBusy(true)
     try {
-      const { id, existed } = await addCustomer(name, email, phoneNumber)
+      const { id, existed } = await addCustomer(name, email, phoneNumber, address)
       setAdding(false)
       setToast(fill(existed ? words.addForm.existed : words.addForm.added, { name }))
       change({ search: '', groupId: null })
