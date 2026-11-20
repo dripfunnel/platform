@@ -34,6 +34,13 @@ describe('loadStores', () => {
     answer.mockReturnValueOnce({ data: { stores: { items: [], pageInfo, plans: [], categories: [], billingMode: 'dripfunnel', createPermission: permission(false, 'SOMETHING_NEW'), exportPermission: permission(true), billingStatusPermission: null } } })
     await expect(loadStores({}, {})).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
+
+  it('reads every custom domain status the API sends (SAAS.md §8)', async () => {
+    const statuses = ['waiting', 'verifying', 'issuing', 'live', 'failed', 'expiring', 'broken']
+    const items = statuses.map((status, i) => ({ ...row, id: `s${i}`, domain: { host: `shop${i}.example`, custom: true, status } }))
+    answer.mockReturnValue({ data: { stores: { items, pageInfo, plans: [], categories: [], billingMode: 'own', createPermission: permission(true), exportPermission: permission(true), billingStatusPermission: null } } })
+    expect((await loadStores({}, {})).items.map((s) => s.domain?.status)).toEqual(statuses)
+  })
 })
 
 const storeDetail = {

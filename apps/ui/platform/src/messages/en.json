@@ -1339,10 +1339,6 @@
       "failed": "Failed",
       "own": "Own storefront"
     },
-    "domainStatus": {
-      "waiting": "Waiting for DNS",
-      "failed": "Failed"
-    },
     "near": "{percent}% of {limit}",
     "limits": {
       "products": "products",
@@ -1684,11 +1680,6 @@
         "live": "Checked just now: {host} is live.",
         "waiting": "Checked just now: still no CNAME record for {host}. DNS can take up to 48 hours.",
         "failed": "Checked just now: {host} points somewhere else."
-      },
-      "status": {
-        "live": "Live",
-        "waiting": "Waiting for DNS",
-        "failed": "Failed"
       },
       "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in."
     },

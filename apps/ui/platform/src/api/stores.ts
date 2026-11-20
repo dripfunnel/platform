@@ -2,6 +2,7 @@ import type { Money } from '@dripfunnel/shared/format'
 import { ApiError, exportJobFields, exportJobSchema, isApiError, readExportJob, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { hostStatuses, type HostStatus } from './domains'
 
 // The Stores operations on the Platform API (FIRST-RELEASE.md §6, §16): `stores(filter, after, before)`,
 // `search(query)`, `createStore` and the signup job's progress. What a caller may do is the API's answer (§1).
@@ -38,7 +39,7 @@ export type StoreState =
 export interface StoreDomain {
   host: string
   custom: boolean
-  status: 'live' | 'waiting' | 'failed'
+  status: HostStatus
 }
 
 export interface StoreRow {
@@ -325,7 +326,7 @@ const rowSchema = z.object({
   near: z.object({ percent: z.number().int(), limit: limitOf }).nullable(),
   state: stateSchema,
   storefront: z.enum(storefrontStates),
-  domain: z.object({ host: z.string(), custom: z.boolean(), status: z.enum(['live', 'waiting', 'failed']) }).nullable(),
+  domain: z.object({ host: z.string(), custom: z.boolean(), status: z.enum(hostStatuses) }).nullable(),
   createdAt: z.string(),
   billingStatus: z.enum(['active', 'past_due', 'suspended']).nullable(),
 })
@@ -444,7 +445,7 @@ const detailSchema = z.object({
       overrides: z.array(z.object({ id: z.string(), limit: limitOf, amount: z.number().int(), duration: z.enum(['month', 'always']), reason: z.string(), by: z.string(), at: z.string() })),
       billing: z.object({ interval: z.enum(['month', 'year']).transform((i) => (i === 'month' ? 'monthly' : 'yearly')).nullable(), nextChargeAt: z.string().nullable(), cardLast4: z.string().nullable(), mode: z.enum(billingModes), partnerName: z.string() }),
       site: z.object({ liveHost: z.string().nullable(), lastPublishAt: z.string().nullable() }),
-      records: z.array(z.object({ host: z.string(), status: z.enum(['live', 'waiting', 'failed']), type: z.literal('CNAME'), value: z.string(), found: z.string().nullable(), since: z.string() })),
+      records: z.array(z.object({ host: z.string(), status: z.enum(hostStatuses), type: z.literal('CNAME'), value: z.string(), found: z.string().nullable(), since: z.string() })),
       setup: z.object({ state: z.enum(['done', 'running', 'stuck', 'failed', 'cleaning']), error: z.string().nullable() }),
       // Extend trial's offers, dated by the API as it will grant them (FIRST-RELEASE §6.4).
       trialOffers: z.array(z.object({ days: z.number().int(), endsAt: z.string() })),

@@ -1,15 +1,10 @@
-import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
+import { StatusPill } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
-import type { Store, StoreDomain } from '../../../api/stores'
+import type { Store } from '../../../api/stores'
 import { fill, formatDate, messages } from '../../../messages'
+import { statusPill } from '../../domains/domainLook'
 
 const words = messages.store.domains
-
-const domainLook: Record<StoreDomain['status'], { tone: StatusTone; icon: StatusIconName }> = {
-  live: { tone: 'success', icon: 'ok' },
-  waiting: { tone: 'warning', icon: 'hour' },
-  failed: { tone: 'danger', icon: 'cross' },
-}
 
 // Domains (§6.3): the custom domain, its status, the CNAME record with Copy and what we found, Re-check now.
 export const DomainsTab = ({ store, product, onRecheck }: { store: Store; product: string; onRecheck: () => Promise<void> }) => {
@@ -28,7 +23,7 @@ export const DomainsTab = ({ store, product, onRecheck }: { store: Store; produc
             {waitingSince && <span className="df-muted">{fill(words.waitingSince, { date: formatDate(waitingSince) })}</span>}
           </div>
           <div className="df-domain-actions">
-            <StatusPill {...domainLook[domain.status]} label={words.status[domain.status]} />
+            <StatusPill {...statusPill(domain.status)} />
             {domain.status !== 'live' && (
               <button
                 type="button"
