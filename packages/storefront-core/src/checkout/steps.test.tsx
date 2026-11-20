@@ -169,6 +169,7 @@ describe('addressProblems', () => {
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: 'call me' })).toEqual({ phone: 'invalid' })
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: '' })).toEqual({ phone: 'required' })
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: '  ' })).toEqual({ phone: 'required' })
+    expect(addressProblems(addressDraft({ ...us, phone: null, pin: null }, 'US'))).toEqual({ phone: 'required' })
   })
   it('takes a phone only with its country code, as the API does', () => {
     expect(isPhone('+91 90647-79543')).toBe(true)

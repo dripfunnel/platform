@@ -207,6 +207,10 @@ describe('useAccount', () => {
     })
     expect(problems).toEqual({ phone: 'invalid' })
     await act(async () => {
+      problems = await shown(account).saveAddress({ id: null, address: { ...draft, postalCode: '78701', phone: '' }, isDefault: false })
+    })
+    expect(problems).toEqual({ phone: 'required' })
+    await act(async () => {
       problems = await shown(account).saveAddress({ id: null, address: { ...draft, postalCode: '78701' }, isDefault: true })
     })
     expect(problems).toEqual({})
