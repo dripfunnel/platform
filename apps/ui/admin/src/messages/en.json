@@ -2971,6 +2971,7 @@
           "Paste the key into Set up Google Maps key here, and press Test."
         ],
         "hostNote": "This environment’s map page is on {host}.",
+        "referrerUnknown": "https://hooks.<this environment’s host>/*",
         "rolesTitle": "Roles you need in Google Cloud",
         "roles": [
           "Service Usage Admin, to enable the APIs.",

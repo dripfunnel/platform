@@ -474,7 +474,7 @@ ACCESS §5.4), and every other role sees "Status only". No one ever sees a secre
 - **Google Maps** (built on #1613, on #1612's API): DripFunnel's browser key for the warehouse form's map and
   the shopper's address pin, shown as "AIza…abcd", On or Off, *Working*, *Not checked* or *Rejected* and when last checked, with
   **Set up** or **Replace key**, **Test** (naming what Google refused), **Remove**, and a collapsible **How to get a key** that
-  names the three APIs, the referrer to allow (this environment's real hooks host, from the console's own: `admin.<host>` becomes `hooks.<host>`), the API restriction and the Google roles, with links to Google's pages. A key restricted to websites can't be fully tested from here, so *Working* means Google knows the key (THIRD-PARTY-ACCESS §2.12). On is offered only with a
+  names the three APIs, the referrer to allow (this environment's real hooks host, which the Admin API returns as `platformMapsKey.hooksHost`, the Worker's own `HOOKS_HOST`), the API restriction and the Google roles, with links to Google's pages. A key restricted to websites can't be fully tested from here, so *Working* means Google knows the key (THIRD-PARTY-ACCESS §2.12). On is offered only with a
   *Working* key. Partners use it only where Admin switched it on for the partner (§4.3) and the partner chose it or has no key of
   its own; with no usable key a store shows no map (THIRD-PARTY-ACCESS §2.12).
 - Every change but Test asks for a reason and is audited (LOGGING §4); each refusal is in words. States: loading, error, empty (no

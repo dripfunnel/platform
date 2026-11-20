@@ -12,15 +12,9 @@ const look: Record<NonNullable<PlatformMaps['key']>['status'], { tone: StatusTon
   rejected: { tone: 'danger', icon: 'cross' },
 }
 
-/** The map page's host in this environment, where the key's website restriction must allow: `admin.x` becomes `hooks.x` and `dev-admin.x` becomes `dev-hooks.x`. */
-export const hooksHostFor = (hostname: string): string => {
-  const host = hostname.toLowerCase()
-  const swapped = host.replace(/^([^.]*?)admin(?=\.)/, '$1hooks')
-  return swapped !== host ? swapped : `hooks.${host}`
-}
-
-const HowToGetKey = ({ hooksHost }: { hooksHost: string }) => {
-  const referrer = `https://${hooksHost}/*`
+// hooksHost comes from the API (the Worker's HOOKS_HOST), the one host a key's website restriction must allow.
+const HowToGetKey = ({ hooksHost }: { hooksHost: string | null }) => {
+  const referrer = hooksHost ? `https://${hooksHost}/*` : words.howTo.referrerUnknown
   return (
     <details className="df-messaging-howto">
       <summary>{words.howTo.summary}</summary>
@@ -38,7 +32,7 @@ const HowToGetKey = ({ hooksHost }: { hooksHost: string }) => {
             )
           })}
         </ol>
-        <p className="df-muted">{fill(words.howTo.hostNote, { host: hooksHost })}</p>
+        {hooksHost && <p className="df-muted">{fill(words.howTo.hostNote, { host: hooksHost })}</p>}
         <div className="df-messaging-howto-more">
           <section>
             <h3>{words.howTo.rolesTitle}</h3>
@@ -67,7 +61,7 @@ const HowToGetKey = ({ hooksHost }: { hooksHost: string }) => {
 }
 
 /** DripFunnel's Google Maps browser key (#1613): shown as its last four, set up and checked with Google, switched On or Off. */
-export const MapsPanel = ({ data, manage, testing, problem, hooksHost, onAction, onTest }: { data: PlatformMaps; manage: boolean; problem: MapsProblem | null; hooksHost: string } & Pick<MessagingProps, 'testing' | 'onAction' | 'onTest'>) => {
+export const MapsPanel = ({ data, manage, testing, problem, onAction, onTest }: { data: PlatformMaps; manage: boolean; problem: MapsProblem | null } & Pick<MessagingProps, 'testing' | 'onAction' | 'onTest'>) => {
   const noteId = useId()
   const { enabled, key } = data
   const busy = testing !== null
@@ -117,7 +111,7 @@ export const MapsPanel = ({ data, manage, testing, problem, hooksHost, onAction,
           {key && <Button label={words.remove} disabled={busy} onClick={() => onAction({ kind: 'mapsRemove' })} />}
         </div>
       )}
-      <HowToGetKey hooksHost={hooksHost} />
+      <HowToGetKey hooksHost={data.hooksHost} />
     </section>
   )
 }

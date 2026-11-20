@@ -10,7 +10,6 @@ import { fill, formatTime, messages } from '../../messages'
 import { stubApi } from '../../testing/apiStub'
 import { textOf } from '../../testing/textOf'
 import { MapsKeyDialog, SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
-import { hooksHostFor } from './MapsPanel'
 import { emptyMessaging, Messaging, problemText, type MessagingProps } from './Messaging'
 import { mapsRefusalText, refusalText, removeConsequence, routeSentence } from './MessagingScreen'
 
@@ -49,7 +48,7 @@ const data: MessagingData = {
     accounts: [account('msg91'), account('sns', { templatesComplete: false, status: 'rejected', hint: '…WXYZ' })],
   },
   whatsapp: { enabled: true, account: whatsAppAccount() },
-  maps: { enabled: true, key: { hint: 'AIza…Ici4', status: 'ok', lastTestedAt: '2026-11-19T09:00:00Z' } },
+  maps: { enabled: true, hooksHost: 'hooks.dripfunnel.ai', key: { hint: 'AIza…Ici4', status: 'ok', lastTestedAt: '2026-11-19T09:00:00Z' } },
 }
 const mapsKey = (o: Partial<NonNullable<PlatformMaps['key']>> = {}): NonNullable<PlatformMaps['key']> => ({ hint: 'AIza…Ici4', status: 'ok', lastTestedAt: '2026-11-19T09:00:00Z', ...o })
 const withMaps = (maps: PlatformMaps): MessagingData => ({ ...data, maps })
@@ -57,7 +56,7 @@ const withMaps = (maps: PlatformMaps): MessagingData => ({ ...data, maps })
 const indiaOnly: MessagingData = { ...data, sms: { routes: [{ route: 'india', provider: null, serving: 'msg91' }, { route: 'rest', provider: null, serving: null }], accounts: [account('msg91')] } }
 
 const page = async (props: Partial<MessagingProps> = {}) => {
-  const node: ReactNode = <Messaging messaging={data} forced={null} canManage testing={null} rejection={null} mapsProblem={null} hooksHost="hooks.dripfunnel.ai" onAction={noop} onTest={noop} onReload={noop} {...props} />
+  const node: ReactNode = <Messaging messaging={data} forced={null} canManage testing={null} rejection={null} mapsProblem={null} onAction={noop} onTest={noop} onReload={noop} {...props} />
   const router = createRouter({ routeTree: createRootRoute({ component: () => node }), history: createMemoryHistory({ initialEntries: ['/settings'] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
@@ -131,9 +130,9 @@ describe('Google Maps', () => {
   })
 
   it('says no key, never checked, rejected with Google’s reason, and off', async () => {
-    expect(textOf(await page({ messaging: withMaps({ enabled: false, key: null }) }))).toContain(maps.none)
-    expect(textOf(await page({ messaging: withMaps({ enabled: false, key: mapsKey({ status: 'untested', lastTestedAt: null }) }) }))).toContain(maps.neverChecked)
-    const rejected = withMaps({ enabled: false, key: mapsKey({ status: 'rejected' }) })
+    expect(textOf(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: null }) }))).toContain(maps.none)
+    expect(textOf(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status: 'untested', lastTestedAt: null }) }) }))).toContain(maps.neverChecked)
+    const rejected = withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status: 'rejected' }) })
     const text = textOf(await page({ messaging: rejected, mapsProblem: 'geocoding_disabled' }))
     expect(text).toContain(maps.statuses.rejected)
     expect(text).toContain(maps.rejectedNote)
@@ -142,7 +141,7 @@ describe('Google Maps', () => {
   })
 
   it('offers Turn on only for a Working key, and says why not', async () => {
-    const off = (status: 'ok' | 'untested') => page({ messaging: withMaps({ enabled: false, key: mapsKey({ status }) }) })
+    const off = (status: 'ok' | 'untested') => page({ messaging: withMaps({ enabled: false, hooksHost: null, key: mapsKey({ status }) }) })
     const untested = await off('untested')
     expect(untested).toMatch(new RegExp(`<button[^>]*disabled[^>]*>${maps.turnOn}</button>`))
     expect(textOf(untested)).toContain(maps.needsWorking)
@@ -152,7 +151,7 @@ describe('Google Maps', () => {
   it('gives a Super admin Replace, Test, Turn off and Remove, and set-up alone when there is no key', async () => {
     const all = buttons(await page())
     for (const label of [maps.replace, maps.test, maps.turnOff, maps.remove]) expect(all).toContain(label)
-    expect(buttons(await page({ messaging: withMaps({ enabled: false, key: null }) }))).toContain(maps.setUp)
+    expect(buttons(await page({ messaging: withMaps({ enabled: false, hooksHost: null, key: null }) }))).toContain(maps.setUp)
   })
 
   it('gives other staff the status only, no button of the panel, and no way to change it when forced read-only', async () => {
@@ -164,24 +163,22 @@ describe('Google Maps', () => {
   })
 
   it('has the instructions: the three APIs, this environment’s real host, the API restriction and the roles', async () => {
-    const html = await page({ hooksHost: 'hooks.dripfunnel.dev' })
+    const html = await page({ messaging: withMaps({ enabled: true, hooksHost: 'dev-hooks.actuateminds.com', key: mapsKey() }) })
     const text = textOf(html)
     expect(html).toContain('<details')
     expect(text).toContain(maps.howTo.summary)
     for (const api of ['Maps JavaScript API', 'Geocoding API', 'Places API (New)']) expect(text).toContain(api)
-    expect(text).toContain('https://hooks.dripfunnel.dev/*')
+    expect(text).toContain('https://dev-hooks.actuateminds.com/*')
+    expect(text).toContain(fill(maps.howTo.hostNote, { host: 'dev-hooks.actuateminds.com' }))
     expect(text).toContain('Restrict key')
     for (const role of ['Service Usage Admin', 'API Keys Admin']) expect(text).toContain(role)
     for (const link of maps.howTo.links) expect(html).toContain(`href="${link.href}"`)
   })
 
-  it('names the map page’s host from the console’s own', () => {
-    expect(hooksHostFor('admin.dripfunnel.ai')).toBe('hooks.dripfunnel.ai')
-    expect(hooksHostFor('admin.dripfunnel.dev')).toBe('hooks.dripfunnel.dev')
-    expect(hooksHostFor('dev-admin.actuateminds.com')).toBe('dev-hooks.actuateminds.com')
-    expect(hooksHostFor('Admin.DripFunnel.ai')).toBe('hooks.dripfunnel.ai')
-    expect(hooksHostFor('admin.localhost')).toBe('hooks.localhost')
-    expect(hooksHostFor('localhost')).toBe('hooks.localhost')
+  it('never works the host out from the console’s own address: without one from the API it says so', async () => {
+    const text = textOf(await page({ messaging: withMaps({ enabled: true, hooksHost: null, key: mapsKey() }) }))
+    expect(text).toContain(maps.howTo.referrerUnknown)
+    expect(text).not.toContain('This environment’s map page is on')
   })
 
   it('words a refusal by what Google refused, else by its code', () => {

@@ -28,7 +28,8 @@ const whatsAppAccountSchema = z.object({
   lastTestedAt: isoString.nullable(),
 })
 const whatsAppSchema = z.object({ enabled: z.boolean(), account: whatsAppAccountSchema.nullable() })
-const mapsSchema = z.object({ enabled: z.boolean(), key: z.object({ hint: z.string(), status, lastTestedAt: isoString.nullable() }).nullable() })
+// hooksHost is where the key's website restriction must allow: the Worker's own HOOKS_HOST, never worked out here.
+const mapsSchema = z.object({ enabled: z.boolean(), hooksHost: z.string().nullable(), key: z.object({ hint: z.string(), status, lastTestedAt: isoString.nullable() }).nullable() })
 
 export type PlatformSmsAccount = z.infer<typeof smsAccountSchema>
 export type PlatformSms = z.infer<typeof smsSchema>
@@ -42,7 +43,7 @@ export interface Messaging {
 }
 
 const smsFields = 'routes { route provider serving } accounts { provider hint status lastTestedAt templatesComplete }'
-const mapsFields = 'enabled key { hint status lastTestedAt }'
+const mapsFields = 'enabled hooksHost key { hint status lastTestedAt }'
 const whatsAppFields = 'enabled account { hint businessAccountId phoneNumberId language templates { message name } status lastTestedAt }'
 
 export const loadMessaging = async (): Promise<Messaging> => {

@@ -26,7 +26,6 @@ import { fill, messages } from '../../messages'
 import { failureText } from '../common/failure'
 import { RouteError } from '../common/RouteError'
 import { MapsKeyDialog, SmsAccountDialog, WhatsAppAccountDialog } from './AccountDialogs'
-import { hooksHostFor } from './MapsPanel'
 import { Messaging, MessagingError, problemText, providerName, type MessagingAction, type TestTarget } from './Messaging'
 import { messagingStates } from './messagingHarness'
 
@@ -276,7 +275,6 @@ export const MessagingScreen = () => {
         testing={testing}
         rejection={rejection}
         mapsProblem={mapsProblem}
-        hooksHost={hooksHostFor(window.location.hostname)}
         onAction={(action) => (setError(null), setPending(action))}
         onTest={test}
         onReload={() => void router.invalidate()}

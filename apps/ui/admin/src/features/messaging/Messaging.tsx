@@ -33,7 +33,6 @@ export interface MessagingProps {
   rejection: WhatsAppRejection | null
   // What Google refused at the last Test of DripFunnel's Google Maps key in this visit.
   mapsProblem: MapsProblem | null
-  hooksHost: string
   onAction: (action: MessagingAction) => void
   onTest: (target: TestTarget) => void
   onReload: () => void
@@ -45,7 +44,7 @@ const tested = (at: string | null) => (at ? fill(words.lastTested, { when: forma
 export const emptyMessaging: MessagingData = {
   sms: { routes: smsRoutes.map((route) => ({ route, provider: null, serving: null })), accounts: [] },
   whatsapp: { enabled: false, account: null },
-  maps: { enabled: false, key: null },
+  maps: { enabled: false, hooksHost: null, key: null },
 }
 
 /** What Meta refused, by name: the token, the number, the business account, or which template in which language. */
@@ -208,7 +207,7 @@ const WhatsAppPanel = ({ data, manage, testing, rejection, onAction, onTest }: {
   )
 }
 
-export const Messaging = ({ messaging, forced, canManage, testing, rejection, mapsProblem, hooksHost, onAction, onTest, onReload }: MessagingProps) => {
+export const Messaging = ({ messaging, forced, canManage, testing, rejection, mapsProblem, onAction, onTest, onReload }: MessagingProps) => {
   if (forced === 'loading') return <MessagingLoading />
   if (forced === 'error') return <MessagingError onRetry={onReload} />
   const data = forced === 'empty' ? emptyMessaging : messaging
@@ -220,7 +219,7 @@ export const Messaging = ({ messaging, forced, canManage, testing, rejection, ma
       <div className="df-panels">
         <SmsPanel data={data.sms} manage={manage} testing={testing} onAction={onAction} onTest={onTest} />
         <WhatsAppPanel data={data.whatsapp} manage={manage} testing={testing} rejection={rejection} onAction={onAction} onTest={onTest} />
-        <MapsPanel data={data.maps} manage={manage} testing={testing} problem={mapsProblem} hooksHost={hooksHost} onAction={onAction} onTest={onTest} />
+        <MapsPanel data={data.maps} manage={manage} testing={testing} problem={mapsProblem} onAction={onAction} onTest={onTest} />
       </div>
     </div>
   )
