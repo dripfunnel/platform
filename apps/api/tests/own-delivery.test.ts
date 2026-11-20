@@ -112,7 +112,7 @@ const cartOf = async (lines: [string, number][], pin: readonly [number, number] 
   return cart
 }
 const moveTo = (cart: string, pin: readonly [number, number] | null) =>
-  shop(`mutation { setShippingAddress(address: { name: "Asha", line1: "1 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN"${pin ? `, latitude: ${pin[0]}, longitude: ${pin[1]}` : ''} }) { cart { id } } }`, cart)
+  shop(`mutation { setShippingAddress(address: { name: "Asha", line1: "1 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN", phone: "+919800000000"${pin ? `, latitude: ${pin[0]}, longitude: ${pin[1]}` : ''} }) { cart { id } } }`, cart)
 const offered = async (cart: string) =>
   ((await shop('{ cart { shippingOptions { id amount { amount } before { amount } } } }', cart)).data?.['cart'] as { shippingOptions: { id: string; amount: { amount: string }; before: { amount: string } | null }[] }).shippingOptions.map((o) =>
     [o.id, o.amount.amount, o.before?.amount ?? null])

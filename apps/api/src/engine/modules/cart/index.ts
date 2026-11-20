@@ -574,7 +574,7 @@ export const createCartService = (deps: CartDeps) => {
   const setShippingAddress = async (input: AddressInput) =>
     change(async (tx, row) => {
       const address = cleanAddress(input)
-      if (!address) throw new Refused('INVALID_INPUT')
+      if (!address?.phone) throw new Refused('INVALID_INPUT')
       await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
     }, keepDeliveryWarehouse)
 

@@ -101,10 +101,16 @@ describe('a guest’s cart', () => {
     await mutate(token, 'setCartQuantity', `(versionId: "${ids.kurta}", quantity: 2)`)
   })
 
+  it('refuses a delivery address without a phone, and takes one with it', async () => {
+    const street = 'name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN"'
+    for (const phone of ['', ', phone: ""', ', phone: "  "']) expect((await mutate(token, 'setShippingAddress', `(address: { ${street}${phone} })`)).code).toBe('INVALID_INPUT')
+    expect((await mutate(token, 'setShippingAddress', `(address: { ${street}, phone: "+919845022113" })`)).code).toBeUndefined()
+  })
+
   it('reaches payment with a contact, an address and a delivery option, the engine pricing delivery and GST', async () => {
     expect((await mutate(token, 'setCartContact', '(email: "not-an-email")')).code).toBe('INVALID_INPUT')
     await mutate(token, 'setCartContact', '(email: "Asha@Example.com", phone: "+919845022113")')
-    const addressed = await gql(`mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { ${cartFields} } } }`, { token })
+    const addressed = await gql(`mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { ${cartFields} } } }`, { token })
     const shipped = (addressed.data?.['setShippingAddress'] as { cart: Record<string, unknown> }).cart
     expect(shipped['shippingOptions']).toEqual([{ id: 'flat', amount: { amount: '4900' } }, { id: 'pickup', amount: { amount: '0' } }])
     // 5% GST inside ₹2,100, across states (IGST): 10,000 paise.
@@ -134,10 +140,10 @@ describe('a guest’s cart', () => {
   })
 
   it('charges no tax where the store has no rate (a US address on an Indian store), never refusing the cart for it', async () => {
-    await gql(`mutation { setShippingAddress(address: { name: "Sam Lee", line1: "1 High St", city: "Columbus", region: "OH", postalCode: "43215", country: "US" }) { cart { id } } }`, { token })
+    await gql(`mutation { setShippingAddress(address: { name: "Sam Lee", line1: "1 High St", city: "Columbus", region: "OH", postalCode: "43215", country: "US", phone: "+919800000000" }) { cart { id } } }`, { token })
     expect(await cart(token)).toMatchObject({ tax: { amount: { amount: '0' } } })
     expect(((await cart(token))?.['problems'] as string[]).includes('TAX_UNAVAILABLE')).toBe(false)
-    await gql(`mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }`, { token })
+    await gql(`mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }`, { token })
     await mutate(token, 'setShippingOption', '(option: "flat")')
     await gql('mutation { checkout { id } }', { token })
   })
@@ -440,7 +446,7 @@ describe('delivery before an address (#1521)', () => {
 
   it('leaves the price to the chosen option with an address, and loses it when the address is outside where the store delivers', async () => {
     const guest = await fresh()
-    const address = 'address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }'
+    const address = 'address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }'
     try {
       await gql(`mutation { setShippingAddress(${address}) { cart { id } } }`, { token: guest })
       expect(await cart(guest)).toMatchObject({ shipping: null, total: { amount: '105000' } })

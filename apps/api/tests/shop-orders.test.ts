@@ -80,7 +80,7 @@ const merchant = async (source: string, who: keyof typeof cookies, as: { support
 const readyCart = async (quantity: number, versionId = kurta) => {
   const token = ((await shop(`mutation { addToCart(versionId: "${versionId}", quantity: ${quantity}) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
   await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
-  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", latitude: 18.5204, longitude: 73.8567 }) { cart { id } } }', token)
+  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000", latitude: 18.5204, longitude: 73.8567 }) { cart { id } } }', token)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
   await shop('mutation { checkout { id } }', token)
   return token
@@ -222,7 +222,7 @@ describe('holding stock and placing safely', () => {
     }
     const ready = token ?? ''
     await shop('mutation { setCartContact(email: "ravi@example.com") { cart { id } } }', ready)
-    await shop('mutation { setShippingAddress(address: { name: "Ravi", line1: "1 Park St", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', ready)
+    await shop('mutation { setShippingAddress(address: { name: "Ravi", line1: "1 Park St", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', ready)
     await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', ready)
     await shop('mutation { checkout { id } }', ready)
     return ready

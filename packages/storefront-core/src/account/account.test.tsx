@@ -196,7 +196,7 @@ describe('useAccount', () => {
     await show('account')
     await act(async () => void (await shown(account).rename(' Maya ')))
     expect(asked.find((a) => a.query.includes('updateAccount'))?.variables).toEqual({ name: 'Maya' })
-    const draft = { name: 'Maya Chen', line1: '1 Main St', line2: '', city: 'Austin', region: 'TX', postalCode: '7870', country: 'US', phone: '' }
+    const draft = { name: 'Maya Chen', line1: '1 Main St', line2: '', city: 'Austin', region: 'TX', postalCode: '7870', country: 'US', phone: '+15551234567' }
     let problems: unknown = null
     await act(async () => {
       problems = await shown(account).saveAddress({ id: null, address: draft, isDefault: false })
@@ -210,7 +210,7 @@ describe('useAccount', () => {
       problems = await shown(account).saveAddress({ id: null, address: { ...draft, postalCode: '78701' }, isDefault: true })
     })
     expect(problems).toEqual({})
-    expect(asked.find((a) => a.query.includes('saveAddress'))?.variables).toEqual({ id: null, isDefault: true, address: { name: 'Maya Chen', line1: '1 Main St', line2: null, city: 'Austin', region: 'TX', postalCode: '78701', country: 'US', phone: null, latitude: null, longitude: null } })
+    expect(asked.find((a) => a.query.includes('saveAddress'))?.variables).toEqual({ id: null, isDefault: true, address: { name: 'Maya Chen', line1: '1 Main St', line2: null, city: 'Austin', region: 'TX', postalCode: '78701', country: 'US', phone: '+15551234567', latitude: null, longitude: null } })
     await act(async () => void (await shown(account).saveAddress({ id: null, address: { ...draft, postalCode: '78701', phone: '+91 90647-79543' }, isDefault: false })))
     expect(asked.filter((a) => a.query.includes('saveAddress')).at(-1)?.variables).toMatchObject({ address: { phone: '+919064779543' } })
     refuse = true

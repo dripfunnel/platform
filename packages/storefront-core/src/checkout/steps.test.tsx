@@ -9,7 +9,7 @@ import type { RenderMode } from '../platform/store/context'
 import { addressProblems, isPhone } from './address'
 import { addressDraft, useCheckout, type CheckoutPage } from './checkout'
 
-const us = { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }
+const us = { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: '+16145550100' }
 const flat = { id: 'flat', provider: null, service: null, amount: usd(0), before: null, minDays: 3, maxDays: 5, hours: null }
 // Two options, so the shopper chooses one: a sole option is applied for them (checkout.test.tsx).
 const pickup = { ...flat, id: 'pickup', minDays: null, maxDays: null, hours: 'Mon–Fri' }
@@ -66,8 +66,8 @@ describe('useCheckout', () => {
     expect(open()).toBe('address')
     expect(page.countries).toEqual(['US', 'IN'])
     await act(async () => void (errors = await page.saveAddress({ ...addressDraft(null, 'US'), name: 'Maya' })))
-    expect(errors).toEqual({ line1: 'required', city: 'required', region: 'required', postalCode: 'required' })
-    await act(async () => void (await page.saveAddress(addressDraft(us, 'US'))))
+    expect(errors).toEqual({ line1: 'required', city: 'required', region: 'required', postalCode: 'required', phone: 'required' })
+    await act(async () => void (await page.saveAddress({ ...addressDraft(us, 'US'), phone: '+16145550100' })))
     expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'delivery', 'payment', 'review'])
     expect(open()).toBe('delivery')
     await act(async () => void (await page.chooseDelivery('flat')))
@@ -167,6 +167,8 @@ describe('addressProblems', () => {
     expect(addressProblems({ ...addressDraft({ ...us, country: 'IN', postalCode: '5600', region: '' }, 'IN') })).toEqual({ postalCode: 'invalid', region: 'required' })
     expect(addressProblems({ ...addressDraft({ ...us, country: 'FR', postalCode: null, region: null }, 'FR') })).toEqual({})
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: 'call me' })).toEqual({ phone: 'invalid' })
+    expect(addressProblems({ ...addressDraft(us, 'US'), phone: '' })).toEqual({ phone: 'required' })
+    expect(addressProblems({ ...addressDraft(us, 'US'), phone: '  ' })).toEqual({ phone: 'required' })
   })
   it('takes a phone only with its country code, as the API does', () => {
     expect(isPhone('+91 90647-79543')).toBe(true)
