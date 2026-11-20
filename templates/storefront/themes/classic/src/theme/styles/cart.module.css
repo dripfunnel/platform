@@ -150,6 +150,11 @@
   cursor: pointer;
 }
 
+.edit {
+  align-self: flex-start;
+  padding: 0;
+}
+
 .side {
   display: flex;
   flex-direction: column;

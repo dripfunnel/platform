@@ -229,7 +229,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   is added with its recipient (`add` and `buyNow` take `gift`: name, email, an optional message and send-on date), each
   line carries its `gift`, and `applyGiftCard(number)` and `removeGiftCard()` let a gift card pay part of the cart: the
   cart's `giftCard` says what it takes off, what is left on it and its last four digits, and `amountDue` what is left to
-  pay, both as the engine answers them.
+  pay, both as the engine answers them. *Since #1641:* `setQuantity` and `remove` take the line's id as a last argument, which a line with answers needs (two lines of one version differ by their answers).
 - **A change shows at once**: a line's new quantity and the count change before the engine answers, the line and the cart
   marked `pending`, their money the last answer's; the answer replaces them, and a refusal takes the change back and keeps
   its code in `error`. Changes go one at a time, in order. No amount is ever worked out in the browser.

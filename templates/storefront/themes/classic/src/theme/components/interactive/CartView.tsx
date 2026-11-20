@@ -104,7 +104,7 @@ export const CartView = () => {
       <div className={styles.cart}>
         <ul className={styles.lines}>
           {cart.lines.map((line) => (
-            <li key={line.versionId} className={cx(styles.line, line.pending && styles.pending)}>
+            <li key={line.lineId ?? line.versionId} className={cx(styles.line, line.pending && styles.pending)}>
               {line.photo ? <Image image={line.photo} alt={line.name} ratio={0.8} sizes="88px" className={styles.photo} /> : <span className={styles.noPhoto} />}
               <div className={styles.info}>
                 <div className={styles.top}>
@@ -119,22 +119,22 @@ export const CartView = () => {
                 </div>
                 {line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}
                 <LineAnswers line={line} className={styles.version} />
-                <EditAnswers line={line} className={styles.remove} />
+                <EditAnswers line={line} className={styles.edit} />
                 {line.gift ? <p className={styles.version}>{t('shop.cart.giftFor', { name: line.gift.recipientName, email: line.gift.recipientEmail })}</p> : null}
                 {problemWords(line) ? <p className={styles.problem}>{problemWords(line)}</p> : null}
                 <div className={styles.actions}>
                   <div className={styles.stepper} role="group" aria-label={t('shop.cart.quantity', { name: line.name })}>
-                    <button type="button" className={styles.step} aria-label={t('shop.cart.less')} disabled={line.quantity <= 1} onClick={() => void page.setQuantity(line.versionId, line.quantity - 1)}>
+                    <button type="button" className={styles.step} aria-label={t('shop.cart.less')} disabled={line.quantity <= 1} onClick={() => void page.setQuantity(line.versionId, line.quantity - 1, line.lineId)}>
                       <Minus />
                     </button>
                     <span className={styles.quantity} aria-live="polite">
                       {line.quantity}
                     </span>
-                    <button type="button" className={styles.step} aria-label={t('shop.cart.more')} onClick={() => void page.setQuantity(line.versionId, line.quantity + 1)}>
+                    <button type="button" className={styles.step} aria-label={t('shop.cart.more')} onClick={() => void page.setQuantity(line.versionId, line.quantity + 1, line.lineId)}>
                       <Plus />
                     </button>
                   </div>
-                  <button type="button" className={styles.remove} onClick={() => void page.remove(line.versionId)}>
+                  <button type="button" className={styles.remove} onClick={() => void page.remove(line.versionId, line.lineId)}>
                     {t('shop.cart.remove')}
                   </button>
                 </div>

@@ -66,6 +66,38 @@ describe('useCart', () => {
     expect(page.error).toBe('UNAVAILABLE')
   })
 
+  describe('a line with answers to the product’s questions (#1641)', () => {
+    const wrapping = [{ questionId: 'q1', question: 'Would you like gift wrapping?', kind: 'CHOICE', text: null, per: null, amount: null, choices: [{ choiceId: 'c1', label: 'No, thanks', quantity: 1, free: 0 }], uploads: [] }]
+    const held = () => cartOf([{ ...line('v1', 2), id: 'l1', answers: wrapping }, { ...line('v1', 1), id: 'l2', answers: null }, line('v2', 1)])
+    const quantities = () => page.cart?.lines.map((l) => `${l.lineId ?? l.versionId}×${l.quantity}`).join(',')
+
+    it('names the line when it changes the quantity, and changes only that line while the engine answers', async () => {
+      localStorage.setItem('df-cart', 'tok-1')
+      const pending = later<unknown>()
+      const asked: Asked[] = shopAnswering((a) => (a.query.includes('setCartQuantity') ? pending.promise : { data: { cart: held() } }))
+      mount()
+      await act(async () => undefined)
+      void act(() => void page.setQuantity('v1', 3, 'l1'))
+      await act(async () => undefined)
+      expect(quantities()).toBe('l1×3,l2×1,v2×1')
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v1', quantity: 3, lineId: 'l1' })
+      expect(asked.at(-1)?.query).toContain('lineId: $lineId')
+      pending.settle({ data: { setCartQuantity: { cartToken: null, cart: held() } } })
+      await act(async () => undefined)
+    })
+
+    it('removes only the line it names, and still names no line for one without answers', async () => {
+      localStorage.setItem('df-cart', 'tok-1')
+      const asked: Asked[] = shopAnswering((a) => (a.query.includes('setCartQuantity') ? { data: { setCartQuantity: { cartToken: null, cart: cartOf([line('v2', 1)]) } } } : { data: { cart: held() } }))
+      mount()
+      await act(async () => undefined)
+      await act(async () => void (await page.remove('v1', 'l1')))
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v1', quantity: 0, lineId: 'l1' })
+      await act(async () => void (await page.remove('v2')))
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v2', quantity: 0 })
+    })
+  })
+
   it('forgets an expired cart and adds to a new one', async () => {
     localStorage.setItem('df-cart', 'old')
     let tries = 0
