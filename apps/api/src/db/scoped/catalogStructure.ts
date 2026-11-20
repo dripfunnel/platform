@@ -280,6 +280,9 @@ export const insertCollection = async (tx: ScopedSql, storeId: string, id: strin
     `)
   ).slug
 
+export const collectionLacksImage = async (tx: ScopedSql, storeId: string, id: string): Promise<boolean> =>
+  (await tx`select 1 from collection where id = ${id} and store_id = ${storeId} and image_asset_id is null and deleted_at is null`).length > 0
+
 /** A collection's image where it has none yet, answering its name; null when it isn't here or already has one. */
 export const setCollectionImage = async (tx: ScopedSql, storeId: string, id: string, assetId: string, now: Date): Promise<string | null> =>
   (

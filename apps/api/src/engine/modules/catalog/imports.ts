@@ -27,7 +27,7 @@ import {
   type CatalogImportRow,
   type CatalogImportSummary,
 } from '#db/scoped/catalogImports'
-import { addCollectionProducts, insertCollection, setCollectionImage } from '#db/scoped/catalogStructure'
+import { addCollectionProducts, collectionLacksImage, insertCollection, setCollectionImage } from '#db/scoped/catalogStructure'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { markSampleCatalogAdded, selectSample } from '#db/scoped/storeCategories'
 import { setStockTargets } from '#db/scoped/inventory'
@@ -749,6 +749,8 @@ export const sampleCollectionPhotoPayload = z.object({ collectionId: z.guid(), s
 
 /** A sample collection's photo stored as the store's file and set as its image; one that can't be read leaves it without. */
 export const attachSampleCollectionPhoto = async (d: Pick<ImportJobDeps, 'sql' | 'context' | 'actor' | 'activity' | 'facts' | 'now'>, p: z.infer<typeof sampleCollectionPhotoPayload>, fetchPhoto: PhotoFetch): Promise<void> => {
+  // Checked first so a redelivery stores no second copy; setCollectionImage still guards the write.
+  if (!(await withScope(d.sql, d.context, (tx) => collectionLacksImage(tx, d.context.storeId, p.collectionId)))) return
   const got = await fetchPhoto(p.ref)
   if (!got.ok) return
   await withScope(d.sql, d.context, async (tx) => {

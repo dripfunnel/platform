@@ -406,12 +406,12 @@ describe('the sample editor', () => {
     expect(first).toEqual(expect.any(String))
     expect(await saved()).toBe(1)
 
-    // Redelivered: the image and its one entry stay; the photo stored again before the no-op is left unlinked in the library.
+    // Redelivered: the image and its one entry stay, and no second copy is stored.
     const before = await assets()
     await deliver(payload)
     expect(await imageOf(collectionId)).toBe(first)
     expect(await saved()).toBe(1)
-    expect(await assets()).toBe(before + 1)
+    expect(await assets()).toBe(before)
 
     // A job in store B1 naming another store's collection changes nothing there.
     const [other] = await db.sql<{ id: string }[]>`update collection set image_asset_id = null where store_id = ${t.storeA1} and deleted_at is null returning id`
