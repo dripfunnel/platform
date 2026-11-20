@@ -96,6 +96,23 @@ describe('useCart', () => {
       await act(async () => void (await page.remove('v2')))
       expect(asked.at(-1)?.variables).toEqual({ versionId: 'v2', quantity: 0 })
     })
+
+    it('finds the line for a theme that names none when the version has just that one line, and leaves two lines of a version to the plain one', async () => {
+      localStorage.setItem('df-cart', 'tok-1')
+      const sole = cartOf([{ ...line('v1', 2), id: 'l1', answers: wrapping }, line('v2', 1)])
+      let current: ReturnType<typeof cartOf> = sole
+      const asked: Asked[] = shopAnswering((a) => (a.query.includes('setCartQuantity') ? { data: { setCartQuantity: { cartToken: null, cart: current } } } : { data: { cart: current } }))
+      mount()
+      await act(async () => undefined)
+      await act(async () => void (await page.setQuantity('v1', 3)))
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v1', quantity: 3, lineId: 'l1' })
+      await act(async () => void (await page.setQuantity('v2', 2)))
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v2', quantity: 2 })
+      current = held()
+      await act(async () => page.retry())
+      await act(async () => void (await page.setQuantity('v1', 4)))
+      expect(asked.at(-1)?.variables).toEqual({ versionId: 'v1', quantity: 4 })
+    })
   })
 
   it('forgets an expired cart and adds to a new one', async () => {

@@ -377,6 +377,12 @@ export type CartPage = {
   retry: () => void
 }
 
+/** A theme from before #1641 names no line: the version's only line, when it has answers, is the one it means. */
+const soleLineWithAnswers = (cart: Decoded | null, versionId: string): string | null => {
+  const held = cart?.lines.filter((l) => l.versionId === versionId) ?? []
+  return held.length === 1 && (held[0]?.answers?.length ?? 0) > 0 ? (held[0]?.id ?? null) : null
+}
+
 /** The shopper's cart and what can be done to it (ARCHITECTURE §2.1 `cart`); nothing here prices anything. */
 export const useCart = (): CartPage => {
   const { store, snapshot, cart } = useCartState()
@@ -384,8 +390,10 @@ export const useCart = (): CartPage => {
     (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null, answers }, changeSchema, { versionId, lineId: null, quantity, kind: 'add' })) !== null
   const add = (versionId: string, quantity = 1, gift?: GiftRecipient) => send(versionId, quantity, gift)
   const codeOf = (done: boolean) => (done ? null : (store.get().error ?? 'UNKNOWN'))
-  const setQuantity = async (versionId: string, quantity: number, lineId: string | null = null) =>
-    (await store.change(quantityMutation, { versionId, quantity, ...(lineId ? { lineId } : {}) }, changeSchema, { versionId, lineId, quantity, kind: 'set' })) !== null
+  const setQuantity = async (versionId: string, quantity: number, named: string | null = null) => {
+    const lineId = named ?? soleLineWithAnswers(store.get().cart, versionId)
+    return (await store.change(quantityMutation, { versionId, quantity, ...(lineId ? { lineId } : {}) }, changeSchema, { versionId, lineId, quantity, kind: 'set' })) !== null
+  }
   return {
     status: snapshot.status,
     code: snapshot.code,
