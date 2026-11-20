@@ -82,7 +82,7 @@ export const homeSample = (state: HomeState | null): HomeSample | null => {
     case 'staff':
       return { home: asStaff(busy), locale: null }
     case 'newStore':
-      return { home: fresh, locale: indiaLocale, storefront: { status: 'not_started', published: false, template: null } }
+      return { home: fresh, locale: indiaLocale, storefront: { status: 'not_started', published: false, template: null, previewReady: false, publishing: null, host: null } }
     case 'newManager':
       return { home: asManager(fresh), locale: null }
     case 'newStaff':

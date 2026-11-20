@@ -4,17 +4,20 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadHome, loadLocaleFacts, type HomeOrder, type StoreHome, type StoreLocaleFacts } from '../../api/home'
 import { chooseShopCategory, loadShopCategory, type ShopCategoryChoice } from '../../api/shopCategory'
-import { chooseTemplate, loadOverview, loadTemplates } from '../../api/storefront'
-import { startingTemplate } from '../storefront/overviewView'
+import { chooseTemplate, loadDomains, loadOverview, loadTemplates, previewLink, type StorefrontOverview } from '../../api/storefront'
+import { loadPublishRun, publishDesign, type PublishRun } from '../../api/studio'
+import { liveHost, startingTemplate } from '../storefront/overviewView'
+import { refusedText } from '../storefront/studioRules'
+import { usePublishRun } from '../storefront/usePublishRun'
 import { BrandStep } from './BrandStep'
-import { StorefrontStep } from './StorefrontStep'
+import { StorefrontStep, type SiteStep } from './StorefrontStep'
 import { SearchSelect } from '../common/SearchSelect'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { SampleCatalogAction } from '../common/SampleCatalogAction'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, moneyText } from '../orders/orderView'
 import { homeSample, homeStates, type HomeState } from './homeStates'
-import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, storefrontPhaseOf, tasksOf, type NumberCard, type SetupItem, type StorefrontPhase, type StorefrontSetup, type Task } from './homeView'
+import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, storefrontPhaseOf, tasksOf, type NumberCard, type SetupItem, type StorefrontSetup, type Task } from './homeView'
 import './home.css'
 
 const words = messages.home
@@ -44,10 +47,16 @@ const seatOf = (forced: HomeState | null, acting: { permissions: readonly string
   return { supplier: acting.seller !== null, owner: has('settings'), reports: has('reports.read'), importer: has('catalog.import'), site: has('storefront.read') && has('publish'), readOnly }
 }
 
+const siteOf = (overview: StorefrontOverview) => ({ status: overview.status, published: overview.live !== null, previewReady: overview.draft?.previewReady === true, publishing: overview.publishing })
+
 const loadStorefrontSetup = async (): Promise<StorefrontSetup> => {
   const [overview, templates] = await Promise.all([loadOverview(), loadTemplates()])
-  return { status: overview.status, published: overview.live !== null, template: startingTemplate(templates) }
+  // The address is read only once the site is live, and the step is done without it when that read fails.
+  const host = overview.live ? await loadDomains().then(liveHost, () => null) : null
+  return { ...siteOf(overview), template: startingTemplate(templates), host }
 }
+
+const publishApi = { loadPublishRun }
 
 const statusTone = { toShip: 'brand', partly: 'warning', shipped: 'success', refunded: 'muted', cancelled: 'muted' } as const
 
@@ -105,7 +114,7 @@ export const Home = () => {
       () => {
         const ask = ++asked
         loadOverview().then(
-          (overview) => ask === asked && setSite({ status: overview.status, published: overview.live !== null }),
+          (overview) => ask === asked && setSite(siteOf(overview)),
           () => undefined,
         )
       },
@@ -119,6 +128,29 @@ export const Home = () => {
     if (!template) return void navigate({ to: '/storefront', search: (prev) => harnessSearch(prev) })
     setSite({ status: sample ? 'creating' : await chooseTemplate(template.key, true) })
   }
+
+  // The first publish is followed here as the studio follows one, so the Owner never leaves Home.
+  const [refused, setRefused] = useState<string | null>(null)
+  const run = view.kind === 'ready' && !sample ? (view.storefront?.publishing ?? null) : null
+  const publishEnded = useCallback(
+    (answer: PublishRun | null) => {
+      if (answer && answer.step !== 'live') {
+        setRefused(refusedText(answer))
+        return setSite({ publishing: null })
+      }
+      loadStorefrontSetup().then(
+        (site) => setView((v) => (v.kind === 'ready' ? { ...v, storefront: site, siteFailed: false } : v)),
+        () => setView((v) => (v.kind === 'ready' ? { ...v, siteFailed: true } : v)),
+      )
+    },
+    [setSite],
+  )
+  const { lost, checkAgain } = usePublishRun(publishApi, run, { onEnd: publishEnded })
+  const publishSite = async () => {
+    setRefused(null)
+    setSite(sample ? { published: true } : { publishing: await publishDesign() })
+  }
+  const previewSite = () => (sample ? Promise.resolve('') : previewLink())
 
   const choose = async (id: string) => {
     const chosen = sample ? null : await chooseShopCategory(id)
@@ -160,7 +192,7 @@ export const Home = () => {
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
       {view.kind === 'ready' && (
-        <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} storefront={view.siteFailed ? 'unavailable' : (view.storefront ?? null)} seat={seat} onChoose={choose} brand={{ shopName: acting.store.name, onDone: brandAdded }} onCreateSite={createSite} onRetrySite={retrySite} />
+        <HomeBody home={view.home} locale={view.locale} category={view.category ?? null} storefront={view.siteFailed ? 'unavailable' : (view.storefront ?? null)} seat={seat} onChoose={choose} brand={{ shopName: acting.store.name, onDone: brandAdded }} siteActions={{ onCreate: createSite, onRetry: retrySite, onPreview: previewSite, onPublish: publishSite, refused, lost, onCheckAgain: checkAgain }} />
       )}
     </div>
   )
@@ -174,8 +206,7 @@ interface HomeBodyProps {
   seat: HomeSeat
   onChoose: (id: string) => Promise<void>
   brand: BrandStepState
-  onCreateSite: () => Promise<void>
-  onRetrySite: () => Promise<void>
+  siteActions: Omit<SiteStep, 'setup' | 'phase'>
 }
 
 interface BrandStepState {
@@ -183,14 +214,14 @@ interface BrandStepState {
   onDone: () => void
 }
 
-const HomeBody = ({ home, locale, category, storefront, seat, onChoose, brand, onCreateSite, onRetrySite }: HomeBodyProps) => {
+const HomeBody = ({ home, locale, category, storefront, seat, onChoose, brand, siteActions }: HomeBodyProps) => {
   const tasks = tasksOf(home)
   const setup = setupOf(home, seat.owner ? locale : null, category?.current?.name ?? null, storefront)
   // The first site needs what the shop sells (its template) and the logo and favicon (BRAND_NOT_READY).
-  const site: SiteStepState | null =
+  const site: SiteStep | null =
     storefront === 'unavailable'
-      ? { setup: null, phase: 'unavailable', onCreate: onCreateSite, onRetry: onRetrySite }
-      : storefront && { setup: storefront, phase: storefrontPhaseOf(storefront, home.setup?.category === true && home.setup.brand === true), onCreate: onCreateSite, onRetry: onRetrySite }
+      ? { ...siteActions, setup: null, phase: 'unavailable' }
+      : storefront && { ...siteActions, setup: storefront, phase: storefrontPhaseOf(storefront, home.setup?.category === true && home.setup.brand === true) }
   const numbers = numbersOf(home)
   return (
     <>
@@ -322,13 +353,6 @@ const setupLink = (key: SetupItem['key']) => {
   }
 }
 
-interface SiteStepState {
-  setup: StorefrontSetup | null
-  phase: StorefrontPhase
-  onCreate: () => Promise<void>
-  onRetry: () => Promise<void>
-}
-
 interface ChecklistProps {
   items: SetupItem[]
   owner: boolean
@@ -341,7 +365,7 @@ interface ChecklistProps {
   /** Null for a read-only session: the step then opens Site settings. */
   brand: BrandStepState | null
   /** Null for a read-only session: the step then opens Storefront. */
-  site: SiteStepState | null
+  site: SiteStep | null
 }
 
 const Checklist = ({ items, owner, categories, onChoose, sample, importer, brand, site }: ChecklistProps) => {
@@ -390,10 +414,11 @@ const Checklist = ({ items, owner, categories, onChoose, sample, importer, brand
                 <BrandStep label={label} shopName={brand.shopName} onDone={brand.onDone} />
               </li>
             )
-          if (item.key === 'storefront' && site && site.phase !== 'done')
+          // Once live, the step links to the site itself when its address is known, else to Storefront as the others do.
+          if (item.key === 'storefront' && site && (site.phase !== 'done' || site.setup?.host))
             return (
-              <li key={item.key} className="df-home-step df-home-step--choices">
-                <StorefrontStep label={label} site={site.setup} phase={site.phase} onCreate={site.onCreate} onRetry={site.onRetry} />
+              <li key={item.key} className={`df-home-step df-home-step--choices${item.done ? ' df-home-step--done' : ''}`}>
+                <StorefrontStep label={label} site={site} />
               </li>
             )
           if (item.key === 'category' && !item.done && onChoose && categories.length > 0)

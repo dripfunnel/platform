@@ -126,6 +126,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
 
   const dirtyInfo = JSON.stringify(form) !== JSON.stringify(saved)
   const dirtyCurrencies = JSON.stringify(currencies.map(({ code, mode, rounding }) => ({ code, mode, rounding }))) !== JSON.stringify(savedCurrencies.map(({ code, mode, rounding }) => ({ code, mode, rounding })))
+  const languagesLeft = loc.offeredLanguages.filter((c) => !languages.includes(c))
   const dirtyLanguages = JSON.stringify(languages) !== JSON.stringify(savedLanguages)
 
   const write = async (card: 'info' | 'currencies' | 'languages', work: () => Promise<void>, toast: string, done: () => void) => {
@@ -410,19 +411,18 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
             <select
               aria-label={words.addLanguage}
               value=""
+              disabled={languagesLeft.length === 0}
               onChange={(e) => {
                 const code = e.target.value
                 if (code) setLanguages((l) => [...l, code])
               }}
             >
-              <option value="">{words.addLanguage}</option>
-              {loc.offeredLanguages
-                .filter((c) => !languages.includes(c))
-                .map((c) => (
-                  <option key={c} value={c}>
-                    {languageName(c)}
-                  </option>
-                ))}
+              <option value="">{languagesLeft.length === 0 ? words.noLanguagesLeft : words.addLanguage}</option>
+              {languagesLeft.map((c) => (
+                <option key={c} value={c}>
+                  {languageName(c)}
+                </option>
+              ))}
             </select>
             <button type="button" className="df-button df-button--primary" disabled={busy !== null || !dirtyLanguages} onClick={() => void write('languages', () => saveLanguages(languages, main), words.savedLanguages, () => setSavedLanguages(languages))}>
               {busy === 'languages' ? words.saving : words.saveLanguages}

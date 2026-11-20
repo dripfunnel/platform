@@ -266,6 +266,20 @@ describe('languages', () => {
     expect(api.saveLanguages).toHaveBeenCalledWith(['en-IN', 'en-US'], 'en-IN')
   })
 
+  it('grey out Add a language and say so once every offered language is added', async () => {
+    await show()
+    const l = card(w.languages)
+    const add = () => l.getByRole('combobox', { name: w.addLanguage }) as HTMLSelectElement
+    expect(add().disabled).toBe(false)
+    expect(within(add()).getByRole('option', { name: w.addLanguage })).toBeTruthy()
+    fireEvent.change(add(), { target: { value: 'en-US' } })
+    expect(add().disabled).toBe(true)
+    expect(within(add()).getByRole('option', { name: w.noLanguagesLeft })).toBeTruthy()
+    fireEvent.click(l.getByRole('button', { name: 'Remove American English' }))
+    fireEvent.click(dialog().getByRole('button', { name: w.removeLanguage }))
+    expect(add().disabled).toBe(false)
+  })
+
   it('say when the translation count couldn’t be read', async () => {
     api.loadTranslationProgress.mockRejectedValue(new Error('offline'))
     await show()

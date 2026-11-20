@@ -34,12 +34,12 @@ const FileRows = ({ files, accept, draft, uploading, disabled, onRemove, onUploa
           <code className="df-muted">{words.noFile}</code>
         )}
         <label className={disabled ? 'df-brand-replace df-brand-replace--off' : 'df-brand-replace'}>
-          {words.replace}
+          {draft.look.files[file] ? words.replace : words.upload}
           <input
             type="file"
             accept={accept}
             className="df-visually-hidden"
-            aria-label={fill(words.replaceLabel, { file: words.files[file] })}
+            aria-label={fill(draft.look.files[file] ? words.replaceLabel : words.uploadLabel, { file: words.files[file] })}
             disabled={disabled}
             onChange={(event) => {
               const picked = event.target.files?.[0]

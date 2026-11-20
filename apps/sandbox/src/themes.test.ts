@@ -715,3 +715,151 @@ describe.each(['classic', ...fromBaseline])('the %s theme’s account, mobile nu
     }
   })
 })
+
+type ListState = { asked: string[]; failNext: boolean }
+
+/** A signed-in live page at `path` (its `route`), the shop answering the account, 45 orders (pages of 20) and 30 posts (pages of 12). */
+const openScrollList = async (b: Browser, out: string, route: 'accountOrders' | 'blog', path: string, state: ListState, width = 1440, height = 600): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width, height } })
+  await context.addInitScript(() => sessionStorage.setItem('df-session', 'sess-1'))
+  const live = JSON.stringify({ route, custom: null, path, store: snapshot.store, poweredBy: null }).replaceAll('<', '\\u003c')
+  const order = (n: number) => ({ id: `o-${n}`, number: `${1000 + n}`, state: 'placed', paymentState: 'paid', paymentMethod: 'stripe', placedAt: '2026-10-13T06:00:00Z', pricesIncludeTax: false, itemCount: 2, total: { amount: '5440', currency: 'USD' } })
+  const post = (n: number) => ({ title: `Post ${n}`, path: `/blog/post-${n}`, slug: `post-${n}`, author: 'Maya', publishedAt: '2026-10-01T10:00:00Z', tags: [], seoTitle: null, seoDescription: null, cover: null, body: [{ kind: 'text', text: 'word '.repeat(40), alt: null, image: null, items: null, productSlugs: null }] })
+  const pageOf = (total: number, size: number, after: string | null, make: (n: number) => unknown) => {
+    const from = after === null ? 0 : Number(after)
+    const to = Math.min(from + size, total)
+    return { nodes: Array.from({ length: to - from }, (_, i) => make(from + i)), pageInfo: { hasNextPage: to < total, endCursor: String(to) } }
+  }
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.origin !== origin) return route.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      const body = route.request().postData() ?? ''
+      const asked = JSON.parse(body) as { query: string; variables?: { after?: string | null } }
+      const after = asked.variables?.after ?? null
+      const list = /query (OrderHistory|Blog)\b/.exec(asked.query)?.[1]
+      if (list && after !== null) {
+        state.asked.push(`${list}:${after}`)
+        if (state.failNext) {
+          state.failNext = false
+          return route.abort('failed')
+        }
+      }
+      const answer = /query Account\b/.test(asked.query)
+        ? { data: { account: { id: 'cu-1', name: 'Asha Rao', email: 'asha@example.com', phone: null, emailVerified: true, phoneVerified: false, addresses: [] }, store: { markets: [] }, signInOptions: { phone: false } } }
+        : list === 'OrderHistory'
+          ? { data: { orderHistory: pageOf(45, 20, after, order) } }
+          : list === 'Blog'
+            ? { data: { blogPosts: pageOf(30, 12, after, post) } }
+            : shopFixture(snapshot, [])(body)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return route.fulfill({ status: 404 })
+    if (file.rel.endsWith('.html')) return route.fulfill({ status: 200, contentType: 'text/html', body: Buffer.from(file.bytes).toString('utf8').replace(/<body[^>]*>/, (m) => `${m}<script id="df-page" type="application/json">${live}</script>`) })
+    return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}${path}`)
+  return page
+}
+
+// Card #1570: Account › Orders and the Blog load their next page by themselves, as the product grids do, with no Load more.
+describe.each(['classic', ...fromBaseline])('the %s theme’s lists on the live site', (key) => {
+  let out = ''
+  const lists = [
+    { name: 'Account › Orders', route: 'accountOrders' as const, path: '/account/orders/', item: 'a[href^="/account/orders/o-"]', first: 20, all: 45, noun: 'orders', failed: "We couldn't load more orders. Try again." },
+    { name: 'the Blog', route: 'blog' as const, path: '/blog/', item: 'a[href^="/blog/post-"]', first: 12, all: 30, noun: 'posts', failed: "We couldn't load older posts. Try again." },
+  ]
+  const fresh = (): ListState => ({ asked: [], failNext: false })
+
+  beforeAll(async () => {
+    if (!browser) return
+    out = join(root, `${key}-lists`)
+    const built = await bundle(join(themesDir, key), out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+  })
+
+  describe.each(lists)('$name', (list) => {
+    const items = (page: Page) => page.locator(list.item)
+    const noButton = (page: Page) => expect(page.getByRole('button', { name: /load more|older posts/i }).count()).resolves.toBe(0)
+
+    it('loads the next page before the shopper reaches the end, with no Load more button, and stops at the end', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await expect(items(page).count()).resolves.toBe(list.first)
+        await noButton(page)
+        expect(state.asked).toEqual([])
+        // Scroll until the last row is still a hundred pixels below the screen: the end has not been reached.
+        await items(page).last().evaluate((el) => window.scrollTo(0, Math.max(0, el.getBoundingClientRect().bottom + window.scrollY - window.innerHeight - 100)))
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        await noButton(page)
+        // Keeps scrolling while it waits, so a slow last page on CI is still asked for and awaited (#1637).
+        await expect
+          .poll(
+            async () => {
+              await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+              return items(page).count()
+            },
+            { timeout: 15_000, interval: 300 },
+          )
+          .toBe(list.all)
+        const asked = state.asked.length
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await page.waitForTimeout(500)
+        expect(state.asked.length).toBe(asked)
+        await expect(page.getByText(/Loading more/).count()).resolves.toBe(0)
+        await noButton(page)
+      } finally {
+        await page.context().close()
+      }
+    })
+
+    it('says so when a page does not load, keeps what is shown, and Try again is the only button', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      state.failNext = true
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await items(page).last().evaluate((el) => window.scrollTo(0, Math.max(0, el.getBoundingClientRect().bottom + window.scrollY - window.innerHeight - 100)))
+        await page.getByRole('alert').filter({ hasText: list.failed }).waitFor()
+        await expect(items(page).count()).resolves.toBe(list.first)
+        const buttons = page.getByRole('button')
+        await expect(buttons.filter({ hasText: 'Try again' }).count()).resolves.toBe(1)
+        await noButton(page)
+        // A failed page does not retry by itself.
+        const asked = state.asked.length
+        await page.waitForTimeout(500)
+        expect(state.asked.length).toBe(asked)
+        await page.getByRole('button', { name: 'Try again' }).click()
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        await expect(page.getByRole('alert').filter({ hasText: list.failed }).count()).resolves.toBe(0)
+      } finally {
+        await page.context().close()
+      }
+    })
+
+    it('loads the next page when the keyboard reaches the last items, and announces the number shown', async ({ skip }) => {
+      if (!browser) return skip()
+      const state = fresh()
+      const page = await openScrollList(browser, out, list.route, list.path, state)
+      try {
+        await items(page).nth(list.first - 1).waitFor()
+        await expect(page.getByRole('status').filter({ hasText: `Showing ${list.first} ${list.noun}` }).count()).resolves.toBe(1)
+        await items(page).last().focus()
+        await expect.poll(() => items(page).count()).toBeGreaterThan(list.first)
+        const shown = await items(page).count()
+        await expect(page.getByRole('status').filter({ hasText: `Showing ${shown} ${list.noun}` }).count()).resolves.toBe(1)
+        await noButton(page)
+      } finally {
+        await page.context().close()
+      }
+    })
+  })
+})

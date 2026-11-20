@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Checkbox, Form, Link, PhoneField, Price, SubmitButton, TextField, addressDraft, navigate, useAccount, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Checkbox, Form, Link, PhoneField, Price, SubmitButton, TextField, addressDraft, navigate, useAccount, useLoadOnScroll, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type OrdersPage, type SavedAddress } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { Retry } from './Retry'
@@ -102,7 +102,36 @@ const Card = ({ title, children }: { title: string; children: ReactNode }) => (
   </div>
 )
 
-/** D1's Orders: a row per order, newest first, each opening its page; Load more brings the next 20. */
+/** Infinite scroll: the next 20 orders load as the end of the list nears the screen; a page that didn't load offers a retry. */
+const MoreOrders = ({ page }: { page: OrdersPage }) => {
+  const { t } = useStorefront()
+  const end = useLoadOnScroll({ fetchMore: page.loadMore, hasMore: page.more, loadingMore: page.loadingMore, moreFailed: page.loadMoreFailed })
+  return (
+    <div ref={end} className={shop.more}>
+      <p className={shop.srOnly} role="status">
+        {t('shop.orders.showing', { count: page.orders.length })}
+      </p>
+      {page.loadingMore ? (
+        <p className={shop.loadingMore} role="status">
+          <span className={shop.loadingSpinner} aria-hidden="true" />
+          {t('shop.orders.loadingMore')}
+        </p>
+      ) : null}
+      {page.loadMoreFailed ? (
+        <>
+          <p className={styles.alert} role="alert">
+            {t('shop.orders.loadMoreFailed')}
+          </p>
+          <button type="button" className={shop.secondary} onClick={() => void page.loadMore()}>
+            {t('shop.listing.retry')}
+          </button>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+/** D1's Orders: a row per order, newest first, each opening its page; the next 20 load as the end of the list nears the screen. */
 const Orders = () => {
   const { t, locale } = useStorefront()
   const page = useOrders()
@@ -161,16 +190,7 @@ const Orders = () => {
           </li>
         ))}
       </ul>
-      {page.loadMoreFailed ? (
-        <p className={styles.alert} role="alert">
-          {t('shop.orders.loadMoreFailed')}
-        </p>
-      ) : null}
-      {page.more ? (
-        <button type="button" className={shop.secondary} disabled={page.loadingMore} aria-busy={page.loadingMore} onClick={() => void page.loadMore()}>
-          {t('shop.orders.loadMore')}
-        </button>
-      ) : null}
+      <MoreOrders page={page} />
     </Card>
   )
 }
