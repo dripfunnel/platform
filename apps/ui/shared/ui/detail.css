@@ -133,6 +133,11 @@
   box-shadow: var(--df-shadow-floating);
 }
 
+.df-more-panel--up {
+  top: auto;
+  bottom: calc(100% + var(--df-space-1));
+}
+
 .df-more-panel[hidden] {
   display: none;
 }

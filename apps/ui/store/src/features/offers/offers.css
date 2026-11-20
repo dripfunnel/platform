@@ -215,11 +215,22 @@
 }
 
 /* The rows: a grid as the prototype draws it, a table to assistive technology. */
+.df-offers-rows {
+  container-type: inline-size;
+}
+
 .df-offers-table {
   overflow-x: auto;
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius-card);
   background: var(--df-color-surface);
+}
+
+/* A scrolling box clips the row's Actions panel (#1651), so it scrolls only below the rows' 820px. */
+@container (min-width: 822px) {
+  .df-offers-table {
+    overflow: visible;
+  }
 }
 
 .df-offers-row {
@@ -238,6 +249,7 @@
 
 .df-offers-row--head {
   padding: 10px 16px;
+  border-radius: var(--df-radius-card) var(--df-radius-card) 0 0;
   background: var(--df-color-page);
   color: var(--df-color-muted);
   font-family: var(--df-font-mono);
