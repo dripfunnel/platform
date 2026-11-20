@@ -87,7 +87,16 @@ afterEach(() => {
   cleanup()
   vi.resetAllMocks()
   sessionStorage.clear()
+  vi.useRealTimers()
 })
+
+// Only the clock's date is frozen, so the quick picks' dates don't depend on the day a test runs (#1663).
+const today = (iso: string) => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(iso))
+}
+const pill = (name: string) => screen.getByRole('button', { name })
+const pressed = () => [words.quick.weekend, words.quick.week, words.quick.month].filter((name) => pill(name).getAttribute('aria-pressed') === 'true')
 
 describe('a new offer', () => {
   it('starts from the type picker, then fills the form from the type chosen', async () => {
@@ -111,6 +120,27 @@ describe('a new offer', () => {
     await show(owner, '/offers/new?recipe=welcome')
     expect(saveButton()).toHaveProperty('disabled', true)
     expect(saveButton(words.saveOff)).toHaveProperty('disabled', true)
+  })
+
+  it('shows which quick pick is in effect, one at a time, and none once a date is typed that matches no pick (#1663)', async () => {
+    today('2026-11-10T06:00:00Z')
+    await show(owner, '/offers/new?type=order')
+    expect(pressed()).toEqual([])
+    fireEvent.click(pill(words.quick.weekend))
+    expect(pressed()).toEqual([words.quick.weekend])
+    fireEvent.click(pill(words.quick.month))
+    expect(pressed()).toEqual([words.quick.month])
+    fireEvent.change(screen.getByLabelText(words.endAt), { target: { value: '2099-01-02T10:00' } })
+    expect(pressed()).toEqual([])
+  })
+
+  it('shows the pick that was clicked when the 7th day from now is the month’s last, and two picks hold the same dates (#1663)', async () => {
+    today('2026-11-23T06:00:00Z')
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(pill(words.quick.month))
+    expect(pressed()).toEqual([words.quick.month])
+    fireEvent.click(pill(words.quick.week))
+    expect(pressed()).toEqual([words.quick.week])
   })
 
   it('asks Start now, Schedule or Keep off, and saves a code offer that combines with nothing (#337)', async () => {
@@ -357,6 +387,13 @@ describe('editing an offer', () => {
     fireEvent.click(saveButton(words.saveChanges))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(api.saveOffer).not.toHaveBeenCalled()
+  })
+
+  it('opens an offer that ends at the end of the month with that quick pick shown (#1663)', async () => {
+    today('2026-11-10T06:00:00Z')
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false, endsAt: '2026-11-30T18:29:00.000Z' })
+    await show(owner, '/offers/o1/edit')
+    expect(pressed()).toEqual([words.quick.month])
   })
 
   it('says when someone else saved first, and saves over them only when asked', async () => {
