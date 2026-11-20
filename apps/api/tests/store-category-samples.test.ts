@@ -391,6 +391,46 @@ describe('the sample editor', () => {
     expect(collections).toEqual([{ name: 'Sneakers', n: 7, image: true }])
   })
 
+  it('sets a collection’s photo once, only on an empty image in its own store, and leaves it without one when the photo can’t be read', async () => {
+    const [row] = await db.sql<{ id: string; idempotency_key: string; payload: Record<string, unknown> }[]>`select id, idempotency_key, payload from outbox
+      where kind = 'import.collection_photo' and store_id = ${t.storeB1}`
+    const payload = row?.payload ?? {}
+    const collectionId = String(payload['collectionId'])
+    const deliverer = sampleCollectionPhotoDeliverer(db.sql, r2, () => now)
+    const deliver = (p: Record<string, unknown>) =>
+      deliverer.deliver({ id: row?.id ?? '', kind: 'import.collection_photo', idempotencyKey: row?.idempotency_key ?? '', payload: p, partnerId: t.partnerB, storeId: t.storeB1, attempt: 2 }, new AbortController().signal)
+    const imageOf = async (id: string) => (await db.sql<{ image: string | null }[]>`select image_asset_id as image from collection where id = ${id}`)[0]?.image
+    const saved = async () => (await db.sql`select 1 from activity_log where action = 'collection.saved' and target_id = ${collectionId} and changes @> '[{"field":"image"}]'`).length
+    const assets = async () => (await db.sql`select 1 from asset where store_id = ${t.storeB1}`).length
+    const first = await imageOf(collectionId)
+    expect(first).toEqual(expect.any(String))
+    expect(await saved()).toBe(1)
+
+    // Redelivered: the image and its one entry stay; the photo stored again before the no-op is left unlinked in the library.
+    const before = await assets()
+    await deliver(payload)
+    expect(await imageOf(collectionId)).toBe(first)
+    expect(await saved()).toBe(1)
+    expect(await assets()).toBe(before + 1)
+
+    // A job in store B1 naming another store's collection changes nothing there.
+    const [other] = await db.sql<{ id: string }[]>`update collection set image_asset_id = null where store_id = ${t.storeA1} and deleted_at is null returning id`
+    await deliver({ ...payload, collectionId: other?.id ?? '' })
+    expect(await imageOf(other?.id ?? '')).toBeNull()
+
+    // A ref the sample doesn't hold, or one whose R2 object is gone, leaves the collection without an image and the job delivered.
+    await db.sql`update collection set image_asset_id = null where id = ${collectionId}`
+    await deliver({ ...payload, ref: 'sample-photo:' + 'f'.repeat(64) })
+    expect(await imageOf(collectionId)).toBeNull()
+    const [{ key } = { key: '' }] = await db.sql<{ key: string }[]>`select photos ->> ${String(payload['ref'])} as key from store_category_sample where category_id = ${ids.footwear}`
+    const kept = bucket.get(key)
+    bucket.delete(key)
+    await deliver(payload)
+    expect(await imageOf(collectionId)).toBeNull()
+    if (kept) bucket.set(key, kept)
+    await db.sql`update collection set image_asset_id = ${first ?? null} where id = ${collectionId}`
+  })
+
   it('never reads R2 for a merchant’s own file naming a sample photo', async () => {
     const d = (await detail()) as Detail
     const ref = d.products[6]?.photos[0]?.ref ?? ''
