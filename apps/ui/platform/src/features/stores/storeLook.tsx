@@ -2,6 +2,7 @@ import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/sh
 import type { SearchStatus } from '../../api/search'
 import type { BillingMode, StoreDomain, StoreState, StorefrontState } from '../../api/stores'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
+import { statusPill } from '../common/hostStatusLook'
 
 const words = messages.stores
 
@@ -25,11 +26,6 @@ const storefrontLook: Record<StorefrontState, Look> = {
   building: { tone: 'info', icon: 'clock' },
   failed: { tone: 'danger', icon: 'cross' },
   own: { tone: 'neutral', icon: 'pen' },
-}
-
-const domainLook: Record<Exclude<StoreDomain['status'], 'live'>, Look> = {
-  waiting: { tone: 'warning', icon: 'hour' },
-  failed: { tone: 'danger', icon: 'cross' },
 }
 
 export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'warning' | 'danger' } | null => {
@@ -84,7 +80,7 @@ export const StorefrontPill = ({ storefront }: { storefront: StorefrontState }) 
 
 // Under the domain only when there is something to say: a custom domain not yet live (§6.1).
 export const DomainNote = ({ domain }: { domain: StoreDomain }) =>
-  domain.status === 'live' ? null : <StatusPill {...domainLook[domain.status]} label={words.domainStatus[domain.status]} />
+  domain.status === 'live' ? null : <StatusPill {...statusPill(domain.status)} />
 
 // "DripFunnel for Northstar" or the partner itself: who charges the merchant (§1, §11.4).
 export const chargedByOf = (mode: BillingMode, partner: string): string => (mode === 'own' ? partner : fill(words.chargedByDripFunnel, { partner }))

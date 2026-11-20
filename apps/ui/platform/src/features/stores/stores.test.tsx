@@ -90,7 +90,7 @@ describe('the partner Stores list', () => {
     expect(textOf(await list({ storefront: 'own' }))).toContain(words.storefronts.own)
     expect(textOf(await list({ near: 'yes' }))).toContain('100% of staff seats')
     const maple = textOf(await list({ q: 'maple' }))
-    expect(maple).toContain(words.domainStatus.waiting)
+    expect(maple).toContain(messages.domains.status.waiting)
     expect(maple).toContain('CA$8,760.00')
     expect(textOf(await list({ q: 'juniper' }))).toContain('$18,420.00')
     expect(textOf(await list({ q: 'fieldnote' }))).toContain(words.noSales)
