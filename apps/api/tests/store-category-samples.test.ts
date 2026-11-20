@@ -456,4 +456,13 @@ describe('the sample editor', () => {
     const [own] = await db.sql<{ photos: number }[]>`select (select count(*)::int from product_photo ph where ph.product_id = p.id) as photos from product p where p.store_id = ${t.storeA2} and p.name = 'Own 1'`
     expect(own?.photos).toBe(0)
   })
+
+  it('drops the collection photos on Reset to default, which replaces the whole sample with the built-in one', async () => {
+    const photoOf = async () => (await db.sql<{ photo: string | null }[]>`select c ->> 'photo' as photo from store_category_sample, jsonb_array_elements(collections) c
+      where category_id = ${ids.footwear} and c ->> 'name' = 'Sneakers'`)[0]?.photo
+    expect(await photoOf()).toEqual(expect.stringMatching(/^sample-photo:/))
+    const reset = await admin<Saved>(save, 'staff-super-admin', { c: ids.footwear, r: 'Reset to default' })
+    expect(reset.data?.addDefaultStoreCategorySample.problems).toEqual([])
+    expect(await photoOf()).toBeNull()
+  })
 })
