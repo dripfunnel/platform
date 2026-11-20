@@ -75,8 +75,8 @@ export interface StoreContext extends Record<string, unknown> {
   design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'reference' | 'lookCache' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
   /** The DesignRun Workflow askDesign and buildDesignPlan start (storefront AI-STUDIO §4); null where it isn't bound. */
   designRuns?: DesignRuns | null
-  /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
-  mapFrame?: string | null
+  /** A store's "Pin on map" frame address (hooks/mapFrame.ts); null without a usable Maps key, which hides it (#1612). */
+  mapFrame?: (storeId: string) => Promise<string | null>
   /** Signs the 10-minute links to shoppers' files on orders (#1369); null where CREDENTIALS_KEK isn't set. */
   uploadLinks?: LinkSigner | null
   now: () => Date

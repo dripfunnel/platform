@@ -46,8 +46,8 @@ export interface ShopContext extends Record<string, unknown> {
   allowCodeAttempt?: (key: string) => Promise<boolean>
   /** Whether a delivery's arrival estimate can be made here (GOOGLE_MAPS_SERVER_KEY is set); without it `etaAt` stays empty. */
   estimates?: boolean
-  /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
-  mapFrame?: string | null
+  /** A store's "Pin on map" frame address (hooks/mapFrame.ts); null without a usable Maps key, which hides it (#1612). */
+  mapFrame?: (storeId: string) => Promise<string | null>
   now: () => Date
 }
 

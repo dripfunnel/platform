@@ -146,7 +146,7 @@ export const registerInventory = (builder: StoreBuilder) => {
     warehouseMapFrame: t.string({
       nullable: true,
       extensions: { access: places },
-      resolve: (_, __, ctx) => ctx.mapFrame ?? null,
+      resolve: (_, __, ctx) => ctx.mapFrame?.(tenantCaller(ctx).context.storeId) ?? null,
     }),
     warehouses: t.field({
       type: WarehousePage,

@@ -64,7 +64,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       drafts,
       assetOrigin,
       shopDomain,
-      mapsFrameOrigin: config.GOOGLE_MAPS_BROWSER_KEY ? api : null,
+      mapsFrameOrigin: api,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
       // The stand-in's repos aren't on github.com, so a push there has nothing to fetch.
       ...(config.GITHUB_LOCAL === '1' ? {} : { fetchSource: (repo: string, commit: string) => fetchCommitBundle(config.GITHUB_STORE_ORG, repo, commit) }),

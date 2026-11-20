@@ -308,7 +308,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` starts with the map
   (`ui/headless/pin.tsx`, #814, #1615), an optional point saved with the address as `latitude` and `longitude`:
   the Shop API's `store.mapFrame` shows it, and none hides it. The map is **a frame of its own** on the hooks host
-  (`https://<HOOKS_HOST>/maps/pin`, the API's `hooks/mapFrame.ts`, which holds the key, THIRD-PARTY-ACCESS §2.12): Google
+  (`https://<HOOKS_HOST>/maps/<store id>/pin`, the API's `hooks/mapFrame.ts`, which finds that store's key, THIRD-PARTY-ACCESS §2.12): Google
   runs there under that page's CSP, never the store's, and core's `ui/headless/pinFrame.ts` talks to it by `postMessage`,
   checking with zod everything it says (decided 2026-10-21 on #814). It opens with the form, above the fields, with a
   search box that lists matching places (`suggest` and `select`, within the form's country, after a 250 ms pause). It starts at the saved pin, the
