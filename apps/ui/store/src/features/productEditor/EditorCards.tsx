@@ -1,12 +1,11 @@
 import { formatMoney, minorOf } from '@dripfunnel/shared/format'
-import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { RichTextField, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useRef, type ReactNode } from 'react'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { AssetVideo } from '../common/AssetVideo'
 import { isVideoFile } from '../common/videoLength'
 import { productKinds, type Draft, type DraftProblem, type DraftVersion, type ProductKind } from '../common/productDraft'
-import { RichTextField } from './RichTextField'
 
 const words = messages.editor
 
@@ -217,7 +216,7 @@ export const BasicsCard = ({ draft, update, disabled, problems }: { draft: Draft
         <span id={descId} className="df-editor-label">
           {words.description.label} <span className="df-editor-hint-inline">{words.description.optional}</span>
         </span>
-        <RichTextField value={draft.description} readOnly={disabled} labelledBy={descId} placeholder={words.description.placeholder} onChange={(html) => update((d) => ({ ...d, description: html }))} />
+        <RichTextField value={draft.description} readOnly={disabled} labelledBy={descId} placeholder={words.description.placeholder} words={words.description} onChange={(html) => update((d) => ({ ...d, description: html }))} />
       </div>
     </Card>
   )

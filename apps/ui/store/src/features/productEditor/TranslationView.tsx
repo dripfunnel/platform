@@ -1,11 +1,10 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
+import { plainTextOf, RichTextField } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState } from 'react'
 import { loadProductTranslation, saveProductTranslation, type ProductTranslationInput, type TranslationRow } from '../../api/translations'
 import { fill, messages } from '../../messages'
 import { languageName } from '../common/languageName'
-import { plainTextOf } from '../common/richDescription'
 import { Card } from './EditorCards'
-import { RichTextField } from './RichTextField'
 
 const words = messages.editor.translate
 
@@ -49,7 +48,7 @@ const Row = ({ row, typed, onType, disabled, language, main }: { row: Translatio
       )}
       {row.entity === 'product' && <span className="df-editor-hint">{fill(words.mainText, { language: main, text: (long ? plainTextOf(row.main) : row.main) || words.empty })}</span>}
       {long ? (
-        <RichTextField value={typed} readOnly={disabled} labelledBy={id} placeholder={fill(words.placeholder, { language })} onChange={onType} />
+        <RichTextField value={typed} readOnly={disabled} labelledBy={id} placeholder={fill(words.placeholder, { language })} words={messages.editor.description} onChange={onType} />
       ) : (
         <input id={id} maxLength={row.field === 'slug' ? 120 : 255} placeholder={fill(words.placeholder, { language })} value={typed} readOnly={disabled} onChange={(e) => onType(e.target.value)} />
       )}

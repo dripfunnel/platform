@@ -102,6 +102,8 @@ export const setStoreCategory = async (tx: ScopedSql, categoryId: string): Promi
 export interface SampleCollection {
   name: string
   skus: string[]
+  /** A `sample-photo:` ref uploaded in the editor; absent on samples saved before collection photos. */
+  photo?: string
 }
 
 export interface CategorySampleRow {
@@ -109,7 +111,7 @@ export interface CategorySampleRow {
   file: string
   currency: string
   collections: SampleCollection[]
-  /** {url: R2 key}, each photo copied once at upload (0404). */
+  /** {url or ref: R2 key}, each photo copied once at upload (0404); collections' refs too. */
   photos: Record<string, string>
   uploaded_at: Date
 }

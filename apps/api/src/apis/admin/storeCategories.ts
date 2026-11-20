@@ -40,19 +40,24 @@ const DetailProductType = builder.objectRef<DetailProduct>('StoreCategorySampleP
     price: t.exposeString('price'),
     stock: t.exposeInt('stock', { nullable: true }),
     visible: t.exposeBoolean('visible'),
-    photo: t.field({ type: DetailPhoto, nullable: true, resolve: (p) => (p.photo ? { ref: p.photo, previewUrl: previewUrlOf(p.categoryId, p.previewSha) } : null) }),
+    photos: t.field({ type: [DetailPhoto], resolve: (p) => p.photos.map((x) => ({ ref: x.ref, previewUrl: previewUrlOf(p.categoryId, x.previewSha) })) }),
     collections: t.exposeStringList('collections'),
   }),
 })
-const DetailCollection = builder.objectRef<{ name: string; products: number }>('StoreCategorySampleCollectionDetail').implement({
-  fields: (t) => ({ name: t.exposeString('name'), products: t.exposeInt('products') }),
+type DetailCollection = SampleDetail['collections'][number] & { categoryId: string }
+const DetailCollectionType = builder.objectRef<DetailCollection>('StoreCategorySampleCollectionDetail').implement({
+  fields: (t) => ({
+    name: t.exposeString('name'),
+    products: t.exposeInt('products'),
+    photo: t.field({ type: DetailPhoto, nullable: true, resolve: (c) => (c.photo ? { ref: c.photo, previewUrl: previewUrlOf(c.categoryId, c.previewSha) } : null) }),
+  }),
 })
 const Detail = builder.objectRef<SampleDetail & { categoryId: string }>('StoreCategorySampleDetail').implement({
   fields: (t) => ({
     currency: t.exposeString('currency'),
     uploadedAt: t.string({ resolve: (d) => d.uploaded_at.toISOString() }),
     products: t.field({ type: [DetailProductType], resolve: (d) => d.products.map((p) => ({ ...p, categoryId: d.categoryId })) }),
-    collections: t.field({ type: [DetailCollection], resolve: (d) => d.collections }),
+    collections: t.field({ type: [DetailCollectionType], resolve: (d) => d.collections.map((c) => ({ ...c, categoryId: d.categoryId })) }),
   }),
 })
 
@@ -64,12 +69,20 @@ const ItemInput = builder.inputType('StoreCategorySampleProductInput', {
     price: t.string({ required: true }),
     stock: t.int(),
     visible: t.boolean({ required: true }),
-    photo: t.string(),
+    photos: t.stringList(),
     collections: t.stringList({ required: true }),
   }),
 })
+const CollectionPhotoInput = builder.inputType('StoreCategorySampleCollectionPhotoInput', {
+  fields: (t) => ({ name: t.string({ required: true }), photo: t.string({ required: true }) }),
+})
 const ItemsInput = builder.inputType('StoreCategorySampleInput', {
-  fields: (t) => ({ currency: t.string({ required: true }), products: t.field({ type: [ItemInput], required: true }), collections: t.stringList({ required: true }) }),
+  fields: (t) => ({
+    currency: t.string({ required: true }),
+    products: t.field({ type: [ItemInput], required: true }),
+    collections: t.stringList({ required: true }),
+    collectionPhotos: t.field({ type: [CollectionPhotoInput] }),
+  }),
 })
 
 const Category = builder.objectRef<StaffCategory>('StoreCategory').implement({
@@ -173,8 +186,8 @@ builder.mutationFields((t) => ({
     args: { categoryId: t.arg.id({ required: true }), input: t.arg({ type: ItemsInput, required: true }), reason: t.arg.string({ required: true }) },
     extensions: manage(storeCategoryAudit.sampleSaved),
     resolve: async (_, args, ctx) => {
-      const { products, ...rest } = args.input
-      const input = { ...rest, products: products.map((p) => ({ ...p, stock: p.stock ?? null, photo: p.photo ?? null })) }
+      const { products, collectionPhotos, ...rest } = args.input
+      const input = { ...rest, products: products.map((p) => ({ ...p, stock: p.stock ?? null, photos: p.photos ?? [] })), collectionPhotos: collectionPhotos ?? [] }
       const result = await signedIn(ctx.storeCategories ?? null).saveSampleItems(String(args.categoryId), input, args.reason)
       if (result.ok) return { category: result.value, problems: [] }
       if (result.reason === 'SAMPLE_INVALID') return { category: null, problems: 'problems' in result ? result.problems : [] }

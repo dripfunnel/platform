@@ -99,7 +99,7 @@ import { storeMapsKey } from '#saas/mapsKey/index'
 import { localShopify, shopifyApi, type ShopifyApi } from '#integrations/shopify/api'
 import { deleteAbandonedConnections, deleteStalePendingConnections } from '#db/scoped/externalConnections'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
-import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
+import { collectionsRecomputeKind, sampleCollectionPhotoKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
@@ -113,7 +113,7 @@ import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { orderNotifyDeliverer } from '#jobs/queues/deliverers/orderNotify'
 import { orderUpdateKind } from '#db/scoped/orderUpdates'
-import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { catalogImportDeliverer, importPhotosDeliverer, sampleCollectionPhotoDeliverer } from '#jobs/queues/deliverers/catalogImport'
 import { deleteExpiredImports, failDeadImports } from '#db/scoped/catalogImports'
 import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
@@ -390,6 +390,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup, { localPhotos: config.DNS_LOCAL === '1' }),
+    [sampleCollectionPhotoKind]: sampleCollectionPhotoDeliverer(sql, assets),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
