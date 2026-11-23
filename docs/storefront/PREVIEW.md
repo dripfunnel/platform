@@ -227,6 +227,11 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    **Built on #313:** core's Stripe adapter asks Stripe's Payment Element for Apple Pay and Google Pay (`'auto'`) only
    when the render mode is `live`, and `'never'` here and in the studio frame; core's sealed payment element says it is
    a test ("Test mode. No real payment is taken on this preview.", with Stripe's test card).
+   **Test keys also serve the live storefront** (decided 2026-11-23, while stores integrate their providers): checkout
+   uses the keys saved for its own mode, else the store's test keys, and talks to the provider in the mode of the keys it
+   uses. So test keys alone take test payments on the live storefront too, on every environment, prod included. The
+   order still follows the host: on a live storefront it is a real order (stock, emails, delivery), paid in test. Live
+   keys never serve a preview: a preview's order is a test order, and must never take real money.
 
 ---
 

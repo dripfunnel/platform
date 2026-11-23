@@ -357,4 +357,21 @@ describe('Paying through Razorpay', () => {
     expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: TEST, keys: { keyId: "rzp_test_abcdef", keySecret: "testsecret", webhookSecret: "testhook" }) }', 'owner')).data?.['connectGateway']).toBe(true)
     expect(await razor()).toEqual({ provider: 'razorpay', live: false, connections: [{ mode: 'test', live: true }] })
   })
+
+  it('pays a live storefront’s real order with the test keys when the store has no live ones', async () => {
+    expect((await shop('{ paymentOptions { provider mode publicKey } }')).data?.['paymentOptions']).toContainEqual({ provider: 'razorpay', mode: 'test', publicKey: 'rzp_test_abcdef' })
+    const token = await readyCart('phone: "+919845022113"')
+    const placed = (await shop('mutation { placeOrder(provider: "razorpay") { orderId payment { providerRef publicKey mode } } }', token)).data?.['placeOrder'] as { orderId: string; payment: { providerRef: string; publicKey: string; mode: string } }
+    expect(placed.payment).toMatchObject({ publicKey: 'rzp_test_abcdef', mode: 'test' })
+    expect(orders.get(placed.payment.providerRef)?.key).toBe('rzp_test_abcdef')
+    expect((await db.sql<{ mode: string }[]>`select mode from payment where order_id = ${placed.orderId}`)[0]?.mode).toBe('live')
+  })
+
+  it('never takes a preview’s test order with live keys', async () => {
+    const offered = (await shop('{ paymentOptions { provider mode } }', null, preview)).data?.['paymentOptions'] as { provider: string; mode: string }[]
+    expect(offered.map((o) => o.provider)).not.toContain('cashfree')
+    expect(offered.every((o) => o.mode === 'test')).toBe(true)
+    const token = await readyCart('phone: "+919845022113"', preview)
+    expect((await shop('mutation { placeOrder(provider: "cashfree") { orderId } }', token, preview)).code).toBe('METHOD_UNAVAILABLE')
+  })
 })

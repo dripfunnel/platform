@@ -7,7 +7,7 @@ export const cardProviders = ['stripe', 'paypal', 'razorpay', 'cashfree', 'phone
 export type CardProvider = (typeof cardProviders)[number]
 export const isCardProvider = (p: string): p is CardProvider => cardProviders.some((c) => c === p)
 
-/** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */
+/** An order's: test on a preview storefront, live elsewhere (storefront ARCHITECTURE §4.1); an account's: its keys' own (PREVIEW §5 step 6). */
 export type PaymentMode = 'test' | 'live'
 
 /**

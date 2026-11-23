@@ -1165,7 +1165,8 @@ payment_provider_account
                     -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
                     -- the merchant writes only cash on delivery and bank transfer, others connect in system scope.
                     -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
-                    -- preview storefront beside its live ones); Stripe's one live row serves both modes.
+                    -- preview storefront beside its live ones; the live storefront falls back to them, storefront
+                    -- PREVIEW §5 step 6); Stripe's one live row serves both modes.
                     -- Disconnect sets status off and clears the keys and the connected account, keeping the row
                     -- for the payments that name it. #309 part 3: pasted keys are one sealed JSON value in
                     -- credentials_enc, the webhook's secret inside it (webhook_secret_enc stays null);

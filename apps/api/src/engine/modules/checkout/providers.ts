@@ -43,5 +43,6 @@ export const openAccount = async (row: GatewayAccountRow, mode: PaymentMode, sec
   const parsed: unknown = JSON.parse(opened)
   if (typeof parsed !== 'object' || parsed === null) return null
   const credentials = Object.fromEntries(Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === 'string'))
-  return { mode, externalAccountId: row.external_account_id, credentials }
+  // Pasted keys talk to the provider in their own mode, whichever storefront uses them (storefront/PREVIEW.md §5 step 6).
+  return { mode: row.mode, externalAccountId: row.external_account_id, credentials }
 }

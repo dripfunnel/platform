@@ -1002,7 +1002,7 @@ API**: custom fields and default legal details were left on #293, and plan usage
 They aren't drawn until then.
 
 **Built on #315 (SUI 8), part 1**: Payment setup lists the region's providers as `gateways` answers them, the card
-gateways apart from the ways paid later, each live, test only (the preview storefront's keys) or not connected, and one
+gateways apart from the ways paid later, each live, test only (test keys, which both storefronts use until live keys are added, storefront PREVIEW §5 step 6) or not connected, and one
 the platform hasn't set up said so with nothing to press. **Stripe connects by OAuth** (decided 2026-10-05 on #337): "Connect"
 asks `connectStripe` and follows the address only if it is https; Stripe's way back lands on `/settings/payments`, which opens
 this tab, takes the one-time key out of the address and history at once and sends it to `finishStripeConnect` once, however
