@@ -45,7 +45,7 @@ export const CartView = () => {
 
   if (page.status === 'loading') {
     return (
-      <section className={shop.page} aria-busy="true">
+      <section className={cx(shop.page, styles.page)} aria-busy="true">
         <h1 className={shop.title}>{t('shop.cart.title')}</h1>
         <p className={shop.srOnly}>{t('shop.cart.loading')}</p>
         <div className={styles.cart}>
@@ -73,7 +73,7 @@ export const CartView = () => {
   }
   if (page.status === 'error') {
     return (
-      <section className={shop.page}>
+      <section className={cx(shop.page, styles.page)}>
         <Notice main title={t('shop.cart.failed')} lead={t('shop.listing.failedLead')}>
           <Retry label={t('shop.listing.retry')} onRetry={page.retry} />
         </Notice>
@@ -83,7 +83,7 @@ export const CartView = () => {
   const cart = page.cart
   if (!cart || cart.lines.length === 0) {
     return (
-      <section className={shop.page}>
+      <section className={cx(shop.page, styles.page)}>
         <Notice main title={t('shop.cart.empty')} lead={t('shop.cart.emptyLead')}>
           <Link href="/collections/all/" className={shop.primary}>
             {t('shop.cart.keepShopping')}
@@ -94,7 +94,7 @@ export const CartView = () => {
   }
   const blocked = cart.lines.some((l) => l.problem !== null)
   return (
-    <section className={shop.page}>
+    <section className={cx(shop.page, styles.page)}>
       <h1 className={shop.title}>{t('shop.cart.title')}</h1>
       {page.error ? (
         <p className={styles.alert} role="alert">

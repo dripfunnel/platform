@@ -52,10 +52,10 @@ beforeEach(() => {
   mockBack.mockClear()
 })
 
-const signedInAs = { account: { name: 'Ana', email: 'ana@example.com', phone: null, addresses: [{ id: 'a1', name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, isDefault: true, latitude: 26.9, longitude: 75.8 }] }, store: { markets: [{ countries: ['IN'] }] } }
+const signedInAs = { account: { name: 'Ana', email: 'ana@example.com', phone: null, addresses: [{ id: 'a1', name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+919876543210', isDefault: true, latitude: 26.9, longitude: 75.8 }] }, store: { markets: [{ countries: ['IN'] }] } }
 const guest = { account: null, store: { markets: [{ countries: ['IN'] }] } }
 
-const address = { name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, latitude: 26.9, longitude: 75.8 }
+const address = { name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+919876543210', latitude: 26.9, longitude: 75.8 }
 const own = { id: 'own_delivery', service: null, amount: inr('4900'), minDays: null, maxDays: null, hours: null }
 const pickup = { id: 'pickup', service: null, amount: inr('0'), minDays: null, maxDays: null, hours: '10:00–18:00' }
 const courier = { id: 'courier', service: 'Blue Dart Surface', amount: inr('12900'), minDays: 3, maxDays: 5, hours: null }
@@ -202,6 +202,7 @@ describe('the address', () => {
     await fill(screen, t('address.city'), 'Jaipur')
     await fill(screen, t('address.state'), 'Rajasthan')
     await fill(screen, t('address.pin'), '302017')
+    await fill(screen, t('address.phone'), '+919876543210')
   }
 
   it('needs its pin: a new address is not sent without one, and is sent with it', async () => {
@@ -230,6 +231,19 @@ describe('the address', () => {
     await press(screen, t('checkout.continue'))
     expect(hasText(screen, t('address.pinRequired'))).toBe(true)
     expect(sent(shop.requests, 'setShippingAddress')).toHaveLength(0)
+  })
+
+  it('asks for the phone of a saved address that has none, before using it (#1584)', async () => {
+    const withoutPhone = { ...signedInAs, account: { ...signedInAs.account, addresses: [{ ...signedInAs.account.addresses[0], phone: null }] } }
+    const shop = shopFor({ account: withoutPhone })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await press(screen, t('checkout.continue'))
+    expect(hasText(screen, t('form.required'))).toBe(true)
+    expect(sent(shop.requests, 'setShippingAddress')).toHaveLength(0)
+    await fill(screen, t('address.phone'), '+919876543210')
+    await press(screen, t('checkout.continue'))
+    expect(sent(shop.requests, 'setShippingAddress')[0]?.variables).toMatchObject({ address: { phone: '+919876543210' } })
   })
 })
 

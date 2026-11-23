@@ -66,6 +66,7 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       await page.getByLabel('City').fill('Columbus')
       await page.getByLabel('State').fill('OH')
       await page.getByLabel('ZIP code').fill('43215')
+      await page.getByLabel('Phone for delivery').fill('+16145550123')
       await page.getByRole('button', { name: 'Continue' }).click()
       // One delivery option: core applies it and skips the step (storefront ARCHITECTURE §2.1).
       await page.getByRole('radio', { name: 'Cash on delivery' }).click()

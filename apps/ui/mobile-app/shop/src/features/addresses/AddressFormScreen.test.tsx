@@ -43,7 +43,7 @@ jest.mock('react-native-maps', () => {
 })
 
 const mine = (addresses: object[] = [], countries = ['IN']) => ({ account: { name: 'Ana', email: 'ana@example.com', phone: null, addresses }, store: { markets: [{ countries }] } })
-const saved = (over: object = {}) => ({ id: 'a1', name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, isDefault: true, latitude: 26.9, longitude: 75.8, ...over })
+const saved = (over: object = {}) => ({ id: 'a1', name: 'Home', line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+919876543210', isDefault: true, latitude: 26.9, longitude: 75.8, ...over })
 
 const fill = async (screen: ReactTestRenderer, label: string, value: string) => {
   const input = screen.root.findAll((node) => node.props.accessibilityLabel?.startsWith(label) && typeof node.props.onChangeText === 'function')[0]
@@ -57,6 +57,7 @@ const fillIndia = async (screen: ReactTestRenderer) => {
   await fill(screen, t('address.city'), 'Jaipur')
   await fill(screen, t('address.state'), 'Rajasthan')
   await fill(screen, t('address.pin'), '302017')
+  await fill(screen, t('address.phone'), '+919876543210')
 }
 
 /** The shopper zooms the map in to the street, as the native map would report it. */
@@ -93,7 +94,7 @@ describe('an address with a map pin', () => {
     expect(saves(shop.requests)[0]?.variables).toMatchObject({
       id: null,
       isDefault: true,
-      address: { name: 'Ana Rao', line1: '12 Sample Lane', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, latitude: 26.9124, longitude: 75.7873 },
+      address: { name: 'Ana Rao', line1: '12 Sample Lane', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+919876543210', latitude: 26.9124, longitude: 75.7873 },
     })
     expect(mockBack).toHaveBeenCalled()
   })

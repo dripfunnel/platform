@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-23 (#1681: test keys also take payments on the live storefront until live keys are added; live keys never serve a preview, §5). Before: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -227,6 +227,11 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    **Built on #313:** core's Stripe adapter asks Stripe's Payment Element for Apple Pay and Google Pay (`'auto'`) only
    when the render mode is `live`, and `'never'` here and in the studio frame; core's sealed payment element says it is
    a test ("Test mode. No real payment is taken on this preview.", with Stripe's test card).
+   **Test keys also serve the live storefront** (decided 2026-11-23, while stores integrate their providers): checkout
+   uses the keys saved for its own mode, else the store's test keys, and talks to the provider in the mode of the keys it
+   uses. So test keys alone take test payments on the live storefront too, on every environment, prod included. The
+   order still follows the host: on a live storefront it is a real order (stock, emails, delivery), paid in test. Live
+   keys never serve a preview: a preview's order is a test order, and must never take real money.
 
 ---
 

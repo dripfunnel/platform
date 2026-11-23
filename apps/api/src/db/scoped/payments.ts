@@ -12,12 +12,13 @@ export interface GatewayAccountRow {
   public_key: string | null
 }
 
-/** The account a card provider takes payment through in this mode; Stripe's one connection serves both modes. */
+/** The account a card provider takes payment through: this mode's keys, else test keys, never live keys on a preview; Stripe's one connection serves both. */
 export const selectGatewayAccount = async (tx: ScopedSql, storeId: string, provider: string, mode: 'test' | 'live'): Promise<GatewayAccountRow | null> =>
   (
     await tx<GatewayAccountRow[]>`
       select id, provider, mode, external_account_id, credentials_enc, public_key from payment_provider_account
-      where store_id = ${storeId} and provider = ${provider} and status = 'live' and not paused_by_plan and (mode = ${mode} or provider = 'stripe')
+      where store_id = ${storeId} and provider = ${provider} and status = 'live' and not paused_by_plan and (mode = ${mode} or mode = 'test' or provider = 'stripe')
+      order by (mode = ${mode}) desc limit 1
     `
   )[0] ?? null
 

@@ -37,11 +37,13 @@ export const cardPaymentMs = 86_400_000
 /** The account as an adapter acts with it: the store's pasted keys opened only for the call (THIRD-PARTY-ACCESS §3.1). */
 export const openAccount = async (row: GatewayAccountRow, mode: PaymentMode, secrets: SecretBox | null): Promise<GatewayAccount | null> => {
   if (!isCardProvider(row.provider)) return null
+  // Stripe's connected account holds no keys and serves both modes: the caller's mode picks the platform's key.
   if (!row.credentials_enc) return { mode, externalAccountId: row.external_account_id, credentials: {} }
   const opened = secrets ? await secrets.open(row.credentials_enc) : null
   if (!opened) return null
   const parsed: unknown = JSON.parse(opened)
   if (typeof parsed !== 'object' || parsed === null) return null
   const credentials = Object.fromEntries(Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === 'string'))
-  return { mode, externalAccountId: row.external_account_id, credentials }
+  // Pasted keys talk to the provider in their own mode, whichever storefront uses them (storefront/PREVIEW.md §5 step 6).
+  return { mode: row.mode, externalAccountId: row.external_account_id, credentials }
 }
