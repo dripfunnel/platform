@@ -5,6 +5,7 @@ import { cartOf, line, shownCart, usd } from '../../test/cart'
 import { Provided } from '../../test/shop'
 import type { Order } from '../orders/order'
 import { createI18n } from '../platform/i18n/i18n'
+import { sealedCss } from './styles'
 import { OrderSummary } from './summary'
 
 const { t } = createI18n('en-US')
@@ -52,6 +53,11 @@ describe('OrderSummary', () => {
     const settled = renderToStaticMarkup(<OrderSummary cart={shownCart(cartOf([{ ...line('v1', 1), problem: 'unavailable' }]))} at="checkout" locale="en-US" t={t} />)
     expect(settled).not.toContain('Updating')
     expect(settled).toContain('Organic Cotton Tee × 1')
+  })
+
+  it('clips a line’s picture to its box, which the locked overflow on every part would otherwise lift (#1669)', () => {
+    const css = sealedCss('summary').replace(/\s+/g, '')
+    expect(css).toMatch(/\[part~=photo\]\{[^}]*width:56px;height:70px;[^}]*overflow:hidden!important/)
   })
 
   it('shows a line’s picture resized on the live site, and the original in a preview or on its own', () => {

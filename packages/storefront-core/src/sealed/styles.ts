@@ -42,10 +42,11 @@ ${button}`,
 [part~=link]{color:inherit}
 [part~=item]:not(:last-child)::after{content:'/' / '';margin-left:8px;${muted}}
 [part~=current]{${muted}}`,
+  // The locked `[part]{overflow:visible}` would let `cover` paint a wide picture outside its box (#1669).
   summary: `:host{display:block!important}
 [part~=lines]{list-style:none;padding:0;display:grid;gap:12px;margin-bottom:16px!important}
 [part~=line]{display:grid!important;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
-[part~=photo]{width:56px;height:70px;object-fit:cover;border-radius:var(--df-sealed-radius,8px)}
+[part~=photo]{width:56px;height:70px;object-fit:cover;overflow:hidden!important;border-radius:var(--df-sealed-radius,8px)}
 [part~=name]{font-weight:600;display:block}
 [part~=version]{${muted};display:block}
 [part~=note]{${muted}}
