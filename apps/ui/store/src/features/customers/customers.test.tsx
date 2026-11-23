@@ -396,6 +396,92 @@ describe('the Customers screen', () => {
     expect(api.addCustomer).toHaveBeenCalledWith('Mira Rao', 'mira@example.in', null, { name: 'Mira Rao', line1: '4 Park Rd', line2: null, city: 'Pune', region: null, postalCode: null, country: 'IN' })
   })
 
+  it('puts the cursor in the field a refused add names, and words every field the API can name (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const form = within(screen.getByRole('region', { name: words.addForm.title }))
+    fireEvent.change(form.getByRole('textbox', { name: words.addForm.name }), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(form.getByRole('textbox', { name: words.addForm.email }), { target: { value: 'name+test@example.com' } })
+    const named = [
+      { field: 'name', text: words.editForm.nameMissing, input: form.getByRole('textbox', { name: words.addForm.name }) },
+      { field: 'email', text: words.addForm.emailInvalid, input: form.getByRole('textbox', { name: words.addForm.email }) },
+      { field: 'phone', text: words.phoneInvalid, input: form.getByLabelText(words.addForm.phone) },
+    ]
+    for (const { field, text, input } of named) {
+      screen.getByRole('button', { name: words.addForm.confirm }).focus()
+      api.addCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no', { field }))
+      fireEvent.click(form.getByRole('button', { name: words.addForm.confirm }))
+      await settle()
+      expect(form.getByText(text)).toBeTruthy()
+      expect(document.activeElement).toBe(input)
+    }
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+  })
+
+  it('words a refusal that names no field inside the form, never as the generic toast, on add and on edit (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const add = within(screen.getByRole('region', { name: words.addForm.title }))
+    fireEvent.change(add.getByRole('textbox', { name: words.addForm.name }), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(add.getByRole('textbox', { name: words.addForm.email }), { target: { value: 'name+test@example.com' } })
+    api.addCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no'))
+    fireEvent.click(add.getByRole('button', { name: words.addForm.confirm }))
+    await settle()
+    expect(add.getByRole('alert').textContent).toBe(words.unnamedRefusal)
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+    fireEvent.click(add.getByRole('button', { name: words.addForm.cancel }))
+
+    fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
+    const edit = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
+    api.updateCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no'))
+    fireEvent.click(edit.getByRole('button', { name: words.editForm.save }))
+    await settle()
+    expect(edit.getByRole('alert').textContent).toBe(words.unnamedRefusal)
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+  })
+
+  it('names the field a check in the form itself finds wrong, puts the cursor there, and does again on the next press (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const add = within(screen.getByRole('region', { name: words.addForm.title }))
+    const box = (scope: typeof add, label: string) => scope.getByRole('textbox', { name: new RegExp(label.replace(/[()]/g, '\\$&')) }) as HTMLInputElement
+    const press = (scope: typeof add, name: string) => fireEvent.click(scope.getByRole('button', { name }))
+    const wrongAt = (field: HTMLInputElement, text: string, scope: typeof add) => {
+      expect(scope.getByText(text).textContent).toBe(text)
+      expect(field.getAttribute('aria-invalid')).toBe('true')
+      expect(document.activeElement).toBe(field)
+    }
+
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.name), words.addForm.nameMissing, add)
+    box(add, words.addForm.email).focus()
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.name), words.addForm.nameMissing, add)
+
+    fireEvent.change(box(add, words.addForm.name), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(box(add, words.addForm.email), { target: { value: 'not-an-email' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.email), words.addForm.emailInvalid, add)
+
+    fireEvent.change(box(add, words.addForm.email), { target: { value: 'steve@example.com' } })
+    fireEvent.change(box(add, words.editForm.city), { target: { value: 'Pune' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.editForm.address), words.editForm.addressPartial, add)
+    fireEvent.change(box(add, words.editForm.address), { target: { value: '4 Park Rd' } })
+    fireEvent.change(box(add, words.editForm.country), { target: { value: 'India' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.editForm.country), words.editForm.countryInvalid, add)
+    expect(api.addCustomer).not.toHaveBeenCalled()
+    fireEvent.click(add.getByRole('button', { name: words.addForm.cancel }))
+
+    fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
+    const edit = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
+    fireEvent.change(box(edit, words.editForm.name), { target: { value: ' ' } })
+    press(edit, words.editForm.save)
+    wrongAt(box(edit, words.editForm.name), words.editForm.nameMissing, edit)
+    expect(api.updateCustomer).not.toHaveBeenCalled()
+  })
+
   it('makes, renames and deletes groups, saying who leaves', async () => {
     await show(owner)
     fireEvent.click(screen.getByRole('tab', { name: 'Groups · 2' }))

@@ -22,8 +22,10 @@ export const customersAccessOf = (acting: { permissions: readonly string[] }, re
 }
 
 export type CustomerField = 'name' | 'email' | 'phone' | 'address' | 'country'
+/** `form` is a refusal that names no field: it is worded in the form, never as a toast. */
+export type FaultField = CustomerField | 'form'
 export interface CustomerFault {
-  field: CustomerField
+  field: FaultField
   text: string
 }
 
@@ -39,7 +41,7 @@ const invalid: Record<CustomerField, string> = {
 export const customerFault = (error: unknown): CustomerFault | null => {
   if (!isApiError(error)) return null
   const field = Object.keys(invalid).find((f): f is CustomerField => f === error.details['field'])
-  if (!field) return null
+  if (!field) return error.code === 'INVALID_INPUT' ? { field: 'form', text: messages.customers.unnamedRefusal } : null
   const refused: Record<string, string> = messages.customers.refused
   return { field, text: error.code === 'INVALID_INPUT' ? invalid[field] : (refused[error.code] ?? invalid[field]) }
 }

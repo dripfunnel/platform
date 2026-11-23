@@ -12,16 +12,14 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
   const [name, setName] = useState(customer.name ?? '')
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [address, setAddress] = useState(() => addressDraftOf(defaultAddress(customer)))
-  const [problem, setProblem] = useState<string | null>(null)
   const [fault, setFault] = useState<CustomerFault | null>(null)
   const first = useRef<HTMLInputElement>(null)
   useEffect(() => first.current?.focus(), [])
 
   const save = () => {
+    if (!name.trim()) return setFault({ field: 'name', text: words.nameMissing })
     const addressWrong = addressProblem(address)
-    if (!name.trim()) return setProblem(words.nameMissing)
-    if (addressWrong) return setProblem(addressWrong)
-    setProblem(null)
+    if (addressWrong) return setFault(addressWrong)
     setFault(null)
     const edit = {
       name: name.trim(),
@@ -37,11 +35,12 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
   }
 
   const field = (which: CustomerField | null, label: string, value: string, set: (v: string) => void, extra: { hint?: string; ref?: typeof first; type?: string } = {}): ReactNode => (
-    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null}>
+    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null} focusKey={fault}>
       {(attrs: FieldAttrs) => <input {...attrs} ref={extra.ref} type={extra.type ?? 'text'} value={value} onChange={(event) => set(event.target.value)} />}
     </CustomerFormField>
   )
 
+  const shown = fault?.field === 'form' ? fault.text : null
   return (
     <section className="df-customer df-customer-form" aria-label={fill(words.title, { name: customer.name ?? '' })}>
       <h2>{fill(words.title, { name: customer.name ?? '' })}</h2>
@@ -50,9 +49,9 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
         {field('phone', words.phone, phone, setPhone, { type: 'tel' })}
       </div>
       <AddressFields draft={address} fault={fault} onChange={setAddress} />
-      {problem && (
+      {shown && (
         <p className="df-form-problem" role="alert">
-          {problem}
+          {shown}
         </p>
       )}
       <div className="df-form-actions">
