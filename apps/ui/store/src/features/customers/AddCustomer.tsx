@@ -33,10 +33,10 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
       <h2>{words.title}</h2>
       <p className="df-customer-sub">{words.body}</p>
       <div className="df-form-grid">
-        <CustomerFormField label={words.name} error={at('name')} focusKey={fault} required>
+        <CustomerFormField label={words.name} error={at('name')} focusKey={fault}>
           {(attrs) => <input {...attrs} ref={first} value={name} placeholder={words.namePlaceholder} onChange={(event) => setName(event.target.value)} />}
         </CustomerFormField>
-        <CustomerFormField label={words.email} error={at('email')} focusKey={fault} required>
+        <CustomerFormField label={words.email} error={at('email')} focusKey={fault}>
           {(attrs) => <input {...attrs} type="email" value={email} placeholder={words.emailPlaceholder} onChange={(event) => setEmail(event.target.value)} />}
         </CustomerFormField>
         <CustomerFormField label={words.phone} error={at('phone')} focusKey={fault}>

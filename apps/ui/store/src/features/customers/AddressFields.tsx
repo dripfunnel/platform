@@ -19,7 +19,7 @@ export const emptyAddress: AddressDraft = { line1: '', line2: '', city: '', regi
 export const addressDraftOf = (address: CustomerAddress | null): AddressDraft =>
   address ? { line1: address.line1, line2: address.line2 ?? '', city: address.city, region: address.region ?? '', postal: address.postalCode ?? '', country: address.country } : emptyAddress
 
-export const isFilled = (d: AddressDraft) => Object.values(d).some((v) => v.trim() !== '')
+const isFilled =(d: AddressDraft) => Object.values(d).some((v) => v.trim() !== '')
 
 /** The address is optional as a whole; once any part is typed the street, city and a two-letter country are needed. */
 export const addressProblem = (d: AddressDraft): CustomerFault | null => {
@@ -33,9 +33,8 @@ export const addressInputOf = (d: AddressDraft, name: string): CustomerAddressIn
 
 /** The address fields of "Edit details" and "Add a customer", in one order and with the same words. */
 export const AddressFields = ({ draft, fault, onChange }: { draft: AddressDraft; fault: CustomerFault | null; onChange: (draft: AddressDraft) => void }) => {
-  // Optional as a whole: the street, city and country are needed only once any part is typed.
   const field = (key: keyof AddressDraft, label: string, error: string | null, hint?: string) => (
-    <CustomerFormField label={label} {...(hint ? { hint } : {})} error={error} focusKey={fault} required={isFilled(draft) && ['line1', 'city', 'country'].includes(key)}>
+    <CustomerFormField label={label} {...(hint ? { hint } : {})} error={error} focusKey={fault}>
       {(attrs) => <input {...attrs} type="text" value={draft[key]} onChange={(event) => onChange({ ...draft, [key]: event.target.value })} />}
     </CustomerFormField>
   )

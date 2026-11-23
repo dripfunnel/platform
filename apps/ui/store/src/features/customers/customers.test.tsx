@@ -435,17 +435,6 @@ describe('the Customers screen', () => {
     expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
   })
 
-  it('marks the fields that are required, and the address ones only once an address is started', async () => {
-    await show(owner)
-    fireEvent.click(screen.getByRole('button', { name: words.add }))
-    const form = within(screen.getByRole('region', { name: words.addForm.title }))
-    const required = (label: string) => form.getByRole('textbox', { name: new RegExp(label.replace(/[()]/g, '\\$&')) }).getAttribute('aria-required')
-    expect([words.addForm.name, words.addForm.email].map(required)).toEqual(['true', 'true'])
-    expect([words.editForm.address, words.editForm.city, words.editForm.country].map(required)).toEqual([null, null, null])
-    fireEvent.change(form.getByRole('textbox', { name: new RegExp(words.editForm.city) }), { target: { value: 'Pune' } })
-    expect([words.editForm.address, words.editForm.city, words.editForm.country, words.editForm.postal].map(required)).toEqual(['true', 'true', 'true', null])
-  })
-
   it('names the field a check in the form itself finds wrong, puts the cursor there, and does again on the next press (#1600)', async () => {
     await show(owner)
     fireEvent.click(screen.getByRole('button', { name: words.add }))
@@ -482,7 +471,6 @@ describe('the Customers screen', () => {
 
     fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
     const edit = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
-    expect(box(edit, words.editForm.name).getAttribute('aria-required')).toBe('true')
     fireEvent.change(box(edit, words.editForm.name), { target: { value: ' ' } })
     press(edit, words.editForm.save)
     wrongAt(box(edit, words.editForm.name), words.editForm.nameMissing, edit)

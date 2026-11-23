@@ -35,7 +35,7 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
   }
 
   const field = (which: CustomerField | null, label: string, value: string, set: (v: string) => void, extra: { hint?: string; ref?: typeof first; type?: string } = {}): ReactNode => (
-    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null} focusKey={fault} required={which === 'name'}>
+    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null} focusKey={fault}>
       {(attrs: FieldAttrs) => <input {...attrs} ref={extra.ref} type={extra.type ?? 'text'} value={value} onChange={(event) => set(event.target.value)} />}
     </CustomerFormField>
   )
