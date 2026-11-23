@@ -275,7 +275,7 @@ const storeProjection = (tx: ScopedSql, now: Date) => tx`
   left join store_category sc on sc.id = s.category_id
   left join lateral (
     select u.name, u.email, u.status from membership m join "user" u on u.id = m.user_id
-    where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' order by m.created_at limit 1
+    where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' and m.status <> 'removed' order by m.created_at limit 1
   ) o on true
   left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
   left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
