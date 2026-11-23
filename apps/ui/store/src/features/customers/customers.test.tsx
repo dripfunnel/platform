@@ -402,13 +402,18 @@ describe('the Customers screen', () => {
     const form = within(screen.getByRole('region', { name: words.addForm.title }))
     fireEvent.change(form.getByRole('textbox', { name: words.addForm.name }), { target: { value: 'Steve Johnson' } })
     fireEvent.change(form.getByRole('textbox', { name: words.addForm.email }), { target: { value: 'name+test@example.com' } })
-    const words_ = { name: words.editForm.nameMissing, email: words.addForm.emailInvalid, phone: words.phoneInvalid }
-    for (const [field, text] of Object.entries(words_)) {
+    const named = [
+      { field: 'name', text: words.editForm.nameMissing, input: form.getByRole('textbox', { name: words.addForm.name }) },
+      { field: 'email', text: words.addForm.emailInvalid, input: form.getByRole('textbox', { name: words.addForm.email }) },
+      { field: 'phone', text: words.phoneInvalid, input: form.getByLabelText(words.addForm.phone) },
+    ]
+    for (const { field, text, input } of named) {
+      screen.getByRole('button', { name: words.addForm.confirm }).focus()
       api.addCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no', { field }))
       fireEvent.click(form.getByRole('button', { name: words.addForm.confirm }))
       await settle()
       expect(form.getByText(text)).toBeTruthy()
-      expect(document.activeElement?.getAttribute('aria-invalid')).toBe('true')
+      expect(document.activeElement).toBe(input)
     }
     expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
   })

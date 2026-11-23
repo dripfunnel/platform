@@ -19,7 +19,7 @@ export const emptyAddress: AddressDraft = { line1: '', line2: '', city: '', regi
 export const addressDraftOf = (address: CustomerAddress | null): AddressDraft =>
   address ? { line1: address.line1, line2: address.line2 ?? '', city: address.city, region: address.region ?? '', postal: address.postalCode ?? '', country: address.country } : emptyAddress
 
-const isFilled =(d: AddressDraft) => Object.values(d).some((v) => v.trim() !== '')
+const isFilled = (d: AddressDraft) => Object.values(d).some((v) => v.trim() !== '')
 
 /** The address is optional as a whole; once any part is typed the street, city and a two-letter country are needed. */
 export const addressProblem = (d: AddressDraft): CustomerFault | null => {
