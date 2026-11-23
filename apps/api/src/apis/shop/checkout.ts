@@ -85,7 +85,7 @@ export const registerCheckout = (shop: ShopBuilder) => {
       provider: t.exposeString('provider'),
       kind: t.exposeString('kind'),
       instructions: t.exposeString('instructions', { nullable: true }),
-      // test on a preview storefront, live otherwise (decided 2026-10-05 on #284).
+      // The mode of the keys this method uses (storefront PREVIEW.md §5 step 6).
       mode: t.exposeString('mode'),
       // The provider's publishable key or client id, where its own button or field needs one.
       publicKey: t.exposeString('publicKey', { nullable: true }),

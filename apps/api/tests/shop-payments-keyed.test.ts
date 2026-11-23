@@ -8,7 +8,9 @@ import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
+import type { GatewayAccountRow } from '#db/scoped/payments'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
+import { openAccount } from '#engine/modules/checkout/providers'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { PaymentRefused, PaymentUnavailable } from '#core/payments'
 import { hmacBase64, hmacHex } from '#integrations/payments/http'
@@ -33,6 +35,8 @@ const cookies: Record<'owner' | 'staff' | 'other', string> = { owner: '', staff:
 
 // A stand-in for Razorpay's API: orders it was asked to make, and what the test says was paid on them.
 const orders = new Map<string, { amount: number; currency: string; paid: boolean; key: string }>()
+// The key id each read of an order's payments was made with, so a test sees which key set settled it.
+const readWith = new Map<string, string>()
 const cashfreeOrders = new Map<string, { amount: string; currency: string; paid: boolean }>()
 // A stand-in for PhonePe's PG API: a token, the website's payment page, and the SDK orders the app's sheet takes.
 const phonepeSdkOrders: { merchantOrderId: string; amount: number; paymentFlow: { type: string } }[] = []
@@ -61,6 +65,7 @@ const razorpayApi = async (url: string, init?: RequestInit): Promise<Response> =
   if (path === '/v1/orders') return Response.json({ items: [] })
   const payments = /^\/v1\/orders\/(order_\w+)\/payments$/.exec(path)
   const order = orders.get(payments?.[1] ?? '')
+  if (order) readWith.set(payments?.[1] ?? '', keyId ?? '')
   if (order) return Response.json({ items: order.paid ? [{ id: 'pay_1', status: 'captured', amount: order.amount, currency: order.currency }] : [] })
   if (url.includes('cashfree.com')) {
     // A stand-in for Cashfree's orders: made with the shopper's number, read back by their own id.
@@ -204,6 +209,11 @@ describe('Connecting by keys', () => {
   it('offers each storefront the key set of its own mode', async () => {
     expect((await shop('{ paymentOptions { provider mode publicKey } }')).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'live', publicKey: 'rzp_live_abcdef' }, { provider: 'cod', mode: 'live', publicKey: null }])
     expect((await shop('{ paymentOptions { provider mode publicKey } }', null, preview)).data?.['paymentOptions']).toEqual([{ provider: 'razorpay', mode: 'test', publicKey: 'rzp_test_abcdef' }, { provider: 'cod', mode: 'test', publicKey: null }])
+    // With both key sets, the preview's payment is made with the test keys.
+    const token = await readyCart('phone: "+919845022113"', preview)
+    const placed = (await shop('mutation { placeOrder(provider: "razorpay") { payment { providerRef publicKey mode } } }', token, preview)).data?.['placeOrder'] as { payment: { providerRef: string; publicKey: string; mode: string } }
+    expect(placed.payment).toMatchObject({ publicKey: 'rzp_test_abcdef', mode: 'test' })
+    expect(orders.get(placed.payment.providerRef)?.key).toBe('rzp_test_abcdef')
   })
 })
 
@@ -356,5 +366,39 @@ describe('Paying through Razorpay', () => {
     expect(await razor()).toEqual({ provider: 'razorpay', live: false, connections: [] })
     expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: TEST, keys: { keyId: "rzp_test_abcdef", keySecret: "testsecret", webhookSecret: "testhook" }) }', 'owner')).data?.['connectGateway']).toBe(true)
     expect(await razor()).toEqual({ provider: 'razorpay', live: false, connections: [{ mode: 'test', live: true }] })
+  })
+
+  it('pays a live storefront’s real order with the test keys when the store has no live ones', async () => {
+    expect((await shop('{ paymentOptions { provider mode publicKey } }')).data?.['paymentOptions']).toContainEqual({ provider: 'razorpay', mode: 'test', publicKey: 'rzp_test_abcdef' })
+    const token = await readyCart('phone: "+919845022113"')
+    const placed = (await shop('mutation { placeOrder(provider: "razorpay") { orderId payment { providerRef publicKey mode } } }', token)).data?.['placeOrder'] as { orderId: string; payment: { providerRef: string; publicKey: string; mode: string } }
+    expect(placed.payment).toMatchObject({ publicKey: 'rzp_test_abcdef', mode: 'test' })
+    expect(orders.get(placed.payment.providerRef)?.key).toBe('rzp_test_abcdef')
+    expect((await db.sql<{ mode: string }[]>`select mode from payment where order_id = ${placed.orderId}`)[0]?.mode).toBe('live')
+    // The live order's payment is settled from the test account's own webhook, read with the test key.
+    const testAccount = (await db.sql<{ id: string }[]>`select id from payment_provider_account where store_id = ${stores.india} and provider = 'razorpay' and mode = 'test'`)[0]?.id ?? ''
+    const made = orders.get(placed.payment.providerRef)
+    if (made) made.paid = true
+    const body = JSON.stringify({ event: 'order.paid', payload: { order: { entity: { id: placed.payment.providerRef } } } })
+    expect(await hook(`/payments/razorpay/${testAccount}`, body, await hmacHex('testhook', body))).toBe(200)
+    expect(readWith.get(placed.payment.providerRef)).toBe('rzp_test_abcdef')
+    expect((await db.sql`select payment_state, stock_reserved from "order" where id = ${placed.orderId}`)[0]).toEqual({ payment_state: 'paid', stock_reserved: true })
+  })
+
+  it('opens pasted keys in their own mode for a payment of either mode, and Stripe in the payment’s', async () => {
+    // Settling, cancelling and refunding all open the payment's account this way (checkout/payments.ts, orders/refunds.ts).
+    const testRow = await withSystemScope(db.sql, async (tx) => (await tx<GatewayAccountRow[]>`select id, provider, mode, external_account_id, credentials_enc, public_key from payment_provider_account where store_id = ${stores.india} and provider = 'razorpay' and mode = 'test'`)[0])
+    if (!testRow) throw new Error('no test keys')
+    expect(await openAccount(testRow, 'live', secrets)).toMatchObject({ mode: 'test', credentials: { keyId: 'rzp_test_abcdef' } })
+    const stripeRow: GatewayAccountRow = { id: 'x', provider: 'stripe', mode: 'live', external_account_id: 'acct_1', credentials_enc: null, public_key: null }
+    expect(await openAccount(stripeRow, 'test', secrets)).toMatchObject({ mode: 'test', externalAccountId: 'acct_1' })
+  })
+
+  it('never takes a preview’s test order with live keys', async () => {
+    const offered = (await shop('{ paymentOptions { provider mode } }', null, preview)).data?.['paymentOptions'] as { provider: string; mode: string }[]
+    expect(offered.map((o) => o.provider)).not.toContain('cashfree')
+    expect(offered.every((o) => o.mode === 'test')).toBe(true)
+    const token = await readyCart('phone: "+919845022113"', preview)
+    expect((await shop('mutation { placeOrder(provider: "cashfree") { orderId } }', token, preview)).code).toBe('METHOD_UNAVAILABLE')
   })
 })
