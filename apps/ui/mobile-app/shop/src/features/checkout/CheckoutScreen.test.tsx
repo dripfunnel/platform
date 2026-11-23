@@ -232,6 +232,19 @@ describe('the address', () => {
     expect(hasText(screen, t('address.pinRequired'))).toBe(true)
     expect(sent(shop.requests, 'setShippingAddress')).toHaveLength(0)
   })
+
+  it('asks for the phone of a saved address that has none, before using it (#1584)', async () => {
+    const withoutPhone = { ...signedInAs, account: { ...signedInAs.account, addresses: [{ ...signedInAs.account.addresses[0], phone: null }] } }
+    const shop = shopFor({ account: withoutPhone })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await press(screen, t('checkout.continue'))
+    expect(hasText(screen, t('form.required'))).toBe(true)
+    expect(sent(shop.requests, 'setShippingAddress')).toHaveLength(0)
+    await fill(screen, t('address.phone'), '+919876543210')
+    await press(screen, t('checkout.continue'))
+    expect(sent(shop.requests, 'setShippingAddress')[0]?.variables).toMatchObject({ address: { phone: '+919876543210' } })
+  })
 })
 
 describe('the contact', () => {
