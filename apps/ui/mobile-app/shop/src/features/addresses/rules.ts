@@ -28,7 +28,7 @@ export const addressFields = (country: string): { field: Field; label: MessageKe
     { field: 'city', label: 'address.city', optional: false, autoComplete: 'postal-address-locality' },
     { field: 'region', label: rules.region.label, optional: !rules.region.required, autoComplete: 'postal-address-region' },
     { field: 'postalCode', label: rules.postal.label, optional: !rules.postal.required, autoComplete: 'postal-code' },
-    { field: 'phone', label: 'address.phone', optional: true, autoComplete: 'tel' },
+    { field: 'phone', label: 'address.phone', optional: false, autoComplete: 'tel' },
   ]
 }
 
