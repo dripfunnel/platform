@@ -14,7 +14,7 @@ import { eventText, freeToReturn, leftInReturn, leftToShip } from './orderDetail
 const words = messages.orders.detail
 const cancelWords = messages.orders.cancel
 
-const api = vi.hoisted(() => ({ loadOrder: vi.fn(), shipItems: vi.fn(), addTracking: vi.fn(), markOrderPaid: vi.fn(), cancelOrder: vi.fn(), addOrderNote: vi.fn(), startReturn: vi.fn(), receiveReturn: vi.fn(), cancelReturn: vi.fn(), refund: vi.fn() }))
+const api = vi.hoisted(() => ({ loadOrder: vi.fn(), shipItems: vi.fn(), bookLabel: vi.fn(), requestPickup: vi.fn(), loadBookableCouriers: vi.fn(), addTracking: vi.fn(), markOrderPaid: vi.fn(), cancelOrder: vi.fn(), addOrderNote: vi.fn(), startReturn: vi.fn(), receiveReturn: vi.fn(), cancelReturn: vi.fn(), refund: vi.fn() }))
 vi.mock('../../api/order', async (actual) => ({ ...(await actual<typeof import('../../api/order')>()), ...api }))
 const listApi = vi.hoisted(() => ({ loadStoreTimeZone: vi.fn() }))
 vi.mock('../../api/orders', async (actual) => ({ ...(await actual<typeof import('../../api/orders')>()), ...listApi }))
@@ -108,6 +108,9 @@ beforeEach(() => {
   ])
   for (const write of [api.shipItems, api.addTracking, api.markOrderPaid, api.cancelOrder, api.addOrderNote, api.receiveReturn, api.cancelReturn]) write.mockResolvedValue(undefined)
   api.startReturn.mockResolvedValue('r9')
+  api.bookLabel.mockResolvedValue(undefined)
+  api.requestPickup.mockResolvedValue(undefined)
+  api.loadBookableCouriers.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -205,6 +208,48 @@ describe('an order’s page', () => {
     expect(api.loadOrder).toHaveBeenCalledTimes(2)
   })
 
+  it('books a label with the connected courier by default, and offers the tracking by hand instead', async () => {
+    api.loadBookableCouriers.mockResolvedValue([{ provider: 'shiprocket', pickupMode: 'scheduled' }])
+    await show(owner, placed)
+    fireEvent.click(button(words.actions.ship))
+    await settle()
+    const form = within(screen.getByRole('region', { name: 'Ship 3 items' }))
+    expect((form.getByRole('radio', { name: 'Book Shiprocket' }) as HTMLInputElement).checked).toBe(true)
+    expect(form.queryByRole('textbox', { name: words.ship.courier })).toBeNull()
+    expect(form.getByText(/Shiprocket collects it on its next pickup/)).toBeTruthy()
+    fireEvent.click(form.getByRole('radio', { name: words.ship.own }))
+    expect(form.getByRole('textbox', { name: words.ship.courier })).toBeTruthy()
+    fireEvent.click(form.getByRole('radio', { name: 'Book Shiprocket' }))
+    fireEvent.click(form.getByRole('button', { name: words.ship.confirmBook }))
+    await settle()
+    expect(api.bookLabel).toHaveBeenCalledWith({ orderId: 'o1', warehouseId: 'w1', lines: [{ lineId: 'l1', quantity: 1 }, { lineId: 'l2', quantity: 2 }], courier: 'shiprocket' })
+    expect(api.shipItems).not.toHaveBeenCalled()
+    expect(screen.getByText('3 items shipped — Shiprocket label booked')).toBeTruthy()
+  })
+
+  it('says why a cash-on-delivery parcel can’t be booked in part', async () => {
+    api.loadBookableCouriers.mockResolvedValue([{ provider: 'shiprocket', pickupMode: 'on_request' }])
+    api.bookLabel.mockRejectedValue(new ApiError('COD_SPLIT', 'no'))
+    await show(owner, placed)
+    fireEvent.click(button(words.actions.ship))
+    await settle()
+    fireEvent.click(button(words.ship.confirmBook))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(words.refused.COD_SPLIT)
+  })
+
+  it('asks the courier to collect a booked label once, and shows the day it comes', async () => {
+    const booked = { id: 'f1', kind: 'booked', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery Surface', trackingNumber: 'AWB1', trackingUrl: 'https://shiprocket.co/tracking/AWB1', shippedAt: '2026-10-10T08:00:00.000Z', labelDocumentId: 'd1', pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l1', quantity: 1 }] }
+    await show(owner, { ...placed, shipments: [booked, { ...booked, id: 'f2', pickupRequestedAt: '2026-10-10T09:00:00.000Z', pickupDate: '2026-10-11' }] })
+    const shipments = within(screen.getByRole('region', { name: words.shipments.title }))
+    expect(shipments.getAllByRole('button', { name: words.shipments.label })).toHaveLength(2)
+    expect(shipments.getByText(/Pickup on Oct 11, 2026/)).toBeTruthy()
+    fireEvent.click(shipments.getByRole('button', { name: words.shipments.requestPickup }))
+    await settle()
+    expect(api.requestPickup).toHaveBeenCalledWith('f1')
+    expect(screen.getByText(words.shipments.pickupDone)).toBeTruthy()
+  })
+
   it('keeps the form and says why when the API refuses the shipment', async () => {
     api.shipItems.mockRejectedValue(new ApiError('NOT_ENOUGH_STOCK', 'no'))
     await show(owner, placed)
@@ -296,7 +341,7 @@ describe('an order’s page', () => {
   it('keeps each refusal in its own form, and clears a dialog’s when it opens again', async () => {
     api.shipItems.mockRejectedValue(new ApiError('NOT_YOURS', 'no'))
     api.cancelOrder.mockRejectedValue(new ApiError('NOT_CANCELLABLE', 'no'))
-    await show(owner, { ...placed, shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: null, trackingNumber: null, trackingUrl: null, shippedAt: '2026-10-10T08:00:00.000Z', lines: [{ lineId: 'l1', quantity: 1 }] }] })
+    await show(owner, { ...placed, shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: null, trackingNumber: null, trackingUrl: null, shippedAt: '2026-10-10T08:00:00.000Z', labelDocumentId: null, pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l1', quantity: 1 }] }] })
     fireEvent.click(button(words.actions.ship))
     await settle()
     fireEvent.click(button(words.ship.confirm))
@@ -355,14 +400,14 @@ describe('an order’s page', () => {
   })
 
   it('links tracking only when it is https, whatever a shipment carries', async () => {
-    const shipment = (id: string, trackingUrl: string) => ({ id, kind: 'manual', supplierId: 'v1', warehouseName: 'Northwind', courierName: 'Delhivery', trackingNumber: `DL-${id}`, trackingUrl, shippedAt: '2026-10-10T08:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] })
+    const shipment = (id: string, trackingUrl: string) => ({ id, kind: 'manual', supplierId: 'v1', warehouseName: 'Northwind', courierName: 'Delhivery', trackingNumber: `DL-${id}`, trackingUrl, shippedAt: '2026-10-10T08:00:00.000Z', labelDocumentId: null, pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l3', quantity: 1 }] })
     await show(owner, { ...placed, shipments: [shipment('a', 'javascript:alert(1)'), shipment('b', 'http://track.example/b'), shipment('c', 'https://track.example/c')] })
     const links = within(screen.getByRole('region', { name: words.shipments.title })).getAllByRole('link', { name: words.shipments.track })
     expect(links.map((l) => l.getAttribute('href'))).toEqual(['https://track.example/c'])
   })
 
   it('adds tracking to a shipment sent without it', async () => {
-    await show(owner, { ...placed, shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: null, trackingUrl: null, shippedAt: '2026-10-10T08:00:00.000Z', lines: [{ lineId: 'l1', quantity: 1 }] }] })
+    await show(owner, { ...placed, shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: null, trackingUrl: null, shippedAt: '2026-10-10T08:00:00.000Z', labelDocumentId: null, pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l1', quantity: 1 }] }] })
     const shipments = within(screen.getByRole('region', { name: words.shipments.title }))
     expect(shipments.getByText('1× Mara Linen Shirt · M')).toBeTruthy()
     fireEvent.click(shipments.getByRole('button', { name: words.shipments.add }))

@@ -44,8 +44,10 @@ const shiprocket: typeof fetch = async (input, init) => {
   switch (path) {
     case '/courier/serviceability/':
       return Response.json({ data: { available_courier_companies: [{ courier_name: 'Delhivery Surface', rate: 85, estimated_delivery_days: 3 }] } })
+    case '/settings/company/pickup':
+      return Response.json({ data: { shipping_address: [] } })
     case '/settings/company/addpickup':
-      return Response.json({})
+      return Response.json({ success: true })
     case '/orders/create/adhoc':
       return Response.json({ shipment_id: 9001 })
     case '/courier/assign/awb':
@@ -165,7 +167,7 @@ describe('a store connects its own Shiprocket, and uses it from checkout to trac
     const booked = await gql(`mutation { bookLabel(orderId: "${orderId}", warehouseId: "${main}", courier: "shiprocket", lines: [{ lineId: "${line}", quantity: 1 }]) }`)
     expect(booked.errors?.map((e) => e.message)).toBeUndefined()
     fulfilmentId = String(booked.data?.['bookLabel'])
-    expect(calls.map((c) => c.path)).toEqual(['/settings/company/addpickup', '/orders/create/adhoc', '/courier/assign/awb', '/courier/generate/label', '/courier/generate/pickup'])
+    expect(calls.map((c) => c.path)).toEqual(['/settings/company/pickup', '/settings/company/addpickup', '/orders/create/adhoc', '/courier/assign/awb', '/courier/generate/label', '/courier/generate/pickup'])
     expect(new Set(calls.map((c) => c.bearer))).toEqual(new Set([`Bearer tok:${login.email}`]))
     const [f] = await db.sql<{ tracking_number: string; courier_provider: string; provider_ref: string }[]>`select tracking_number, courier_provider, provider_ref from fulfilment where id = ${fulfilmentId}`
     expect(f).toEqual({ tracking_number: 'SRAWB1001', courier_provider: 'shiprocket', provider_ref: '9001' })

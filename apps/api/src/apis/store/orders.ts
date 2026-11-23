@@ -68,11 +68,12 @@ const shipWords: Record<FulfilmentRefusal, string> = {
   OWN_LABELS: 'The store has you buy your own labels. Ship these and enter the tracking by hand.',
   ONE_PART: 'A label is one parcel: book the items each of you packs separately.',
   NO_ADDRESS: 'The label needs the full address of that location and of the shopper.',
-  UNSERVED: 'The courier won’t take this parcel. Check the addresses, the shopper’s number and the weight, or ship it by hand.',
+  UNSERVED: 'The courier won’t take this parcel. Check your location’s address (a house or building number on its first line), the shopper’s number and address, or ship it by hand.',
   COURIER_REJECTED: 'The courier refused your platform’s account. Ask your platform’s support to check it. Nothing was booked.',
   COURIER_UNAVAILABLE: 'The courier didn’t answer. Nothing was booked; try again.',
   NOT_BOOKED: 'Only a label booked here can have a pickup asked for.',
   PICKUP_ASKED: 'A pickup is already asked for this parcel.',
+  COD_SPLIT: 'The courier collects cash on delivery once: book every item still to ship in one parcel, or enter tracking by hand.',
 }
 
 const shipped = <T>(result: FulfilmentResult<T>): T => {

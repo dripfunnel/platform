@@ -4284,6 +4284,9 @@
         "token": "Tracking token (optional)",
         "tokenHint": "If you set a token on your Shiprocket webhook (at least 16 characters), enter it here so delivery updates reach your orders. Leave it blank to keep the one saved.",
         "tokenShort": "The tracking token needs at least 16 characters.",
+        "channel": "Sales channel ID (optional)",
+        "channelHint": "The ID of the Shiprocket channel your booked orders go to, from Settings › Channels. Leave it blank for Shiprocket’s default channel.",
+        "channelInvalid": "The sales channel ID is a number.",
         "missing": "Enter the API user’s email and password.",
         "confirm": "Connect",
         "connecting": "Connecting…"
@@ -4962,7 +4965,17 @@
         "NOT_REQUESTED": "This return isn’t on its way back any more.",
         "NO_LOCATION": "There’s no location for these to come back to yet. Add one under Products › Warehouses.",
         "PROVIDER_UNAVAILABLE": "The payment provider didn’t answer. Nothing was refunded; try again.",
-        "PROVIDER_REFUSED": "The payment provider refused the refund. Nothing was refunded."
+        "PROVIDER_REFUSED": "The payment provider refused the refund. Nothing was refunded.",
+        "NOT_CONNECTED": "That courier isn’t connected to your store. Enter the tracking yourself, or connect it in Settings › Shipping.",
+        "OWN_LABELS": "This supplier books its own labels. Enter the tracking yourself.",
+        "ONE_PART": "A label covers one seller’s items at a time. Pick one seller’s items, or enter the tracking yourself.",
+        "NO_ADDRESS": "The location or the shopper’s address isn’t complete, so a label can’t be booked. Enter the tracking yourself.",
+        "UNSERVED": "The courier won’t take this parcel. Check your location’s address (a house or building number on its first line) and the shopper’s phone and address, or enter the tracking yourself.",
+        "COURIER_REJECTED": "The courier refused the booking. Nothing was bought; check your courier connection or enter the tracking yourself.",
+        "COURIER_UNAVAILABLE": "The courier didn’t answer. Nothing was bought; try again in a moment.",
+        "NOT_BOOKED": "Only a label booked here can be collected.",
+        "PICKUP_ASKED": "A pickup has already been asked for.",
+        "COD_SPLIT": "The courier collects cash on delivery once: book every item still to ship in one parcel, or enter the tracking yourself."
       },
       "actions": {
         "ship": "Ship items",
@@ -5046,6 +5059,16 @@
         "doneToStore": {
           "one": "{count} item marked as sent to {store}",
           "other": "{count} items marked as sent to {store}"
+        },
+        "how": "How it ships",
+        "bookWith": "Book {courier}",
+        "own": "I have tracking",
+        "noteBookScheduled": "{courier} collects it on its next pickup. We fill in the tracking number and give you the label to print.",
+        "noteBookOnRequest": "{courier} collects it when you request a pickup. We fill in the tracking number and give you the label to print.",
+        "confirmBook": "Book and ship",
+        "doneBooked": {
+          "one": "{count} item shipped — {courier} label booked",
+          "other": "{count} items shipped — {courier} label booked"
         }
       },
       "shipments": {
@@ -5062,7 +5085,13 @@
         "save": "Save tracking",
         "cancel": "Cancel",
         "numberMissing": "Type the tracking number",
-        "added": "Tracking saved — the shopper gets it by email"
+        "added": "Tracking saved — the shopper gets it by email",
+        "label": "Download label",
+        "labelFailed": "The label couldn’t be downloaded. Try again in a moment.",
+        "requestPickup": "Request pickup",
+        "pickupRequested": "Pickup requested",
+        "pickupOn": "Pickup on {date}",
+        "pickupDone": "Pickup requested — the courier collects it"
       },
       "markPaid": {
         "title": "Mark {number} as paid?",

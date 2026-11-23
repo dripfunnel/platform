@@ -57,6 +57,8 @@ const couriers: CourierDirectory = {
         return { ref: 'PU-2', date: '2026-10-13' }
       },
       readHook: async () => null,
+      track: async () => [],
+      remitted: async () => [],
     },
   }),
 }
@@ -74,11 +76,11 @@ const files: AssetStore = {
 const level = async (versionId: string, warehouseId: string) =>
   (await db.sql<{ on_hand: number; reserved: number }[]>`select on_hand, reserved from stock_level where version_id = ${versionId} and warehouse_id = ${warehouseId}`)[0]
 
-const order = async (number: string, lines: { version: string; seller: string | null; quantity: number; heldAt: string }[]) => {
+const order = async (number: string, lines: { version: string; seller: string | null; quantity: number; heldAt: string }[], cod = false) => {
   const store = t.storeA1
   const [row] = await db.sql<{ id: string }[]>`
     insert into "order" (store_id, state, payment_state, currency, number, placed_at, total_amount, payment_method, shipping_option, stock_reserved, email, phone, shipping_address)
-    values (${store}, 'placed', 'pending', 'INR', ${number}, now(), 1000, 'cod', 'courier', true, 'priya@example.com', '+919800000001',
+    values (${store}, 'placed', ${cod ? 'pending' : 'paid'}, 'INR', ${number}, now(), 1000, ${cod ? 'cod' : 'razorpay'}, 'courier', true, 'priya@example.com', '+919800000001',
       ${db.sql.json({ name: 'Priya Shah', line1: '1 MG Road', line2: null, city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN', phone: '+919800000001' })})
     returning id`
   const id = row?.id ?? ''
@@ -92,7 +94,8 @@ const order = async (number: string, lines: { version: string; seller: string | 
     const mode = seller ? ((await db.sql<{ m: string }[]>`select shipping_mode as m from seller where id = ${seller}`)[0]?.m ?? 'to-store') : 'store'
     await db.sql`insert into order_part (order_id, store_id, seller_id, shipping_mode) values (${id}, ${store}, ${seller}, ${mode})`
   }
-  await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${id}, ${store}, 'cod', 'cod', 'pending', 1000, 'INR', 'live')`
+  if (cod) await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${id}, ${store}, 'cod', 'cod', 'pending', 1000, 'INR', 'live')`
+  else await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${id}, ${store}, 'razorpay', 'card', 'captured', 1000, 'INR', 'live')`
   return id
 }
 const lineOf = async (orderId: string, versionId: string) => (await db.sql<{ id: string }[]>`select id from order_line where order_id = ${orderId} and version_id = ${versionId}`)[0]?.id ?? ''
@@ -192,6 +195,7 @@ describe('the store books a label for its own lines', () => {
       to: { name: 'Priya Shah', line1: '1 MG Road', city: 'Pune', postal: '411001', country: 'IN', phone: '+919800000001', email: 'priya@example.com' },
       weightGrams: 600,
       value: { amount: 99800n, currency: 'INR' },
+      collect: null,
       labelSize: 'a6',
       pickup: 'scheduled',
     })
@@ -397,5 +401,16 @@ describe('the document address', () => {
     expect(await documentStatus('owner', crypto.randomUUID())).toBe(404)
     const signedOut = await handleDocument(new Request(`https://store.example/api/documents/${crypto.randomUUID()}`), { ...(await contextFor('owner')), standing: { kind: 'signed-out' } }, files)
     expect(signedOut.status).toBe(401)
+  })
+})
+
+describe('a cash-on-delivery label', () => {
+  it('collects what is due on the parcel that takes everything left to ship, and refuses a part of it', async () => {
+    const id = await order('L-1005', [{ version: versions.house, seller: null, quantity: 2, heldAt: places.main }], true)
+    const house = await lineOf(id, versions.house)
+    expect((await book('owner', id, places.main, [{ id: house, quantity: 1 }])).code).toBe('COD_SPLIT')
+    expect(courier.booked).toEqual([])
+    expect((await book('owner', id, places.main, [{ id: house, quantity: 2 }])).code).toBeUndefined()
+    expect(courier.booked[0]?.request.collect).toEqual({ amount: 1000n, currency: 'INR' })
   })
 })

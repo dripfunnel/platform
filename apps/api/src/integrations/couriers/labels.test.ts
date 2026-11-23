@@ -3,7 +3,7 @@ import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type Labe
 import { localCouriers } from '../local/index'
 import { easyPostBook, easyPostHook, easyPostPickup } from './easypost'
 import { courierCall, fetchLabel, isLabelHost } from './request'
-import { shiprocketBook, shiprocketHook, shiprocketPickup } from './shiprocket'
+import { shiprocketBook, shiprocketHook, shiprocketPickup, shiprocketRemitted, shiprocketTrack } from './shiprocket'
 
 // SAPI 12 (#311): booking a label and a pickup through each adapter, against answers shaped as Shiprocket's and EasyPost's.
 
@@ -24,6 +24,7 @@ const india: LabelRequest = {
   weightGrams: 600,
   items: [{ name: 'Kurta', sku: 'KUR-1', quantity: 2, unitAmount: 49900n, hsCode: '6211' }],
   value: { amount: 99800n, currency: 'INR' },
+  collect: null,
   labelSize: 'a6',
   pickup: 'scheduled',
 }
@@ -36,6 +37,9 @@ const us: LabelRequest = {
   pickup: 'on_request',
 }
 const login = { status: 200, body: { token: 'tok-1' } }
+// The account's pickup locations, as GET /settings/company/pickup answers: this location's already there, or none yet.
+const listed = { status: 200, body: { data: { shipping_address: [{ pickup_location: 'df-7d4f2a10000040008000' }] } } }
+const unlisted = { status: 200, body: { data: { shipping_address: [] } } }
 const creds = { email: 'api@partner.example', password: 'secret' }
 
 describe('a Shiprocket label', () => {
@@ -46,7 +50,8 @@ describe('a Shiprocket label', () => {
         ...creds,
         fetchImpl: answering([
           login,
-          { status: 422, body: { message: 'Address nick name already in use' } },
+          unlisted,
+          { status: 200, body: { success: true } },
           { status: 200, body: { order_id: 991, shipment_id: 4411 } },
           { status: 200, body: { awb_assign_status: 1, response: { data: { awb_code: '1491234567', courier_name: 'Delhivery Surface' } } } },
           { status: 200, body: { label_created: 1, label_url: 'https://kr-shipmultichannel-mum.s3.ap-south-1.amazonaws.com/l/4411.pdf' } },
@@ -61,19 +66,51 @@ describe('a Shiprocket label', () => {
       label: { bytes: pdf, mime: 'application/pdf' }, pickup: { ref: 'Reference No: 77', date: '2026-10-12' },
     })
     expect(seen.map((r) => new URL(r.url).pathname)).toEqual([
-      '/v1/external/auth/login', '/v1/external/settings/company/addpickup', '/v1/external/orders/create/adhoc', '/v1/external/courier/assign/awb',
+      '/v1/external/auth/login', '/v1/external/settings/company/pickup', '/v1/external/settings/company/addpickup', '/v1/external/orders/create/adhoc', '/v1/external/courier/assign/awb',
       '/v1/external/courier/generate/label', '/l/4411.pdf', '/v1/external/courier/generate/pickup',
     ])
-    const order = (await seen[2]?.json()) as Record<string, unknown>
-    expect(order).toMatchObject({ order_id: india.reference, pickup_location: 'df-7d4f2a10000040008000', billing_pincode: '411001', billing_phone: '+919800000001', payment_method: 'Prepaid', sub_total: '998.00', weight: '0.600' })
+    const order = (await seen[3]?.json()) as Record<string, unknown>
+    expect(order).toMatchObject({ order_id: india.reference, pickup_location: 'df-7d4f2a10000040008000', billing_pincode: '411001', billing_phone: '9800000001', payment_method: 'Prepaid', sub_total: '998.00', weight: '0.600' })
     expect(order['order_items']).toEqual([{ name: 'Kurta', sku: 'KUR-1', units: 2, selling_price: '499.00', hsn: '6211' }])
+    expect(Object.keys(order)).not.toContain('channel_id')
+    expect(await seen[2]?.json()).toMatchObject({ phone: '1412000000' })
+  })
+
+  it('books cash on delivery for what is due, into the account’s sales channel', async () => {
+    const seen: Request[] = []
+    await shiprocketBook({ ...creds, channelId: '4321', fetchImpl: answering([login, listed, { status: 400, body: {} }], seen) }, { ...india, collect: { amount: 104900n, currency: 'INR' } })
+    expect(await seen[2]?.json()).toMatchObject({ channel_id: '4321', payment_method: 'COD', sub_total: '1049.00' })
+  })
+
+  it('adds a location the account hasn’t got, and takes any refusal of it as the address’s, booking nothing', async () => {
+    const seen: Request[] = []
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([login, unlisted, { status: 422, body: { message: 'Not a valid mobile number', status_code: 422 } }], seen) }, india)).toBeNull()
+    expect(seen.map((r) => new URL(r.url).pathname).at(-1)).toBe('/v1/external/settings/company/addpickup')
+    expect(seen).toHaveLength(3)
+  })
+
+  it('adds no location the account already has', async () => {
+    const seen: Request[] = []
+    await shiprocketBook({ ...creds, fetchImpl: answering([login, listed, { status: 400, body: {} }], seen) }, india)
+    expect(seen.map((r) => new URL(r.url).pathname)).toEqual(['/v1/external/auth/login', '/v1/external/settings/company/pickup', '/v1/external/orders/create/adhoc'])
+  })
+
+  it('answers null when Shiprocket answers the order with a message and no shipment', async () => {
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([login, listed, { status: 200, body: { message: 'x', data: { data: [] } } }]) }, india)).toBeNull()
+  })
+
+  it('answers null when Shiprocket assigns no courier, and for a number that isn’t an Indian one', async () => {
+    const order = [login, listed, { status: 200, body: { shipment_id: 9 } }]
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([...order, { status: 200, body: { awb_assign_status: 0, response: { data: { awb_assign_error: 'no courier' } } } }]) }, india)).toBeNull()
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([...order, { status: 422, body: { message: 'wallet' } }]) }, india)).toBeNull()
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([]) }, { ...india, to: { ...india.to, phone: '+1 415 555 0100' } })).toBeNull()
   })
 
   it('registers a pinned location with its coordinates, and one without a pin with none (#815)', async () => {
     const pickupBody = async (from: LabelRequest['from']) => {
       const seen: Request[] = []
-      await shiprocketBook({ ...creds, fetchImpl: answering([login, { status: 422, body: {} }, { status: 400, body: {} }], seen) }, { ...india, from })
-      return (await seen[1]?.json()) as Record<string, unknown>
+      await shiprocketBook({ ...creds, fetchImpl: answering([login, unlisted, { status: 200, body: {} }, { status: 400, body: {} }], seen) }, { ...india, from })
+      return (await seen[2]?.json()) as Record<string, unknown>
     }
     expect(await pickupBody({ ...india.from, pin: { latitude: 26.9239, longitude: 75.8267 } })).toMatchObject({ pin_code: '302003', lat: '26.9239', long: '75.8267' })
     const unpinned = await pickupBody({ ...india.from, pin: null })
@@ -83,22 +120,22 @@ describe('a Shiprocket label', () => {
   })
 
   it('asks no pickup on request, and answers null for a parcel it won’t take or a shopper with no number', async () => {
-    const answers = [login, { status: 200, body: {} }, { status: 200, body: { shipment_id: 1 } }, { status: 200, body: { response: { data: { awb_code: 'A1', courier_name: 'Ekart' } } } }, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: pdf }]
+    const answers = [login, listed, { status: 200, body: { shipment_id: 1 } }, { status: 200, body: { response: { data: { awb_code: 'A1', courier_name: 'Ekart' } } } }, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: pdf }]
     const seen: Request[] = []
     expect((await shiprocketBook({ ...creds, fetchImpl: answering(answers, seen) }, { ...india, pickup: 'on_request' }))?.pickup).toBeNull()
     expect(seen).toHaveLength(6)
-    expect(await shiprocketBook({ ...creds, fetchImpl: answering([login, { status: 200 }, { status: 422, body: { message: 'Invalid pincode' } }]) }, india)).toBeNull()
+    expect(await shiprocketBook({ ...creds, fetchImpl: answering([login, listed, { status: 422, body: { message: 'Invalid pincode' } }]) }, india)).toBeNull()
     expect(await shiprocketBook({ ...creds, fetchImpl: answering([]) }, { ...india, to: { ...india.to, phone: null } })).toBeNull()
   })
 
   it('refuses a label link off the courier’s file store, and says a refused login is the account’s', async () => {
-    const off = [login, { status: 200 }, { status: 200, body: { shipment_id: 1 } }, { status: 200, body: { response: { data: { awb_code: 'A1', courier_name: 'Ekart' } } } }, { status: 200, body: { label_url: 'https://169.254.169.254/latest' } }]
+    const off = [login, listed, { status: 200, body: { shipment_id: 1 } }, { status: 200, body: { response: { data: { awb_code: 'A1', courier_name: 'Ekart' } } } }, { status: 200, body: { label_url: 'https://169.254.169.254/latest' } }]
     await expect(shiprocketBook({ ...creds, fetchImpl: answering(off) }, india)).rejects.toBeInstanceOf(CourierUnavailable)
     await expect(shiprocketBook({ ...creds, fetchImpl: answering([{ status: 400, body: {} }]) }, india)).rejects.toBeInstanceOf(CourierRejected)
   })
 
   it('names the shipment when the label fails once its courier is assigned, and books the label though a scheduled pickup fails', async () => {
-    const assigned = [login, { status: 200 }, { status: 200, body: { shipment_id: 77 } }, { status: 200, body: { response: { data: { awb_code: 'A7', courier_name: 'Ekart' } } } }]
+    const assigned = [login, listed, { status: 200, body: { shipment_id: 77 } }, { status: 200, body: { response: { data: { awb_code: 'A7', courier_name: 'Ekart' } } } }]
     const failed = await shiprocketBook({ ...creds, fetchImpl: answering([...assigned, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: new TextEncoder().encode('<html>') }]) }, india).catch((e: unknown) => e)
     expect(failed).toBeInstanceOf(CourierBoughtUnfinished)
     expect((failed as CourierBoughtUnfinished).providerRef).toBe('77')
@@ -223,5 +260,51 @@ describe('tracking hooks', () => {
     expect(await easyPostHook('fine-secret', hook(body, {}))).toBeNull()
     const other = { description: 'batch.created', result: { status: 'created' } }
     expect(await easyPostHook('fine-secret', hook(other, { 'x-hmac-signature': await sign(JSON.stringify(other), 'fine-secret') }))).toEqual([])
+  })
+})
+
+describe('Shiprocket tracking asked for', () => {
+  // Shiprocket's documented answers to GET /courier/track/shipment/{id} (apidocs.shiprocket.in), trimmed of agents' details.
+  const pickedUp = {"tracking_data": {"track_status": 1, "shipment_status": 42, "shipment_track": [{"id": 185584215, "awb_code": "1091188857722", "shipment_id": 168347943, "current_status": "PICKED UP", "delivered_date": null}], "shipment_track_activities": [{"date": "2021-12-23 14:23:18", "status": "X-PPOM", "activity": "In Transit - Shipment picked up", "sr-status": "42"}, {"date": "2021-12-23 14:19:37", "status": "FMPUR-101", "activity": "Manifested - Pickup scheduled", "sr-status": "NA"}, {"date": "2021-12-23 14:19:34", "status": "X-UCI", "activity": "Manifested - Consignment Manifested", "sr-status": "5"}]}}
+  const noActivity = {"tracking_data": {"track_status": 0, "error": "Aahh! There is no activities found in our DB. Please have some patience it will be updated soon."}}
+  const cancelled = { tracking_data: { track_status: 1, shipment_track: [{ current_status: 'Canceled' }] } }
+
+  it('reads the current status at its latest activity’s time, one login for all, and skips a parcel with nothing yet', async () => {
+    const seen: Request[] = []
+    const events = await shiprocketTrack(
+      { ...creds, fetchImpl: answering([login, { status: 200, body: pickedUp }, { status: 200, body: noActivity }, { status: 404, body: { message: '404 Not Found', status_code: 404 } }, { status: 500, body: {} }], seen) },
+      ['168347943', '4412', '4413', '4414'],
+    )
+    expect(events).toEqual([{ providerRef: '168347943', trackingNumber: null, status: 'in_transit', at: new Date('2021-12-23T08:53:18Z') }])
+    expect(seen.map((r) => new URL(r.url).pathname)).toEqual(['/v1/external/auth/login', ...['168347943', '4412', '4413', '4414'].map((id) => `/v1/external/courier/track/shipment/${id}`)])
+  })
+
+  it('takes a cancellation with no activity at the time it was asked, since nothing can overtake it', async () => {
+    const now = new Date('2026-11-23T11:00:00Z')
+    expect(await shiprocketTrack({ ...creds, fetchImpl: answering([login, { status: 200, body: cancelled }]) }, ['9'], undefined, now)).toEqual([{ providerRef: '9', trackingNumber: null, status: 'cancelled', at: now }])
+  })
+
+  it('stops at a login Shiprocket refuses', async () => {
+    await expect(shiprocketTrack({ ...creds, fetchImpl: answering([login, { status: 401, body: {} }]) }, ['4411'])).rejects.toBeInstanceOf(CourierRejected)
+  })
+})
+
+describe('Shiprocket COD remittance asked for', () => {
+  // As GET /shipments/{id} and GET /orders/show/{id} answer (apidocs.shiprocket.in): only a transfer's UTR counts as paid out.
+  const shipment = (orderId: number) => ({ status: 200, body: { data: { id: 16016920, order_id: orderId, status: 7 } } })
+  const order = (utr: string) => ({ status: 200, body: { data: { id: 1, payment_method: 'cod', remittance_date: utr ? '2026-11-30' : '', remittance_utr: utr, remittance_status: '' } } })
+
+  it('answers the shipments whose order has a remittance UTR, asking each order by the shipment’s order id', async () => {
+    const seen: Request[] = []
+    const remitted = await shiprocketRemitted(
+      { ...creds, fetchImpl: answering([login, shipment(901), order('UTR123'), shipment(902), order(''), { status: 200, body: {} }], seen) },
+      ['16016920', '16016921', '16016922'],
+    )
+    expect(remitted).toEqual(['16016920'])
+    expect(seen.map((r) => new URL(r.url).pathname)).toEqual(['/v1/external/auth/login', '/v1/external/shipments/16016920', '/v1/external/orders/show/901', '/v1/external/shipments/16016921', '/v1/external/orders/show/902', '/v1/external/shipments/16016922'])
+  })
+
+  it('stops at a login Shiprocket refuses', async () => {
+    await expect(shiprocketRemitted({ ...creds, fetchImpl: answering([login, { status: 401, body: {} }]) }, ['1'])).rejects.toBeInstanceOf(CourierRejected)
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Order, OrderShipment } from '../../api/order'
-import { fill, formatCount, formatList, messages } from '../../messages'
+import { fill, formatCount, formatDay, formatList, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
 import { lineName } from './orderDetail'
 import { timeText } from './orderView'
@@ -18,6 +18,9 @@ export interface OrderShipmentsProps {
   /** A tracking form opened or closed: its last refusal is cleared. */
   onFormChange: () => void
   onTrack: (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => void
+  /** A label booked here: ask its courier to collect it, and download its file. */
+  onPickup: (shipment: OrderShipment) => void
+  onLabel: (shipment: OrderShipment) => void
 }
 
 const whenText = (s: OrderShipment, timeZone: string) => {
@@ -28,7 +31,7 @@ const whenText = (s: OrderShipment, timeZone: string) => {
 }
 
 /** What has left: each shipment's items and tracking, and adding tracking to one sent without it (`addTracking`). */
-export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onFormChange, onTrack }: OrderShipmentsProps) => {
+export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onFormChange, onTrack, onPickup, onLabel }: OrderShipmentsProps) => {
   const [open, setOpenId] = useState<string | null>(null)
   const setOpen = (id: string | null) => {
     onFormChange()
@@ -69,6 +72,27 @@ export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onFormC
                 )}
               </span>
             )
+          )}
+          {s.kind === 'booked' && (
+            <span className="df-order-sub">
+              {s.labelDocumentId && (
+                <button type="button" className="df-link-button" onClick={() => onLabel(s)}>
+                  {words.label}
+                </button>
+              )}
+              {s.pickupRequestedAt ? (
+                <> · {s.pickupDate ? fill(words.pickupOn, { date: formatDay(s.pickupDate) }) : words.pickupRequested}</>
+              ) : (
+                canTrack(s) && (
+                  <>
+                    {' · '}
+                    <button type="button" className="df-link-button" disabled={busy} onClick={() => onPickup(s)}>
+                      {words.requestPickup}
+                    </button>
+                  </>
+                )
+              )}
+            </span>
           )}
           {open === s.id && !s.trackingNumber && <TrackingForm shipment={s} busy={busy} error={error} onCancel={() => setOpen(null)} onSave={(c, n, u) => onTrack(s, c, n, u)} />}
         </div>

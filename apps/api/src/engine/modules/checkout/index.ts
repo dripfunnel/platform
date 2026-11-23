@@ -453,25 +453,26 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
 /** Mark as paid inside the caller's system-scope transaction: a rider's Delivered for cash on delivery runs it too (DELIVERY §3). */
 export const markPaidIn = async (
   tx: ScopedSql,
-  deps: { storeId: string; actor: { id: string; partnerId: string; kind: 'person' | 'rider' }; activity: ActivityLog; facts: RequestFacts; now: () => Date },
+  deps: { storeId: string; actor: { id: string; partnerId: string; kind: 'person' | 'rider' } | { id: null; partnerId: string; kind: 'job'; label: string }; activity: ActivityLog; facts: RequestFacts; now: () => Date },
   orderId: string,
 ): Promise<CheckoutResult<true>> => {
   const { storeId, actor } = deps
   const order = await lockPlacedOrder(tx, storeId, orderId)
   if (!order) return { ok: false, reason: 'NOT_FOUND' }
   if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
-  const api = actor.kind === 'rider' ? 'delivery' : 'store'
+  const api = actor.kind === 'rider' ? 'delivery' : actor.kind === 'job' ? null : 'store'
   await recordPaid(tx, storeId, orderId, deps.now())
   if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
   await deliverOrder(tx, deps.activity, storeId, orderId, deps.now())
-  await createOwnDelivery(tx, deps.activity, storeId, orderId, deps.now(), { actorKind: actor.kind, actorId: actor.id, actorLabel: null, api })
+  const actorLabel = actor.kind === 'job' ? actor.label : null
+  await createOwnDelivery(tx, deps.activity, storeId, orderId, deps.now(), { actorKind: actor.kind, actorId: actor.id, actorLabel, api })
   await deps.activity.record(tx, {
-    category: 'write',
+    category: actor.kind === 'job' ? 'system' : 'write',
     action: checkoutAudit.markedPaid,
     result: 'success',
     actorKind: actor.kind,
     actorId: actor.id,
-    actorLabel: null,
+    actorLabel,
     partnerId: actor.partnerId,
     storeId,
     target: { type: 'order', id: orderId, label: order.number },

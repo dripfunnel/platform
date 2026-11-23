@@ -32,7 +32,7 @@ const partnerUser = (partnerId: string): CallerContext => ({ caller: { kind: 'pa
 const staff: CallerContext = { caller: { kind: 'staff', staffId: 'st' } }
 
 const by = '00000000-0000-4000-8000-0000000000aa'
-const connect = (storeId: string, email: string) => (tx: Parameters<typeof saveCourierAccount>[0]) => saveCourierAccount(tx, { storeId, provider: 'shiprocket', email, sealed: 'v1.sealed', by, at: new Date() })
+const connect = (storeId: string, email: string) => (tx: Parameters<typeof saveCourierAccount>[0]) => saveCourierAccount(tx, { storeId, provider: 'shiprocket', email, channelId: '4321', sealed: 'v1.sealed', by, at: new Date() })
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -85,7 +85,7 @@ describe('who changes a store’s courier login', () => {
   it('lets a store connect and disconnect its own, and refuses a write for another store', async () => {
     await withScope(db.sql, storeCaller(t.partnerA, t.storeA2), async (tx) => {
       await connect(t.storeA2, 'a2-new@example.com')(tx)
-      expect((await selectCourierAccounts(tx, t.storeA2)).map((r) => r.email)).toEqual(['a2-new@example.com'])
+      expect((await selectCourierAccounts(tx, t.storeA2)).map((r) => [r.email, r.channel_id])).toEqual([['a2-new@example.com', '4321']])
     })
     await expect(withScope(db.sql, owner(), connect(t.storeA2, 'stolen@example.com'))).rejects.toThrow()
     await expect(withScope(db.sql, owner(), connect(t.storeB1, 'stolen@example.com'))).rejects.toThrow()

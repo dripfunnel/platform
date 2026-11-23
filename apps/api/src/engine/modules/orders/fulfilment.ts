@@ -5,7 +5,7 @@ import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { insertLabel, lockShipmentToCollect, selectBookingLines, selectBookingOrder, selectBookingPlace, setPickup } from '#db/scoped/labels'
+import { insertLabel, lockShipmentToCollect, selectBookingLines, selectCodDue, selectBookingOrder, selectBookingPlace, setPickup } from '#db/scoped/labels'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { queueStoreEvent } from '#db/scoped/storeEvents'
 import type { AssetStore } from '#engine/modules/catalog/index'
@@ -34,7 +34,7 @@ export const fulfilmentAudit = { shipped: 'order.shipped', sentToStore: 'order.s
 export type FulfilmentRefusal =
   | 'INVALID_INPUT' | 'NOT_FOUND' | 'NOT_SHIPPABLE' | 'NOT_YOURS' | 'TOO_MANY' | 'NOT_ENOUGH_STOCK' | 'NO_STORE_LOCATION' | 'READ_ONLY' | 'NOT_HANDED_OVER'
   // Booking a label and its pickup (SAPI 12).
-  | 'NOT_CONNECTED' | 'OWN_LABELS' | 'ONE_PART' | 'NO_ADDRESS' | 'UNSERVED' | 'COURIER_REJECTED' | 'COURIER_UNAVAILABLE' | 'NOT_BOOKED' | 'PICKUP_ASKED'
+  | 'NOT_CONNECTED' | 'OWN_LABELS' | 'ONE_PART' | 'NO_ADDRESS' | 'UNSERVED' | 'COURIER_REJECTED' | 'COURIER_UNAVAILABLE' | 'NOT_BOOKED' | 'PICKUP_ASKED' | 'COD_SPLIT'
 export type FulfilmentResult<T> = { ok: true; value: T } | { ok: false; reason: FulfilmentRefusal }
 
 export interface ShipInput {
@@ -94,6 +94,7 @@ const linesValid = (lines: readonly { lineId: string; quantity: number }[], ids:
 
 interface Plan {
   order: OrderToShipRow
+  all: LineToShipRow[]
   picked: { line: LineToShipRow; quantity: number }[]
   handOff: boolean
 }
@@ -153,7 +154,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       const left = handOff ? line.quantity - line.sent_quantity : line.shipping_mode === 'to-store' ? line.sent_quantity - line.fulfilled_quantity : line.quantity - line.fulfilled_quantity
       if (quantity > left) return { ok: false, reason: 'TOO_MANY' }
     }
-    return { ok: true, value: { order, picked, handOff } }
+    return { ok: true, value: { order, all, picked, handOff } }
   }
 
   /** The picked units leave the location; a to-store line the store ships on left its supplier's stock at the hand-off. */
@@ -273,15 +274,21 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         const orderRow = await selectBookingOrder(tx, order.id)
         const to = orderRow ? toAddressOf(orderRow) : null
         if (!from || !to || !orderRow) return { ok: false, reason: 'NO_ADDRESS' }
+        // The courier collects cash on delivery once, so only on the parcel that takes everything left to ship.
+        const due = order.payment_method === 'cod' && order.payment_state === 'pending' ? await selectCodDue(tx, order.id) : null
+        const takesAllLeft = planned.value.all.every((l) => l.quantity - l.fulfilled_quantity === picked.filter((p) => p.line.id === l.id).reduce((n, p) => n + p.quantity, 0))
+        if (due !== null && !takesAllLeft) return { ok: false, reason: 'COD_SPLIT' }
 
         await takeStock(tx, planned.value, input.warehouseId)
         const id = crypto.randomUUID()
         const { amount, ...parcel } = parcelOf(await selectBookingLines(tx, order.id), picked.map((p) => ({ lineId: p.line.id, quantity: p.quantity })))
         try {
-          booked = await couriers.gateway.book(provider, { reference: id, from, to, ...parcel, value: { amount, currency: orderRow.currency }, labelSize: place.courier.label_size, pickup: place.courier.pickup_mode }, AbortSignal.timeout(bookingDeadlineMs))
+          booked = await couriers.gateway.book(provider, { reference: id, from, to, ...parcel, value: { amount, currency: orderRow.currency }, collect: due === null ? null : { amount: due, currency: orderRow.currency }, labelSize: place.courier.label_size, pickup: place.courier.pickup_mode }, AbortSignal.timeout(bookingDeadlineMs))
         } catch (error) {
           if (error instanceof CourierBoughtUnfinished) unkept(provider, error.providerRef)
           const failure = courierFailureOf(error)
+          // The adapter's message names the step and status only (LOGGING §9), so "didn't answer" can be traced.
+          if (failure && error instanceof Error) logEvent({ event: 'courier_failed', api: 'store', storeId, code: error.message.slice(0, 120) })
           if (failure) throw new Refused(failure)
           throw error
         }

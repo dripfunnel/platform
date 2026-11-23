@@ -3,7 +3,7 @@ import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addOrderNote, addTracking, cancelOrder, cancelReasons, cancelReturn, loadOrder, markOrderPaid, receiveReturn, refund, shipItems, startReturn, type Order, type OrderReturn, type OrderShipment, type ReturnReason } from '../../api/order'
+import { addOrderNote, addTracking, bookLabel, cancelOrder, cancelReasons, cancelReturn, fetchLabel, loadBookableCouriers, loadOrder, markOrderPaid, receiveReturn, refund, requestPickup, shipItems, startReturn, type BookableCourier, type Order, type OrderReturn, type OrderShipment, type ReturnReason } from '../../api/order'
 import { loadStoreTimeZone } from '../../api/orders'
 import { loadShipFrom, type Warehouse } from '../../api/stock'
 import { harnessEnabled, harnessSearch } from '../../harness'
@@ -27,6 +27,7 @@ import './order.css'
 import './orders.css'
 
 const words = messages.orders.detail
+const courierName = (provider: string) => (messages.settings.shipping.couriers as Record<string, string>)[provider] ?? provider
 const cancelWords = messages.orders.cancel
 const shellRoute = getRouteApi('/_app')
 const refused = refusalIn({ ...words.refused, other: words.failed })
@@ -57,6 +58,7 @@ export const OrderPage = () => {
   const [timeZone, setTimeZone] = useState('UTC')
   const [picks, setPicks] = useState<Picks | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[] | null>(null)
+  const [couriers, setCouriers] = useState<BookableCourier[] | null>(null)
   const [returning, setReturning] = useState(false)
   const [refunding, setRefunding] = useState<{ from: OrderReturn | null } | null>(null)
   const [returnTarget, setReturnTarget] = useState<OrderReturn | null>(null)
@@ -126,6 +128,11 @@ export const OrderPage = () => {
       setToast(words.failed)
     })
   }, [shipOpen, warehouses, sample, access.supplier])
+  // A supplier books from the mobile app or enters its tracking; a failed load only leaves booking out.
+  useEffect(() => {
+    if (!shipOpen || couriers || sample || access.supplier) return
+    void loadBookableCouriers().then(setCouriers, () => setCouriers([]))
+  }, [shipOpen, couriers, sample, access.supplier])
 
   // The harness opens the form as the prototype's Ship items does.
   useEffect(() => {
@@ -196,7 +203,28 @@ export const OrderPage = () => {
             ? fill(plural(words.ship.done, pickCount), { ...count, name: firstName })
             : fill(plural(words.ship.doneShort, pickCount), count)
     if (sample) return closeForms()
-    void run(() => shipItems({ orderId: order.id, ...form, lines }), done, setFormError)
+    const { book, ...byHand } = form
+    if (book) return void run(() => bookLabel({ orderId: order.id, warehouseId: form.warehouseId, lines, courier: book }), fill(plural(words.ship.doneBooked, pickCount), { ...count, courier: courierName(book) }), setFormError)
+    void run(() => shipItems({ orderId: order.id, ...byHand, lines }), done, setFormError)
+  }
+
+  const pickup = (shipment: OrderShipment) => {
+    if (sample) return
+    void run(() => requestPickup(shipment.id), words.shipments.pickupDone, setToast)
+  }
+
+  const downloadLabel = (shipment: OrderShipment) => {
+    const documentId = shipment.labelDocumentId
+    if (!documentId || sample) return
+    fetchLabel(documentId).then(
+      (blob) => {
+        const url = URL.createObjectURL(blob)
+        const a = Object.assign(document.createElement('a'), { href: url, download: `label-${order.number}-${shipment.id.slice(0, 8)}` })
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      },
+      () => setToast(words.shipments.labelFailed),
+    )
   }
 
   const track = (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => {
@@ -368,9 +396,13 @@ export const OrderPage = () => {
           {!access.supplier && !order.delivery && order.state === 'placed' && order.shippingOption === 'own_delivery' && <DeliveryWaiting />}
           {picks && (
             <ShipPanel
+              // Mounted again once the couriers load, so booking is the default as in the prototype.
+              key={couriers ? 'couriers' : 'loading'}
               kind={shipKind}
               count={pickCount}
               warehouses={warehouses}
+              couriers={couriers ?? []}
+              courierName={courierName}
               store={store}
               busy={busy}
               error={formError}
@@ -393,7 +425,7 @@ export const OrderPage = () => {
             onRefund={openRefund}
           />
           {refunding && <RefundPanel key={refunding.from?.id ?? 'refund'} order={order} access={access} from={refunding.from} busy={busy} error={formError} onCancel={closeForms} onRefund={giveBack} />}
-          <OrderShipments order={order} timeZone={timeZone} canTrack={(s) => access.canShip && !ro && (access.supplier || s.supplierId === null)} busy={busy} error={trackError} onFormChange={() => setTrackError(null)} onTrack={track} />
+          <OrderShipments order={order} timeZone={timeZone} canTrack={(s) => access.canShip && !ro && (access.supplier || s.supplierId === null)} busy={busy} error={trackError} onFormChange={() => setTrackError(null)} onTrack={track} onPickup={pickup} onLabel={downloadLabel} />
           <OrderHistory order={order} timeZone={timeZone} note={access.canNote ? { disabled: ro, onAdd: () => showDialog('note') } : null} />
         </div>
         <div className="df-order-aside">
