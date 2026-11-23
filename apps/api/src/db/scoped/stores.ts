@@ -419,7 +419,7 @@ export const selectStorePeople = (tx: ScopedSql, storeId: string, limit = maxPag
     from membership m
     join "user" u on u.id = m.user_id
     left join seller se on se.id = m.seller_id
-    where m.store_id = ${storeId}
+    where m.store_id = ${storeId} and m.status <> 'removed'
     order by case m.role_key when 'owner' then 0 when 'manager' then 1 when 'staff' then 2 when 'supplier-admin' then 3 else 4 end,
       se.name nulls first, u.name
     limit ${limit}
@@ -510,7 +510,7 @@ export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise
       count(*) filter (where m.seller_id is null and m.role_key = 'manager')::int as managers,
       count(*) filter (where m.seller_id is null and m.role_key = 'staff')::int as staff,
       (select count(*)::int from seller se where se.store_id = ${storeId}) as suppliers
-    from membership m where m.store_id = ${storeId} and m.status <> 'suspended'
+    from membership m where m.store_id = ${storeId} and m.status not in ('suspended', 'removed')
   `
   return row ?? { people: 0, owners: 0, managers: 0, staff: 0, suppliers: 0 }
 }
