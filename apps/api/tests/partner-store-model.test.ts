@@ -3,7 +3,7 @@ import type { CallerContext } from '#core/tenancy'
 import type { PartnerRow, StoreRow } from '#db/schema/saas'
 import { pgArray, withScope } from '#db/scoped/index'
 import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, selectPlansFor, selectSetupItemsFor, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
-import { insertJob, insertMembership, insertStore, insertUser, selectJobDetail, selectStore, selectStorePeople, selectStores } from '#db/scoped/stores'
+import { insertJob, insertMembership, insertStore, insertUser, selectJobDetail, selectStore, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores } from '#db/scoped/stores'
 import { canTransitionPartner, transitionPartner } from '#saas/partners/states'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
 import { canTransitionStore, extendTrial, transitionStore } from '#saas/stores/states'
@@ -169,6 +169,27 @@ describe('the fields the admin console shows', () => {
     expect(job).toMatchObject({ state: 'failed', step: 'repo', last_error: 'GitHub didn’t respond while creating the storefront.' })
     const detail = await as(staff, (tx) => selectJobDetail(tx, job?.id ?? ''))
     expect(detail?.details).toContain('502')
+  })
+
+  it('Store detail (§5.2): a removed membership is history, not one of the store’s people (ACCESS.md §6)', async () => {
+    const kiko = await idOf('store', 'Kiko Kids')
+    const before = await as(staff, (tx) => selectStorePeople(tx, kiko))
+    const counted = await as(staff, (tx) => selectStoreCounts(tx, kiko))
+    const [store] = await db.sql<{ partner_id: string }[]>`select partner_id from store where id = ${kiko}`
+    const user = await as(staff, (tx) => insertUser(tx, { partnerId: store?.partner_id ?? '', email: 'gone@kikokids.example', name: 'Gone', status: 'active' }))
+    const membership = await as(staff, (tx) => insertMembership(tx, { userId: user, storeId: kiko, role: 'staff', status: 'active' }))
+    await db.sql`update membership set status = 'removed' where id = ${membership}`
+    expect((await as(staff, (tx) => selectStorePeople(tx, kiko))).map((p) => p.id)).toEqual(before.map((p) => p.id))
+    expect(await as(staff, (tx) => selectStoreCounts(tx, kiko))).toEqual(counted)
+  })
+
+  it('Stores list and detail (§5.1, §5.2): a removed Owner is not the store’s owner', async () => {
+    const kiko = await idOf('store', 'Kiko Kids')
+    const [store] = await db.sql<{ partner_id: string }[]>`select partner_id from store where id = ${kiko}`
+    const user = await as(staff, (tx) => insertUser(tx, { partnerId: store?.partner_id ?? '', email: 'next-owner@kikokids.example', name: 'Next Owner', status: 'active' }))
+    await as(staff, (tx) => insertMembership(tx, { userId: user, storeId: kiko, role: 'owner', status: 'active' }))
+    await db.sql`update membership set status = 'removed' where store_id = ${kiko} and role_key = 'owner' and user_id <> ${user}`
+    expect((await as(staff, (tx) => selectStoreListRow(tx, kiko, now)))?.owner_name).toBe('Next Owner')
   })
 
   it('state history is the activity log, not a table', async () => {

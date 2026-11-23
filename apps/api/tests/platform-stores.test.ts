@@ -122,7 +122,7 @@ describe('the detail', () => {
     expect(detail?.usage.map((u) => u.limit)).toEqual(['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'])
     expect(detail?.billing).toMatchObject({ mode: 'dripfunnel', partnerName: 'Northstar Commerce' })
     const [counted] = await db.sql<{ people: number; suppliers: number }[]>`
-      select (select count(*)::int from membership where store_id = ${mine?.id ?? ''} and status <> 'suspended') as people, (select count(*)::int from seller where store_id = ${mine?.id ?? ''}) as suppliers`
+      select (select count(*)::int from membership where store_id = ${mine?.id ?? ''} and status not in ('suspended', 'removed')) as people, (select count(*)::int from seller where store_id = ${mine?.id ?? ''}) as suppliers`
     expect(detail?.more).toEqual({ overrides: false, trialExtensions: false, people: false, activity: false })
     await db.sql`
       insert into store_limit_override (store_id, key, amount, duration, reason, created_by_kind, created_by_label)
