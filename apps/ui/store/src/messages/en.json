@@ -4071,7 +4071,7 @@
         "unavailable": "Not set up here yet"
       },
       "notOffered": "Connecting {name} isn’t set up on this platform yet. Ask your platform’s support.",
-      "testOnly": "Test keys only: your preview storefront takes test payments; your live storefront doesn’t offer it yet.",
+      "testOnly": "Test keys only: your preview and your live storefront take test payments, and no real money, until you add live keys.",
       "webhook": "{mode} webhook address, for {name}’s webhook settings:",
       "modes": {
         "live": "Live",
@@ -4122,7 +4122,7 @@
         "webhookId": "Webhook id"
       },
       "connectedLive": "{name} connected — shoppers can pay with it now",
-      "connectedTest": "{name} test keys saved — your preview storefront takes test payments",
+      "connectedTest": "{name} test keys saved — your storefronts take test payments until you add live keys",
       "codBody": "Your courier collects the money. Orders stay “Payment pending” until you mark them paid.",
       "bankBody": "Shoppers see these details at checkout and in their order confirmation.",
       "bankLabel": "Your bank details",

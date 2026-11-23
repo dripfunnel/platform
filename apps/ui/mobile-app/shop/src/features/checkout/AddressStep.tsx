@@ -39,11 +39,12 @@ export function AddressStep({ cart, read, apply, next }: Props) {
   const continueWithSaved = async () => {
     const chosen = saved.find((a) => a.id === selected)
     if (!chosen) return
-    if (chosen.pin) return send(draftOf(chosen), chosen.pin)
-    // An address saved without a pin (on the website) is used once the pin is put on it.
+    const found = checkAddress(draftOf(chosen), chosen.pin)
+    if (chosen.pin && Object.keys(found).length === 0) return send(draftOf(chosen), chosen.pin)
+    // An address saved without a pin or a phone (on the website) is used once the shopper has put them on it.
     setDraft(draftOf(chosen))
-    setPin(null)
-    setProblems({ pin: 'required' })
+    setPin(chosen.pin)
+    setProblems(found)
     setMode('form')
   }
 

@@ -6,10 +6,10 @@ import { addressFields, addressProblems, type Draft } from './rules'
 const countries = ['IN', 'US', 'GB', 'FR']
 
 const complete: Record<string, Draft> = {
-  IN: { name: 'Ana Rao', line1: '12 Sample Lane', line2: '', city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '' },
-  US: { name: 'Maya Chen', line1: '250 S High St', line2: '', city: 'Columbus', region: 'Ohio', postalCode: '43215', country: 'US', phone: '' },
-  GB: { name: 'Tom Hall', line1: '1 High St', line2: '', city: 'Leeds', region: '', postalCode: 'LS1 4AB', country: 'GB', phone: '' },
-  FR: { name: 'Lea Roux', line1: '3 Rue Verte', line2: '', city: 'Lyon', region: '', postalCode: '', country: 'FR', phone: '' },
+  IN: { name: 'Ana Rao', line1: '12 Sample Lane', line2: '', city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+91 98765 43210' },
+  US: { name: 'Maya Chen', line1: '250 S High St', line2: '', city: 'Columbus', region: 'Ohio', postalCode: '43215', country: 'US', phone: '+1 614 555 0123' },
+  GB: { name: 'Tom Hall', line1: '1 High St', line2: '', city: 'Leeds', region: '', postalCode: 'LS1 4AB', country: 'GB', phone: '+44 113 496 0000' },
+  FR: { name: 'Lea Roux', line1: '3 Rue Verte', line2: '', city: 'Lyon', region: '', postalCode: '', country: 'FR', phone: '+33 4 72 00 00 00' },
 }
 
 /** One complete address per country, and the ways it goes wrong. */
@@ -24,6 +24,7 @@ const cases = (country: string): Draft[] => {
     { ...ok, postalCode: '' },
     { ...ok, postalCode: '12' },
     { ...ok, postalCode: '302017' },
+    { ...ok, phone: '' },
     { ...ok, phone: '+91 98765-43210' },
     { ...ok, phone: '98765 43210' },
     { ...ok, country: '' },

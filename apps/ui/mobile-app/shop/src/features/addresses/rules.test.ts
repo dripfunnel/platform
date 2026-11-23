@@ -1,6 +1,6 @@
 import { addressFields, addressProblems, type Draft } from './rules'
 
-const draft = (over: Partial<Draft> = {}): Draft => ({ name: 'Ana Rao', line1: '12 Sample Lane', line2: '', city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '', ...over })
+const draft = (over: Partial<Draft> = {}): Draft => ({ name: 'Ana Rao', line1: '12 Sample Lane', line2: '', city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: '+91 98765-43210', ...over })
 
 describe('an address by country', () => {
   it('is complete when its country’s fields are filled', () => {
@@ -16,7 +16,7 @@ describe('an address by country', () => {
 
   it('needs only the basics where the country has no rules of its own', () => {
     expect(addressProblems(draft({ country: 'FR', region: '', postalCode: '' }))).toEqual({})
-    expect(addressFields('FR').filter((f) => !f.optional).map((f) => f.field)).toEqual(['name', 'line1', 'city'])
+    expect(addressFields('FR').filter((f) => !f.optional).map((f) => f.field)).toEqual(['name', 'line1', 'city', 'phone'])
   })
 
   it('needs a name, a line and a city, and a country', () => {
@@ -24,7 +24,8 @@ describe('an address by country', () => {
     expect(addressProblems(draft({ country: '' }))).toMatchObject({ country: 'required' })
   })
 
-  it('takes a phone number with its country code, or none', () => {
+  it('needs a phone number with its country code', () => {
+    expect(addressProblems(draft({ phone: '' }))).toEqual({ phone: 'required' })
     expect(addressProblems(draft({ phone: '+91 98765-43210' }))).toEqual({})
     expect(addressProblems(draft({ phone: '98765 43210' }))).toEqual({ phone: 'invalid' })
   })

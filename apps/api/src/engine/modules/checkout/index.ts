@@ -124,17 +124,19 @@ export interface CheckoutDeps extends Omit<CartDeps, 'allowNewCart'> {
 // In the region's own order, as Payment setup lists them.
 const rank = (country: string | null, provider: string) => providersFor(country).findIndex((p) => p === provider)
 
-/** The ways to pay at checkout: the ways paid later in either mode; a card provider where its adapter takes this mode. */
+/** The ways to pay at checkout: a card provider with this mode's keys, else its test keys (PREVIEW §5 step 6), in the keys' mode. */
 const optionsOf = (accounts: readonly PaymentAccountRow[], country: string | null, mode: PaymentMode, gateways: PaymentGateways): PaymentOption[] => {
   const seen = new Set<string>()
   return [...accounts]
-    .sort((a, b) => rank(country, a.provider) - rank(country, b.provider))
+    .sort((a, b) => rank(country, a.provider) - rank(country, b.provider) || Number(b.mode === mode) - Number(a.mode === mode))
     .flatMap((a) => {
       const provider = paymentProviders.find((p) => p === a.provider)
       if (!provider || seen.has(provider) || !providersFor(country).includes(provider)) return []
-      if (isCardProvider(provider) && !(gateways[provider]?.available(mode) && (provider === 'stripe' || a.mode === mode))) return []
+      const keysMode = isCardProvider(provider) && provider !== 'stripe' ? a.mode : mode
+      const liveKeysOnPreview = keysMode === 'live' && mode === 'test'
+      if (isCardProvider(provider) && (liveKeysOnPreview || !gateways[provider]?.available(keysMode))) return []
       seen.add(provider)
-      return [{ provider, kind: kindOf(provider), instructions: provider === 'bank_transfer' ? a.bank_details : null, mode, publicKey: isCardProvider(provider) ? a.public_key : null }]
+      return [{ provider, kind: kindOf(provider), instructions: provider === 'bank_transfer' ? a.bank_details : null, mode: keysMode, publicKey: isCardProvider(provider) ? a.public_key : null }]
     })
 }
 
@@ -182,11 +184,11 @@ export const createCheckout = (deps: CheckoutDeps) => {
     const gateway = deps.gateways[provider]
     const row = await withSystemScope(sql, (tx) => selectGatewayAccount(tx, storeId, provider, mode))
     const account = row ? await openAccount(row, mode, deps.secrets) : null
-    if (!row || !gateway || !account || !gateway.available(mode)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
+    if (!row || !gateway || !account || !gateway.available(account.mode)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     const attemptId = crypto.randomUUID()
     try {
       const started = await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId), ...(app ? { app: appOf(app, orderId) } : {}) })
-      return { ok: true, value: { attemptId, accountId: row.id, started: { ...started, amount, mode } } }
+      return { ok: true, value: { attemptId, accountId: row.id, started: { ...started, amount, mode: account.mode } } }
     } catch (error) {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
       if (error instanceof PaymentNeedsPhone) return { ok: false, reason: 'PHONE_REQUIRED' }

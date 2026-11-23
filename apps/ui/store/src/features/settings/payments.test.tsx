@@ -227,7 +227,7 @@ describe('a provider’s own keys', () => {
     fireEvent.click(connect)
     await settle()
     expect(pay.connectKeys).toHaveBeenCalledWith('razorpay', 'test', { keyId: 'rzp_test_abc123', keySecret: 'secret', webhookSecret: 'hook' })
-    expect(screen.getByText('Razorpay test keys saved — your preview storefront takes test payments')).toBeTruthy()
+    expect(screen.getByText('Razorpay test keys saved — your storefronts take test payments until you add live keys')).toBeTruthy()
     expect(document.querySelector('dialog[open]')).toBeNull()
   })
 
