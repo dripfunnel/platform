@@ -8,12 +8,12 @@ export interface FieldAttrs {
 }
 
 /** A customer form's label and input with what the API refused the field for under it (design.md §8). */
-export const CustomerFormField = ({ label, hint, error, required, children }: { label: string; hint?: string; error: string | null; required?: boolean; children: (attrs: FieldAttrs) => ReactNode }) => {
+export const CustomerFormField = ({ label, hint, error, focusKey, required, children }: { label: string; hint?: string; error: string | null; focusKey?: unknown; required?: boolean; children: (attrs: FieldAttrs) => ReactNode }) => {
   const id = useId()
-  // The field at fault takes focus, so the merchant lands where the message is.
+  // The field at fault takes focus, again on a new refusal (`focusKey`) even when its words are the same.
   useEffect(() => {
     if (error) document.getElementById(id)?.focus()
-  }, [error, id])
+  }, [error, id, focusKey])
   return (
     <div className="df-form-field">
       <label htmlFor={id} className={required ? 'df-form-required' : undefined}>

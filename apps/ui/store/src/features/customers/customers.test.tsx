@@ -446,6 +446,49 @@ describe('the Customers screen', () => {
     expect([words.editForm.address, words.editForm.city, words.editForm.country, words.editForm.postal].map(required)).toEqual(['true', 'true', 'true', null])
   })
 
+  it('names the field a check in the form itself finds wrong, puts the cursor there, and does again on the next press (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const add = within(screen.getByRole('region', { name: words.addForm.title }))
+    const box = (scope: typeof add, label: string) => scope.getByRole('textbox', { name: new RegExp(label.replace(/[()]/g, '\\$&')) }) as HTMLInputElement
+    const press = (scope: typeof add, name: string) => fireEvent.click(scope.getByRole('button', { name }))
+    const wrongAt = (field: HTMLInputElement, text: string, scope: typeof add) => {
+      expect(scope.getByText(text).textContent).toBe(text)
+      expect(field.getAttribute('aria-invalid')).toBe('true')
+      expect(document.activeElement).toBe(field)
+    }
+
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.name), words.addForm.nameMissing, add)
+    box(add, words.addForm.email).focus()
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.name), words.addForm.nameMissing, add)
+
+    fireEvent.change(box(add, words.addForm.name), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(box(add, words.addForm.email), { target: { value: 'not-an-email' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.addForm.email), words.addForm.emailInvalid, add)
+
+    fireEvent.change(box(add, words.addForm.email), { target: { value: 'steve@example.com' } })
+    fireEvent.change(box(add, words.editForm.city), { target: { value: 'Pune' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.editForm.address), words.editForm.addressPartial, add)
+    fireEvent.change(box(add, words.editForm.address), { target: { value: '4 Park Rd' } })
+    fireEvent.change(box(add, words.editForm.country), { target: { value: 'India' } })
+    press(add, words.addForm.confirm)
+    wrongAt(box(add, words.editForm.country), words.editForm.countryInvalid, add)
+    expect(api.addCustomer).not.toHaveBeenCalled()
+    fireEvent.click(add.getByRole('button', { name: words.addForm.cancel }))
+
+    fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
+    const edit = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
+    expect(box(edit, words.editForm.name).getAttribute('aria-required')).toBe('true')
+    fireEvent.change(box(edit, words.editForm.name), { target: { value: ' ' } })
+    press(edit, words.editForm.save)
+    wrongAt(box(edit, words.editForm.name), words.editForm.nameMissing, edit)
+    expect(api.updateCustomer).not.toHaveBeenCalled()
+  })
+
   it('makes, renames and deletes groups, saying who leaves', async () => {
     await show(owner)
     fireEvent.click(screen.getByRole('tab', { name: 'Groups · 2' }))

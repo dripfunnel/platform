@@ -15,33 +15,31 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState(emptyAddress)
-  const [problem, setProblem] = useState<string | null>(null)
   const [fault, setFault] = useState<CustomerFault | null>(null)
   const first = useRef<HTMLInputElement>(null)
   useEffect(() => first.current?.focus(), [])
   const add = () => {
-    if (!name.trim()) return setProblem(words.nameMissing)
-    if (!looksLikeEmail(email.trim())) return setProblem(words.emailInvalid)
+    if (!name.trim()) return setFault({ field: 'name', text: words.nameMissing })
+    if (!looksLikeEmail(email.trim())) return setFault({ field: 'email', text: words.emailInvalid })
     const addressWrong = addressProblem(address)
-    if (addressWrong) return setProblem(addressWrong)
-    setProblem(null)
+    if (addressWrong) return setFault(addressWrong)
     setFault(null)
     void onAdd(name.trim(), email.trim().toLowerCase(), phone.trim() || null, addressInputOf(address, name.trim())).then(setFault)
   }
   const at = (field: CustomerField) => (fault?.field === field ? fault.text : null)
-  const shown = problem ?? (fault?.field === 'form' ? fault.text : null)
+  const shown = fault?.field === 'form' ? fault.text : null
   return (
     <section className="df-customer-card df-customer-form" aria-label={words.title}>
       <h2>{words.title}</h2>
       <p className="df-customer-sub">{words.body}</p>
       <div className="df-form-grid">
-        <CustomerFormField label={words.name} error={at('name')} required>
+        <CustomerFormField label={words.name} error={at('name')} focusKey={fault} required>
           {(attrs) => <input {...attrs} ref={first} value={name} placeholder={words.namePlaceholder} onChange={(event) => setName(event.target.value)} />}
         </CustomerFormField>
-        <CustomerFormField label={words.email} error={at('email')} required>
+        <CustomerFormField label={words.email} error={at('email')} focusKey={fault} required>
           {(attrs) => <input {...attrs} type="email" value={email} placeholder={words.emailPlaceholder} onChange={(event) => setEmail(event.target.value)} />}
         </CustomerFormField>
-        <CustomerFormField label={words.phone} error={at('phone')}>
+        <CustomerFormField label={words.phone} error={at('phone')} focusKey={fault}>
           {({ 'aria-invalid': invalid, ...attrs }) => <PhoneInput {...attrs} invalid={invalid} value={phone} onValue={setPhone} />}
         </CustomerFormField>
       </div>
