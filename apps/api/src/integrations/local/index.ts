@@ -140,6 +140,9 @@ export const localCouriers = (): CourierDirectory => ({
           pickup: request.pickup === 'scheduled' ? { ref: `local-pickup-${request.reference}`, date: null } : null,
         }
       },
+      // Local tracking moves only by posting to the hook, below.
+      track: async () => [],
+      remitted: async () => [],
       pickup: async (_, shipment) => ({ ref: `local-pickup-${shipment.providerRef}`, date: null }),
       // Read as the real hooks are, under one known secret, so a local label can be tracked by posting to the hook.
       readHook: (account, hook) => (account === 'shiprocket' ? shiprocketHook(localCourierHookSecret, hook) : easyPostHook(localCourierHookSecret, hook)),

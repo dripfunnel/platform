@@ -20,7 +20,7 @@ const couriers: CourierDirectory = {
   forStore: async () => ({
     accounts: new Set(['shiprocket'] as const),
     connectable: new Set(['shiprocket'] as const),
-    gateway: { quote: async () => ({ amount: { amount: 8500n, currency: 'INR' }, service: 'Surface', minDays: 3, maxDays: 5 }), book: async () => null, pickup: async () => ({ ref: null, date: null }), readHook: async () => null },
+    gateway: { quote: async () => ({ amount: { amount: 8500n, currency: 'INR' }, service: 'Surface', minDays: 3, maxDays: 5 }), book: async () => null, pickup: async () => ({ ref: null, date: null }), readHook: async () => null, track: async () => [], remitted: async () => [] },
   }),
 }
 

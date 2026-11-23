@@ -1172,7 +1172,7 @@ type Mutation {
   chooseShopCategory(id: ID!): ShopCategory
   chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
-  connectCourier(email: String, password: String, provider: String!, webhookToken: String): String
+  connectCourier(channelId: String, email: String, password: String, provider: String!, webhookToken: String): String
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
@@ -2792,6 +2792,7 @@ input ShipLineInput {
 }
 
 type ShippingCourier {
+  accountChannelId: String
   accountEmail: String
   labelSize: String
   lastTestResult: String

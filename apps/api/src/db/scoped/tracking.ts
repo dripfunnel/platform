@@ -45,3 +45,47 @@ export const setTrackingStatus = async (tx: ScopedSql, fulfilmentId: string, sta
     where id = ${fulfilmentId}
   `
 }
+
+// A Shiprocket parcel still on its way (migration 0414): booked in the last 60 days, never delivered, returned or cancelled.
+const onItsWay = (tx: ScopedSql, since: Date, askedBefore: Date) => tx`
+  f.kind = 'booked' and f.courier_provider = 'shiprocket' and f.delivered_at is null and f.booked_at > ${since}
+  and (f.tracking_status is null or f.tracking_status not in ('delivered', 'returned', 'cancelled'))
+  and (f.tracking_polled_at is null or f.tracking_polled_at < ${askedBefore})
+`
+
+// A delivered Shiprocket parcel whose order's cash on delivery is still owed, delivered in the last 60 days: asked about its
+// remittance (THIRD-PARTY-ACCESS §3.2); a returned one is never delivered, so never asked.
+const awaitingCash = (tx: ScopedSql, since: Date, askedBefore: Date) => tx`
+  f.kind = 'booked' and f.courier_provider = 'shiprocket' and f.tracking_status = 'delivered' and f.delivered_at > ${since}
+  and (f.tracking_polled_at is null or f.tracking_polled_at < ${askedBefore})
+  and exists (select 1 from "order" o where o.id = f.order_id and o.state = 'placed' and o.payment_method = 'cod' and o.payment_state = 'pending')
+`
+
+/** The stores with a Shiprocket login and a parcel on its way, or delivered awaiting its cash, not asked about lately. */
+export const selectStoresToTrack = (tx: ScopedSql, since: Date, askedBefore: Date, cashAskedBefore: Date, limit: number): Promise<{ store_id: string; partner_id: string }[]> =>
+  tx<{ store_id: string; partner_id: string }[]>`
+    select distinct f.store_id, s.partner_id from fulfilment f join store s on s.id = f.store_id
+    where (${onItsWay(tx, since, askedBefore)} or ${awaitingCash(tx, since, cashAskedBefore)})
+      and exists (select 1 from courier_account a where a.store_id = f.store_id and a.provider = 'shiprocket')
+    limit ${limit}
+  `
+
+/** One store's delivered COD parcels to ask about their remittance, the longest unasked first. */
+export const selectCashToSettle = (tx: ScopedSql, storeId: string, since: Date, askedBefore: Date, limit: number): Promise<{ id: string; order_id: string; provider_ref: string }[]> =>
+  tx<{ id: string; order_id: string; provider_ref: string }[]>`
+    select f.id, f.order_id, f.provider_ref from fulfilment f
+    where f.store_id = ${storeId} and ${awaitingCash(tx, since, askedBefore)}
+    order by f.tracking_polled_at nulls first limit ${limit}
+  `
+
+/** One store's parcels to ask about, the longest unasked first. */
+export const selectShipmentsToTrack = (tx: ScopedSql, storeId: string, since: Date, askedBefore: Date, limit: number): Promise<{ id: string; provider_ref: string }[]> =>
+  tx<{ id: string; provider_ref: string }[]>`
+    select f.id, f.provider_ref from fulfilment f
+    where f.store_id = ${storeId} and ${onItsWay(tx, since, askedBefore)}
+    order by f.tracking_polled_at nulls first limit ${limit}
+  `
+
+export const setTrackingPolled = async (tx: ScopedSql, ids: readonly string[], at: Date): Promise<void> => {
+  await tx`update fulfilment set tracking_polled_at = ${at} where id = any(${pgArray(ids)}::uuid[])`
+}

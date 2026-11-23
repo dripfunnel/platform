@@ -61,6 +61,8 @@ const fakeCouriers = (accounts: ('shiprocket' | 'easypost')[]): CourierDirectory
       book: async () => null,
       pickup: async () => ({ ref: null, date: null }),
       readHook: async () => null,
+      track: async () => [],
+      remitted: async () => [],
     },
   }),
 })
@@ -126,9 +128,9 @@ const settings = async (who: Who) =>
 const save = async (who: Who, input: Record<string, unknown>, revision?: number) =>
   gql('mutation S($r: Int!, $i: ShippingInput!) { saveShipping(revision: $r, input: $i) }', who, { r: revision ?? (await settings(who)).revision, i: { courierRate: false, flatRate: false, pickup: false, freeMode: 'never', areaMode: 'everywhere', ...input } })
 const login = { email: 'api-user@jaipur.example', password: 'S3cret!pass', webhookToken: 'hook-token-1-long-enough' }
-const courier = (who: Who, mutation: 'connectCourier' | 'useCourierForPricing' | 'disconnectCourier', provider: string, as?: { email: string; password: string; webhookToken?: string }) =>
+const courier = (who: Who, mutation: 'connectCourier' | 'useCourierForPricing' | 'disconnectCourier', provider: string, as?: { email: string; password: string; webhookToken?: string; channelId?: string }) =>
   as
-    ? gql('mutation C($p: String!, $e: String, $w: String, $t: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t) }', who, { p: provider, e: as.email, w: as.password, t: as.webhookToken ?? null })
+    ? gql('mutation C($p: String!, $e: String, $w: String, $t: String, $c: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t, channelId: $c) }', who, { p: provider, e: as.email, w: as.password, t: as.webhookToken ?? null, c: as.channelId ?? null })
     : gql(`mutation { ${mutation}(provider: "${provider}") }`, who)
 const accountRows = () => db.sql<{ email: string; credentials_sealed: string }[]>`select email, credentials_sealed from courier_account where store_id = ${stores.india}`
 
@@ -195,7 +197,7 @@ describe('an Indian store', () => {
     loginAnswer.now = 'unavailable'
     expect((await courier('india', 'connectCourier', 'shiprocket', login)).code).toBe('COURIER_UNAVAILABLE')
     loginAnswer.now = 'ok'
-    for (const bad of [{ ...login, email: 'not-an-email' }, { ...login, password: '' }]) expect((await courier('india', 'connectCourier', 'shiprocket', bad)).code).toBe('INVALID_INPUT')
+    for (const bad of [{ ...login, email: 'not-an-email' }, { ...login, password: '' }, { ...login, channelId: 'web-1' }]) expect((await courier('india', 'connectCourier', 'shiprocket', bad)).code).toBe('INVALID_INPUT')
     expect((await courier('india', 'connectCourier', 'shiprocket')).code).toBe('INVALID_INPUT')
     // Only the two real asks reached Shiprocket, and none kept anything.
     expect(checked.map((c) => c.email)).toEqual([login.email, login.email])
@@ -224,6 +226,9 @@ describe('an Indian store', () => {
     expect(JSON.parse((await secrets.open(kept?.credentials_sealed ?? '')) ?? 'null')).toEqual({ password: login.password, webhookToken: login.webhookToken })
     expect((await courier('india', 'connectCourier', 'shiprocket', { ...login, webhookToken: 'too-short' })).code).toBe('WEAK_TOKEN')
     expect((await courier('india', 'connectCourier', 'shiprocket', login)).data?.['connectCourier']).toBe('pricing')
+    // The sales channel is no secret: the store reads it back.
+    expect((await courier('india', 'connectCourier', 'shiprocket', { ...login, channelId: ' 4321 ' })).data?.['connectCourier']).toBe('pricing')
+    expect(((await gql('{ shippingSettings { couriers { accountChannelId } } }', 'india')).data?.['shippingSettings'] as { couriers: unknown[] }).couriers).toEqual([{ accountChannelId: '4321' }])
   })
 
   it('prices the cart’s weight from the store’s postcode, and keeps the connected courier through a plain save', async () => {

@@ -114,6 +114,8 @@ describe('seed:live-shop', () => {
       const folder = `stores/${t.storeA1}/builds/${live.buildId}/`
       expect(sites.keys(folder)).toEqual([`${folder}_edge.json`, `${folder}_manifest.json`, `${folder}chunks/theme.js`, `${folder}index.html`])
       expect(await (await sites.get(`${folder}index.html`))?.text()).toBe('<p>new design</p>')
+      // Every address falls back to the one page, which draws it in the browser as the preview does.
+      expect(JSON.parse((await (await sites.get(`${folder}_edge.json`))?.text()) ?? '{}')).toMatchObject({ fallbacks: [{ prefix: '/', page: '/index.html' }] })
       expect(await livePointer(t.storeA1)).toBe(live.buildId)
       expect(sites.keys(`stores/${t.storeB1}/`)).toEqual(otherKeys)
       expect(await livePointer(t.storeB1)).toBe(otherBuild)

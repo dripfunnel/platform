@@ -95,7 +95,7 @@ export const orderSample = (state: OrderState | null): Order | null => {
         ...baseOrder,
         fulfilmentState: 'partly_fulfilled',
         parts: [ownPart([shirt({ fulfilledQuantity: 1 }), cushion()], 'partly_shipped'), supplierPart([dupatta({ sentToStoreQuantity: 1 })], 'to-store', 'sent_to_store')],
-        shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: null, trackingUrl: null, shippedAt: hoursAgo(1), lines: [{ lineId: 'l1', quantity: 1 }] }],
+        shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: null, trackingUrl: null, shippedAt: hoursAgo(1), labelDocumentId: null, pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l1', quantity: 1 }] }],
         history: [{ id: 'e3', action: 'order.shipped', at: hoursAgo(1), actorKind: 'person', actorName: 'Farhan Ali', note: null }, ...baseOrder.history],
       }
     case 'paymentPending':
@@ -129,7 +129,7 @@ export const orderSample = (state: OrderState | null): Order | null => {
         ...baseOrder,
         fulfilmentState: 'fulfilled',
         parts: [ownPart([shirt({ fulfilledQuantity: 1 }), cushion({ fulfilledQuantity: 2 })], 'shipped'), supplierPart([dupatta({ sentToStoreQuantity: 1, fulfilledQuantity: 1 })], 'to-store', 'shipped')],
-        shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: '1490 2210 8834', trackingUrl: 'https://www.delhivery.com/track/package/149022108834', shippedAt: hoursAgo(1), lines: [{ lineId: 'l1', quantity: 1 }, { lineId: 'l2', quantity: 2 }, { lineId: 'l3', quantity: 1 }] }],
+        shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: 'Delhivery', trackingNumber: '1490 2210 8834', trackingUrl: 'https://www.delhivery.com/track/package/149022108834', shippedAt: hoursAgo(1), labelDocumentId: null, pickupRequestedAt: null, pickupDate: null, lines: [{ lineId: 'l1', quantity: 1 }, { lineId: 'l2', quantity: 2 }, { lineId: 'l3', quantity: 1 }] }],
         history: [{ id: 'e3', action: 'order.shipped', at: hoursAgo(1), actorKind: 'person', actorName: 'Farhan Ali', note: null }, ...baseOrder.history],
       }
     case 'cancelled':

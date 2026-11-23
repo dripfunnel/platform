@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { actingHeaders } from '../acting'
 import { query } from './client'
 import { moneySchema } from './orders'
 
@@ -58,6 +59,10 @@ const shipmentSchema = z.object({
   trackingNumber: z.string().nullable(),
   trackingUrl: z.string().nullable(),
   shippedAt: z.string(),
+  // A label booked here (kind booked): its file, and the pickup asked of its courier.
+  labelDocumentId: z.string().nullable(),
+  pickupRequestedAt: z.string().nullable(),
+  pickupDate: z.string().nullable(),
   lines: quantitiesSchema,
 })
 export type OrderShipment = z.infer<typeof shipmentSchema>
@@ -148,7 +153,7 @@ const orderFields = `id number state placedAt customerName
   parts { id supplierId supplierName shippingMode state lines { id productId name versionName sku quantity unitPrice ${money} amount ${money} total ${money} fulfilledQuantity returnedQuantity refundedQuantity sentToStoreQuantity
     answers { question kind text per amount ${money} choices { label quantity free } files { id mime bytes url } } } }
   history { id action at actorKind actorName note }
-  shipments { id kind supplierId warehouseName courierName trackingNumber trackingUrl shippedAt lines ${quantities} }
+  shipments { id kind supplierId warehouseName courierName trackingNumber trackingUrl shippedAt labelDocumentId pickupRequestedAt pickupDate lines ${quantities} }
   returns { id number state reason startedAt lines ${quantities} }
   refunds { id supplierId returnId amount ${money} lines ${quantities} }
   paymentState fulfilmentState paymentMethod test customerId email phone marketName taxInclusive
@@ -175,6 +180,38 @@ export const shipItems = async (input: ShipInput): Promise<void> => {
     z.object({ shipItems: z.array(z.string()) }),
     { o: input.orderId, w: input.warehouseId, l: input.lines, c: input.courierName, t: input.trackingNumber, u: input.trackingUrl },
   )
+}
+
+/** A label bought through the store's connected courier for these lines (FIRST-RELEASE §19 `bookLabel`). */
+export const bookLabel = async (input: { orderId: string; warehouseId: string; lines: { lineId: string; quantity: number }[]; courier: string }): Promise<void> => {
+  await query('mutation B($o: ID!, $w: ID!, $l: [ShipLineInput!]!, $c: String!) { bookLabel(orderId: $o, warehouseId: $w, lines: $l, courier: $c) }', z.object({ bookLabel: z.string() }), {
+    o: input.orderId,
+    w: input.warehouseId,
+    l: input.lines,
+    c: input.courier,
+  })
+}
+
+export const requestPickup = async (shipmentId: string): Promise<void> => {
+  await query('mutation P($s: ID!) { requestPickup(shipmentId: $s) }', z.object({ requestPickup: z.boolean() }), { s: shipmentId })
+}
+
+export interface BookableCourier {
+  provider: string
+  pickupMode: string
+}
+
+/** The couriers the store can book a label with: connected, pricing or on standby. */
+export const loadBookableCouriers = async (): Promise<BookableCourier[]> =>
+  (await query('{ shippingSettings { couriers { provider status pickupMode } } }', z.object({ shippingSettings: z.object({ couriers: z.array(z.object({ provider: z.string(), status: z.string(), pickupMode: z.string() })) }) })))
+    .shippingSettings.couriers.filter((c) => c.status === 'pricing' || c.status === 'standby')
+    .map(({ provider, pickupMode }) => ({ provider, pickupMode }))
+
+/** A booked label's file, read with the acting store's headers (`GET /api/documents/{id}`). */
+export const fetchLabel = async (documentId: string): Promise<Blob> => {
+  const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}`, { credentials: 'same-origin', headers: actingHeaders(), signal: AbortSignal.timeout(30_000) })
+  if (!response.ok) throw new Error(`label ${response.status}`)
+  return response.blob()
 }
 
 export const addTracking = async (shipmentId: string, courierName: string | null, trackingNumber: string, trackingUrl: string | null): Promise<void> => {

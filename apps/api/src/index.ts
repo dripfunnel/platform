@@ -73,6 +73,7 @@ import { localCloudflare, localCouriers, localDns, localEmail, localPush, localS
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
 import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
 import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
+import { courierTrackDeliverer, courierTrackKind, queueCourierTracking } from '#jobs/queues/deliverers/courierTrack'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
@@ -387,6 +388,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.catalog': catalogExportDeliverer(sql, undefined, config.SHOP_DOMAIN ?? null),
     [offerKind]: deliveryOfferDeliverer(sql, activityLog),
     [etaKind]: deliveryEtaDeliverer(sql, routesFor(config)),
+    [courierTrackKind]: courierTrackDeliverer(sql, couriersOf(sql, config, secrets), activityLog),
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup, { localPhotos: config.DNS_LOCAL === '1' }),
@@ -1214,6 +1216,14 @@ const queueDomainChecks: CronJob = async (sql) => {
   if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
 }
 
+const queueTracking: CronJob = async (sql) => {
+  const due = await queueCourierTracking(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'courier_tracking_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (due > 0) logEvent({ event: 'courier_tracking_queued', api: 'system', code: 'scheduled', count: due })
+}
+
 const failStuckExports: CronJob = async (sql) => {
   await withSystemScope(sql, async (tx) => {
     const at = new Date()
@@ -1403,7 +1413,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [sweepDeliveries, expireSms, expireWhatsAppCodes, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
-  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
+  '*/5 * * * *': [queueDomainChecks, queueTracking, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }

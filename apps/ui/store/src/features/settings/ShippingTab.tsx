@@ -451,7 +451,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
           </div>
         )}
       </section>
-      {loginFor && <ShiprocketLoginDialog name={nameOf(loginFor.provider)} onConnect={(login) => connectWithLogin(loginFor, login)} onCancel={() => setLoginFor(null)} />}
+      {loginFor && <ShiprocketLoginDialog name={nameOf(loginFor.provider)} channelId={loginFor.accountChannelId} onConnect={(login) => connectWithLogin(loginFor, login)} onCancel={() => setLoginFor(null)} />}
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}|${ask.confirmLabel}`} {...ask} open cancelLabel={messages.settings.payments.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
     </div>
   )
