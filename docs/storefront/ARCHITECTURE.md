@@ -455,6 +455,10 @@ Classic, "Start from scratch", the category themes (#1537) and, until #1218, Mar
   1024 KB: its styles are twice baseline's, and classes add them to each page's HTML and to the JavaScript as well as
   the CSS. `market` stays on CSS Modules until #1218 deletes it. Both remain valid starting themes: a store made
   from them stays on CSS Modules, and core builds them unchanged.
+- *The cart page holds a screen in every state* (decided 2026-11-23, a dev deploy's gate failing at 0.216): the static
+  page is the cart's loading state, which a visitor with no cart sees replaced by the empty cart once scripts run, so
+  each theme's cart view keeps one screen's height and moves nothing in view; `apps/sandbox/src/themes.test.ts` holds
+  the scripts back to check it for every starting theme.
 - *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype was changed to match on #770, after the publish gate's layout-shift check failed with them above the story),
   collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, a price range slider, more products loading on scroll), the
   product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal

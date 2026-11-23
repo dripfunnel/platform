@@ -487,17 +487,22 @@ describe.each(keys)('the %s theme', (key) => {
     expect(report.passed).toBe(true)
   })
 
-  // #713: unthrottled, the page paints its loading state before the offline Shop API answers, as on a fast runner.
-  it('keeps the home page still when the Shop API answers nothing', async ({ skip }) => {
-    if (!browser) return skip()
-    const out = join(root, `${key}-still`)
-    const repo = join(root, `${key}-still-repo`)
-    cpSync(dir, repo, { recursive: true })
-    const built = await buildSite({ repo, theme: themeFiles(key), snapshot, runtimeDir: runtime, out, work: join(root, `${key}-still-work`) })
-    if (!built.ok) throw new Error(JSON.stringify(built.report))
-    const site = join(out, 'site')
+  let stillSite: Promise<string> | null = null
+  const builtStill = () =>
+    (stillSite ??= (async () => {
+      const out = join(root, `${key}-still`)
+      const repo = join(root, `${key}-still-repo`)
+      cpSync(dir, repo, { recursive: true })
+      const built = await buildSite({ repo, theme: themeFiles(key), snapshot, runtimeDir: runtime, out, work: join(root, `${key}-still-work`) })
+      if (!built.ok) throw new Error(JSON.stringify(built.report))
+      return join(out, 'site')
+    })())
+
+  /** How far `path` shifts at phone width; `holdScripts` paints the static page before hydration, as a slow phone does. */
+  const shiftOf = async (b: Browser, path: string, holdScripts: boolean): Promise<number> => {
+    const site = await builtStill()
     const origin = 'https://shop.northstar.example'
-    const context = await browser.newContext({ viewport: { width: gateWidths[0], height: 900 }, isMobile: true, hasTouch: true })
+    const context = await b.newContext({ viewport: { width: gateWidths[0], height: 900 }, isMobile: true, hasTouch: true })
     await context.addInitScript(() => {
       const m = { cls: 0 }
       Object.defineProperty(window, '__dfShift', { value: m })
@@ -510,16 +515,29 @@ describe.each(keys)('the %s theme', (key) => {
       const file = (await fileFor([site], url.pathname)) ?? (/\.[a-z0-9]+$/.test(url.pathname) ? null : await fileFor([site], '/index.html'))
       if (!file) return route.fulfill({ status: 404 })
       const type = file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : file.rel.endsWith('.html') ? 'text/html' : null
+      if (holdScripts && type === 'text/javascript') await new Promise((done) => setTimeout(done, 1500))
       return route.fulfill({ status: 200, body: file.bytes, ...(type ? { contentType: type } : {}) })
     })
     try {
       const page = await context.newPage()
-      await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+      await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
       await page.waitForTimeout(1000)
-      expect((await page.evaluate('window.__dfShift.cls')) as number).toBeLessThan(pageBudgets.cls)
+      return (await page.evaluate('window.__dfShift.cls')) as number
     } finally {
       await context.close()
     }
+  }
+
+  // #713: unthrottled, the page paints its loading state before the offline Shop API answers, as on a fast runner.
+  it('keeps the home page still when the Shop API answers nothing', async ({ skip }) => {
+    if (!browser) return skip()
+    expect(await shiftOf(browser, '/', false)).toBeLessThan(pageBudgets.cls)
+  })
+
+  // The static cart page is its loading state; a visitor with no cart sees it swapped for the empty cart once scripts run.
+  it('keeps the cart page still for a visitor with no cart, however late its scripts arrive', async ({ skip }) => {
+    if (!browser) return skip()
+    expect(await shiftOf(browser, '/cart/', true)).toBeLessThan(pageBudgets.cls)
   })
 })
 
