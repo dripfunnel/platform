@@ -16,6 +16,8 @@ export const cart = {
   lines: clsx('p-0 m-0 grid gap-y-3.5 gap-x-3.5 list-none'),
   name: clsx('m-0 text-ink font-semibold wrap-anywhere no-underline'),
   noPhoto: clsx('w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] [background:var(--picture-alt)]'),
+  // Every state holds a screen, so swapping the static loading state for an empty cart moves nothing in view.
+  page: clsx('min-h-screen'),
   pending: clsx('opacity-[0.7] [transition:opacity_0.2s]'),
   photo: clsx('w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] object-cover'),
   price: clsx('shrink-0 text-end'),

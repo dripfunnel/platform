@@ -260,3 +260,8 @@
     top: 96px;
   }
 }
+
+/* Every state holds a screen, so swapping the static loading state for an empty cart moves nothing in view. */
+.page {
+  min-height: 100vh;
+}
