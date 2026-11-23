@@ -37,11 +37,12 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
   }
 
   const field = (which: CustomerField | null, label: string, value: string, set: (v: string) => void, extra: { hint?: string; ref?: typeof first; type?: string } = {}): ReactNode => (
-    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null}>
+    <CustomerFormField label={label} {...(extra.hint ? { hint: extra.hint } : {})} error={fault?.field === which ? fault.text : null} required={which === 'name'}>
       {(attrs: FieldAttrs) => <input {...attrs} ref={extra.ref} type={extra.type ?? 'text'} value={value} onChange={(event) => set(event.target.value)} />}
     </CustomerFormField>
   )
 
+  const shown = problem ?? (fault?.field === 'form' ? fault.text : null)
   return (
     <section className="df-customer df-customer-form" aria-label={fill(words.title, { name: customer.name ?? '' })}>
       <h2>{fill(words.title, { name: customer.name ?? '' })}</h2>
@@ -50,9 +51,9 @@ export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Custom
         {field('phone', words.phone, phone, setPhone, { type: 'tel' })}
       </div>
       <AddressFields draft={address} fault={fault} onChange={setAddress} />
-      {problem && (
+      {shown && (
         <p className="df-form-problem" role="alert">
-          {problem}
+          {shown}
         </p>
       )}
       <div className="df-form-actions">

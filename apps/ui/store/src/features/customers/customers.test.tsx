@@ -396,6 +396,56 @@ describe('the Customers screen', () => {
     expect(api.addCustomer).toHaveBeenCalledWith('Mira Rao', 'mira@example.in', null, { name: 'Mira Rao', line1: '4 Park Rd', line2: null, city: 'Pune', region: null, postalCode: null, country: 'IN' })
   })
 
+  it('puts the cursor in the field a refused add names, and words every field the API can name (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const form = within(screen.getByRole('region', { name: words.addForm.title }))
+    fireEvent.change(form.getByRole('textbox', { name: words.addForm.name }), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(form.getByRole('textbox', { name: words.addForm.email }), { target: { value: 'name+test@example.com' } })
+    const words_ = { name: words.editForm.nameMissing, email: words.addForm.emailInvalid, phone: words.phoneInvalid }
+    for (const [field, text] of Object.entries(words_)) {
+      api.addCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no', { field }))
+      fireEvent.click(form.getByRole('button', { name: words.addForm.confirm }))
+      await settle()
+      expect(form.getByText(text)).toBeTruthy()
+      expect(document.activeElement?.getAttribute('aria-invalid')).toBe('true')
+    }
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+  })
+
+  it('words a refusal that names no field inside the form, never as the generic toast, on add and on edit (#1600)', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const add = within(screen.getByRole('region', { name: words.addForm.title }))
+    fireEvent.change(add.getByRole('textbox', { name: words.addForm.name }), { target: { value: 'Steve Johnson' } })
+    fireEvent.change(add.getByRole('textbox', { name: words.addForm.email }), { target: { value: 'name+test@example.com' } })
+    api.addCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no'))
+    fireEvent.click(add.getByRole('button', { name: words.addForm.confirm }))
+    await settle()
+    expect(add.getByRole('alert').textContent).toBe(words.unnamedRefusal)
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+    fireEvent.click(add.getByRole('button', { name: words.addForm.cancel }))
+
+    fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
+    const edit = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
+    api.updateCustomer.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'no'))
+    fireEvent.click(edit.getByRole('button', { name: words.editForm.save }))
+    await settle()
+    expect(edit.getByRole('alert').textContent).toBe(words.unnamedRefusal)
+    expect(screen.queryByText(words.refused.INVALID_INPUT)).toBeNull()
+  })
+
+  it('marks the fields that are required, and the address ones only once an address is started', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    const form = within(screen.getByRole('region', { name: words.addForm.title }))
+    const required = (label: string) => form.getByRole('textbox', { name: new RegExp(label.replace(/[()]/g, '\\$&')) }).getAttribute('aria-required')
+    expect([words.addForm.name, words.addForm.email].map(required)).toEqual(['true', 'true'])
+    expect([words.editForm.address, words.editForm.city, words.editForm.country].map(required)).toEqual([null, null, null])
+    fireEvent.change(form.getByRole('textbox', { name: new RegExp(words.editForm.city) }), { target: { value: 'Pune' } })
+    expect([words.editForm.address, words.editForm.city, words.editForm.country, words.editForm.postal].map(required)).toEqual(['true', 'true', 'true', null])
+  })
+
   it('makes, renames and deletes groups, saying who leaves', async () => {
     await show(owner)
     fireEvent.click(screen.getByRole('tab', { name: 'Groups · 2' }))

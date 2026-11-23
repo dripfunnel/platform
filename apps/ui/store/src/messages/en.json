@@ -5258,7 +5258,8 @@
     },
     "readOnly": "Your store is read-only until the bill is paid. You can look, but customers can’t be changed until then.",
     "failed": "That didn’t work. Nothing was changed; try again.",
-    "phoneInvalid": "Use the full number with the country code, like +91 98450 11234",
+    "phoneInvalid": "Check the country code and the number. Add + and the country code for a number from another country.",
+    "unnamedRefusal": "Something in these details isn’t valid. Check the name, email, phone and address, then try again.",
     "refused": {
       "NAME_TAKEN": "You already have a group with that name.",
       "NUMBER_TAKEN": "Another customer already has that number.",
@@ -5415,7 +5416,7 @@
       "emailPlaceholder": "name@example.com",
       "phone": "Phone (optional)",
       "nameMissing": "Type their name.",
-      "emailInvalid": "That doesn’t look like an email address.",
+      "emailInvalid": "Enter an email like name@example.com.",
       "confirm": "Add customer",
       "cancel": "Cancel",
       "added": "{name} added",

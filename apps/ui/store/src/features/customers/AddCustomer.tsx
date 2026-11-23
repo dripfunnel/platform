@@ -29,15 +29,16 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
     void onAdd(name.trim(), email.trim().toLowerCase(), phone.trim() || null, addressInputOf(address, name.trim())).then(setFault)
   }
   const at = (field: CustomerField) => (fault?.field === field ? fault.text : null)
+  const shown = problem ?? (fault?.field === 'form' ? fault.text : null)
   return (
     <section className="df-customer-card df-customer-form" aria-label={words.title}>
       <h2>{words.title}</h2>
       <p className="df-customer-sub">{words.body}</p>
       <div className="df-form-grid">
-        <CustomerFormField label={words.name} error={at('name')}>
+        <CustomerFormField label={words.name} error={at('name')} required>
           {(attrs) => <input {...attrs} ref={first} value={name} placeholder={words.namePlaceholder} onChange={(event) => setName(event.target.value)} />}
         </CustomerFormField>
-        <CustomerFormField label={words.email} error={at('email')}>
+        <CustomerFormField label={words.email} error={at('email')} required>
           {(attrs) => <input {...attrs} type="email" value={email} placeholder={words.emailPlaceholder} onChange={(event) => setEmail(event.target.value)} />}
         </CustomerFormField>
         <CustomerFormField label={words.phone} error={at('phone')}>
@@ -45,9 +46,9 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
         </CustomerFormField>
       </div>
       <AddressFields draft={address} fault={fault} onChange={setAddress} />
-      {problem && (
+      {shown && (
         <p className="df-form-problem" role="alert">
-          {problem}
+          {shown}
         </p>
       )}
       <div className="df-form-actions">

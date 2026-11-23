@@ -44,6 +44,10 @@
   color: var(--df-color-danger);
 }
 
+.df-form-field .df-form-required::after {
+  content: ' *';
+}
+
 .df-form-mono {
   font-family: var(--df-font-mono);
 }
