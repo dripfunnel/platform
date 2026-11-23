@@ -215,7 +215,7 @@ export const CustomersPage = () => {
       .finally(() => setBusy(false))
   }
 
-  /** The field the API refused, for the form to mark; null once added, or for a refusal that names none (a toast). */
+  /** The field the API refused, for the form to mark; `form` for a refusal that names none; null once added. */
   const add = async (name: string, email: string, phoneNumber: string | null, address: CustomerAddressInput | null): Promise<CustomerFault | null> => {
     if (sample) {
       setAdding(false)
