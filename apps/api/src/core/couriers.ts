@@ -55,6 +55,8 @@ export interface LabelRequest {
   weightGrams: number
   items: readonly { name: string; sku: string | null; quantity: number; unitAmount: bigint; hsCode: string | null }[]
   value: Money
+  /** Cash on delivery: what the courier collects from the shopper; null for a paid order. */
+  collect: Money | null
   labelSize: LabelSize
   /** `scheduled`: the courier collects every working day, so booking asks for this parcel's pickup at once. */
   pickup: PickupMode
@@ -101,6 +103,10 @@ export interface CourierGateway {
   quote: (provider: CourierProvider, parcel: Parcel, signal?: AbortSignal) => Promise<CourierRate | null>
   /** Buys the cheapest service's label; null when the courier won't take the parcel (route, address or weight). */
   book: (provider: CourierProvider, request: LabelRequest, signal?: AbortSignal) => Promise<BookedLabel | null>
+  /** Each booked parcel's latest status, asked of the courier when its hook may not have come; Shiprocket's only. */
+  track: (provider: CourierProvider, providerRefs: readonly string[], signal?: AbortSignal) => Promise<TrackingEvent[]>
+  /** The booked parcels whose cash on delivery the courier has paid out to the store; Shiprocket's only. */
+  remitted: (provider: CourierProvider, providerRefs: readonly string[], signal?: AbortSignal) => Promise<string[]>
   /** Asks the courier to collect a booked parcel from where it left. */
   pickup: (provider: CourierProvider, shipment: { providerRef: string; from: LabelAddress }, signal?: AbortSignal) => Promise<PickupBooked>
   /** A tracking hook's events, or null when the account has no secret or the hook doesn't prove it was signed with it. */

@@ -10,6 +10,7 @@ const courierSchema = z.object({
   status: z.enum(courierStatuses),
   offered: z.boolean(),
   accountEmail: z.string().nullable(),
+  accountChannelId: z.string().nullable(),
   pickupMode: z.enum(['scheduled', 'on_request']),
   labelSize: z.string(),
   trackingEmails: z.boolean(),
@@ -45,7 +46,7 @@ const settingsSchema = z.object({
 export type ShippingSettings = z.infer<typeof settingsSchema>
 
 const fields =
-  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered accountEmail pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
+  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered accountEmail accountChannelId pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
 
 export const loadShipping = async (): Promise<ShippingSettings> => (await query(`{ shippingSettings { ${fields} } }`, z.object({ shippingSettings: settingsSchema }))).shippingSettings
 
@@ -77,15 +78,17 @@ export interface CourierLogin {
   email: string
   password: string
   webhookToken: string | null
+  /** Shiprocket's sales channel its booked orders land in; null for its default channel. */
+  channelId: string | null
 }
 
 /** Answers its status: pricing when no other courier prices orders, otherwise standby (or what it was, if connected). */
 export const connectCourier = async (provider: string, login?: CourierLogin): Promise<Courier['status']> =>
   (
     await query(
-      'mutation C($p: String!, $e: String, $w: String, $t: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t) }',
+      'mutation C($p: String!, $e: String, $w: String, $t: String, $c: String) { connectCourier(provider: $p, email: $e, password: $w, webhookToken: $t, channelId: $c) }',
       z.object({ connectCourier: z.enum(courierStatuses) }),
-      { p: provider, e: login?.email ?? null, w: login?.password ?? null, t: login?.webhookToken ?? null },
+      { p: provider, e: login?.email ?? null, w: login?.password ?? null, t: login?.webhookToken ?? null, c: login?.channelId ?? null },
     )
   ).connectCourier
 

@@ -1,7 +1,7 @@
 import { type CourierAccountKind, type CourierDirectory, type CourierGateway, type LoginCheck } from '#core/couriers'
 import { CourierUnavailable } from '#core/couriers'
 import { easyPostBook, easyPostHook, easyPostPickup, easyPostQuote, type EasyPostCredentials } from './easypost'
-import { shiprocketBook, shiprocketCheck, shiprocketHook, shiprocketPickup, shiprocketQuote, type ShiprocketCredentials } from './shiprocket'
+import { shiprocketBook, shiprocketCheck, shiprocketHook, shiprocketPickup, shiprocketQuote, shiprocketRemitted, shiprocketTrack, type ShiprocketCredentials } from './shiprocket'
 
 // A store's couriers on its own accounts (THIRD-PARTY-ACCESS §4, #1489), read decrypted; a missing account quotes
 // nothing, so a store can't turn on a courier it hasn't connected.
@@ -20,6 +20,8 @@ export const courierGateway = (accounts: StoreCourierAccounts, fetchImpl: typeof
     if (provider === 'shiprocket') return accounts.shiprocket ? shiprocketBook({ ...accounts.shiprocket, fetchImpl }, request, signal) : null
     return accounts.easypost ? easyPostBook({ ...accounts.easypost, fetchImpl }, provider, request, signal) : null
   },
+  track: async (provider, refs, signal) => (provider === 'shiprocket' && accounts.shiprocket && refs.length > 0 ? shiprocketTrack({ ...accounts.shiprocket, fetchImpl }, refs, signal) : []),
+  remitted: async (provider, refs, signal) => (provider === 'shiprocket' && accounts.shiprocket && refs.length > 0 ? shiprocketRemitted({ ...accounts.shiprocket, fetchImpl }, refs, signal) : []),
   pickup: async (provider, shipment, signal) => {
     // Booked through an account the partner has since removed: nobody can be asked.
     if (provider === 'shiprocket') return accounts.shiprocket ? shiprocketPickup({ ...accounts.shiprocket, fetchImpl }, shipment, signal) : Promise.reject(new CourierUnavailable('shiprocket: no account'))

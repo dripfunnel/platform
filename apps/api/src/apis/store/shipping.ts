@@ -48,6 +48,8 @@ export const registerShipping = (builder: StoreBuilder) => {
       offered: t.exposeBoolean('offered'),
       // The email of the store's own login (Shiprocket's API user); the password is never returned.
       accountEmail: t.exposeString('accountEmail', { nullable: true }),
+      // Shiprocket's sales channel its booked orders land in; null for its default channel.
+      accountChannelId: t.exposeString('accountChannelId', { nullable: true }),
       // scheduled (every working day) or on_request.
       pickupMode: t.exposeString('pickupMode'),
       labelSize: t.exposeString('labelSize'),
@@ -142,13 +144,14 @@ export const registerShipping = (builder: StoreBuilder) => {
       },
     }),
     // Answers the courier's role: pricing when no other courier prices orders, otherwise standby. Shiprocket takes the
-    // merchant's own API user (checked with Shiprocket, then sealed, never returned); `webhookToken` is the one set on its webhook.
+    // merchant's own API user (checked with Shiprocket, then sealed, never returned); `webhookToken` is the one set on its webhook,
+    // `channelId` the sales channel its booked orders land in.
     connectCourier: t.string({
-      args: { provider: t.arg.string({ required: true }), email: t.arg.string(), password: t.arg.string(), webhookToken: t.arg.string() },
+      args: { provider: t.arg.string({ required: true }), email: t.arg.string(), password: t.arg.string(), webhookToken: t.arg.string(), channelId: t.arg.string() },
       extensions: { access: { ...access, audit: shippingAudit.courierConnected } },
       resolve: async (_, args, ctx) => {
-        bounded(args.provider, args.email ?? '', args.password ?? '', args.webhookToken ?? '')
-        const login = args.email != null && args.password != null ? { email: args.email, password: args.password, webhookToken: args.webhookToken } : null
+        bounded(args.provider, args.email ?? '', args.password ?? '', args.webhookToken ?? '', args.channelId ?? '')
+        const login = args.email != null && args.password != null ? { email: args.email, password: args.password, webhookToken: args.webhookToken, channelId: args.channelId } : null
         return answered(await (await service(ctx)).connect(args.provider, login))
       },
     }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CourierRejected, CourierUnavailable, type Parcel } from '#core/couriers'
-import { shiprocketQuote } from './shiprocket'
+import { indianPhone, shiprocketQuote } from './shiprocket'
 
 const parcel: Parcel = { from: { country: 'IN', postal: '302001' }, to: { country: 'IN', region: 'Maharashtra', postal: '400001' }, weightGrams: 750, value: { amount: 149900n, currency: 'INR' } }
 
@@ -58,5 +58,15 @@ describe('a Shiprocket quote', () => {
       throw new TypeError('network')
     }) as typeof fetch
     await expect(shiprocketQuote({ ...creds, fetchImpl: throwing }, parcel)).rejects.toBeInstanceOf(CourierUnavailable)
+  })
+})
+
+describe('indianPhone', () => {
+  it('keeps the 10 national digits of an Indian number and refuses any other', () => {
+    expect(indianPhone('+919800000001')).toBe('9800000001')
+    expect(indianPhone('09800000001')).toBe('9800000001')
+    expect(indianPhone('98000 00001')).toBe('9800000001')
+    expect(indianPhone('+14155550100')).toBeNull()
+    expect(indianPhone(null)).toBeNull()
   })
 })

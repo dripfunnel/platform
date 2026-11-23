@@ -45,6 +45,12 @@ export interface BookingOrderRow {
 export const selectBookingOrder = async (tx: ScopedSql, orderId: string): Promise<BookingOrderRow | null> =>
   (await tx<BookingOrderRow[]>`select currency, email, phone, shipping_address from "order" where id = ${orderId}`)[0] ?? null
 
+/** What a cash-on-delivery order still has the shopper pay, in minor units; null when nothing is owed on delivery. */
+export const selectCodDue = async (tx: ScopedSql, orderId: string): Promise<bigint | null> => {
+  const due = (await tx<{ due: string | null }[]>`select sum(amount)::text as due from payment where order_id = ${orderId} and provider = 'cod' and state = 'pending'`)[0]?.due
+  return due && BigInt(due) > 0n ? BigInt(due) : null
+}
+
 export interface BookingLineRow {
   id: string
   name: string

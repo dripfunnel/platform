@@ -81,6 +81,8 @@ export interface CourierLogin {
   password: string
   /** The token the merchant set on its Shiprocket webhook, so tracking reaches this store; optional. */
   webhookToken?: string | null | undefined
+  /** Shiprocket's sales channel id for booked orders; optional. */
+  channelId?: string | null | undefined
 }
 
 export type CourierStatus = 'pricing' | 'standby' | 'failed' | 'off'
@@ -92,6 +94,7 @@ export interface CourierView {
   offered: boolean
   /** The email of the store's own login, for the connected card; never the password. */
   accountEmail: string | null
+  accountChannelId: string | null
   pickupMode: CourierRow['pickup_mode']
   labelSize: CourierRow['label_size']
   trackingEmails: boolean
@@ -219,6 +222,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
           status: statusOf(found, couriers?.accounts.has(accountKindOf(provider)) ?? false),
           offered: (couriers?.connectable.has(accountKindOf(provider)) && (provider !== 'shiprocket' || loginCheck?.secrets != null)) ?? false,
           accountEmail: accounts.find((a) => a.provider === provider)?.email ?? null,
+          accountChannelId: accounts.find((a) => a.provider === provider)?.channel_id ?? null,
           pickupMode: found?.pickup_mode ?? 'scheduled',
           labelSize: found?.label_size ?? labelSizesFor(row.country)[0] ?? 'a6',
           trackingEmails: found?.tracking_emails ?? true,
@@ -294,13 +298,14 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
   })
 
   /** What a connect's login may hold; the password is never trimmed, since it is typed as it is. */
-  const cleanLogin = (input: CourierLogin | null): { email: string; password: string; webhookToken: string | null } => {
+  const cleanLogin = (input: CourierLogin | null): { email: string; password: string; webhookToken: string | null; channelId: string | null } => {
     const email = input?.email.trim() ?? ''
     const token = input?.webhookToken?.trim() ?? ''
-    if (!input || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || input.password === '' || input.password.length > 200 || token.length > 200) throw new Refused('INVALID_INPUT')
+    const channel = input?.channelId?.trim() ?? ''
+    if (!input || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || input.password === '' || input.password.length > 200 || token.length > 200 || !/^[0-9]{0,20}$/.test(channel)) throw new Refused('INVALID_INPUT')
     // The hook's address holds the store's id, which is no secret, so the token alone keeps anyone from forging its tracking.
     if (token !== '' && token.length < minTokenLength) throw new Refused('WEAK_TOKEN')
-    return { email, password: input.password, webhookToken: token === '' ? null : token }
+    return { email, password: input.password, webhookToken: token === '' ? null : token, channelId: channel === '' ? null : channel }
   }
 
   /** The tracking token already sealed for this store, read in system scope since the store's own scope never selects it. */
@@ -349,7 +354,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       const c = await courierOf(tx, provider)
       if (login && loginCheck?.secrets) {
         const sealed = await loginCheck.secrets.seal(JSON.stringify({ password: login.password, webhookToken: login.webhookToken }))
-        await saveCourierAccount(tx, { storeId, provider: c.provider, email: login.email, sealed, by: actor.id, at: now() })
+        await saveCourierAccount(tx, { storeId, provider: c.provider, email: login.email, channelId: login.channelId, sealed, by: actor.id, at: now() })
       }
       if (c.row && c.row.role !== 'off') {
         if (login) await recordCourierTest(tx, storeId, c.provider, 'ok', now())

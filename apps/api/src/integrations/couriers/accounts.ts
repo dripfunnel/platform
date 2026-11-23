@@ -28,5 +28,5 @@ export const storeCourierAccounts =
     const row = (await withSystemScope(sql, (tx) => selectSealedCourierAccounts(tx, storeId))).find((r) => r.provider === 'shiprocket')
     const opened = row ? await secrets.open(row.credentials_sealed) : null
     const login = opened ? parsedLogin(opened) : null
-    return login?.success && row ? { ...none, shiprocket: { email: row.email, password: login.data.password, webhookToken: login.data.webhookToken ?? null } } : none
+    return login?.success && row ? { ...none, shiprocket: { email: row.email, password: login.data.password, webhookToken: login.data.webhookToken ?? null, channelId: row.channel_id } } : none
   }

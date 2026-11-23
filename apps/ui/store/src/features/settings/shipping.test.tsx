@@ -36,7 +36,7 @@ const { SettingsPage } = await import('./SettingsPage')
 const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['settings', 'shipping.configure'] }
 const supplier: Acting = { ...owner, role: 'staff', seller: { id: 'v1', name: 'Northwind' }, tier: 'vendor-catalogue', permissions: ['catalog.read'] } as Acting
 
-const courier = (c: Partial<Courier> & Pick<Courier, 'provider' | 'status'>): Courier => ({ offered: true, accountEmail: null, pickupMode: 'scheduled', labelSize: '4x6', trackingEmails: true, lastTestedAt: null, lastTestResult: null, ...c })
+const courier = (c: Partial<Courier> & Pick<Courier, 'provider' | 'status'>): Courier => ({ offered: true, accountEmail: null, accountChannelId: null, pickupMode: 'scheduled', labelSize: '4x6', trackingEmails: true, lastTestedAt: null, lastTestResult: null, ...c })
 
 const us: ShippingSettings = {
   revision: 4,
@@ -227,7 +227,7 @@ describe('delivery partners', () => {
       typeLogin()
       fireEvent.click(form.getByRole('button', { name: w.login.confirm }))
       await settle()
-      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: null })
+      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: null, channelId: null })
       expect(screen.getByText('Shiprocket connected — it prices orders at checkout')).toBeTruthy()
       expect(document.querySelector('dialog[open]')).toBeNull()
     })
@@ -247,16 +247,17 @@ describe('delivery partners', () => {
       expect(screen.getByText('Shiprocket connected — it prices orders at checkout')).toBeTruthy()
     })
 
-    it('sends the tracking token when one is typed', async () => {
+    it('sends the tracking token and the sales channel when they are typed', async () => {
       offShiprocket()
       ship.connectCourier.mockResolvedValue('standby')
       await show()
       fireEvent.click(screen.getByRole('button', { name: 'Connect Shiprocket' }))
       typeLogin()
       fireEvent.change(dialog().getByLabelText(w.login.token), { target: { value: ' hook-token-12345678 ' } })
+      fireEvent.change(dialog().getByLabelText(w.login.channel), { target: { value: ' 4321 ' } })
       fireEvent.click(dialog().getByRole('button', { name: w.login.confirm }))
       await settle()
-      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: 'hook-token-12345678' })
+      expect(ship.connectCourier).toHaveBeenCalledWith('shiprocket', { email: 'api@kesari.example', password: 'S3cret pass', webhookToken: 'hook-token-12345678', channelId: '4321' })
     })
 
     it('will not send a tracking token shorter than 16 characters, and says why', async () => {

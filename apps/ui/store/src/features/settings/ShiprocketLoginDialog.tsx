@@ -12,17 +12,20 @@ const tokenMin = 16
 
 export interface ShiprocketLoginDialogProps {
   name: string
+  /** The sales channel saved with the current login, filled in so reconnecting keeps it. */
+  channelId: string | null
   /** Connects with the login; a refusal is thrown, and the dialog stays open with what was typed. */
   onConnect: (login: CourierLogin) => Promise<void>
   onCancel: () => void
 }
 
 /** Connect Shiprocket (#1489): the store's own API user, checked with Shiprocket before anything is kept. */
-export const ShiprocketLoginDialog = ({ name, onConnect, onCancel }: ShiprocketLoginDialogProps) => {
+export const ShiprocketLoginDialog = ({ name, channelId, onConnect, onCancel }: ShiprocketLoginDialogProps) => {
   const id = useId()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [token, setToken] = useState('')
+  const [channel, setChannel] = useState(channelId ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -40,13 +43,13 @@ export const ShiprocketLoginDialog = ({ name, onConnect, onCancel }: ShiprocketL
       consequence={words.login.body}
       confirmLabel={busy ? words.login.connecting : words.login.confirm}
       cancelLabel={messages.settings.payments.cancel}
-      blocked={email.trim() === '' || password === '' ? words.login.missing : token.trim() !== '' && token.trim().length < tokenMin ? words.login.tokenShort : null}
+      blocked={email.trim() === '' || password === '' ? words.login.missing : token.trim() !== '' && token.trim().length < tokenMin ? words.login.tokenShort : !/^[0-9]{0,20}$/.test(channel.trim()) ? words.login.channelInvalid : null}
       error={error}
       onCancel={onCancel}
       onConfirm={() => {
         setError(null)
         setBusy(true)
-        onConnect({ email: email.trim(), password, webhookToken: token.trim() === '' ? null : token.trim() })
+        onConnect({ email: email.trim(), password, webhookToken: token.trim() === '' ? null : token.trim(), channelId: channel.trim() === '' ? null : channel.trim() })
           .catch((failure: unknown) => setError(refusalOf(failure)))
           .finally(() => setBusy(false))
       }}
@@ -68,6 +71,11 @@ export const ShiprocketLoginDialog = ({ name, onConnect, onCancel }: ShiprocketL
         <label htmlFor={`${id}-token`}>{words.login.token}</label>
         <input id={`${id}-token`} type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
         <span className="df-field-hint">{words.login.tokenHint}</span>
+      </div>
+      <div className="df-field">
+        <label htmlFor={`${id}-channel`}>{words.login.channel}</label>
+        <input id={`${id}-channel`} inputMode="numeric" autoComplete="off" value={channel} onChange={(e) => setChannel(e.target.value)} />
+        <span className="df-field-hint">{words.login.channelHint}</span>
       </div>
     </ConfirmDialog>
   )

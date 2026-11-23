@@ -188,7 +188,7 @@ const sampleShipping: ShippingSettings = {
   dispatchWhen: 'ready',
   offerMinutes: 5,
   labelSizes: ['a6', 'a4'],
-  couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, accountEmail: 'shipping@kesari.example', pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
+  couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, accountEmail: 'shipping@kesari.example', accountChannelId: null, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
 }
 
 const sampleKeys: ApiKey[] = harness

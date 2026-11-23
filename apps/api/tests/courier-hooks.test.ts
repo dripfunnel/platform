@@ -7,8 +7,10 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import type { AssetStore } from '#engine/modules/catalog/index'
 import { courierHookOf, handleCourierHook } from '#hooks/couriers'
+import { courierTrackDeliverer, courierTrackKind, queueCourierTracking } from '#jobs/queues/deliverers/courierTrack'
 import { localCouriers, localCourierHookSecret } from '#integrations/local/index'
 import { activityLog } from '#saas/activity/index'
+import { CourierRejected, type CourierDirectory, type TrackingEvent } from '#core/couriers'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -231,5 +233,88 @@ describe('the hook’s rate limits (#563)', () => {
     const busy = await Promise.all([1, 2, 3, 4].map(() => post(`/couriers/shiprocket/${t.storeA1}`, body, courierIp, allow)))
     expect(busy).toEqual([200, 200, 200, 429])
     expect(await post(`/couriers/shiprocket/${t.storeB1}`, body, courierIp, allow)).toBe(200)
+  })
+})
+
+describe('Shiprocket tracking asked for', () => {
+  it('queues each store with a parcel on its way once a half hour, and applies what Shiprocket answers as a hook would', async () => {
+    const { shipments } = await order('T-30', [{ version: house, seller: null, at: main }])
+    const [parcel = ''] = shipments
+    const ref = (await db.sql<{ provider_ref: string }[]>`select provider_ref from fulfilment where id = ${parcel}`)[0]?.provider_ref ?? ''
+    await db.sql`insert into courier_account (store_id, provider, email, credentials_sealed, connected_by) values (${t.storeA1}, 'shiprocket', 'api@a1.example', 'v1.sealed', ${t.storeA1}) on conflict do nothing`
+    const now = new Date('2026-10-13T06:00:00Z')
+    expect(await queueCourierTracking(db.sql, now)).toBe(1)
+    expect(await queueCourierTracking(db.sql, now)).toBe(1)
+    const queued = await db.sql<{ store_id: string; partner_id: string }[]>`select store_id, partner_id from outbox where kind = ${courierTrackKind}`
+    expect(queued).toEqual([{ store_id: t.storeA1, partner_id: t.partnerA }])
+
+    const asked: string[][] = []
+    const answer: TrackingEvent[] = [{ providerRef: ref, trackingNumber: null, status: 'out_for_delivery', at: new Date('2026-10-13T04:00:00Z') }]
+    const directory: CourierDirectory = { ...couriers, forStore: async (id) => ({ ...(await couriers.forStore(id)), gateway: { ...(await couriers.forStore(id)).gateway, track: async (_, refs) => (asked.push([...refs]), answer) } }) }
+    const deliverer = courierTrackDeliverer(db.sql, directory, activityLog, () => now)
+    const effect = { id: crypto.randomUUID(), kind: courierTrackKind, idempotencyKey: 'k', payload: {}, partnerId: t.partnerA, storeId: t.storeA1, attempt: 0 }
+    await deliverer.deliver(effect, AbortSignal.timeout(5000))
+    expect(asked.some((refs) => refs.includes(ref))).toBe(true)
+    expect(await shipment(parcel)).toMatchObject({ tracking_status: 'out_for_delivery', tracking_status_at: new Date('2026-10-13T04:00:00Z') })
+    // Asked now, it waits half an hour before it is asked again.
+    asked.length = 0
+    await deliverer.deliver(effect, AbortSignal.timeout(5000))
+    expect(asked.some((refs) => refs.includes(ref))).toBe(false)
+  })
+})
+
+describe('Shiprocket COD remittance asked for', () => {
+  const deliveredAgo = async (fulfilmentId: string, status = 'delivered') => {
+    const at = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    await db.sql`update fulfilment set tracking_status = ${status}, tracking_status_at = ${at}, delivered_at = ${status === 'delivered' ? at : null}, tracking_polled_at = null where id = ${fulfilmentId}`
+  }
+  const refOf = async (fulfilmentId: string) => (await db.sql<{ r: string }[]>`select provider_ref as r from fulfilment where id = ${fulfilmentId}`)[0]?.r ?? ''
+  const paymentOf = async (orderId: string) => (await db.sql<{ s: string }[]>`select payment_state as s from "order" where id = ${orderId}`)[0]?.s
+  const withRemitted = (answer: (refs: readonly string[]) => Promise<string[]>, asked: string[][]): CourierDirectory => ({
+    ...couriers,
+    forStore: async (id) => {
+      const store = await couriers.forStore(id)
+      return { ...store, gateway: { ...store.gateway, track: async () => [], remitted: async (_, refs) => (asked.push([...refs]), answer(refs)) } }
+    },
+  })
+  const effect = () => ({ id: crypto.randomUUID(), kind: courierTrackKind, idempotencyKey: crypto.randomUUID(), payload: {}, partnerId: t.partnerA, storeId: t.storeA1, attempt: 0 })
+
+  it('marks a delivered COD order paid once Shiprocket has remitted its cash, as a job, and asks about no returned or paid one', async () => {
+    await db.sql`insert into courier_account (store_id, provider, email, credentials_sealed, connected_by) values (${t.storeA1}, 'shiprocket', 'api@a1.example', 'v1.sealed', ${t.storeA1}) on conflict do nothing`
+    const remitted = await order('T-40', [{ version: house, seller: null, at: main }])
+    const waiting = await order('T-41', [{ version: house, seller: null, at: main }])
+    const returned = await order('T-42', [{ version: house, seller: null, at: main }])
+    const paid = await order('T-43', [{ version: house, seller: null, at: main }])
+    for (const o of [remitted, waiting, paid]) await deliveredAgo(o.shipments[0] ?? '')
+    await deliveredAgo(returned.shipments[0] ?? '', 'returned')
+    await db.sql`update "order" set payment_state = 'paid' where id = ${paid.id}`
+    const [remittedRef, waitingRef, returnedRef, paidRef] = await Promise.all([remitted, waiting, returned, paid].map((o) => refOf(o.shipments[0] ?? '')))
+
+    expect(await queueCourierTracking(db.sql, new Date())).toBeGreaterThan(0)
+    const asked: string[][] = []
+    const deliverer = courierTrackDeliverer(db.sql, withRemitted(async (refs) => refs.filter((r) => r === remittedRef), asked), activityLog)
+    await deliverer.deliver(effect(), AbortSignal.timeout(5000))
+    expect(asked.flat()).toEqual(expect.arrayContaining([remittedRef, waitingRef]))
+    expect(asked.flat()).not.toContain(returnedRef)
+    expect(asked.flat()).not.toContain(paidRef)
+    expect(await paymentOf(remitted.id)).toBe('paid')
+    expect(await paymentOf(waiting.id)).toBe('pending')
+    expect(await paymentOf(returned.id)).toBe('pending')
+    const entries = await db.sql`select actor_kind, actor_id, actor_label from activity_log where target_id = ${remitted.id} and action = 'order.marked_paid'`
+    expect(entries).toEqual([{ actor_kind: 'job', actor_id: null, actor_label: 'Shiprocket remittance' }])
+
+    // Asked now, the one still waiting isn't asked again for six hours; the paid one never again.
+    asked.length = 0
+    await deliverer.deliver(effect(), AbortSignal.timeout(5000))
+    expect(asked.flat()).not.toContain(waitingRef)
+    expect(asked.flat()).not.toContain(remittedRef)
+  })
+
+  it('marks nothing paid when Shiprocket refuses the login, and asks again next time', async () => {
+    const o = await order('T-44', [{ version: house, seller: null, at: main }])
+    await deliveredAgo(o.shipments[0] ?? '')
+    const deliverer = courierTrackDeliverer(db.sql, withRemitted(async () => Promise.reject(new CourierRejected('shiprocket: remittance refused')), []), activityLog)
+    await deliverer.deliver(effect(), AbortSignal.timeout(5000))
+    expect(await paymentOf(o.id)).toBe('pending')
   })
 })
