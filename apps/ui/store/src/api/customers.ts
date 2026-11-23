@@ -94,8 +94,8 @@ export const loadCustomer = async (id: string): Promise<Customer | null> =>
   ).customer
 
 /** Order emails only: adding someone sends them nothing. An email already a customer answers that one (`existed`). */
-export const addCustomer = async (name: string, email: string, phone: string | null): Promise<{ id: string; existed: boolean }> =>
-  (await query('mutation A($n: String!, $e: String!, $p: String) { addCustomer(name: $n, email: $e, phone: $p) { id existed } }', z.object({ addCustomer: z.object({ id: z.string(), existed: z.boolean() }) }), { n: name, e: email, p: phone })).addCustomer
+export const addCustomer = async (name: string, email: string, phone: string | null, address: CustomerAddressInput | null): Promise<{ id: string; existed: boolean }> =>
+  (await query('mutation A($n: String!, $e: String!, $p: String, $a: CustomerAddressInput) { addCustomer(name: $n, email: $e, phone: $p, address: $a) { id existed } }', z.object({ addCustomer: z.object({ id: z.string(), existed: z.boolean() }) }), { n: name, e: email, p: phone, a: address })).addCustomer
 
 export interface CustomerAddressInput {
   name: string

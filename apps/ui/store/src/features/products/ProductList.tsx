@@ -231,6 +231,8 @@ export const ProductList = () => {
     )
 
   const page = (next: Cursor, step: number) => {
+    // A second click before the page arrives asks for the same cursor, so it must not count as another page (#1666).
+    if (next.after === cursor.after && next.before === cursor.before) return
     setCursor(next)
     setPageIndex((index) => Math.max(0, index + step))
     setSelected(new Set())

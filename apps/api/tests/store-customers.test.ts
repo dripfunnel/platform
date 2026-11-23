@@ -169,6 +169,19 @@ describe('adding and changing a customer', () => {
     expect((await entries('customer.added')).map((e) => [e.target_id, e.customer_id])).toEqual([[added.id, added.id]])
   })
 
+  it('adds one with a full address as their default, with none as before, and refuses a partial one naming its field (#1602)', async () => {
+    const add = (email: string, address: string) => gql(`mutation { addCustomer(name: "Mira", email: "${email}"${address}) { id } }`, 'staff')
+    const withAddress = (await add('mira@example.com', ', address: { name: "Mira", line1: "4 Park Rd", city: "Pune", country: "in" }')).data?.['addCustomer'] as { id: string }
+    const saved = (await gql(`{ customer(id: "${withAddress.id}") { addresses { line1 city country isDefault } } }`, 'staff')).data?.['customer']
+    expect(saved).toEqual({ addresses: [{ line1: '4 Park Rd', city: 'Pune', country: 'IN', isDefault: true }] })
+    const without = (await add('mira2@example.com', '')).data?.['addCustomer'] as { id: string }
+    expect((await gql(`{ customer(id: "${without.id}") { addresses { line1 } } }`, 'staff')).data?.['customer']).toEqual({ addresses: [] })
+    const partial = await add('mira3@example.com', ', address: { name: "Mira", line1: "", city: "Pune", country: "IN" }')
+    expect([partial.code, partial.field]).toEqual(['INVALID_INPUT', 'address'])
+    expect((await add('mira4@example.com', ', address: { name: "Mira", line1: "4 Park Rd", city: "Pune", country: "India" }')).field).toBe('country')
+    expect(await db.sql`select 1 from customer where email in ('mira3@example.com', 'mira4@example.com')`).toHaveLength(0)
+  })
+
   it('changes the name, an unproven number and the default address, never a number the shopper proved', async () => {
     const id = await customerId('ravi@example.com')
     const edit = (args: string) => gql(`mutation { updateCustomer(id: "${id}"${args}) }`, 'manager')
@@ -205,6 +218,9 @@ describe('adding and changing a customer', () => {
     // Typed with its code but no +, it is a longer national number: the store's code goes in front.
     expect((await add('asha7@example.com', '919861212320')).data?.['addCustomer']).toBeTruthy()
     expect(await phoneOf('asha7@example.com')).toBe('+91919861212320')
+    // #1600's steps: a + in the email and a ten-digit number with a space are valid, and the customer is added.
+    expect((await add('steve+test@example.com', '98765 43210', 'Steve Johnson')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('steve+test@example.com')).toBe('+919876543210')
     expect(await add('asha4@example.com', '00')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
     expect(await add('asha4@example.com', '12')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
     expect(await add('asha4@example.com', '9861212313')).toMatchObject({ code: 'NUMBER_TAKEN', field: 'phone' })

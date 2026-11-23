@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fillFromPlace, type AddressDraft, type Place } from './address'
+import { addressFields, fillFromPlace, type AddressDraft, type Place } from './address'
 
 const empty: AddressDraft = { name: 'Asha Rao', line1: '', line2: '', city: '', region: '', postalCode: '', country: 'IN', phone: '+91 98765 43210' }
 const camp: Place = { line1: 'Fashion Street, Camp', city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN' }
@@ -29,5 +29,11 @@ describe('fillFromPlace', () => {
     expect(fillFromPlace({ ...empty, country: '' }, camp, ['US'])).toEqual({ ...empty, country: '' })
     expect(fillFromPlace({ ...empty, country: 'US' }, camp, ['US'])).toEqual({ ...empty, country: 'US' })
     expect(fillFromPlace(empty, null, ['IN'])).toEqual(empty)
+  })
+})
+
+describe('the delivery phone', () => {
+  it('is not optional in any country', () => {
+    for (const country of ['IN', 'US', 'GB', 'FR']) expect(addressFields(country).find((f) => f.field === 'phone')?.optional).toBe(false)
   })
 })

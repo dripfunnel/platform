@@ -150,7 +150,7 @@ const callback = (query: string) => handleStripeConnectCallback(new Request(`htt
 const readyCart = async (quantity: number, host = live) => {
   const token = ((await shop(`mutation { addToCart(versionId: "${mug}", quantity: ${quantity}) { cartToken } }`, null, host)).data?.['addToCart'] as { cartToken: string }).cartToken
   await shop('mutation { setCartContact(email: "sam@example.com") { cart { id } } }', token, host)
-  await shop('mutation { setShippingAddress(address: { name: "Sam", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US" }) { cart { id } } }', token, host)
+  await shop('mutation { setShippingAddress(address: { name: "Sam", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US", phone: "+919800000000" }) { cart { id } } }', token, host)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token, host)
   await shop('mutation { checkout { id } }', token, host)
   return token
@@ -411,7 +411,7 @@ describe('Paying in the shop app', () => {
     await db.sql`insert into customer_session (id_hash, store_id, customer_id, created_at, last_seen_at, expires_at) values (${await hashSessionId(session)}, ${stores.us}, ${c?.id ?? ''}, now(), now(), now() + interval '1 day')`
     const token = ((await shop(`mutation { addToCart(versionId: "${mug}", quantity: 1) { cartToken } }`, null, live, session)).data?.['addToCart'] as { cartToken: string }).cartToken
     await shop('mutation { setCartContact(email: "kim@example.com") { cart { id } } }', token, live, session)
-    await shop('mutation { setShippingAddress(address: { name: "Kim", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US" }) { cart { id } } }', token, live, session)
+    await shop('mutation { setShippingAddress(address: { name: "Kim", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US", phone: "+919800000000" }) { cart { id } } }', token, live, session)
     await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token, live, session)
     await shop('mutation { checkout { id } }', token, live, session)
     const { placed } = await placeInApp(token, session)

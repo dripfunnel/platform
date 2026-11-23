@@ -1,13 +1,23 @@
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useId, useRef, useState } from 'react'
-import { messages } from '../../messages'
-import { editorHtmlOf, storedHtmlOf } from '../common/richDescription'
+import { editorHtmlOf, storedHtmlOf } from './richDescription'
+import './richText.css'
 
-const words = messages.editor.description
+export interface RichTextWords {
+  toolbar: string
+  tools: Record<'bold' | 'italic' | 'bulleted' | 'numbered' | 'link', { text: string; label: string }>
+  linkAddress: string
+  linkPlaceholder: string
+  addLink: string
+  removeLink: string
+  cancelLink: string
+  badLink: string
+  tooLong: string
+}
 
 /** The engine's limit on a stored description (apps/api catalog rules). */
-const limit = 20_000
+const descriptionLimit = 20_000
 
 const address = /^(https?:\/\/[^/?#\s]|mailto:\S)/i
 
@@ -32,7 +42,7 @@ const Tool = ({ text, label, active, onUse, disabled, bold, italic }: { text: st
   </button>
 )
 
-const Toolbar = ({ editor, disabled }: { editor: Editor; disabled: boolean }) => {
+const Toolbar = ({ editor, disabled, words }: { editor: Editor; disabled: boolean; words: RichTextWords }) => {
   const active = useEditorState({
     editor,
     selector: ({ editor: e }) => ({ bold: e.isActive('bold'), italic: e.isActive('italic'), bulleted: e.isActive('bulletList'), numbered: e.isActive('orderedList'), link: e.isActive('link') }),
@@ -114,7 +124,7 @@ const Toolbar = ({ editor, disabled }: { editor: Editor; disabled: boolean }) =>
             {words.cancelLink}
           </button>
           {problem && (
-            <span id={`${addressId}-problem`} className="df-editor-problem">
+            <span id={`${addressId}-problem`} className="df-rich-problem">
               {words.badLink}
             </span>
           )}
@@ -128,7 +138,18 @@ const Toolbar = ({ editor, disabled }: { editor: Editor; disabled: boolean }) =>
  * The description's editor: bold, italic, lists and links, never raw HTML. It holds the engine's stored form,
  * so `value` and `onChange` are what is saved; text typed before the editor was rich opens as paragraphs.
  */
-export const RichTextField = ({ value, onChange, readOnly, labelledBy, placeholder }: { value: string; onChange: (html: string) => void; readOnly: boolean; labelledBy: string; placeholder: string }) => {
+export interface RichTextFieldProps {
+  value: string
+  onChange: (html: string) => void
+  readOnly: boolean
+  labelledBy: string
+  placeholder: string
+  words: RichTextWords
+  /** Counting the formatting; a caller whose API keeps less passes its own. */
+  maxLength?: number
+}
+
+export const RichTextField = ({ value, onChange, readOnly, labelledBy, placeholder, words, maxLength = descriptionLimit }: RichTextFieldProps) => {
   const latest = useRef(onChange)
   latest.current = onChange
   const shown = useRef(value)
@@ -142,7 +163,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
     onUpdate: ({ editor: e }) => {
       const html = storedHtmlOf(e.getHTML())
       // Refused like a textarea's maxLength: back to the last accepted text, not an undo step that may hold more.
-      if (html.length > limit) {
+      if (html.length > maxLength) {
         e.commands.setContent(editorHtmlOf(shown.current), { emitUpdate: false })
         e.commands.setTextSelection(Math.min(caret.current, e.state.doc.content.size))
         setRefused(true)
@@ -168,7 +189,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
   return (
     <>
       <div className="df-rich" data-readonly={readOnly || undefined}>
-        <Toolbar editor={editor} disabled={readOnly} />
+        <Toolbar editor={editor} disabled={readOnly} words={words} />
         <div className="df-rich-body">
           <EditorContent editor={editor} />
           {empty && !readOnly && (
@@ -179,7 +200,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
         </div>
       </div>
       {refused && (
-        <p role="alert" className="df-editor-problem">
+        <p role="alert" className="df-rich-problem">
           {words.tooLong}
         </p>
       )}

@@ -186,7 +186,7 @@ describe('customised lines in the cart', () => {
 
   it('snapshots the answers on the order, unchanged when the questions change later', async () => {
     await gql('mutation { setCartContact(email: "asha@example.com", phone: "+919845022113") { cart { id } } }', token)
-    await gql('mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token)
+    await gql('mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
     await gql('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
     expect((await gql('mutation { checkout { readyToPay } }', token)).data?.['checkout']).toEqual({ readyToPay: true })
     const placed = await gql('mutation { placeOrder(provider: "cod") { orderId } }', token)

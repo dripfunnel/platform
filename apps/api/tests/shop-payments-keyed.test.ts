@@ -136,7 +136,7 @@ const connectRazorpay = (mode: 'TEST' | 'LIVE', keys: string, who: keyof typeof 
 const readyCart = async (contact: string, host = live) => {
   const token = ((await shop(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`, null, host)).data?.['addToCart'] as { cartToken: string }).cartToken
   await shop(`mutation { setCartContact(${contact}) { cart { id } } }`, token, host)
-  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token, host)
+  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token, host)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token, host)
   await shop('mutation { checkout { id } }', token, host)
   return token

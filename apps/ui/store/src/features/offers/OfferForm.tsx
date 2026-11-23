@@ -625,6 +625,7 @@ const day = 86_400_000
 
 /** "When and how often?" (K, L): dates in the store's time zone, quick picks, a weekly repeat and the limits. */
 const When = ({ draft: d, set, errors: e, facts, disabled }: { draft: OfferDraft; set: FormProps['set']; errors: FormProps['errors']; facts: StoreFacts; disabled: boolean }) => {
+  const [picked, setPicked] = useState<string | null>(null)
   const zone = zoneName(facts.timeZone)
   const today = new Date()
   const date = (t: number) => localOf(new Date(t).toISOString(), facts.timeZone).slice(0, 10)
@@ -637,13 +638,24 @@ const When = ({ draft: d, set, errors: e, facts, disabled }: { draft: OfferDraft
     { label: words.quick.week, starts: '', ends: `${date(today.getTime() + 7 * day)}T23:59` },
     { label: words.quick.month, starts: '', ends: `${monthEnd}T23:59` },
   ]
+  const matching = quick.filter((q) => d.startsAt === q.starts && d.endsAt === q.ends)
+  const inEffect = matching.find((q) => q.label === picked) ?? matching[0]
   const days = [0, 1, 2, 3, 4, 5, 6]
   return (
     <Section n={5} title={words.sections.when} aside={<span className="df-offers-sub">{fill(words.timesIn, { zone })}</span>}>
       {!disabled && (
         <div className="df-offer-chips">
           {quick.map((q) => (
-            <button key={q.label} type="button" className="df-chip" onClick={() => set({ startsAt: q.starts, endsAt: q.ends })}>
+            <button
+              key={q.label}
+              type="button"
+              className="df-chip"
+              aria-pressed={q === inEffect}
+              onClick={() => {
+                setPicked(q.label)
+                set({ startsAt: q.starts, endsAt: q.ends })
+              }}
+            >
               {q.label}
             </button>
           ))}

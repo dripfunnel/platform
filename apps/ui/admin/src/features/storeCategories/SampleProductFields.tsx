@@ -1,36 +1,27 @@
-import { useId, useState } from 'react'
-import type { PhotoRefusal } from '../../api/storeCategorySample'
-import { fill, messages } from '../../messages'
-import type { DraftPhoto, DraftProduct } from './sampleDraft'
+import { RichTextField } from '@dripfunnel/shared/ui'
+import { useId } from 'react'
+import { fill, formatCount, messages } from '../../messages'
+import type { DraftProduct } from './sampleDraft'
+import { type SamplePhotoUpload } from './SamplePhotoField'
+import { SamplePhotosField } from './SamplePhotosField'
 import '../partners/partners.css'
 import './storeCategories.css'
 
 const words = messages.storeCategories.editor
+const maxDescription = 5000
 
 export interface SampleProductFieldsProps {
   value: DraftProduct
   collections: readonly string[]
   currency: string
   onChange: (value: DraftProduct) => void
-  upload: (file: File) => Promise<{ ok: true; ref: string; previewUrl: string } | { ok: false; code: PhotoRefusal }>
+  upload: SamplePhotoUpload
 }
 
-/** The product dialog's fields; the photo goes up as soon as it's chosen and the product names it on Save. */
+/** The product dialog's fields. */
 export const SampleProductFields = ({ value, collections, currency, onChange, upload }: SampleProductFieldsProps) => {
   const id = useId()
-  const [uploading, setUploading] = useState(false)
-  const [photoError, setPhotoError] = useState<string | null>(null)
   const set = (patch: Partial<DraftProduct>) => onChange({ ...value, ...patch })
-
-  const choose = (file: File) => {
-    setUploading(true)
-    setPhotoError(null)
-    void upload(file).then((r) => {
-      setUploading(false)
-      if (r.ok) set({ photo: { ref: r.ref, previewUrl: r.previewUrl } satisfies DraftPhoto })
-      else setPhotoError(words.photoRefused[r.code])
-    })
-  }
 
   return (
     <>
@@ -39,8 +30,11 @@ export const SampleProductFields = ({ value, collections, currency, onChange, up
         <input id={`${id}-name`} type="text" maxLength={255} required value={value.name} onChange={(e) => set({ name: e.target.value })} />
       </div>
       <div className="df-field">
-        <label htmlFor={`${id}-description`}>{words.fields.description}</label>
-        <textarea id={`${id}-description`} rows={3} maxLength={5000} value={value.description} onChange={(e) => set({ description: e.target.value })} />
+        <span id={`${id}-description`} className="df-sample-label">
+          {words.fields.description}
+        </span>
+        {/* The sample's own limit (apps/api saas/storeCategories/editor.ts). */}
+        <RichTextField value={value.description} readOnly={false} labelledBy={`${id}-description`} placeholder={words.descriptionPlaceholder} words={{ ...words.description, tooLong: fill(words.description.tooLong, { count: formatCount(maxDescription) }) }} maxLength={maxDescription} onChange={(description) => set({ description })} />
       </div>
       <div className="df-sample-row">
         <div className="df-field">
@@ -74,35 +68,8 @@ export const SampleProductFields = ({ value, collections, currency, onChange, up
         ))}
       </fieldset>
       <fieldset className="df-choices">
-        <legend>{words.fields.photo}</legend>
-        <div className="df-sample-photo-field">
-          {value.photo?.previewUrl ? <img src={value.photo.previewUrl} alt={fill(words.photoAlt, { name: value.name || words.fields.name })} className="df-sample-thumb df-sample-thumb--large" /> : <span className="df-field-hint">{words.noPhoto}</span>}
-          <label className="df-button df-button--small df-sample-upload" htmlFor={`${id}-photo`}>
-            {uploading ? words.uploading : value.photo ? words.replacePhoto : words.uploadPhoto}
-            <input
-              id={`${id}-photo`}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              className="df-visually-hidden"
-              disabled={uploading}
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (file) choose(file)
-              }}
-            />
-          </label>
-          {value.photo && (
-            <button type="button" className="df-button df-button--small" onClick={() => set({ photo: null })}>
-              {words.removePhoto}
-            </button>
-          )}
-        </div>
-        {photoError && (
-          <p className="df-field-error" role="alert">
-            {photoError}
-          </p>
-        )}
+        <legend>{words.fields.photos}</legend>
+        <SamplePhotosField photos={value.photos} name={value.name || words.fields.name} onChange={(photos) => set({ photos })} upload={upload} />
       </fieldset>
     </>
   )

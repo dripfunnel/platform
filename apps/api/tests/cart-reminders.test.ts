@@ -499,7 +499,7 @@ describe('a reminder’s code (DATA-MODEL §7.7)', () => {
   })
 
   it('recovers the cart when it is placed, crediting the reminder, and its reminders stop', async () => {
-    await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', cart.token)
+    await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", phone: "+919800000000" }) { cart { id } } }', cart.token)
     await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', cart.token)
     await shop('mutation { checkout { id } }', cart.token)
     const placed = await shop('mutation { placeOrder(provider: "cod") { orderId } }', cart.token)
@@ -515,7 +515,7 @@ describe('a reminder’s code (DATA-MODEL §7.7)', () => {
     const waiting = await left('buyer@example.com', 45)
     await sweep()
     const bought = await left('buyer@example.com', 0)
-    await shop('mutation { setShippingAddress(address: { name: "B", line1: "1 Road", city: "Pune", country: "IN" }) { cart { id } } }', bought.token)
+    await shop('mutation { setShippingAddress(address: { name: "B", line1: "1 Road", city: "Pune", country: "IN", phone: "+919800000000" }) { cart { id } } }', bought.token)
     await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', bought.token)
     await shop('mutation { checkout { id } }', bought.token)
     await shop('mutation { placeOrder(provider: "cod") { orderId } }', bought.token)
@@ -833,7 +833,7 @@ describe('the Carts tab (abandonedCarts, abandonedCartCounts, abandonedCart, car
     const back = await shop(`mutation { restoreCart(token: "${linkOf(mailTo('sum.coded@example.com')[0], 'cart/r')?.[2] ?? ''}") { cartToken } }`)
     const codedToken = (back.data?.['restoreCart'] as { cartToken: string }).cartToken
     for (const token of [codedToken, plain.token]) {
-      await shop('mutation { setShippingAddress(address: { name: "S", line1: "1 Road", city: "Pune", country: "IN" }) { cart { id } } }', token)
+      await shop('mutation { setShippingAddress(address: { name: "S", line1: "1 Road", city: "Pune", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
       await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
       await shop('mutation { checkout { id } }', token)
       await shop('mutation { placeOrder(provider: "cod") { orderId } }', token)

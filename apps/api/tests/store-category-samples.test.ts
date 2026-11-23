@@ -9,7 +9,7 @@ import type { StaffMember, StaffRole } from '#auth/staff'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
-import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { catalogImportDeliverer, importPhotosDeliverer, sampleCollectionPhotoDeliverer } from '#jobs/queues/deliverers/catalogImport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
@@ -91,7 +91,7 @@ const relay = async () => {
   for (let round = 0; round < 20; round++) {
     const counts = await relayDue(
       db.sql,
-      { 'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now), 'import.photos': importPhotosDeliverer(db.sql, r2, lookup, { now: () => now, fetchImpl: fakeFetch }) },
+      { 'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now), 'import.photos': importPhotosDeliverer(db.sql, r2, lookup, { now: () => now, fetchImpl: fakeFetch }), 'import.collection_photo': sampleCollectionPhotoDeliverer(db.sql, r2, () => now) },
       { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) },
     )
     if (Object.values(counts).every((n) => n === 0)) return
@@ -272,8 +272,8 @@ describe('adding the sample to a store', () => {
 })
 
 describe('the sample editor', () => {
-  const detailQuery = `query($c: ID!) { storeCategorySample(categoryId: $c) { currency products { handle name sku price stock visible photo { ref previewUrl } collections } collections { name products } } }`
-  type Detail = { currency: string; products: { handle: string; name: string; sku: string; price: string; stock: number | null; visible: boolean; photo: { ref: string; previewUrl: string | null } | null; collections: string[] }[]; collections: { name: string; products: number }[] }
+  const detailQuery = `query($c: ID!) { storeCategorySample(categoryId: $c) { currency products { handle name sku price stock visible photos { ref previewUrl } collections } collections { name products } } }`
+  type Detail = { currency: string; products: { handle: string; name: string; sku: string; price: string; stock: number | null; visible: boolean; photos: { ref: string; previewUrl: string | null }[]; collections: string[] }[]; collections: { name: string; products: number }[] }
   const saveItems = `mutation($c: ID!, $i: StoreCategorySampleInput!, $r: String!) { saveStoreCategorySampleItems(categoryId: $c, input: $i, reason: $r) {
     category { sample { products collections { name products } } } problems { line column code message } } }`
   type SavedItems = { saveStoreCategorySampleItems: { category: { sample: { products: number; collections: { name: string; products: number }[] } } | null; problems: { code: string; line: number }[] } }
@@ -282,7 +282,7 @@ describe('the sample editor', () => {
   const inputOf = (d: Detail) => ({
     currency: d.currency,
     collections: d.collections.map((c) => c.name),
-    products: d.products.map((p) => ({ name: p.name, description: '', sku: p.sku, price: p.price, stock: p.stock, visible: p.visible, photo: p.photo?.ref ?? null, collections: p.collections })),
+    products: d.products.map((p) => ({ name: p.name, description: '', sku: p.sku, price: p.price, stock: p.stock, visible: p.visible, photos: p.photos.map((x) => x.ref), collections: p.collections })),
   })
 
   it('stores an uploaded photo once under the category, refusing what isn’t an image', async () => {
@@ -299,20 +299,22 @@ describe('the sample editor', () => {
     const d = await detail()
     expect(d?.products).toHaveLength(6)
     expect(d?.products[0]).toMatchObject({ handle: 'shoe-1', name: 'Shoe 1', sku: 'SH-1', price: '900', visible: true, collections: ['Sneakers', 'Sandals'] })
-    expect(d?.products[0]?.photo?.previewUrl).toMatch(new RegExp(`^/api/store-category-photos/${ids.footwear}/[0-9a-f]{64}$`))
+    expect(d?.products[0]?.photos[0]?.previewUrl).toMatch(new RegExp(`^/api/store-category-photos/${ids.footwear}/[0-9a-f]{64}$`))
     expect(d?.collections).toEqual([{ name: 'Sneakers', products: 3 }, { name: 'Sandals', products: 4 }])
   })
 
-  it('saves edits: a rename, a new price, a product moved, a 7th product with an uploaded photo, a collection removed', async () => {
+  it('saves edits: a rename, a new price, a product moved, a 7th product with two uploaded photos, a collection removed', async () => {
     const d = (await detail()) as Detail
     const up = await service('staff-super-admin').uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 9, 9]))
     const ref = up.ok ? up.ref : ''
+    const upToo = await service('staff-super-admin').uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 8, 8]))
+    const second = upToo.ok ? upToo.ref : ''
     fetched.length = 0
     const input = inputOf(d)
     const first = input.products[0]
     if (!first) throw new Error('no first product')
     input.products[0] = { ...first, name: 'Trail Runner', price: '1250.50', collections: ['Sneakers'] }
-    input.products.push({ name: 'Canvas Slip-On', description: 'New', sku: 'SH-7', price: '700', stock: 5, visible: true, photo: ref, collections: ['Sneakers'] })
+    input.products.push({ name: 'Canvas Slip-On', description: 'New', sku: 'SH-7', price: '700', stock: 5, visible: true, photos: [ref, second], collections: ['Sneakers'] })
     input.collections = ['Sneakers']
     for (const p of input.products) p.collections = ['Sneakers']
     expect((await admin(saveItems, 'staff-partner-manager', { c: ids.footwear, i: input, r: 'Edit' })).code).toBe('FORBIDDEN')
@@ -323,11 +325,11 @@ describe('the sample editor', () => {
     expect(fetched).toEqual([])
     const after = (await detail()) as Detail
     expect(after.products[0]).toMatchObject({ name: 'Trail Runner', price: '1250.50' })
-    expect(after.products[6]?.photo?.ref).toBe(ref)
+    expect(after.products[6]?.photos.map((x) => x.ref)).toEqual([ref, second])
     const [logged] = await db.sql<{ reason: string; changes: { field: string; after: string | null }[] }[]>`select reason, changes from activity_log
       where action = 'store_category.sample_saved' and target_id = ${ids.footwear} order by occurred_at desc, id desc limit 1`
     expect(logged?.reason).toBe('Better names')
-    expect(logged?.changes.find((c) => c.field === 'photos_added')?.after).toBe(ref)
+    expect(logged?.changes.find((c) => c.field === 'photos_added')?.after?.split(', ').sort()).toEqual([ref, second].sort())
   })
 
   it('refuses no SKU, a duplicate SKU, an empty collection and no products, keeping the last save', async () => {
@@ -349,7 +351,40 @@ describe('the sample editor', () => {
     expect((await detail())?.products).toHaveLength(7)
   })
 
-  it('adds an edited sample to a store with exactly its products, collection and uploaded photo, read from R2', async () => {
+  it('saves a collection’s uploaded photo by name, refusing one for a collection that isn’t there or not uploaded', async () => {
+    const svc = service('staff-super-admin')
+    const up = await svc.uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 5, 5]))
+    const ref = up.ok ? up.ref : ''
+    const input = inputOf((await detail()) as Detail)
+    expect(await svc.saveSampleItems(ids.footwear, { ...input, collectionPhotos: [{ name: 'Boots', photo: ref }] }, 'Collection photo')).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(await svc.saveSampleItems(ids.footwear, { ...input, collectionPhotos: [{ name: 'Sneakers', photo: 'https://x/ok-1.jpg' }] }, 'Collection photo')).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    const missing = await svc.saveSampleItems(ids.footwear, { ...input, collectionPhotos: [{ name: 'Sneakers', photo: 'sample-photo:' + 'e'.repeat(64) }] }, 'Collection photo')
+    expect(missing).toMatchObject({ ok: false, reason: 'SAMPLE_INVALID', problems: [{ column: 'collection', code: 'PHOTO_UNAVAILABLE' }] })
+
+    const saved = await admin<SavedItems>(saveItems, 'staff-super-admin', { c: ids.footwear, i: { ...input, collectionPhotos: [{ name: 'Sneakers', photo: ref }] }, r: 'Collection photo' })
+    expect(saved.data?.saveStoreCategorySampleItems.problems).toEqual([])
+    const [row] = await db.sql<{ collections: { name: string; photo?: string }[]; photos: Record<string, string> }[]>`select collections, photos from store_category_sample where category_id = ${ids.footwear}`
+    expect(row?.collections[0]?.photo).toBe(ref)
+    expect(row?.photos[ref]).toBe(`platform/store-category-samples/${ids.footwear}/${up.ok ? up.sha : ''}`)
+    const shown = await admin<{ storeCategorySample: { collections: { name: string; photo: { ref: string; previewUrl: string } | null }[] } }>(
+      `query($c: ID!) { storeCategorySample(categoryId: $c) { collections { name photo { ref previewUrl } } } }`, 'staff-partner-manager', { c: ids.footwear })
+    expect(shown.data?.storeCategorySample.collections).toEqual([{ name: 'Sneakers', photo: { ref, previewUrl: `/api/store-category-photos/${ids.footwear}/${up.ok ? up.sha : ''}` } }])
+  })
+
+  it('counts a collection’s photo in the sample’s 60', async () => {
+    const svc = service('staff-super-admin')
+    const refs: string[] = []
+    for (let i = 0; i < 61; i++) {
+      const up = await svc.uploadSamplePhoto(ids.footwear, new Uint8Array([...png, 7, i]))
+      refs.push(up.ok ? up.ref : '')
+    }
+    const input = inputOf((await detail()) as Detail)
+    const products = input.products.map((p, i) => (i < 3 ? { ...p, photos: refs.slice(i * 20, i * 20 + 20) } : { ...p, photos: [] }))
+    const refused = await svc.saveSampleItems(ids.footwear, { ...input, products, collectionPhotos: [{ name: 'Sneakers', photo: refs[60] ?? '' }] }, 'Too many photos')
+    expect(refused).toMatchObject({ ok: false, reason: 'SAMPLE_INVALID', problems: [{ code: 'TOO_MANY_PHOTOS' }] })
+  })
+
+  it('adds an edited sample to a store with exactly its products, collection and uploaded photos, read from R2', async () => {
     fetched.length = 0
     // Store B1's test order (above) is taken away, so it can add the sample as a new store would.
     await db.sql`delete from "order" where store_id = ${t.storeB1}`
@@ -362,15 +397,56 @@ describe('the sample editor', () => {
     const products = await db.sql<{ name: string; photos: number }[]>`select p.name, (select count(*)::int from product_photo ph where ph.product_id = p.id) as photos
       from product p where p.store_id = ${t.storeB1} and p.deleted_at is null order by p.name`
     expect(products).toHaveLength(7)
-    expect(products.find((p) => p.name === 'Canvas Slip-On')?.photos).toBe(1)
+    expect(products.find((p) => p.name === 'Canvas Slip-On')?.photos).toBe(2)
     expect(fetched).toEqual([])
-    const collections = await db.sql<{ name: string; n: number }[]>`select c.name, (select count(*)::int from collection_product cp where cp.collection_id = c.id) as n from collection c where c.store_id = ${t.storeB1} and c.deleted_at is null`
-    expect(collections).toEqual([{ name: 'Sneakers', n: 7 }])
+    const collections = await db.sql<{ name: string; n: number; image: boolean }[]>`select c.name, (select count(*)::int from collection_product cp where cp.collection_id = c.id) as n,
+      exists (select 1 from asset a where a.id = c.image_asset_id and a.store_id = c.store_id) as image from collection c where c.store_id = ${t.storeB1} and c.deleted_at is null`
+    expect(collections).toEqual([{ name: 'Sneakers', n: 7, image: true }])
+  })
+
+  it('sets a collection’s photo once, only on an empty image in its own store, and leaves it without one when the photo can’t be read', async () => {
+    const [row] = await db.sql<{ id: string; idempotency_key: string; payload: Record<string, unknown> }[]>`select id, idempotency_key, payload from outbox
+      where kind = 'import.collection_photo' and store_id = ${t.storeB1}`
+    const payload = row?.payload ?? {}
+    const collectionId = String(payload['collectionId'])
+    const deliverer = sampleCollectionPhotoDeliverer(db.sql, r2, () => now)
+    const deliver = (p: Record<string, unknown>) =>
+      deliverer.deliver({ id: row?.id ?? '', kind: 'import.collection_photo', idempotencyKey: row?.idempotency_key ?? '', payload: p, partnerId: t.partnerB, storeId: t.storeB1, attempt: 2 }, new AbortController().signal)
+    const imageOf = async (id: string) => (await db.sql<{ image: string | null }[]>`select image_asset_id as image from collection where id = ${id}`)[0]?.image
+    const saved = async () => (await db.sql`select 1 from activity_log where action = 'collection.saved' and target_id = ${collectionId} and changes @> '[{"field":"image"}]'`).length
+    const assets = async () => (await db.sql`select 1 from asset where store_id = ${t.storeB1}`).length
+    const first = await imageOf(collectionId)
+    expect(first).toEqual(expect.any(String))
+    expect(await saved()).toBe(1)
+
+    // Redelivered: the image and its one entry stay, and no second copy is stored.
+    const before = await assets()
+    await deliver(payload)
+    expect(await imageOf(collectionId)).toBe(first)
+    expect(await saved()).toBe(1)
+    expect(await assets()).toBe(before)
+
+    // A job in store B1 naming another store's collection changes nothing there.
+    const [other] = await db.sql<{ id: string }[]>`update collection set image_asset_id = null where store_id = ${t.storeA1} and deleted_at is null returning id`
+    await deliver({ ...payload, collectionId: other?.id ?? '' })
+    expect(await imageOf(other?.id ?? '')).toBeNull()
+
+    // A ref the sample doesn't hold, or one whose R2 object is gone, leaves the collection without an image and the job delivered.
+    await db.sql`update collection set image_asset_id = null where id = ${collectionId}`
+    await deliver({ ...payload, ref: 'sample-photo:' + 'f'.repeat(64) })
+    expect(await imageOf(collectionId)).toBeNull()
+    const [{ key } = { key: '' }] = await db.sql<{ key: string }[]>`select photos ->> ${String(payload['ref'])} as key from store_category_sample where category_id = ${ids.footwear}`
+    const kept = bucket.get(key)
+    bucket.delete(key)
+    await deliver(payload)
+    expect(await imageOf(collectionId)).toBeNull()
+    if (kept) bucket.set(key, kept)
+    await db.sql`update collection set image_asset_id = ${first ?? null} where id = ${collectionId}`
   })
 
   it('never reads R2 for a merchant’s own file naming a sample photo', async () => {
     const d = (await detail()) as Detail
-    const ref = d.products[6]?.photo?.ref ?? ''
+    const ref = d.products[6]?.photos[0]?.ref ?? ''
     fetched.length = 0
     const file = `handle,name,visible,sku,price,image\nown-1,Own 1,yes,OWN-1,100,${ref}\n`
     const started = await shop('mutation($f: String!) { startCatalogImport(file: $f) }', 'other', { f: file })
@@ -379,5 +455,14 @@ describe('the sample editor', () => {
     await relay()
     const [own] = await db.sql<{ photos: number }[]>`select (select count(*)::int from product_photo ph where ph.product_id = p.id) as photos from product p where p.store_id = ${t.storeA2} and p.name = 'Own 1'`
     expect(own?.photos).toBe(0)
+  })
+
+  it('drops the collection photos on Reset to default, which replaces the whole sample with the built-in one', async () => {
+    const photoOf = async () => (await db.sql<{ photo: string | null }[]>`select c ->> 'photo' as photo from store_category_sample, jsonb_array_elements(collections) c
+      where category_id = ${ids.footwear} and c ->> 'name' = 'Sneakers'`)[0]?.photo
+    expect(await photoOf()).toEqual(expect.stringMatching(/^sample-photo:/))
+    const reset = await admin<Saved>(save, 'staff-super-admin', { c: ids.footwear, r: 'Reset to default' })
+    expect(reset.data?.addDefaultStoreCategorySample.problems).toEqual([])
+    expect(await photoOf()).toBeNull()
   })
 })

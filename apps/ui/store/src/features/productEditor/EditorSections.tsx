@@ -1,9 +1,9 @@
 import { formatMoney } from '@dripfunnel/shared/format'
+import { plainTextOf } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { EditorProduct } from '../../api/productEditor'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { plainTextOf } from '../common/richDescription'
 import { boxOf, gramsOf, priceRange, type Draft, type DraftProblem } from '../common/productDraft'
 import type { Update } from './EditorCards'
 

@@ -96,7 +96,7 @@ describe('The map in the address form', () => {
     expect(before(search(), screen.getByRole('application'))).toBe(true)
     expect(before(screen.getByRole('application'), field('Country'))).toBe(true)
     expect(before(field('PIN code'), field('Country'))).toBe(true)
-    expect(before(field('Country'), field('Phone for delivery Optional'))).toBe(true)
+    expect(before(field('Country'), field('Phone for delivery'))).toBe(true)
   })
 
   it('saves no pin until it is set by hand, however the map was drawn', async () => {

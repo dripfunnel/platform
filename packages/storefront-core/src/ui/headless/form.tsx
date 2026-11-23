@@ -94,6 +94,8 @@ export type PhoneFieldProps = Omit<TextFieldProps, 'type' | 'inputMode' | 'maxLe
   locale: string
   /** The class of the country code and the number together. */
   groupClassName?: string | undefined
+  required?: boolean
+  requiredMark?: string | undefined
 }
 
 /** The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */
@@ -107,7 +109,7 @@ const CountryOptions = memo(({ locale, chosen }: { locale: string; chosen: strin
 )
 
 /** A mobile number as a country code dropdown and the number; it hands back one value, `+` and the code first. */
-export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, autoFocus, className, groupClassName }: PhoneFieldProps) => {
+export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, autoFocus, required, requiredMark, className, groupClassName }: PhoneFieldProps) => {
   const id = useId()
   const input = useFocusOnMount(autoFocus)
   const [picked, setPicked] = useState<string | null>(null)
@@ -117,6 +119,7 @@ export const PhoneField = ({ label, value, onChange, country, codeLabel, locale,
     <span className={className}>
       <label htmlFor={id}>
         {label}
+        {required && requiredMark ? <span aria-hidden="true"> {requiredMark}</span> : null}
         {note ? <small> {note}</small> : null}
       </label>
       <span className={groupClassName}>
@@ -131,7 +134,7 @@ export const PhoneField = ({ label, value, onChange, country, codeLabel, locale,
           {split.country ? null : <option value="">+</option>}
           <CountryOptions locale={locale} chosen={split.country} />
         </select>
-        <input ref={input} id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
+        <input ref={input} id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
       </span>
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (
@@ -174,6 +177,11 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
   const id = useId()
   const names = new Intl.DisplayNames([locale], { type: 'region' })
   const problem = (p: FieldProblem | undefined) => (p === 'required' ? t('address.required') : p === 'invalid' ? t('address.invalid') : null)
+  const root = useRef<HTMLDivElement>(null)
+  // The phone is the last field, so it takes focus on a refused Continue only when nothing above it is wrong.
+  useEffect(() => {
+    if (errors.phone === 'required' && Object.keys(errors).length === 1) root.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus()
+  }, [errors])
   const countryField = (
     <span className={fieldClassName}>
             <label htmlFor={id}>
@@ -196,7 +204,7 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
           </span>
   )
   return (
-    <div className={className}>
+    <div className={className} ref={root}>
       <PinOnMap
         value={value.pin ?? null}
         onChange={(pin, place) => onChange({ ...fillFromPlace(value, place ?? null, countries), pin })}
@@ -212,13 +220,14 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
           <PhoneField
             key={f.field}
             label={t(f.label)}
-            note={t('address.optional')}
+            required
+            requiredMark={t('address.requiredMark')}
             value={value.phone}
             country={value.country}
             codeLabel={t('address.countryCode')}
             locale={locale}
             autoComplete={f.autoComplete}
-            error={errors.phone === 'invalid' ? t('address.phoneInvalid') : problem(errors.phone)}
+            error={errors.phone === 'invalid' ? t('address.phoneInvalid') : errors.phone === 'required' ? t('address.phoneRequired') : null}
             onChange={(phone) => onChange({ ...value, phone })}
             className={fieldClassName}
             groupClassName={phoneClassName}

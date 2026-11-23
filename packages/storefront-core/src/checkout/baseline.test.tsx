@@ -68,6 +68,7 @@ describe('the baseline checkout', () => {
     type('City', 'Columbus')
     type('State', 'OH')
     type('ZIP code', '43215')
+    type('Phone for delivery', '+16145550100')
     await press('Continue')
     // The store offers one delivery option, so it is applied automatically and no delivery step is shown.
     await settle()

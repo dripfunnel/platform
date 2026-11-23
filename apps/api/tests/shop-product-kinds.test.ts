@@ -114,7 +114,7 @@ describe('a cart with nothing to send', () => {
     expect((await add(v.kurta, 1, token)).needsShipping).toBe(true)
     await shop('mutation { setCartContact(email: "meera@example.com") { cart { id } } }', token)
     expect((await cart(token)).problems).toEqual(['NO_ADDRESS', 'NO_SHIPPING', 'TAX_UNAVAILABLE'])
-    await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN" }) { cart { id } } }', token)
+    await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
     await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
     expect(await cart(token)).toMatchObject({ needsShipping: true, shippingOption: 'flat', shipping: { amount: '5000' }, problems: [] })
     await shop(`mutation { setCartQuantity(versionId: "${v.kurta}", quantity: 0) { cart { id } } }`, token)
@@ -128,7 +128,7 @@ describe('free delivery', () => {
     try {
       const { token } = await add(v.kurta, 1)
       await add(v.pack, 1, token)
-      await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN" }) { cart { id } } }', token)
+      await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
       await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
       // 1,050 of kurta and 900 of download: over 1,500 together, under it in what is sent.
       expect((await cart(token)).shipping).toEqual({ amount: '5000' })
@@ -145,7 +145,7 @@ describe('a gift card', () => {
     const taxOf = async (...versions: string[]) => {
       let token: string | null = null
       for (const id of versions) token = (await add(id, 1, token)).token
-      await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN" }) { cart { id } } }', token)
+      await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN", phone: "+919800000000" }) { cart { id } } }', token)
       return (await cart(token ?? '')).tax?.amount.amount
     }
     const kurta = await taxOf(v.kurta)
