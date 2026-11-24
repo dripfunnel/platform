@@ -148,7 +148,11 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   per page however many components ask it, and only the latest question's answer is kept. *Since #1011* a live page
   built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
   them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
-  one if that fails. The preview and the studio get no answers and load as before. *Since #1598* the starting themes
+  one if that fails. *Since #1578* `PrefilledProvider` draws a thin loading bar at the top of the page while any of those
+  answers is being asked again (not the menu, which keeps its built answer, #1481): the page is `aria-busy` and the bar is
+  named "Checking for updates", it stops animating under reduced motion, and it goes away when the newer answers arrive or
+  a check fails, so a change since the last Publish no longer appears without warning. It is in no built HTML, so hydration
+  matches, and core draws it, so every theme has it. The preview and the studio get no answers, so no bar, and load as before. *Since #1598* the starting themes
   (all but Market) draw that state as a skeleton in the page's own layout, a band of the page colour sweeping across it (none under reduced motion), its loading words kept for screen readers; core's
   2.0.0 codemods bring it to a store still holding the shipped markup (§7.1).
 - **The address is the state**: `filter` (each chosen facet value's id, repeated), `price` (`min-max-CUR` in that currency's minor units, either end
