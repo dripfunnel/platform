@@ -4,9 +4,6 @@ import type { TenantContext } from '#core/tenancy'
 import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
 import { createStorefrontCatalog } from '#engine/modules/storefront/index'
 
-/** Most the reminder email lists (#1213). */
-export const reminderWishlistItems = 4
-
 /** What a wishlist item is, for a cart's page and its reminder: the product and its price from. */
 export interface WishlistItemNow {
   productId: string
