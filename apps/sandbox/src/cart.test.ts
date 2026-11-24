@@ -6,9 +6,10 @@ vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 })
 
 const usd = (cents: number) => ({ amount: String(cents), currency: 'USD' })
 type Line = { versionId: string; quantity: number; problem: string | null; available: number | null }
+// A code held in the cart applies only from two items up, as BUY2GET1 does.
 const cartOf = (lines: Line[], codes: string[] = []) => {
   const sub = lines.reduce((n, l) => n + 2800 * l.quantity, 0)
-  return { id: 'c1', currency: 'USD', email: null, phone: null, note: null, needsShipping: true, checkoutStep: 'contact', problems: [], readyToPay: false, deliverable: null, shippingOption: null, lines: lines.map((l) => ({ versionId: l.versionId, quantity: l.quantity, productName: `Tee ${l.versionId}`, productSlug: 'tee', versionName: 'Sand / M', photoUrl: null, unitPrice: usd(2800), lineTotal: usd(2800 * l.quantity), discount: null, available: l.available, problem: l.problem })), subtotal: usd(sub), discount: null, discounts: [], codes: codes.map((code) => ({ code, state: 'APPLIED' })), shipping: null, shippingDiscount: null, tax: null, total: usd(sub), amountDue: usd(sub), shippingAddress: null, billingAddress: null, shippingOptions: [] }
+  return { id: 'c1', currency: 'USD', email: null, phone: null, note: null, needsShipping: true, checkoutStep: 'contact', problems: [], readyToPay: false, deliverable: null, shippingOption: null, lines: lines.map((l) => ({ versionId: l.versionId, quantity: l.quantity, productName: `Tee ${l.versionId}`, productSlug: 'tee', versionName: 'Sand / M', photoUrl: null, unitPrice: usd(2800), lineTotal: usd(2800 * l.quantity), discount: null, available: l.available, problem: l.problem })), subtotal: usd(sub), discount: null, discounts: [], codes: codes.map((code) => ({ code, state: sub >= 5600 ? 'APPLIED' : 'NOT_ELIGIBLE' })), shipping: null, shippingDiscount: null, tax: null, total: usd(sub), amountDue: usd(sub), shippingAddress: null, billingAddress: null, shippingOptions: [] }
 }
 
 /** A Shop API holding one cart: `refuse` makes the next change fail, `down` makes reading it fail. */
@@ -63,6 +64,22 @@ describe.skipIf(!chrome)('the baseline cart page', () => {
       await page.getByLabel('Discount code').fill('AUTUMN')
       await page.getByRole('button', { name: 'Apply' }).click()
       await page.getByText('Code applied.').waitFor()
+      expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
+    } finally {
+      await context.close()
+    }
+  })
+
+  it('stops saying a code is applied once the cart no longer qualifies, and keeps its chip (#1680)', async () => {
+    const api = cartApi([{ versionId: 'a', quantity: 2, problem: null, available: 5 }])
+    const { context, page } = await openCart(api.answer)
+    try {
+      await page.getByLabel('Discount code').fill('AUTUMN')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await page.getByText('Code applied.').waitFor()
+      await page.getByRole('button', { name: 'One fewer' }).click()
+      await expect.poll(() => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()).toContain('1')
+      expect(await page.getByText('Code applied.').count()).toBe(0)
       expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
     } finally {
       await context.close()
