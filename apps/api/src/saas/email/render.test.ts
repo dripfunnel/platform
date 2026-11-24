@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { en } from './messages'
 import { renderEmail, type Brand } from './render'
-import { fromAddress } from './sender'
+import { fromAddresses } from './sender'
 
 const brand: Brand = { name: 'Northstar', primary: '#123456', accent: '#ffcc00', supportEmail: 'help@northstar.example', supportUrl: null, poweredBy: true }
 
@@ -26,15 +26,22 @@ describe('renderEmail', () => {
   })
 })
 
-describe('fromAddress', () => {
+describe('fromAddresses', () => {
   it("sends DripFunnel's own email from the sender domain and a partner's from its label's subdomain", () => {
-    expect(fromAddress({ kind: 'dripfunnel' }, { ...brand, name: 'DripFunnel' }, 'dripfunnel-mail.com')).toBe('"DripFunnel" <no-reply@dripfunnel-mail.com>')
-    expect(fromAddress({ kind: 'partner', label: 'northstar' }, brand, 'dripfunnel-mail.com')).toBe('"Northstar" <no-reply@northstar.dripfunnel-mail.com>')
-    expect(fromAddress({ kind: 'partner', label: null }, brand, 'dripfunnel-mail.com')).toBe('"Northstar" <no-reply@dripfunnel-mail.com>')
+    expect(fromAddresses({ kind: 'dripfunnel' }, { ...brand, name: 'DripFunnel' }, 'dripfunnel-mail.com')).toEqual(['"DripFunnel" <no-reply@dripfunnel-mail.com>'])
+    expect(fromAddresses({ kind: 'partner', label: 'northstar', emailHost: null }, brand, 'dripfunnel-mail.com')).toEqual(['"Northstar" <no-reply@northstar.dripfunnel-mail.com>'])
+    expect(fromAddresses({ kind: 'partner', label: null, emailHost: null }, brand, 'dripfunnel-mail.com')).toEqual(['"Northstar" <no-reply@dripfunnel-mail.com>'])
+  })
+
+  it("prefers a partner's live Email sender, keeping the name, with the fallback behind it (#1579)", () => {
+    expect(fromAddresses({ kind: 'partner', label: 'northstar', emailHost: 'mail.northstar.com' }, brand, 'dripfunnel-mail.com')).toEqual([
+      '"Northstar" <no-reply@mail.northstar.com>',
+      '"Northstar" <no-reply@northstar.dripfunnel-mail.com>',
+    ])
   })
 
   it('quotes a display name and encodes one that is not ASCII', () => {
-    expect(fromAddress({ kind: 'dripfunnel' }, { ...brand, name: 'Say "hi"' }, 'd.example')).toBe('"Say \\"hi\\"" <no-reply@d.example>')
-    expect(fromAddress({ kind: 'dripfunnel' }, { ...brand, name: 'Müller' }, 'd.example')).toBe('=?UTF-8?B?TcO8bGxlcg==?= <no-reply@d.example>')
+    expect(fromAddresses({ kind: 'dripfunnel' }, { ...brand, name: 'Say "hi"' }, 'd.example')).toEqual(['"Say \\"hi\\"" <no-reply@d.example>'])
+    expect(fromAddresses({ kind: 'dripfunnel' }, { ...brand, name: 'Müller' }, 'd.example')).toEqual(['=?UTF-8?B?TcO8bGxlcg==?= <no-reply@d.example>'])
   })
 })

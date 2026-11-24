@@ -3,7 +3,7 @@ import { logEvent } from '#core/log'
 import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { SesRefused, type SesApi } from '#integrations/ses/index'
-import { en, fromAddress, prepareEmail, renderEmail, type EmailHosts } from '#saas/email/index'
+import { en, fromAddresses, prepareEmail, renderEmail, type EmailHosts } from '#saas/email/index'
 import type { Deliverer } from '../outbox-relay'
 
 export interface EmailDelivererOptions {
@@ -38,12 +38,18 @@ export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDo
         return log('email_skipped', 'suppressed')
       }
       const rendered = renderEmail(prepared.brand, prepared.content, en.footer)
-      try {
-        await ses.send({ from: fromAddress(prepared.voice, prepared.brand, senderDomain), to, ...rendered, tags: { outbox: effect.id } }, signal)
-      } catch (error) {
-        // SES's own code (e.g. MessageRejected for an unverified sandbox recipient) is safe to log; its message is not.
-        if (error instanceof SesRefused) log('email_refused', error.code)
-        throw error
+      const froms = fromAddresses(prepared.voice, prepared.brand, senderDomain)
+      for (const [i, from] of froms.entries()) {
+        try {
+          await ses.send({ from, to, ...rendered, tags: { outbox: effect.id } }, signal)
+          break
+        } catch (error) {
+          // SES's own code (e.g. MessageRejected for an unverified sandbox recipient) is safe to log; its message is not.
+          if (!(error instanceof SesRefused)) throw error
+          const last = i === froms.length - 1
+          log(last ? 'email_refused' : 'email_sender_refused', error.code)
+          if (last) throw error
+        }
       }
       log('email_sent', 'sent')
     }).catch((error: unknown) => {

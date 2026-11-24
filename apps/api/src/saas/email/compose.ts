@@ -47,7 +47,7 @@ export interface EmailHosts {
 }
 
 /** Who the email speaks for: DripFunnel to its partners and staff, a partner to its merchants (SAAS §3.6). */
-export type Voice = { kind: 'dripfunnel' } | { kind: 'partner'; label: string | null }
+export type Voice = { kind: 'dripfunnel' } | { kind: 'partner'; label: string | null; emailHost: string | null }
 
 export type Prepared =
   /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
@@ -154,7 +154,8 @@ const partnerBrand = async (tx: ScopedSql, partnerId: string): Promise<{ brand: 
     supportUrl: live?.support_url ?? null,
     poweredBy: partner.powered_by !== 'off',
   }
-  return { brand, voice: { kind: 'partner', label: senderLabel(await selectPartnerHosts(tx, partnerId)) } }
+  const hosts = await selectPartnerHosts(tx, partnerId)
+  return { brand, voice: { kind: 'partner', label: senderLabel(hosts), emailHost: hosts.find((h) => h.kind === 'email' && h.status === 'live')?.host ?? null } }
 }
 
 // Owners whose membership and account are both live: never a suspended, deleted or never-joined one.
