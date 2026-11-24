@@ -181,6 +181,7 @@ export const en = {
   'address.map.locating': 'Finding where you are…',
   'address.map.locateFailed': 'We couldn’t get your location. Check that your browser lets this shop use it, or move the pin yourself.',
   'address.map.loading': 'Loading the map…',
+  'refresh.checking': 'Checking for updates',
   'address.map.liveOnly': 'Pinning on a map works on the live shop, not on a preview.',
   'search.suggest.all': 'See all results for “{query}”',
   'search.suggest.none': 'No products match “{query}”.',
