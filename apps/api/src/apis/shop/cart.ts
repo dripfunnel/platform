@@ -213,7 +213,14 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       discount: t.field({ type: Money_, resolve: (c) => c.discount }),
       codes: t.field({ type: [CodeType], resolve: (c) => c.codes }),
       // Shared codes this cart qualifies for and gains from, best first, at most five (#1698); priced only when asked for.
-      availableOffers: t.field({ type: [AvailableOfferType], resolve: async (_, __, ctx) => (await cartOf(ctx)).availableOffers() }),
+      // Asked 30 a minute per store and address, on a bucket of its own; past that the list is empty, never an error.
+      availableOffers: t.field({
+        type: [AvailableOfferType],
+        resolve: async (_, __, ctx) => {
+          const allowed = await limitCodeTries(ctx, 'shop-offers', 'Too many offers asked for. Wait a minute and try again.').then(() => true, () => false)
+          return allowed ? (await cartOf(ctx)).availableOffers() : []
+        },
+      }),
       deliverable: t.exposeBoolean('deliverable', { nullable: true }),
       shippingOptions: t.field({ type: [Option], resolve: (c) => c.shippingOptions }),
       shipping: t.field({ type: Money_, nullable: true, resolve: (c) => c.shipping }),

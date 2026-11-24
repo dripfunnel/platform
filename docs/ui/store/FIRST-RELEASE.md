@@ -1328,9 +1328,9 @@ code the cart holds and its state: `APPLIED`, `NOT_ELIGIBLE`, `DOESNT_COMBINE`, 
 code's state with the cart: one that can't work whatever is added, or whose conditions the cart doesn't meet (`NOT_ELIGIBLE`, #1644), comes straight back off, a code no offer of the store
 holds is `INVALID` like a malformed one, and codes are tried at most 30 a minute per store and address
 (`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. `ShopCart.availableOffers` (#1698) lists the shared codes this cart would
-take now and gains from, as `{ name, code, saves }` best first and at most five: priced on top of the codes held, so who an
+take now and gains from, as `{ name, code, saves }` best first and at most five, chosen among the store's 50 newest shared codes: priced on top of the codes held, so who an
 offer is for ("Who is it for?"), its limits and what it combines with decide exactly as for a typed code, and a single-use code,
-a reminder's code, a code already on the cart and another store's never appear; it is priced only when the query asks for it.
+a reminder's code, a code already on the cart and another store's never appear; it is priced only when the query asks for it, and asked at most 30 a minute per store and address (past that it answers an empty list, never an error).
 A once-per-customer or first-order offer needs a signed-in shopper (`SIGN_IN_REQUIRED` for every guest, whatever email they
 typed, so no answer reveals another shopper's history; OFFERS-DESIGN §3.1). Placing a live order takes each offer's use
 under its row lock (an offer used up or ended meanwhile refuses `OFFER_CHANGED`, and the cart, read again, no longer has

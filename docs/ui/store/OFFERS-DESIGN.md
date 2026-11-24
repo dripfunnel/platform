@@ -323,7 +323,7 @@ promotions tests before relying on it.
       and a group, named-customer or first-order offer only to those it is for (a guest never
       sees one needing a sign-in). A merchant who wants a code kept private hands out
       single-use codes or restricts the audience. Not listed: single-use and reminder
-      codes, and "add ₹X more" hints (a later card).
+      codes, codes beyond the store's 50 newest shared ones, and "add ₹X more" hints (a later card).
     - The engine computing a product's price after automatic offers for the Shop API, and
       `@dripfunnel/storefront-core` showing "Sale −20%" badges and crossed-out prices, are
       engine and storefront requirements, `(release: decide)`. The storefront may display

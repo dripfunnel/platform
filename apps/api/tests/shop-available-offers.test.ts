@@ -16,6 +16,7 @@ let store = ''
 let other = ''
 let kurta = ''
 let session: string | null = null
+let limiter: { allow: boolean; keys: string[] } = { allow: true, keys: [] }
 
 const shop = async (source: string, cart: string | null = null) => {
   const headers: Record<string, string> = { ...(cart ? { 'x-shop-cart': cart } : {}), ...(session ? { 'x-shop-session': session } : {}) }
@@ -23,7 +24,7 @@ const shop = async (source: string, cart: string | null = null) => {
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = {
     sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null,
-    allowAttempt: async () => true, allowNewCart: async () => true, allowCodeAttempt: async () => true, now: () => new Date(),
+    allowAttempt: async () => true, allowNewCart: async () => true, allowCodeAttempt: async (key: string) => (limiter.keys.push(key), limiter.allow), now: () => new Date(),
   }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -38,11 +39,11 @@ const add = async (quantity: number, token: string | null = null) => {
 }
 const percent = (n: number) => ({ operation: 'order_percentage_discount', percent: n })
 
-const offer = async (o: { storeId?: string; name: string; code: string; action?: Record<string, unknown>; conditions?: Record<string, unknown>[]; singleUse?: boolean; enabled?: boolean; endsAt?: Date; replaced?: boolean; expiresAt?: Date }) => {
+const offer = async (o: { storeId?: string; name: string; code: string; action?: Record<string, unknown>; conditions?: Record<string, unknown>[]; singleUse?: boolean; enabled?: boolean; endsAt?: Date; replaced?: boolean; expiresAt?: Date; combines?: Record<string, boolean> }) => {
   const storeId = o.storeId ?? store
   const [p] = await db.sql<{ id: string }[]>`
     insert into promotion (store_id, name, trigger, enabled, ends_at, combines_with)
-    values (${storeId}, ${o.name}, 'code', ${o.enabled ?? true}, ${o.endsAt ?? null}, ${db.sql.json({ product: true, order: true, shipping: true })}) returning id`
+    values (${storeId}, ${o.name}, 'code', ${o.enabled ?? true}, ${o.endsAt ?? null}, ${db.sql.json(o.combines ?? { product: true, order: true, shipping: true })}) returning id`
   const id = p?.id ?? ''
   const { operation, ...args } = o.action ?? percent(10)
   await db.sql`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${id}, ${storeId}, ${String(operation)}, ${db.sql.json(args as Record<string, string>)}, 0)`
@@ -83,6 +84,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await db?.drop()
 })
+
+const apart = { product: false, order: false, shipping: false }
 
 describe('the offers a cart can use now (card #1698)', () => {
   it('lists a code the cart qualifies for, with what it takes off this cart, and nothing else', async () => {
@@ -157,6 +160,48 @@ describe('the offers a cart can use now (card #1698)', () => {
     const listing = await listed(await add(1))
     expect(listing).toHaveLength(5)
     expect(listing.map((o) => o.code)).toEqual(['OFFER7', 'OFFER6', 'OFFER5', 'OFFER4', 'OFFER3'])
+  })
+
+  it('never lists a cart reminder’s code', async () => {
+    await clear()
+    const [o] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, email)
+      values (${store}, 'placed', 'paid', 'INR', 'J-R1', now(), 100000, 0, 100000, 'cod', 'asha@example.com') returning id`
+    await offer({ name: 'Reminder 10%', code: 'REMIND10' })
+    await db.sql`update promotion_code set order_id = ${o?.id ?? ''} where code = 'REMIND10' and store_id = ${store}`
+    await offer({ name: 'Plain 5%', code: 'PLAIN5', action: percent(5) })
+    expect(await names(await add(1))).toEqual(['Plain 5%'])
+  })
+
+  it('lists a code that doesn’t combine with a held one only when it beats it, and then for the difference', async () => {
+    await clear()
+    await offer({ name: 'Held 10%', code: 'HELD10', combines: apart })
+    await offer({ name: 'Smaller 5%', code: 'SMALL5', action: percent(5), combines: apart })
+    await offer({ name: 'Bigger 30%', code: 'BIG30', action: percent(30), combines: apart })
+    const token = await add(1)
+    await shop('mutation { applyCode(code: "HELD10") { state } }', token)
+    expect(await listed(token)).toEqual([{ name: 'Bigger 30%', code: 'BIG30', saves: { amount: '20000' } }])
+  })
+
+  it('looks only at the store’s 50 newest shared codes', async () => {
+    await clear()
+    await offer({ name: 'Oldest and best', code: 'OLDEST90', action: percent(90) })
+    for (let n = 1; n <= 50; n++) await offer({ name: `Filler ${n}`, code: `FILL${String(n).padStart(2, '0')}`, action: percent(1) })
+    const codes = (await listed(await add(1))).map((o) => o.code)
+    expect(codes).toHaveLength(5)
+    expect(codes).not.toContain('OLDEST90')
+  }, 60_000)
+
+  it('is asked on a limiter bucket of its own, and answers an empty list, not an error, once that is spent', async () => {
+    await clear()
+    await offer({ name: 'Limited 20% off', code: 'LIMIT20', action: percent(20) })
+    const token = await add(1)
+    limiter = { allow: true, keys: [] }
+    expect(await names(token)).toEqual(['Limited 20% off'])
+    expect(limiter.keys).toEqual([`shop-offers:${store}:203.0.113.5`])
+    limiter = { allow: false, keys: [] }
+    expect(await names(token)).toEqual([])
+    limiter = { allow: true, keys: [] }
   })
 
   it('answers an empty list when the shopper has no cart lines to price', async () => {

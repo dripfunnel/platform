@@ -257,7 +257,7 @@ export const createCartService = (deps: CartDeps) => {
     const looked = known ? Promise.resolve(known) : shop.cartItemsIn(tx, row.lines.map((l) => l.version_id))
     // The offers are read in system scope on a connection of their own, alongside this transaction rather than after it.
     const offersAt = now()
-    const offerFacts = loadCartOffers(sql, { storeId, codes: row.promotion_codes, customerId: row.customer_id, now: offersAt, shared },looked.then((found) => [...found.values()].map((i) => i.product.id)))
+    const offerFacts = loadCartOffers(sql, { storeId, codes: row.promotion_codes, customerId: row.customer_id, now: offersAt, shared }, looked.then((found) => [...found.values()].map((i) => i.product.id)))
     offerFacts.catch(() => undefined)
     const [items, setup, uploads] = await Promise.all([looked, selectTaxSetup(tx, storeId), withFiles ? selectCartUploads(tx, row.id) : []])
     const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
