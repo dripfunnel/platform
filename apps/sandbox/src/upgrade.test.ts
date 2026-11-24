@@ -197,7 +197,7 @@ describe('a draft started before the upgrade', () => {
   })
 
   it('stays exactly as it was when the gate itself fails after the rebase', async () => {
-    await loadBundle('broken', live)
+    expect((await loadBundle('broken', live))['head']).toEqual(expect.any(String))
     const before = await head('broken')
     await fetch(`${base}/slots/broken/onto`, { method: 'PUT', body: upgraded.bundle })
     expect((await call('POST', '/slots/broken/rebase', { onto: upgraded.commit, context: { locales: 'every' } })).status).toBe(400)
