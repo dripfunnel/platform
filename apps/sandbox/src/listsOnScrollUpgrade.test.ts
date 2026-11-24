@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { applyCodemods, coreUpgradeNotes, notesBetween } from '@dripfunnel/storefront-core/guard'
 
-// #1570: the 2.1.0 codemods bring scroll-loading lists to a store made before them.
+// #1570: the 3.0.0 codemods bring scroll-loading lists to a store made before them.
 const themesDir = fileURLToPath(new URL('../../../templates/storefront/themes/', import.meta.url))
 const walk = (dir: string, rel = ''): string[] =>
   readdirSync(join(dir, rel)).flatMap((name) => {
@@ -17,7 +17,7 @@ const shipped = (theme: string) =>
       .filter((path) => /\.(tsx|css|json)$/.test(path))
       .map((path) => [path, readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n')] as const),
   )
-const codemods = notesBetween('2.0.0', '2.1.0', coreUpgradeNotes).flatMap((n) => n.codemods)
+const codemods = notesBetween('2.0.0', '3.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
 
 /** The theme with every codemod undone, last first: what a store made before this change holds. */
 const undone = (theme: ReadonlyMap<string, string>) => {
@@ -32,7 +32,7 @@ const undone = (theme: ReadonlyMap<string, string>) => {
   return files
 }
 
-describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry'])('Account › Orders and the Blog for a %s store made before core 2.1.0', (key) => {
+describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry'])('Account › Orders and the Blog for a %s store made before core 3.0.0', (key) => {
   const now = shipped(key)
   const before = undone(now)
 
@@ -49,9 +49,9 @@ describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'groce
 
 })
 
-// #1566: the link under the sign-in code box follows the store's sign-in setting; the 2.1.0 codemods bring it to a store made before.
+// #1566: the link under the sign-in code box follows the store's sign-in setting; the 3.0.0 codemods bring it to a store made before.
 // Market has no view of its own (it uses Baseline's) but ships its own messages, so only its messages are checked.
-describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])('the sign-in "use another" link of a %s store made before core 2.1.0', (key) => {
+describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])('the sign-in "use another" link of a %s store made before core 3.0.0', (key) => {
   const now = shipped(key)
   const before = undone(now)
   const view = 'src/theme/components/interactive/SignInView.tsx'

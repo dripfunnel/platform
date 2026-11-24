@@ -33,12 +33,13 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * "Releases"); a release with no entry needs no codemod.
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
-  // #1570: lists load on scroll; the entry's number is the release card's to confirm.
+  // #1695: 3.0.0 ships #1615's address map, with #1570's and #1566's codemods.
   {
-    version: '2.1.0',
-    kind: 'minor',
+    version: '3.0.0',
+    kind: 'major',
     security: false,
     notes: [
+      'The address form (checkout and My addresses) shows its map with the form, above the fields, when the store has a map key (#1615): the "Pin on map" button and its dialog are gone, and a search box above the map lists matching places. Core draws the form and its words, so no theme file has to change and there are no codemods for it. A theme that styled the old button or its dialog (`.field > button`, `[role=dialog]`) finds those rules matching nothing; the map draws in core\'s own look.',
       'Every list on the live site loads its next page by itself (#1570): the starting themes\' Account › Orders and Blog, which asked for a "Load more" click, now load as the end of the list nears the screen, as their product grids already did (#1385), and an older store\'s product grid does the same.',
       'No theme has to change, and core\'s API is unchanged: the new views call `useLoadOnScroll` with the lists\' own `loadMore`, `more`, `loadingMore` and `loadMoreFailed` (`useOrders()` and `useBlog()`). To match in a theme of your own, call it from a component that is always on screen with the list (a component that returns early while loading never attaches its observer), put the returned ref on an element after the list, draw a "Loading more…" line while `loadingMore`, a message with a Try again button while `loadMoreFailed`, and nothing at the end; announce the number shown with a polite `role="status"` line, and remove the Load more button.',
       'The codemods rewrite the Orders and Blog views of a Baseline, Classic or category theme that still has the shipped markup, add `loadingMore` and `loadingSpinner` to its shop styles and the new words (`shop.orders.loadingMore`, `shop.orders.showing`, `pages.blog.loadingMore`, `pages.blog.showing`) to its content, and turn the "Load more" button of a product grid from before core 0.12.0 into the scroll-loading one (`MoreOnScroll`). A theme that changed those views is not rewritten whole: the migration agent applies the steps above to what the codemods did not.',
