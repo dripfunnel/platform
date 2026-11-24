@@ -93,7 +93,9 @@ export const CartView = () => {
     )
   }
   const blocked = cart.lines.some((l) => l.problem !== null)
-  const note = codeNote && (codeNote.refused || cart.codes.some((c) => c.state === 'APPLIED' && c.code.toUpperCase() === codeNote.code.toUpperCase())) ? codeNote : null
+  const stale = codeNote !== null && !codeNote.refused && !cart.codes.some((c) => c.state === 'APPLIED' && c.code.toUpperCase() === codeNote.code.toUpperCase())
+  if (stale) setCodeNote(null)
+  const note = stale ? null : codeNote
   return (
     <section className={cx(shop.page, styles.page)}>
       <h1 className={shop.title}>{t('shop.cart.title')}</h1>

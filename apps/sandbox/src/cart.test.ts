@@ -70,7 +70,7 @@ describe.skipIf(!chrome)('the baseline cart page', () => {
     }
   })
 
-  it('stops saying a code is applied once the cart no longer qualifies, and keeps its chip (#1680)', async () => {
+  it('stops saying a code is applied once the cart no longer qualifies, and keeps its chip, also when the quantity goes back up (#1680)', async () => {
     const api = cartApi([{ versionId: 'a', quantity: 2, problem: null, available: 5 }])
     const { context, page } = await openCart(api.answer)
     try {
@@ -81,6 +81,9 @@ describe.skipIf(!chrome)('the baseline cart page', () => {
       await expect.poll(() => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()).toContain('1')
       expect(await page.getByText('Code applied.').count()).toBe(0)
       expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
+      await page.getByRole('button', { name: 'One more' }).click()
+      await expect.poll(() => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()).toContain('2')
+      expect(await page.getByText('Code applied.').count()).toBe(0)
     } finally {
       await context.close()
     }
