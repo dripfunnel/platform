@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { scratchTemplate, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
+import { templatePicture } from '@dripfunnel/shared/templates'
 import { chooseRefusal, hasSite } from './overviewView'
 import type { StorefrontApi } from './storefrontApi'
 import { wakeStudio } from './useStudioActivity'
@@ -100,7 +101,6 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   )
 }
 
-const templatePicture = (key: string): string => `${import.meta.env.BASE_URL}templates/${encodeURIComponent(key)}.webp`
 
 const TemplateCard = ({ template, busy, onPick }: { template: StorefrontTemplate; busy: string | null; onPick: () => void }) => {
   const nameId = useId()

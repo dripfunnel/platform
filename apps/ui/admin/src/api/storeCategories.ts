@@ -18,6 +18,8 @@ const categorySchema = z.object({
   sections: z.array(z.enum(categorySections)),
   archivedAt: isoString.nullable(),
   storeCount: z.number().int().nonnegative(),
+  // Its starting template (DATA-MODEL §7.2), set by migration; null for most categories.
+  template: z.object({ key: z.string(), name: z.string(), tag: z.string() }).nullable(),
   // DripFunnel ships built-in sample data for it (DATA-MODEL §7.2), which staff add with one click.
   hasDefaultSample: z.boolean().nullable().transform((v) => v === true),
   // Its sample catalog (CATALOG-DESIGN K13a); null when staff haven't added one.
@@ -38,7 +40,7 @@ export interface CategoryInput {
   sections: CategorySection[]
 }
 
-const fields = 'id key names { language name } sections archivedAt storeCount hasDefaultSample sample { currency products collections { name products } photos uploadedAt }'
+const fields = 'id key names { language name } sections archivedAt storeCount template { key name tag } hasDefaultSample sample { currency products collections { name products } photos uploadedAt }'
 
 export const englishName = (category: Pick<StoreCategory, 'names' | 'key'>): string => category.names.find((n) => n.language === 'en')?.name ?? category.key
 

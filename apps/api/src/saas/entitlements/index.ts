@@ -1,7 +1,9 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { amountKeys, choiceKeys, selectStoreEntitlement, selectUnlockingPlan, type AmountKey, type ChoiceKey, type EntitlementKey, type SwitchKey, type UnlockingPlan } from '#db/scoped/entitlements'
+import { isDemoStore } from '#db/scoped/demoStores'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { maxSampleProducts } from '#saas/storeCategories/sample'
 
 export type { EntitlementKey, UnlockingPlan } from '#db/scoped/entitlements'
 
@@ -38,6 +40,10 @@ export const planLimitFor = async (sql: postgres.Sql, context: TenantContext, ch
 
 /** The store's current amount for a limit or index for a choice (its override or its plan's), 0 when neither sets one. */
 export const allowanceFor = async (sql: postgres.Sql, context: TenantContext, key: AmountKey | ChoiceKey, now: Date): Promise<number> => {
-  const current = await withScope(sql, { ...context, sellerScope: { kind: 'all' } }, (tx) => selectStoreEntitlement(tx, context.storeId, key, now))
-  return current.amount ?? 0
+  return withScope(sql, { ...context, sellerScope: { kind: 'all' } }, async (tx) => {
+    const current = await selectStoreEntitlement(tx, context.storeId, key, now)
+    // A template's demo has no plan; it holds its category's sample, never more (admin FIRST-RELEASE §11d).
+    if (current.amount === null && key === 'products' && (await isDemoStore(tx, context.storeId))) return maxSampleProducts
+    return current.amount ?? 0
+  })
 }

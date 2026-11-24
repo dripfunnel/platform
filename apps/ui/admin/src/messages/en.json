@@ -90,6 +90,7 @@
     "provisioning": "Provisioning",
     "rollouts": "Rollouts",
     "categories": "Store categories",
+    "templates": "Templates",
     "settings": "Platform settings",
     "activity": "Activity log",
     "staff": "Staff",
@@ -2530,6 +2531,65 @@
       "other": "That didn’t work. Nothing has changed."
     }
   },
+  "templates": {
+    "level": "Platform · Storefronts",
+    "title": "Templates",
+    "sub": "The starting themes a store’s storefront is made from, in their collections. Open one to see its templates and preview them with sample products.",
+    "collectionsLabel": "Template collections",
+    "templatesLabel": "{name} templates",
+    "breadcrumb": "Breadcrumb",
+    "back": "All collections",
+    "templateCount": {
+      "one": "{count} template",
+      "other": "{count} templates"
+    },
+    "missing": {
+      "title": "No templates in this collection",
+      "body": "It may have been renamed, or its last template retired."
+    },
+    "loading": "Loading templates",
+    "listLabel": "Templates",
+    "retired": "Retired",
+    "noCategory": "None",
+    "columns": {
+      "name": "Template",
+      "key": "Key",
+      "categories": "Store categories",
+      "stores": "Stores",
+      "preview": "Preview"
+    },
+    "stores": {
+      "one": "{count} store",
+      "other": "{count} stores"
+    },
+    "preview": "Preview",
+    "opening": "Opening…",
+    "demo": {
+      "none": "No preview",
+      "noDemo": "No demo store yet",
+      "creating": "Preview being set up"
+    },
+    "settingUp": "Setting up {name}’s preview with its category’s sample. It takes a minute or two; reload, then open it.",
+    "previewNote": "Opens in a new tab: a demo store named Shopstore with its category’s sample products, never published, with test-mode checkout.",
+    "refusals": {
+      "NOT_FOUND": "That template has no preview.",
+      "NO_DEMO": "This template’s preview isn’t set up yet. A Super admin sets it up by opening it once.",
+      "NO_SAMPLE": "Its store category has no sample catalog yet. Add one on Store categories first.",
+      "NO_HOUSE_PARTNER": "DripFunnel’s own partner isn’t set up here, so there is nowhere to keep the demo store.",
+      "PREVIEW_OFF": "Previews aren’t switched on here.",
+      "FORBIDDEN": "Your role can’t open template previews.",
+      "other": "The preview didn’t open. Try again."
+    },
+    "empty": {
+      "title": "No templates yet",
+      "body": "Templates come from templates/storefront/themes in the platform repo."
+    },
+    "error": {
+      "title": "We couldn’t load templates",
+      "body": "The admin service didn’t answer. Nothing was changed.",
+      "retry": "Try again"
+    }
+  },
   "storeCategories": {
     "level": "Platform · Merchants",
     "title": "Store categories",
@@ -2542,10 +2602,12 @@
     "restore": "Restore",
     "archived": "Archived",
     "noSections": "No sections",
+    "noTemplate": "None",
     "columns": {
       "name": "Category",
       "key": "Key",
       "sections": "Product page sections",
+      "template": "Starting template",
       "stores": "Stores",
       "actions": "Actions"
     },
