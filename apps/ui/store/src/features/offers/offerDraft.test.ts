@@ -64,7 +64,8 @@ describe('a new offer', () => {
       expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code }, india)).toEqual({})
     }
     expect(blankDraft('order', 'seasonal', { ...ctx(india), season: { name: '春节', on: new Date('2027-02-06T00:00:00.000Z') } }).code).toMatch(/^SALE[A-Z2-9]{4}20$/)
-    expect(blankDraft('order', 'winBack', ctx(india))).toMatchObject({ who: 'customers', totalUses: '1' })
+    expect(blankDraft('order', 'winBack', ctx(india))).toMatchObject({ who: 'customers', totalLimited: true, totalUses: '1' })
+    expect(blankDraft('order', null, ctx(india))).toMatchObject({ totalLimited: false, totalUses: '' })
     expect(blankDraft('order', 'buy2get1', ctx(india)).type).toBe('bxgy')
   })
 })
@@ -76,6 +77,8 @@ describe('what Save sends', () => {
     expect(input.action).toEqual({ operation: 'line_fixed_discount', amounts: [{ currency: 'USD', amount: '500' }, { currency: 'EUR', amount: '455' }, { currency: 'JPY', amount: '900' }], targets: { productIds: ['p1'], collectionIds: undefined, filterValueIds: undefined }, exclude: { giftCards: true, onSale: false } })
     expect(input.conditions).toEqual([{ operation: 'minimum_order_amount', amounts: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4545' }, { currency: 'JPY', amount: '7273' }] }])
     expect(input).toMatchObject({ enabled: true, trigger: 'code', startsAt: '2026-11-27T05:00:00.000Z', endsAt: '2026-12-01T04:59:59.000Z', perCustomerLimit: 1, totalUsesLimit: null })
+    expect(inputOf({ ...d, totalLimited: true, totalUses: '5' }, multi, true).totalUsesLimit).toBe(5)
+    expect(inputOf({ ...d, totalLimited: false, totalUses: '5' }, multi, true).totalUsesLimit).toBeNull()
     expect(convertedText('5', multi, 'EUR')).toBe('4.55')
   })
 
@@ -114,7 +117,8 @@ describe('what Save sends', () => {
       revision: 4,
     }
     const d = draftOf(offer, india)
-    expect(d).toMatchObject({ type: 'products', kind: 'percent', percent: '15', target: 'collection', collectionIds: ['c1'], capOn: true, cap: '250.00', who: 'groups', note: 'Q4', startsAt: '2026-10-12T09:00', totalUses: '100', perCustomer: '2' })
+    expect(d).toMatchObject({ type: 'products', kind: 'percent', percent: '15', target: 'collection', collectionIds: ['c1'], capOn: true, cap: '250.00', who: 'groups', note: 'Q4', startsAt: '2026-10-12T09:00', totalLimited: true, totalUses: '100', perCustomer: '2' })
+    expect(draftOf({ ...offer, totalUsesLimit: null }, india)).toMatchObject({ totalLimited: false, totalUses: '' })
     const input = inputOf(d, india, true)
     expect(input.conditions).toEqual([{ operation: 'customer_group', groupIds: ['g1'] }, { operation: 'any_of', conditions: [{ operation: 'first_order' }, { operation: 'minimum_quantity', minimum: 3 }] }])
     expect(input.startsAt).toBe('2026-10-12T03:30:00.000Z')
@@ -237,7 +241,12 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...d, productIds: many, code: 'OK1' }, india)).toEqual({ targets: tooMany })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'customers', customerIds: many }, india)).toEqual({ who: tooMany })
     expect(errorsOf({ ...blankDraft('bxgy', null, ctx(india)), code: 'OK1', buyIds: many, getSame: false, getIds: many }, india)).toEqual({ buy: tooMany, get: tooMany })
-    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalLimited: true, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
+    // "Limit to" with an empty box is refused like 0 (#1580); the number is ignored while Unlimited is chosen.
+    const blank = { ...blankDraft('order', null, ctx(india)), code: 'OK1' }
+    for (const typed of ['', ' ', '0', '100000001', 'abc']) expect(errorsOf({ ...blank, totalLimited: true, totalUses: typed }, india)).toEqual({ total: words.total })
+    for (const typed of ['1', '100', '100000000']) expect(errorsOf({ ...blank, totalLimited: true, totalUses: typed }, india)).toEqual({})
+    expect(errorsOf({ ...blank, totalLimited: false, totalUses: '0' }, india)).toEqual({})
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', tiers: [{ off: '10', minimum: '500' }] }, india)).toEqual({ tiers: 'Give between 2 and 5 steps.' })
     const perCustomer = 'Uses per customer must be a whole number from 1 to 1,000, or Unlimited.'
     for (const typed of ['abc', '1.5', '-1', '0', '5000']) expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: typed }, india)).toEqual({ perCustomer })
