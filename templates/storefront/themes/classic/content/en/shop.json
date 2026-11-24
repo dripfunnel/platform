@@ -126,6 +126,14 @@
       "alreadyUsed": "You've already used this code.",
       "invalid": "That code isn't valid. Check it and try again."
     },
+    "offers": {
+      "title": "Offers for you",
+      "loading": "Loading offers",
+      "failed": "We couldn't load offers.",
+      "saves": "Saves {amount}",
+      "code": "Code {code}",
+      "applyCode": "Apply {name}"
+    },
     "giftFor": "For {name} ({email})"
   },
   "checkout": {

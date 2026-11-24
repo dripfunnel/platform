@@ -14,7 +14,7 @@ import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
 import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadCart, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
-import { deadCodeStates, loadCartOffers, normaliseCode, priceCartOffers, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
+import { availableOffersOf, deadCodeStates, loadCartOffers, normaliseCode, priceCartOffers, type AvailableOffer, type CartDiscount, type CartOffersInput, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem, type CartLineDisplay } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
@@ -251,13 +251,13 @@ export const createCartService = (deps: CartDeps) => {
     item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
 
   /** A cart view's reads on the caller's transaction (docs/api/README.md §7, #1590); `known`: items already looked up. */
-  const loadView = async (tx: ScopedSql, context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null) => {
+  const loadView = async (tx: ScopedSql, context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null, shared = false) => {
     const shop = catalog(context)
     const withFiles = row.lines.some((l) => uploadsIn(l.answers).length > 0)
     const looked = known ? Promise.resolve(known) : shop.cartItemsIn(tx, row.lines.map((l) => l.version_id))
     // The offers are read in system scope on a connection of their own, alongside this transaction rather than after it.
     const offersAt = now()
-    const offerFacts = loadCartOffers(sql, { storeId, codes: row.promotion_codes, customerId: row.customer_id, now: offersAt }, looked.then((found) => [...found.values()].map((i) => i.product.id)))
+    const offerFacts = loadCartOffers(sql, { storeId, codes: row.promotion_codes, customerId: row.customer_id, now: offersAt, shared },looked.then((found) => [...found.values()].map((i) => i.product.id)))
     offerFacts.catch(() => undefined)
     const [items, setup, uploads] = await Promise.all([looked, selectTaxSetup(tx, storeId), withFiles ? selectCartUploads(tx, row.id) : []])
     const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
@@ -283,8 +283,9 @@ export const createCartService = (deps: CartDeps) => {
   const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> =>
     priceView(context, row, await withScope(sql, context, (tx) => loadView(tx, context, row, known)))
 
-  const priceView = async (context: TenantContext, row: CartRow, loaded: Loaded): Promise<CartView> => {
-    const { items, questions, files, setup } = loaded
+  /** The cart's lines, delivery and offers priced: what priceView goes on to tax, and what availableOffers tries more codes against. */
+  const priceOffersOf = async (context: TenantContext, row: CartRow, loaded: Loaded) => {
+    const { items, questions, files } = loaded
     // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
     const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
     const ofVersion = new Map<string, number>()
@@ -301,11 +302,9 @@ export const createCartService = (deps: CartDeps) => {
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
-    // Only a physical item is sent (CATALOG T14); a gift card carries no tax, which is charged on what it buys (CatEditor).
+    // Only a physical item is sent (CATALOG T14).
     const sent = priced.filter((l) => l.item?.product.productType === 'physical')
     const needsShipping = lines.some((l) => l.item?.product.productType === 'physical')
-    const taxable = priced.filter((l) => l.item?.product.productType !== 'gift_card')
-    const pickup = needsShipping && row.shipping_option === 'pickup'
     const address = row.shipping_address
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
@@ -319,7 +318,7 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? (address ? null : (shippingOptions.find((o) => o.id === 'flat') ?? null))
-    const offers = priceCartOffers(await loaded.offerFacts, {
+    const offerInput: CartOffersInput = {
       storeId,
       cartId: row.id,
       currency,
@@ -333,7 +332,18 @@ export const createCartService = (deps: CartDeps) => {
       ),
       shipping: chosen?.amount.amount ?? null,
       now: loaded.offersAt,
-    })
+    }
+    const facts = await loaded.offerFacts
+    const offers = priceCartOffers(facts, offerInput)
+    return { lines, subtotal, priced, needsShipping, address, shippingOptions, deliverable, chosen, offers, offerInput, facts }
+  }
+
+  const priceView = async (context: TenantContext, row: CartRow, loaded: Loaded): Promise<CartView> => {
+    const { setup } = loaded
+    const { lines, subtotal, priced, needsShipping, address, chosen, offers, shippingOptions, deliverable } = await priceOffersOf(context, row, loaded)
+    // A gift card carries no tax, which is charged on what it buys (CatEditor).
+    const taxable = priced.filter((l) => l.item?.product.productType !== 'gift_card')
+    const pickup = needsShipping && row.shipping_option === 'pickup'
     for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.lineId ?? l.versionId) ?? 0n, currency } : null
     // Tax is on what each line and the delivery come to after their offers (OFFERS fact 11).
     const afterOffers = taxable.map((l) => ({ ...l, lineTotal: { amount: l.lineTotal.amount - (l.discount?.amount ?? 0n), currency } }))
@@ -759,5 +769,16 @@ export const createCartService = (deps: CartDeps) => {
   /** The guest cart the request's token really opens (expired or not), for keying a limit on it; null for a made-up token. */
   const guestCartId = () => withScope(sql, deps.context, (tx) => selectGuestCartId(tx, storeId))
 
-  return { cart, cartAnd, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
+  /** The shareable codes this cart would take now, best first (#1698); none without a cart. */
+  const availableOffers = async (): Promise<AvailableOffer[]> => {
+    const read = await withScope(sql, deps.context, async (tx) => {
+      const row = await selectCart(tx, storeId, now())
+      return row && { row, loaded: await loadView(tx, deps.context, row, null, true) }
+    })
+    if (!read) return []
+    const { offerInput, facts } = await priceOffersOf(deps.context, read.row, read.loaded)
+    return availableOffersOf(facts, offerInput)
+  }
+
+  return { cart, cartAnd, availableOffers, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }
