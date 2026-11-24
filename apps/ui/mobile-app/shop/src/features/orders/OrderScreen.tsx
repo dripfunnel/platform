@@ -1,10 +1,10 @@
 import { useRouter } from 'expo-router'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { orderOperation, type Order } from '../../api/orders'
 import { t } from '../../messages'
 import { money } from '../catalogue/words'
-import { paymentName } from '../checkout/words'
+import { addressLine, paymentName } from '../checkout/words'
 import { Button, Resource, ScreenHeader, StateMessage } from '../common/ui'
 import { useOperation } from '../common/useOperation'
 import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
@@ -47,6 +47,7 @@ function Body({ order, zone, onTrack }: { order: Order; zone: string; onTrack: (
   const cancelled = order.state === 'cancelled'
   const tracking = order.delivery ? trackingOf(order.delivery, (iso) => stepTime(iso, zone)) : null
   const awaiting = !cancelled && paymentOf(order) === 'awaiting' && order.paymentDueBy
+  const shipments = cancelled ? [] : order.shipments.filter((s) => s.trackingNumber)
   const card = [styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card }]
   return (
     <>
@@ -71,6 +72,13 @@ function Body({ order, zone, onTrack }: { order: Order; zone: string; onTrack: (
           <Button kind="secondary" label={t('orders.delivery.track')} onPress={onTrack} />
         </View>
       ) : null}
+
+      {shipments.map((s, i) => (
+        <View key={`${s.trackingNumber}-${i}`} style={card}>
+          <Text style={{ color: colors.textStrong, fontSize: 14 }}>{s.courierName ? t('orders.shipment.line', { courier: s.courierName, number: s.trackingNumber ?? '' }) : t('orders.shipment.lineNoCourier', { number: s.trackingNumber ?? '' })}</Text>
+          {s.trackingUrl ? <Button kind="secondary" label={s.courierName ? t('orders.shipment.track', { courier: s.courierName }) : t('orders.shipment.trackNoCourier')} onPress={() => void Linking.openURL(s.trackingUrl ?? '').catch(() => undefined)} /> : null}
+        </View>
+      ))}
 
       <View style={card}>
         <Text accessibilityRole="header" style={{ color: colors.heading, fontSize: 16, fontWeight: '800' }}>
@@ -104,6 +112,7 @@ function Body({ order, zone, onTrack }: { order: Order; zone: string; onTrack: (
       </View>
 
       <View style={card}>
+        {order.shippingAddress && !cancelled ? <Row label={t('orders.details.deliverTo')} value={addressLine(order.shippingAddress)} /> : null}
         {order.paymentMethod ? <Row label={t('orders.details.payment')} value={paymentName(order.paymentMethod)} /> : null}
         {order.shippingMethod ? <Row label={t('orders.details.method')} value={order.shippingMethod} /> : null}
       </View>

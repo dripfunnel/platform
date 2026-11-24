@@ -104,6 +104,15 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
             </div>
           ) : null}
           {!order.cancelled && order.tracking ? <DeliveryTracking tracking={order.tracking} /> : null}
+          {!order.cancelled && order.shipments?.length ? (
+            <div className={styles.card}>
+              {order.shipments.map((s, i) => (
+                <p key={i} className={styles.note}>
+                  {s.courier ? t('shop.order.shipment', { courier: s.courier }) : t('shop.order.shipmentNoCourier')} {s.url ? <Link href={s.url}>{s.number}</Link> : s.number}
+                </p>
+              ))}
+            </div>
+          ) : null}
           {order.downloads.length > 0 ? (
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>{t('shop.order.downloads')}</h2>

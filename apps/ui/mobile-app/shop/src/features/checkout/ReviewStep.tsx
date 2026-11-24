@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { placeOrder, type Cart, type DeliveryAddress, type PlacedOrder } from '../../api/cart'
+import { placeOrder, type Cart, type PlacedOrder } from '../../api/cart'
 import { useShop } from '../../api/ShopContext'
 import { t } from '../../messages'
 import { errorKey } from '../common/errors'
@@ -10,11 +10,9 @@ import { useAction } from '../common/useAction'
 import { OrderSummary } from './OrderSummary'
 import { appPaymentInput } from './payments/start'
 import { sendBack } from './steps'
-import { optionName, optionPrice, paymentName } from './words'
+import { addressLine, optionName, optionPrice, paymentName } from './words'
 
 type Props = { cart: Cart; provider: string; onPlaced: (order: PlacedOrder) => void; onRefused: (error: unknown) => void }
-
-export const addressLine = (a: DeliveryAddress): string => [a.name, a.line1, a.line2, a.city, a.region, a.postalCode].map((part) => part.trim()).filter(Boolean).join(', ')
 
 /** What the shopper is about to agree to, as the engine has it: the details, the order summary and the legal sentence. Nothing is priced here. */
 export function Details({ cart, provider }: { cart: Cart; provider: string }) {

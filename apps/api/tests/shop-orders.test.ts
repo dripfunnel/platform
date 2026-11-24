@@ -205,6 +205,45 @@ describe('isolation', () => {
   })
 })
 
+describe('the order’s address and courier shipments (#1691)', () => {
+  const ship = async (orderId: string, storeId: string, kind: string, extra: { tracking?: string; url?: string | null; seller?: string } = {}) =>
+    db.sql`insert into fulfilment (order_part_id, order_id, store_id, seller_id, kind, warehouse_id, courier_name, tracking_number, tracking_url, shipped_at, created_by,
+        courier_provider, provider_ref, booked_at)
+      select p.id, ${orderId}, ${storeId}, ${extra.seller ?? null}, ${kind}, w.id, 'Delhivery', ${extra.tracking ?? null}, ${extra.url ?? null}, now(), ${crypto.randomUUID()},
+        ${kind === 'booked' ? 'shiprocket' : null}, ${kind === 'booked' ? `ref-${extra.tracking ?? ''}` : null}, ${kind === 'booked' ? new Date() : null}
+      from order_part p, warehouse w where p.order_id = ${orderId} and w.store_id = ${storeId} and w.is_default limit 1`
+
+  it('shows the shopper where it goes and each parcel on its way to them, never a hand-off, a pickup or an own delivery', async () => {
+    const [supplier] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${stores.india}, 'Bhavna Prints', 'vendor-stock', 'active') returning id`
+    await ship(order, stores.india, 'booked', { tracking: 'AWB1', url: 'https://track.example/AWB1' })
+    await ship(order, stores.india, 'manual', { tracking: 'M2', url: null, seller: supplier?.id ?? '' })
+    await ship(order, stores.india, 'sent_to_store', { tracking: 'HAND', seller: supplier?.id ?? '' })
+    await ship(order, stores.india, 'pickup')
+    await ship(order, stores.india, 'local')
+    const query = `{ order(id: "${order}") { shippingAddress { name line1 city postalCode country } shipments { courierName trackingNumber trackingUrl shippedAt } } }`
+    const seen = (await shop(query, orderToken)).data?.['order'] as { shippingAddress: unknown; shipments: { trackingNumber: string | null; trackingUrl: string | null }[] }
+    expect(seen.shippingAddress).toEqual({ name: 'Asha', line1: '12 MG Road', city: 'Pune', postalCode: '411001', country: 'IN' })
+    expect(seen.shipments.map((s) => [s.trackingNumber, s.trackingUrl])).toEqual([['AWB1', 'https://track.example/AWB1'], ['M2', null]])
+  })
+
+  it('lets no other shopper read them: a guest without the token, another guest, nor the shop role on another store’s order', async () => {
+    const query = `{ order(id: "${order}") { shippingAddress { name } shipments { trackingNumber } } }`
+    expect((await shop(query)).data?.['order']).toBeNull()
+    expect((await shop(query, await readyCart(1))).data?.['order']).toBeNull()
+
+    const [theirs] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, email)
+      values (${stores.other}, 'placed', 'paid', 'INR', 'SU-1', now(), 100, 0, 100, 'other@example.com') returning id`
+    await db.sql`insert into order_part (order_id, store_id, shipping_mode) values (${theirs?.id ?? ''}, ${stores.other}, 'store')`
+    await ship(theirs?.id ?? '', stores.other, 'manual', { tracking: 'THEIRS' })
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-cart': orderToken } }), host, 'shop.example')
+    if (found.kind !== 'found') throw new Error('no store')
+    const rows = await withScope(db.sql, found.shopper.context, (tx) => tx<{ tracking_number: string }[]>`select tracking_number from fulfilment order by tracking_number`)
+    expect(rows.map((r) => r.tracking_number)).toEqual(['AWB1', 'M2'])
+    await expect(withScope(db.sql, found.shopper.context, (tx) => tx`select provider_ref from fulfilment`)).rejects.toThrow(/permission denied/i)
+  })
+})
+
 describe('holding stock and placing safely', () => {
   const versions = { scarf: '', shawl: '' }
   const product = async (slug: string, stock: Record<string, number>) => {

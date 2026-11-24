@@ -18,7 +18,7 @@ import { deliveryFields, deliverySchema, trackingOf, type OrderTracking } from '
 // coming back from a provider. Reading it asks the provider about a card payment still pending (Shop API `confirmPayment`).
 
 const m = `{ ${moneyFields} }`
-const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key } ${deliveryFields}`
+const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key } shippingAddress { name line1 line2 city region postalCode country } shipments { courierName trackingNumber trackingUrl } ${deliveryFields}`
 const confirmMutation = `mutation Order($orderId: ID!) { confirmPayment(orderId: $orderId) { ${orderFields} } }`
 const instructionsQuery = `query Instructions { paymentOptions { provider instructions } }`
 
@@ -44,6 +44,8 @@ const orderSchema = z.object({
   downloads: z.array(z.object({ name: text, url: text, usesLeft: z.number().int().nullable().optional(), expiresAt: text })).nullable().optional(),
   licenceKeys: z.array(z.object({ name: text, key: text })).nullable().optional(),
   delivery: deliverySchema,
+  shippingAddress: z.object({ name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text }).nullable().optional(),
+  shipments: z.array(z.object({ courierName: text, trackingNumber: text, trackingUrl: text })).nullable().optional(),
 })
 const optionsSchema = z.object({ paymentOptions: z.array(z.object({ provider: z.string(), instructions: text })).nullable() })
 
@@ -51,6 +53,9 @@ const optionsSchema = z.object({ paymentOptions: z.array(z.object({ provider: z.
 export type OrderPayment = 'paid' | 'awaiting' | 'confirming' | 'refunded'
 
 export type OrderLine = { name: string; versionName: string | null; quantity: number; unitPrice: Money | null; lineTotal: Money | null; gift: { recipientName: string; sendOn: string | null } | null }
+
+/** A courier parcel on its way to the shopper: the courier's name and tracking number, and its tracking page where the courier gives one. */
+export type OrderShipment = { courier: string | null; number: string; url: string | null }
 
 export type Order = {
   id: string
@@ -79,6 +84,10 @@ export type Order = {
   licenceKeys: { name: string; key: string }[]
   /** An own-delivery order's delivery: the steps, and while a rider has it the rider and the handover code; null for any other order. */
   tracking?: OrderTracking | null
+  /** Where it is delivered; null for a pickup or a digital order. */
+  shippingAddress?: { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string | null; country: string } | null
+  /** A courier order's parcels with a tracking number, oldest first. */
+  shipments?: OrderShipment[]
 }
 
 export type OrderPage = {
@@ -118,6 +127,8 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   downloads: (o.downloads ?? []).map((d) => ({ name: d.name ?? '', url: d.url ?? null, usesLeft: d.usesLeft ?? null, until: d.expiresAt ? when(d.expiresAt) : null })),
   licenceKeys: (o.licenceKeys ?? []).flatMap((k) => (k.key ? [{ name: k.name ?? '', key: k.key }] : [])),
   tracking: trackingOf(o.delivery, t, step),
+  shippingAddress: o.shippingAddress?.line1 ? { name: o.shippingAddress.name ?? '', line1: o.shippingAddress.line1, line2: o.shippingAddress.line2 ?? null, city: o.shippingAddress.city ?? '', region: o.shippingAddress.region ?? null, postalCode: o.shippingAddress.postalCode ?? null, country: o.shippingAddress.country ?? '' } : null,
+  shipments: (o.shipments ?? []).flatMap((s) => (s.trackingNumber ? [{ courier: s.courierName ?? null, number: s.trackingNumber, url: s.trackingUrl ?? null }] : [])),
 })
 
 export const ordersPageSize = 20
