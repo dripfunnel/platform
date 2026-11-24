@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { factsOf } from '#auth/activity'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
@@ -442,6 +442,22 @@ describe('the Email sender is the From address', () => {
     await queue('store-suspended', { storeId: target.id, reason: 'Unpaid invoice' }, { partnerId: target.partnerId, storeId: target.id })
     await relay(ses)
   }
+  const logged = async (run: () => Promise<unknown>) => {
+    const lines: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => void lines.push(String(line)))
+    try {
+      await run()
+    } finally {
+      spy.mockRestore()
+    }
+    return lines.flatMap((line) => {
+      try {
+        return [JSON.parse(line) as Record<string, unknown>]
+      } catch {
+        return []
+      }
+    })
+  }
   const refusing = (host: string) => {
     const sent: OutgoingEmail[] = []
     const attempts: string[] = []
@@ -481,12 +497,47 @@ describe('the Email sender is the From address', () => {
     const [domain] = await emailRow(store.partnerId)
     if (!domain) throw new Error('seed: no email sender')
     const ses = refusing(domain.host)
-    await fromOf(store, ses.api)
+    const events = await logged(() => fromOf(store, ses.api))
     expect(ses.attempts).toHaveLength(2)
     expect(ses.attempts[0]).toContain(`@${domain.host}>`)
     expect(ses.sent).toHaveLength(1)
     expect(ses.sent[0]?.from).toMatch(new RegExp(`<no-reply@([a-z0-9-]+\\.)?${senderDomain.replace(/\./g, '\\.')}>$`))
     expect(ses.sent[0]?.to).toContain(store.ownerEmail)
+    expect(events).toContainEqual(expect.objectContaining({ event: 'email_sender_refused', code: 'MessageRejected', partnerId: store.partnerId, storeId: store.id }))
+    expect(events).toContainEqual(expect.objectContaining({ event: 'email_sent' }))
+    expect(events.some((e) => e['event'] === 'email_refused')).toBe(false)
+  })
+
+  it('throws, logging email_refused, when SES refuses the fallback too, so the outbox tries again', async () => {
+    const refuseAll: OutgoingEmail[] = []
+    const ses: SesApi = {
+      send: async (email) => {
+        refuseAll.push(email)
+        throw new SesRefused('MessageRejected')
+      },
+    }
+    const events = await logged(() => fromOf(store, ses))
+    expect(refuseAll).toHaveLength(2)
+    expect(events.map((e) => e['event']).filter((e) => e === 'email_sender_refused' || e === 'email_refused' || e === 'email_sent')).toEqual(['email_sender_refused', 'email_refused'])
+    const retry = fakeSes()
+    expect(await relay(retry.api, 60_000)).toMatchObject({ delivered: 1 })
+    expect(retry.sent).toHaveLength(1)
+  })
+
+  it('does not fall back on an error that is not a refusal, leaving the outbox to retry the same address', async () => {
+    const attempts: string[] = []
+    const ses: SesApi = {
+      send: async (email) => {
+        attempts.push(email.from)
+        throw new SesUnavailable('answered 503')
+      },
+    }
+    const events = await logged(() => fromOf(store, ses))
+    expect(attempts).toHaveLength(1)
+    expect(events.some((e) => e['event'] === 'email_sender_refused' || e['event'] === 'email_refused')).toBe(false)
+    const retry = fakeSes()
+    expect(await relay(retry.api, 60_000)).toMatchObject({ delivered: 1 })
+    expect(retry.sent[0]?.from).toContain(`@${(await emailRow(store.partnerId))[0]?.host}>`)
   })
 
   it('leaves DripFunnel’s own email on its own sender, whatever the partner’s Email sender is', async () => {
