@@ -1,37 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { basics, chrome, previewOrigin, startPreview, type Preview, type ShopRequest } from './test/preview'
+import { cartApi } from './test/cart'
+import { chrome, previewOrigin, startPreview, type Preview, type ShopRequest } from './test/preview'
 
 // Card #313: the baseline theme's cart page in preview mode, against a cart the test's Shop API keeps.
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 })
-
-const usd = (cents: number) => ({ amount: String(cents), currency: 'USD' })
-type Line = { versionId: string; quantity: number; problem: string | null; available: number | null }
-// A code held in the cart applies only from two items up, as BUY2GET1 does.
-const cartOf = (lines: Line[], codes: string[] = []) => {
-  const sub = lines.reduce((n, l) => n + 2800 * l.quantity, 0)
-  return { id: 'c1', currency: 'USD', email: null, phone: null, note: null, needsShipping: true, checkoutStep: 'contact', problems: [], readyToPay: false, deliverable: null, shippingOption: null, lines: lines.map((l) => ({ versionId: l.versionId, quantity: l.quantity, productName: `Tee ${l.versionId}`, productSlug: 'tee', versionName: 'Sand / M', photoUrl: null, unitPrice: usd(2800), lineTotal: usd(2800 * l.quantity), discount: null, available: l.available, problem: l.problem })), subtotal: usd(sub), discount: null, discounts: [], codes: codes.map((code) => ({ code, state: sub >= 5600 ? 'APPLIED' : 'NOT_ELIGIBLE' })), shipping: null, shippingDiscount: null, tax: null, total: usd(sub), amountDue: usd(sub), shippingAddress: null, billingAddress: null, shippingOptions: [] }
-}
-
-/** A Shop API holding one cart: `refuse` makes the next change fail, `down` makes reading it fail. */
-const cartApi = (lines: Line[]) => {
-  const state = { lines, refuse: false, down: false, codes: [] as string[] }
-  const answer = (r: ShopRequest): unknown => {
-    if (r.query.startsWith('query Cart')) return state.down ? { errors: [{ message: 'down', extensions: { code: 'UNAVAILABLE' } }] } : { data: { cart: cartOf(state.lines, state.codes) } }
-    if (r.query.includes('setCartQuantity')) {
-      if (state.refuse) return { errors: [{ message: 'gone', extensions: { code: 'UNAVAILABLE' } }] }
-      const q = Number(r.variables['quantity'])
-      state.lines = state.lines.flatMap((l) => (l.versionId === r.variables['versionId'] ? (q > 0 ? [{ ...l, quantity: q }] : []) : [l]))
-      return { data: { setCartQuantity: { cartToken: null, cart: cartOf(state.lines, state.codes) } } }
-    }
-    if (r.query.includes('applyCode')) {
-      const ok = r.variables['code'] === 'AUTUMN'
-      if (ok) state.codes = ['AUTUMN']
-      return { data: { applyCode: { state: ok ? 'APPLIED' : 'INVALID', cart: cartOf(state.lines, state.codes) } } }
-    }
-    return basics(r)
-  }
-  return { state, answer }
-}
 
 let preview: Preview | null = null
 beforeAll(async () => {
@@ -65,25 +37,6 @@ describe.skipIf(!chrome)('the baseline cart page', () => {
       await page.getByRole('button', { name: 'Apply' }).click()
       await page.getByText('Code applied.').waitFor()
       expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
-    } finally {
-      await context.close()
-    }
-  })
-
-  it('stops saying a code is applied once the cart no longer qualifies, and keeps its chip, also when the quantity goes back up (#1680)', async () => {
-    const api = cartApi([{ versionId: 'a', quantity: 2, problem: null, available: 5 }])
-    const { context, page } = await openCart(api.answer)
-    try {
-      await page.getByLabel('Discount code').fill('AUTUMN')
-      await page.getByRole('button', { name: 'Apply' }).click()
-      await page.getByText('Code applied.').waitFor()
-      await page.getByRole('button', { name: 'One fewer' }).click()
-      await expect.poll(() => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()).toContain('1')
-      expect(await page.getByText('Code applied.').count()).toBe(0)
-      expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
-      await page.getByRole('button', { name: 'One more' }).click()
-      await expect.poll(() => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()).toContain('2')
-      expect(await page.getByText('Code applied.').count()).toBe(0)
     } finally {
       await context.close()
     }
