@@ -92,18 +92,18 @@ export const OrderSummary = (props: OrderSummaryProps) => {
             <dt>{t('summary.subtotal')}</dt>
             <dd>{money(f.subtotal)}</dd>
           </div>
-          {f.discounts.map((d, i) => (
-            <div key={i} part="row saving">
-              <dt>{d.name}</dt>
-              <dd>{t('summary.minus', { amount: money(d.amount) })}</dd>
-            </div>
-          ))}
           {delivery ? (
             <div part="row">
               <dt>{t('summary.delivery')}</dt>
               <dd>{delivery}</dd>
             </div>
           ) : null}
+          {f.discounts.map((d, i) => (
+            <div key={i} part="row saving">
+              <dt>{d.name}</dt>
+              <dd>{t('summary.minus', { amount: money(d.amount) })}</dd>
+            </div>
+          ))}
           {f.tax && !f.tax.includesTax ? (
             <div part="row">
               <dt>{t('summary.tax')}</dt>
