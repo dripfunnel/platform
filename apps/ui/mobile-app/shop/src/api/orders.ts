@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { decode } from '@dripfunnel/mobile-shared/graphql'
+import type { AddressLines } from './cart'
 import type { Price } from './catalogue'
 import { operation, type Operation } from './operation'
 
@@ -14,6 +15,7 @@ export type DeliveryStep = { state: string; at: string | null }
 export type Rider = { firstName: string; phone: string | null; photoUrl: string | null; vehicleType: string | null; vehicleNumber: string | null }
 export type RiderPosition = { latitude: number; longitude: number; reportedAt: string | null }
 export type Delivery = { state: string; steps: DeliveryStep[]; rider: Rider | null; position: RiderPosition | null; etaAt: string | null; handoverCode: string | null }
+export type Shipment = { courierName: string | null; trackingNumber: string | null; trackingUrl: string | null }
 
 export type Order = {
   id: string
@@ -33,6 +35,8 @@ export type Order = {
   giftCard: Price | null
   total: Price | null
   delivery: Delivery | null
+  shippingAddress: AddressLines | null
+  shipments: Shipment[]
 }
 export type OrderRead = { order: Order | null; timeZone: string | null }
 
@@ -106,6 +110,8 @@ const orderSchema = z.object({
   total: money,
   lines: z.array(z.object({ name: text, versionName: text, quantity: z.number().int().nullable().optional(), unitPrice: money, lineTotal: money })).nullable().optional(),
   delivery: deliverySchema,
+  shippingAddress: z.object({ name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text }).nullable().optional(),
+  shipments: z.array(z.object({ courierName: text, trackingNumber: text, trackingUrl: text })).nullable().optional(),
 })
 
 const orderAnswer = z.object({ order: orderSchema.nullable(), store: z.object({ timeZone: text }).nullable().optional() })
@@ -127,7 +133,7 @@ const deliveryOf = (raw: z.infer<typeof deliverySchema>): Delivery | null => {
 export const orderOperation = (id: string): Operation<OrderRead> =>
   operation(
     null,
-    `query($id: ID!) { order(id: $id) { id number state paymentState paymentMethod paymentDueBy placedAt pricesIncludeTax shippingMethod subtotal ${m} discounts { name amount ${m} } giftCard ${m} shipping ${m} tax ${m} total ${m} lines { name versionName quantity unitPrice ${m} lineTotal ${m} } delivery { state etaAt handoverCode steps { state at } rider { firstName phone photoUrl vehicleType vehicleNumber } position { latitude longitude reportedAt } } } store { timeZone } }`,
+    `query($id: ID!) { order(id: $id) { id number state paymentState paymentMethod paymentDueBy placedAt pricesIncludeTax shippingMethod subtotal ${m} discounts { name amount ${m} } giftCard ${m} shipping ${m} tax ${m} total ${m} lines { name versionName quantity unitPrice ${m} lineTotal ${m} } delivery { state etaAt handoverCode steps { state at } rider { firstName phone photoUrl vehicleType vehicleNumber } position { latitude longitude reportedAt } } shippingAddress { name line1 line2 city region postalCode country } shipments { courierName trackingNumber trackingUrl } } store { timeZone } }`,
     { id },
     (data) => {
       const { order, store } = decode(orderAnswer, data)
@@ -152,6 +158,8 @@ export const orderOperation = (id: string): Operation<OrderRead> =>
           total: priceOf(order.total),
           lines: (order.lines ?? []).map((l) => ({ name: l.name ?? '', versionName: l.versionName ?? null, quantity: l.quantity ?? 1, unitPrice: priceOf(l.unitPrice), lineTotal: priceOf(l.lineTotal) })),
           delivery: deliveryOf(order.delivery),
+          shippingAddress: order.shippingAddress?.line1 ? { name: order.shippingAddress.name ?? '', line1: order.shippingAddress.line1, line2: order.shippingAddress.line2 ?? '', city: order.shippingAddress.city ?? '', region: order.shippingAddress.region ?? '', postalCode: order.shippingAddress.postalCode ?? '' } : null,
+          shipments: (order.shipments ?? []).map((s) => ({ courierName: s.courierName ?? null, trackingNumber: s.trackingNumber ?? null, trackingUrl: s.trackingUrl ?? null })),
         },
       }
     },

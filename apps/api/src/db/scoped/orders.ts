@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
-import type { CartGift } from './cart'
+import type { CartAddress, CartGift } from './cart'
 import { handedOut } from './deliveries'
 import { restoreGiftCard } from './giftCards'
 import { pgArray, type ScopedSql } from './index'
@@ -283,6 +283,9 @@ export interface ShopOrderRow {
   keys: { name: string; key: string }[]
   /** The discount lines, named as the shopper saw them (OFFERS fact 13). */
   discounts: { label: string | null; amount: string }[]
+  shipping_address: CartAddress | null
+  /** Its courier parcels, as fulfilment_shop_select lets the shopper read them (migration 0415). */
+  shipments: { courier_name: string | null; tracking_number: string | null; tracking_url: string | null; shipped_at: string }[]
 }
 
 /** A shopper's own placed order, as its policy lets it read one (its account's, or a guest's by its token). */
@@ -300,7 +303,10 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
           from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id and ${handedOut(tx)}), '[]'::json) as downloads,
         coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.id)
           from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id and ${handedOut(tx)}), '[]'::json) as keys,
-        coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts
+        coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts,
+        o.shipping_address,
+        coalesce((select json_agg(json_build_object('courier_name', f.courier_name, 'tracking_number', f.tracking_number, 'tracking_url', f.tracking_url, 'shipped_at', f.shipped_at) order by f.shipped_at, f.id)
+          from fulfilment f where f.order_id = o.id and f.store_id = o.store_id), '[]'::json) as shipments
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
     `
   )[0] ?? null

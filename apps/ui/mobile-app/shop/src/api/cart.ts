@@ -34,6 +34,8 @@ export type CartLine = {
 export type DeliveryOption = { id: string; service: string | null; amount: Price | null; minDays: number | null; maxDays: number | null; hours: string | null }
 
 export type DeliveryAddress = { name: string; line1: string; line2: string; city: string; region: string; postalCode: string; country: string; phone: string; pin: Pin | null }
+/** What a "Deliver to" line shows of an address. */
+export type AddressLines = Pick<DeliveryAddress, 'name' | 'line1' | 'line2' | 'city' | 'region' | 'postalCode'>
 
 export type Cart = {
   email: string

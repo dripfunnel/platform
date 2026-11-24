@@ -346,9 +346,9 @@ export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check:
   await tx`update partner_domain set status = ${check.status}, found = ${check.found}, checked_at = ${check.checkedAt} where id = ${id}`
 }
 
-/** Each address the partner has added, by kind: the email sender's fallback is named after one (SAAS §3.6). */
-export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string }[]> =>
-  tx<{ kind: DomainKind; host: string }[]>`select kind, host from partner_domain where partner_id = ${partnerId}`
+/** Each address the partner has added, by kind, with its status: the email sender's fallback is named after one, and a live email sender is what mail comes from (SAAS §3.6). */
+export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string; status: string }[]> =>
+  tx<{ kind: DomainKind; host: string; status: string }[]>`select kind, host, status from partner_domain where partner_id = ${partnerId}`
 
 /** The partner's live portal host, where every link to a merchant leads; null until one is live. */
 export const selectLivePortalHost = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>

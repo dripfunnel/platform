@@ -155,6 +155,21 @@ describe('useOrder', () => {
     expect(order?.licenceKeys).toEqual([{ name: 'Font licence', key: 'AAAA-BBBB' }])
   })
 
+  it('gives where the order goes and each courier parcel with a tracking number, oldest first (#1691)', async () => {
+    shopAnswering(() => ({
+      data: {
+        confirmPayment: orderOf({
+          shippingAddress: { name: 'Asha', line1: '12 MG Road', line2: null, city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN' },
+          shipments: [{ courierName: 'Delhivery', trackingNumber: 'AWB1', trackingUrl: 'https://track.example/AWB1' }, { courierName: null, trackingNumber: 'M2', trackingUrl: null }, { courierName: 'Blue Dart', trackingNumber: null, trackingUrl: null }],
+        }),
+      },
+    }))
+    await show('/order/o-1/')
+    const order = page().order
+    expect(order?.shippingAddress).toEqual({ name: 'Asha', line1: '12 MG Road', line2: null, city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN' })
+    expect(order?.shipments).toEqual([{ courier: 'Delhivery', number: 'AWB1', url: 'https://track.example/AWB1' }, { courier: null, number: 'M2', url: null }])
+  })
+
   it('gives an own-delivery order its delivery, asking the Shop API for no map, position or estimate, and an order with none no delivery', async () => {
     const asked = shopAnswering(() => ({
       data: {

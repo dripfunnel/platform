@@ -2387,8 +2387,8 @@
       },
       "email": {
         "label": "Email sender",
-        "what": "Emails to your merchants and their suppliers come from here.",
-        "pick": "Emails to your merchants and their suppliers come from here."
+        "what": "Emails to your merchants, their suppliers and their shoppers come from here.",
+        "pick": "Emails to your merchants, their suppliers and their shoppers come from here."
       }
     },
     "notAdded": "Not added yet.",

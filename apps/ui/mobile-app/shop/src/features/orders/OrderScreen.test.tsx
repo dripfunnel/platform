@@ -1,3 +1,4 @@
+import { Linking } from 'react-native'
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { fakeShop, hasText, press, render, texts } from '../../testing/harness'
@@ -92,6 +93,25 @@ describe('an order', () => {
   it('is not found for a shopper the API finds no such order for', async () => {
     const screen = await open({ order: null, store: { timeZone: null } })
     expect(hasText(screen, t('orders.notFound.title'))).toBe(true)
+  })
+
+  it('shows where it goes and each courier parcel, with a way to track it where the courier gives one (#1691)', async () => {
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+    const shipped = orderRead({
+      shippingAddress: { name: 'Asha', line1: '12 MG Road', line2: null, city: 'Pune', region: 'Maharashtra', postalCode: '411001', country: 'IN' },
+      shipments: [{ courierName: 'Delhivery', trackingNumber: 'AWB1', trackingUrl: 'https://track.example/AWB1' }, { courierName: null, trackingNumber: 'M2', trackingUrl: null }],
+    })
+    const screen = await open(shipped)
+    expect(hasText(screen, 'Asha, 12 MG Road, Pune, Maharashtra, 411001')).toBe(true)
+    expect(hasText(screen, t('orders.shipment.line', { courier: 'Delhivery', number: 'AWB1' }))).toBe(true)
+    expect(hasText(screen, t('orders.shipment.lineNoCourier', { number: 'M2' }))).toBe(true)
+    expect(hasText(screen, t('orders.shipment.trackNoCourier'))).toBe(false)
+    await press(screen, t('orders.shipment.track', { courier: 'Delhivery' }))
+    expect(openUrl).toHaveBeenCalledWith('https://track.example/AWB1')
+
+    const cancelled = await open({ ...shipped, order: { ...shipped.order, state: 'cancelled' } })
+    expect(hasText(cancelled, t('orders.details.deliverTo'))).toBe(false)
+    expect(hasText(cancelled, t('orders.shipment.line', { courier: 'Delhivery', number: 'AWB1' }))).toBe(false)
   })
 
   it('has its error and offline states, each with a way to try again', async () => {

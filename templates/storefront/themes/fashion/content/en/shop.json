@@ -219,7 +219,9 @@
     "downloadLeft": "{count, plural, one {# download left} other {# downloads left}}, until {date}.",
     "keys": "Your licence keys",
     "giftOn": "We email the gift card to {name} on {date}, and send you a copy.",
-    "giftNow": "We've emailed the gift card to {name}, and sent you a copy."
+    "giftNow": "We've emailed the gift card to {name}, and sent you a copy.",
+    "shipment": "{courier} · tracking",
+    "shipmentNoCourier": "Tracking"
   },
   "orders": {
     "title": "Orders",
@@ -249,6 +251,7 @@
     "code": "6-digit code",
     "codeRule": "Enter the 6 digits we sent.",
     "another": "Use another email or number",
+    "anotherEmail": "Use another email",
     "addPhone": "Add",
     "changePhone": "Change",
     "phoneUse": "Used to sign in with a text code and for delivery updates.",

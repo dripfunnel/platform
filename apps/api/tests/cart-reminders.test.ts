@@ -274,6 +274,18 @@ describe('finding abandoned carts', () => {
     expect(Object.fromEntries(rows.map((r) => [r.id, [r.abandoned, r.amount]]))).toEqual({ [stale.id]: [true, '100000'], [fresh.id]: [false, null], [browsing.id]: [false, null] })
   })
 
+  it('marks a signed-in shopper’s cart that has no email, phone or checkout step, and sends step 1 to the account’s email (#1689)', async () => {
+    await flow(store)
+    const [member] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, status) values (${store}, 'signed.in@example.com', 'active') returning id`
+    const cart = await add(kurta, 1)
+    await db.sql`update "order" set customer_id = ${member?.id ?? ''}, access_token_hash = null, updated_at = now() - interval '45 minutes' where id = ${cart.id}`
+    await run()
+    const [row] = await db.sql<{ abandoned: boolean }[]>`select abandoned_at is not null as abandoned from "order" where id = ${cart.id}`
+    expect(row?.abandoned).toBe(true)
+    expect(mailTo('signed.in@example.com').map((e) => e.subject)).toEqual(['Reminder 1'])
+    expect(await reminders(cart.id)).toMatchObject([{ state: 'sent', channel: 'email', position: 1 }])
+  })
+
   it('marks it again when the shopper comes back and leaves again, from the new time', async () => {
     const cart = await left('kiran@example.com', 30)
     await sweep()
