@@ -595,7 +595,8 @@ export const createCartService = (deps: CartDeps) => {
 
   /**
    * "Discount code or coupon": the code goes on the cart and the cart is priced with it. One that can't work whatever is
-   * added (unknown, ended, used up, already used by this shopper) comes straight back off, with its state.
+   * added (unknown, ended, used up, already used by this shopper) comes straight back off, with its state, and so does
+   * one whose conditions the cart doesn't meet yet (#1644).
    */
   const applyCode = async (raw: string): Promise<CartResult<{ state: CodeState; cart: CartView }>> => {
     const code = normaliseCode(raw)
@@ -610,7 +611,7 @@ export const createCartService = (deps: CartDeps) => {
     })
     if (!added.ok) return added
     const state = added.value.cart.codes.find((c) => c.code === code)?.state ?? 'INVALID'
-    if (!deadCodeStates.includes(state)) return { ok: true, value: { state, cart: added.value.cart } }
+    if (!deadCodeStates.includes(state) && state !== 'NOT_ELIGIBLE') return { ok: true, value: { state, cart: added.value.cart } }
     const removed = await change(async (tx, row) => {
       await write(tx, row, { promotionCodes: without(row.promotion_codes) })
     })
