@@ -9,11 +9,13 @@ const displayName = (name: string) => {
 }
 
 /**
- * Until a partner's own sender domain has its SES identity (slice 11), its merchants' email comes
- * from the fallback, `no-reply@<label>.<sender domain>`, in its name (SAAS §3.6); DripFunnel's own
- * email from `no-reply@<sender domain>`.
+ * The addresses to send from, best first (SAAS §3.6): a partner's merchants', vendors' and shoppers' email comes from
+ * `no-reply@<its live Email sender>`, then the fallback `no-reply@<label>.<sender domain>` that stands in until that
+ * domain is live or when SES refuses it; DripFunnel's own email from `no-reply@<sender domain>` alone.
  */
-export const fromAddress = (voice: Voice, brand: Brand, senderDomain: string): string => {
-  const domain = voice.kind === 'partner' && voice.label ? `${voice.label}.${senderDomain}` : senderDomain
-  return `${displayName(brand.name)} <no-reply@${domain}>`
+export const fromAddresses = (voice: Voice, brand: Brand, senderDomain: string): string[] => {
+  const from = (domain: string) => `${displayName(brand.name)} <no-reply@${domain}>`
+  if (voice.kind !== 'partner') return [from(senderDomain)]
+  const fallback = from(voice.label ? `${voice.label}.${senderDomain}` : senderDomain)
+  return voice.emailHost ? [from(voice.emailHost), fallback] : [fallback]
 }
