@@ -76,6 +76,24 @@ export const previewManifest = async (bucket: SitesBucket, core: string, templat
 
 export const previewSource = (core: string, template: string, path: string) => `${templateRoot(core, template)}preview/files/${path}`
 
+/** R2 copies a preview's files side by side, this many at once, so a template's ~30 files take one delivery's time. */
+const copiesAtOnce = 8
+const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
+
+/** The template's prebuilt preview copied into `folder` whole, each file confirmed by its hash (SAAS §5 step 7). */
+export const copyTemplatePreview = async (bucket: SitesBucket, core: string, template: string, folder: string): Promise<void> => {
+  const files = await previewManifest(bucket, core, template)
+  const copy = async (file: (typeof files)[number]) => {
+    const source = await bucket.get(previewSource(core, template, file.path))
+    if (!source) throw new TemplateMissing(`the ${template} preview lacks ${file.path}`)
+    const copied = await bucket.put(`${folder}${file.path}`, await source.arrayBuffer(), { sha256: file.sha256, ...(source.httpMetadata ? { httpMetadata: source.httpMetadata } : {}) })
+    const written = copied?.checksums.sha256
+    // Confirmed from the copy's result, never assumed.
+    if (!written || hex(written) !== file.sha256) throw new Error(`template preview: ${file.path} wasn't copied whole`)
+  }
+  for (let at = 0; at < files.length; at += copiesAtOnce) await Promise.all(files.slice(at, at + copiesAtOnce).map(copy))
+}
+
 export const deletePrefix = async (bucket: SitesBucket, prefix: string): Promise<void> => {
   for (;;) {
     const listed = await bucket.list({ prefix })

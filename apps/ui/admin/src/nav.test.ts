@@ -5,12 +5,12 @@ import { navFor, navRows, type NavRow } from './nav'
 const everyone = ['dashboard', 'partners', 'stores', 'customers']
 
 const menusOf: Record<StaffRole, readonly string[]> = {
-  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'rollouts', 'categories', 'settings', 'impersonate', 'activity', 'staff'],
-  'staff-partner-manager': [...everyone, 'approvals', 'categories', 'settings', 'activity'],
-  'staff-support': [...everyone, 'provisioning', 'categories', 'settings', 'impersonate', 'activity'],
-  'staff-finance': [...everyone, 'categories', 'settings', 'activity'],
-  'staff-engineer': [...everyone, 'provisioning', 'rollouts', 'categories', 'settings', 'activity'],
-  'staff-read-only': [...everyone, 'categories', 'settings', 'activity'],
+  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'rollouts', 'categories', 'templates', 'settings', 'impersonate', 'activity', 'staff'],
+  'staff-partner-manager': [...everyone, 'approvals', 'categories', 'templates', 'settings', 'activity'],
+  'staff-support': [...everyone, 'provisioning', 'categories', 'templates', 'settings', 'impersonate', 'activity'],
+  'staff-finance': [...everyone, 'categories', 'templates', 'settings', 'activity'],
+  'staff-engineer': [...everyone, 'provisioning', 'rollouts', 'categories', 'templates', 'settings', 'activity'],
+  'staff-read-only': [...everyone, 'categories', 'templates', 'settings', 'activity'],
 }
 
 const rowFor = (roles: readonly StaffRole[]): NavRow => ({ key: 'partners', to: '/partners', icon: 'users', roles })

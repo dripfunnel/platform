@@ -136,7 +136,7 @@ export const createStoreCategoryAdminService = ({ sql, staff, activity, facts, n
   const list = () => asStaff(async (tx) => withSamples(tx, await selectCategoriesForStaff(tx)))
 
   const withCount = async (tx: postgres.TransactionSql, row: StoreCategoryRow): Promise<StaffCategory> =>
-    (await withSamples(tx, await selectCategoriesForStaff(tx, row.id), row.id))[0] ?? { ...row, store_count: 0, has_default_sample: false, sample: null }
+    (await withSamples(tx, await selectCategoriesForStaff(tx, row.id), row.id))[0] ?? { ...row, store_count: 0, has_default_sample: false, template_key: null, template_name: null, template_tag: null, sample: null }
 
   const create = async (raw: unknown, reason: unknown): Promise<StoreCategoryResult<StaffCategory>> => {
     const fields = categoryInput.safeParse(raw)

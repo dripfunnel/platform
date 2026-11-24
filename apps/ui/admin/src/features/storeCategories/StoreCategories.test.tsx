@@ -22,6 +22,7 @@ const categoryOf = (over: Partial<StoreCategory> = {}): StoreCategory => ({
   archivedAt: null,
   storeCount: 3,
   hasDefaultSample: false,
+  template: null,
   sample: null,
   ...over,
 })
@@ -55,6 +56,13 @@ describe('Store categories', () => {
     expect(text).toContain(words.noSections)
     expect(text.indexOf('Footwear')).toBeLessThan(text.indexOf('Vintage'))
     expect(text).toContain(words.archived)
+  })
+
+  it('names the starting template, linked to Templates, or None', async () => {
+    const html = await list({ categories: [categoryOf({ template: { key: 'fashion', name: 'Thread', tag: 'Fashion & apparel' } }), categoryOf({ id: 'c2', key: 'books' })] })
+    expect(html).toContain('href="/templates/fashion-apparel#fashion"')
+    expect(textOf(html)).toContain('Thread')
+    expect(textOf(html)).toContain(words.noTemplate)
   })
 
   it('offers Add, Edit, Archive and Restore to a Super admin only', async () => {

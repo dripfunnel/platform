@@ -16,7 +16,8 @@
     "./ui/cards.css": "./ui/cards.css",
     "./ui/list.css": "./ui/list.css",
     "./ui/detail.css": "./ui/detail.css",
-    "./messaging": "./messaging/index.ts"
+    "./messaging": "./messaging/index.ts",
+    "./templates": "./templates/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
