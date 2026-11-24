@@ -68,6 +68,12 @@
   grid-column: 1 / -1;
 }
 
+/* Boxes sit at the bottom of their field, so a row lines up whether or not each field has a hint (#1611). */
+.df-set-grid--aligned > .df-set-field > :is(input, select, .df-set-pair, .df-phone) {
+  flex: none;
+  margin-top: auto;
+}
+
 .df-set-field label,
 .df-set-label {
   font-size: 13px;

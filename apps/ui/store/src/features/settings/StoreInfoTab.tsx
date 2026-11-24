@@ -216,7 +216,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
             {failure.text}
           </p>
         )}
-        <div className="df-set-grid">
+        <div className="df-set-grid df-set-grid--aligned">
           {field('name', words.name, words.nameHelp, false, 80)}
           {field('legalName', words.legal, words.legalHelp)}
           {field('description', words.description, fill(words.descriptionHelp, { count: String(form.description.length) }), true, 120)}
@@ -233,7 +233,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
           </div>
           {field('taxId', labels.taxId, labels.taxHelp, true, 30)}
         </div>
-        <div className="df-set-grid df-set-grid--three">
+        <div className="df-set-grid df-set-grid--three df-set-grid--aligned">
           <div className="df-set-field">
             <label htmlFor={`${id}-tz`}>{words.timeZone}</label>
             <span className="df-set-help">{words.timeZoneHelp}</span>
