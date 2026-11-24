@@ -126,7 +126,7 @@ export interface IdleCartRow {
 
 /**
  * Carts left in checkout at least `idleMs` ago and not marked since they last changed: a shopper who gave a contact or
- * started checkout, with something in the cart. Older than the reminders' week, a cart is never marked.
+ * started checkout or is signed in, with something in the cart. Older than the reminders' week, a cart is never marked.
  */
 export const selectIdleCarts = (tx: ScopedSql, now: Date, idleMs: number, windowMs: number, limit: number): Promise<IdleCartRow[]> =>
   tx<IdleCartRow[]>`
@@ -137,7 +137,7 @@ export const selectIdleCarts = (tx: ScopedSql, now: Date, idleMs: number, window
     where o.state = 'cart' and o.updated_at <= ${new Date(now.getTime() - idleMs)} and o.updated_at > ${new Date(now.getTime() - windowMs)}
       and (o.cart_expires_at is null or o.cart_expires_at > ${now})
       and (o.abandoned_at is null or o.abandoned_at < o.updated_at)
-      and (o.checkout_step is not null or o.email is not null or o.phone is not null)
+      and (o.checkout_step is not null or o.email is not null or o.phone is not null or o.customer_id is not null)
       and exists (select 1 from cart_line l where l.order_id = o.id)
     order by o.updated_at
     limit ${limit}
