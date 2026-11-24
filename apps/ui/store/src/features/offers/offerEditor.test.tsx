@@ -221,6 +221,19 @@ describe('a new offer', () => {
       expect(api.saveOffer).toHaveBeenLastCalledWith(null, null, expect.objectContaining({ totalUsesLimit: null }))
     })
 
+    it('does not warn that a code has no limits once Limit to is chosen, even while its box is empty', async () => {
+      await show(owner, '/offers/new?recipe=welcome')
+      const perCustomer = within(screen.getByText('Uses per customer').closest('label') as HTMLElement).getByRole('combobox')
+      fireEvent.change(perCustomer, { target: { value: '' } })
+      expect(screen.getByText(words.warns.openCode)).toBeTruthy()
+      fireEvent.change(totalSelect(), { target: { value: 'n' } })
+      expect(screen.queryByText(words.warns.openCode)).toBeNull()
+      fireEvent.change(totalBox(), { target: { value: '' } })
+      expect(screen.queryByText(words.warns.openCode)).toBeNull()
+      fireEvent.change(totalSelect(), { target: { value: 'none' } })
+      expect(screen.getByText(words.warns.openCode)).toBeTruthy()
+    })
+
     it('shows an existing offer’s limit when it is edited', async () => {
       api.loadOffer.mockResolvedValue({ ...welcome, totalUsesLimit: 250 })
       await show(owner, '/offers/o1/edit')

@@ -212,7 +212,7 @@ export const OfferEditor = () => {
   const liveCode = wasLive && offer.code ? offer.code : null
 
   const value = draft.kind === 'percent' ? `${draft.percent || 0}%` : typedMoney(draft.amounts[facts.main] ?? '', facts.main)
-  const quiet = draft.trigger === 'automatic' && draft.minimum === 'none' && draft.who === 'all' && !draft.startsAt && !draft.endsAt && !draft.totalUses && !draft.repeat
+  const quiet = draft.trigger === 'automatic' && draft.minimum === 'none' && draft.who === 'all' && !draft.startsAt && !draft.endsAt && !draft.totalLimited && !draft.repeat
   const loud = quiet ? fill(draft.type === 'shipping' ? (draft.shipMode === 'off' ? words.loud.shippingOff : words.loud.shipping) : words.loud[draft.type], { value, ship: region.ship, amount: typedMoney(draft.amounts[facts.main] ?? '', facts.main), buy: draft.buyQuantity, get: draft.getQuantity }) : null
   const said = sentence({ ...shaped, code: shaped.code ?? (draft.trigger === 'code' && !draft.singleUse ? words.noCodeYet : null) }, region, names, now, facts.timeZone)
   const extrasOff =
@@ -224,7 +224,7 @@ export const OfferEditor = () => {
   const warns = [
     draft.kind === 'percent' && Number(draft.percent) > 50 && draft.type !== 'bxgy' && draft.type !== 'shipping' ? fill(words.warns.big, { percent: draft.percent, tenth: String(Math.round(Number(draft.percent) / 10)) }) : '',
     draft.type === 'order' && draft.kind === 'fixed' && !draft.tiers.length && draft.minimum === 'none' ? fill(words.warns.noMinimum, { amount: value }) : '',
-    draft.trigger === 'code' && !draft.singleUse && !draft.endsAt && !draft.totalUses && !draft.perCustomer ? words.warns.openCode : '',
+    draft.trigger === 'code' && !draft.singleUse && !draft.endsAt && !draft.totalLimited && !draft.perCustomer ? words.warns.openCode : '',
   ].filter(Boolean)
   const will = isNew ? (startsLater && shaped.startsAt ? { key: 'scheduled' as const, text: fill(words.will.scheduled, { date: dateTimeText(shaped.startsAt, facts.timeZone) }) } : { key: 'live' as const, text: words.will.live }) : { key: statusKeyOf(offer, now), text: timeLine(offer, now, facts.timeZone) }
 
