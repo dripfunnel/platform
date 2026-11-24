@@ -1,7 +1,9 @@
 import { t } from '../../messages'
-import type { DeliveryOption, PaymentOption } from '../../api/cart'
+import type { AddressLines, DeliveryOption, PaymentOption } from '../../api/cart'
 import { money } from '../catalogue/words'
 import { isSheetProvider } from './payments/env'
+
+export const addressLine = (a: AddressLines): string => [a.name, a.line1, a.line2, a.city, a.region, a.postalCode].map((part) => part.trim()).filter(Boolean).join(', ')
 
 /** The delivery option's name: the courier's own service name where the API gives one, otherwise the app's words for its kind. */
 export const optionName = (option: DeliveryOption): string => {

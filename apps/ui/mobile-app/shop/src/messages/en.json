@@ -565,8 +565,15 @@
       "total": "Total"
     },
     "details": {
+      "deliverTo": "Deliver to",
       "payment": "Payment",
       "method": "Delivery method"
+    },
+    "shipment": {
+      "line": "{courier} · tracking {number}",
+      "lineNoCourier": "Tracking {number}",
+      "track": "Track with {courier}",
+      "trackNoCourier": "Track parcel"
     },
     "status": {
       "cancelled": "Cancelled",

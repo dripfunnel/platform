@@ -6,6 +6,7 @@ import { appPaymentInput, checkoutAudit, createCheckout, type AppPaymentInput, t
 import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
+import type { registerCart } from './cart'
 import { registerDelivery, trackingOf } from './delivery'
 
 // Paying for a cart (FIRST-RELEASE §19 Shop API `paymentOptions`, `checkout`, `order`): the ways the store takes payment,
@@ -76,7 +77,7 @@ const checkoutOf = async (ctx: ShopContext) => {
   })
 }
 
-export const registerCheckout = (shop: ShopBuilder) => {
+export const registerCheckout = (shop: ShopBuilder, Address: ReturnType<typeof registerCart>['Address']) => {
   const { builder, money, pageInfo } = shop
   const { Delivery } = registerDelivery(shop)
   const Option = builder.objectRef<PaymentOption>('ShopPaymentOption').implement({
@@ -173,6 +174,14 @@ export const registerCheckout = (shop: ShopBuilder) => {
   const Discount = builder.objectRef<ShopOrderRow['discounts'][number] & { currency: string }>('ShopOrderDiscount').implement({
     fields: (t) => ({ name: t.exposeString('label', { nullable: true }), amount: t.field({ type: money, resolve: (d) => ({ amount: BigInt(d.amount), currency: d.currency }) }) }),
   })
+  const Shipment = builder.objectRef<ShopOrderRow['shipments'][number]>('ShopShipment').implement({
+    fields: (t) => ({
+      courierName: t.exposeString('courier_name', { nullable: true }),
+      trackingNumber: t.exposeString('tracking_number', { nullable: true }),
+      trackingUrl: t.exposeString('tracking_url', { nullable: true }),
+      shippedAt: t.string({ resolve: (s) => new Date(s.shipped_at).toISOString() }),
+    }),
+  })
   const Order = builder.objectRef<ShopOrderRow>('ShopOrder').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -211,6 +220,9 @@ export const registerCheckout = (shop: ShopBuilder) => {
       licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
       // An own-delivery order's delivery, for its own customer or a guest with its token (DELIVERY §7); null for any other order.
       delivery: t.field({ type: Delivery, nullable: true, resolve: (o, _, ctx) => trackingOf(ctx).read(o.id) }),
+      shippingAddress: t.field({ type: Address, nullable: true, resolve: (o) => o.shipping_address }),
+      // A courier order's parcels on their way to the shopper (DATA-MODEL §7.6); empty for any other order.
+      shipments: t.field({ type: [Shipment], resolve: (o) => o.shipments }),
     }),
   })
   // A row of the account's order history: only what the list shows, never an order's lines, downloads or keys.

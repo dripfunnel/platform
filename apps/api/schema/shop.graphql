@@ -503,7 +503,9 @@ type ShopOrder {
   paymentState: String
   placedAt: String
   pricesIncludeTax: Boolean
+  shipments: [ShopShipment!]
   shipping: ShopMoney
+  shippingAddress: ShopAddressLines
   shippingMethod: String
   shippingOption: String
   state: String
@@ -769,6 +771,13 @@ type ShopServiceDetails {
 type ShopSession {
   created: Boolean
   sessionToken: String
+}
+
+type ShopShipment {
+  courierName: String
+  shippedAt: String
+  trackingNumber: String
+  trackingUrl: String
 }
 
 enum ShopSignInChannel {
