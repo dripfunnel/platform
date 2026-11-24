@@ -42,6 +42,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
       'Every list on the live site loads its next page by itself (#1570): the starting themes\' Account › Orders and Blog, which asked for a "Load more" click, now load as the end of the list nears the screen, as their product grids already did (#1385), and an older store\'s product grid does the same.',
       'No theme has to change, and core\'s API is unchanged: the new views call `useLoadOnScroll` with the lists\' own `loadMore`, `more`, `loadingMore` and `loadMoreFailed` (`useOrders()` and `useBlog()`). To match in a theme of your own, call it from a component that is always on screen with the list (a component that returns early while loading never attaches its observer), put the returned ref on an element after the list, draw a "Loading more…" line while `loadingMore`, a message with a Try again button while `loadMoreFailed`, and nothing at the end; announce the number shown with a polite `role="status"` line, and remove the Load more button.',
       'The codemods rewrite the Orders and Blog views of a Baseline, Classic or category theme that still has the shipped markup, add `loadingMore` and `loadingSpinner` to its shop styles and the new words (`shop.orders.loadingMore`, `shop.orders.showing`, `pages.blog.loadingMore`, `pages.blog.showing`) to its content, and turn the "Load more" button of a product grid from before core 0.12.0 into the scroll-loading one (`MoreOnScroll`). A theme that changed those views is not rewritten whole: the migration agent applies the steps above to what the codemods did not.',
+      'The link under the code box on Create an account, Sign in and Forgot password follows the store\'s sign-in setting (#1566): "Use another email" for email only, "Use another number" for a mobile number only, "Use another email or number" for both. The codemods change that link in a Baseline, Classic or category theme that still has the shipped sign-in view, and add `shop.account.anotherEmail` to its English words; a theme in another language adds the key in each language itself, since the validator refuses a missing key.',
     ].join('\n'),
     codemods: [
       {
@@ -133,6 +134,18 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
         paths: ['src/theme/components/ListingResults.tsx'],
         find: '<LoadMore listing={listing} />',
         replace: '<MoreOnScroll listing={listing} />',
+      },
+      {
+        kind: 'replace',
+        paths: ['src/theme/components/interactive/SignInView.tsx'],
+        find: "{t('shop.account.another')}",
+        replace: "{t(s.ways.phone === s.ways.email ? 'shop.account.another' : s.ways.email ? 'shop.account.anotherEmail' : 'shop.account.anotherNumber')}",
+      },
+      {
+        kind: 'replace',
+        paths: ['content/*/shop.json'],
+        find: '    "another": "Use another email or number",\n    "addPhone"',
+        replace: '    "another": "Use another email or number",\n    "anotherEmail": "Use another email",\n    "addPhone"',
       },
     ],
   },

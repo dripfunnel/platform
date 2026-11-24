@@ -108,7 +108,7 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
             {purpose === 'register' ? t('shop.account.create') : purpose === 'reset' ? t('shop.account.saveAndSignIn') : t('pages.signIn.title')}
           </SubmitButton>
           <button type="button" className={styles.link} onClick={s.restart}>
-            {t('shop.account.another')}
+            {t(s.ways.phone === s.ways.email ? 'shop.account.another' : s.ways.email ? 'shop.account.anotherEmail' : 'shop.account.anotherNumber')}
           </button>
         </Form>
       ) : purpose === 'signIn' && !byPhone && s.ways.email ? (

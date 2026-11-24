@@ -881,3 +881,73 @@ describe.each(['classic', ...fromBaseline])('the %s theme’s lists on the live 
     })
   })
 })
+
+type Ways = { email: boolean; phone: boolean }
+
+/** A signed-out live page at `path` (its `route`), the shop saying which sign-in ways the store has turned on and taking any code. */
+const openSignIn = async (b: Browser, out: string, route: 'register' | 'signIn' | 'forgotPassword', path: string, ways: Ways): Promise<Page> => {
+  const origin = 'https://k7f3q9f2xa.webpreview.store'
+  const context = await b.newContext({ viewport: { width: 1440, height: 900 } })
+  const live = JSON.stringify({ route, custom: null, path, store: snapshot.store, poweredBy: null }).replaceAll('<', '\u003c')
+  await context.route('**/*', async (r) => {
+    const url = new URL(r.request().url())
+    if (url.origin !== origin) return r.abort('blockedbyclient')
+    if (url.pathname === '/shop-api') {
+      const body = r.request().postData() ?? ''
+      const asked = JSON.parse(body) as { query: string }
+      const answer = asked.query.includes('signInOptions') ? { data: { signInOptions: ways } } : asked.query.includes('requestSignInCode') ? { data: { requestSignInCode: true } } : shopFixture(snapshot, [])(body)
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+    }
+    const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+    const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+    if (!file) return r.fulfill({ status: 404 })
+    if (file.rel.endsWith('.html')) return r.fulfill({ status: 200, contentType: 'text/html', body: Buffer.from(file.bytes).toString('utf8').replace(/<body[^>]*>/, (m) => `${m}<script id="df-page" type="application/json">${live}</script>`) })
+    return r.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+  })
+  const page = await context.newPage()
+  await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
+  return page
+}
+
+// Card #1566: the link under the code box follows the store's sign-in setting, on Create an account, Sign in and Forgot password.
+// Only Classic offers a code to a number on Create an account; the other starting themes offer it on Sign in alone.
+describe.each(['classic', ...fromBaseline])('the %s theme’s "use another" link on the live site', (key) => {
+  let out = ''
+  beforeAll(async () => {
+    if (!browser) return
+    out = join(root, `${key}-sign-in`)
+    const built = await bundle(join(themesDir, key), out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+  })
+
+  const cases = [
+    { name: 'Create an account, email only', route: 'register', path: '/register/', ways: { email: true, phone: false }, link: 'Use another email' },
+    { name: 'Create an account, mobile only', route: 'register', path: '/register/', ways: { email: false, phone: true }, link: 'Use another number', classicOnly: true },
+    { name: 'Create an account, both, by email', route: 'register', path: '/register/', ways: { email: true, phone: true }, link: 'Use another email or number' },
+    { name: 'Sign in, mobile only', route: 'signIn', path: '/sign-in/', ways: { email: false, phone: true }, link: 'Use another number' },
+    { name: 'Sign in, both, by number', route: 'signIn', path: '/sign-in/', ways: { email: true, phone: true }, link: 'Use another email or number', byNumber: true },
+    { name: 'Forgot password, email only', route: 'forgotPassword', path: '/forgot-password/', ways: { email: true, phone: false }, link: 'Use another email' },
+  ] as const
+
+  it.each(cases)('reads "$link" on $name, and the link goes back to the form', async (c) => {
+    if ('classicOnly' in c && key !== 'classic') return
+    if (!browser) return
+    const page = await openSignIn(browser, out, c.route, c.path, c.ways)
+    try {
+      if ('byNumber' in c) await page.getByRole('button', { name: 'Mobile number' }).click()
+      const name = page.getByLabel('Full name')
+      if (await name.count()) await name.fill('Asha Rao')
+      if (c.ways.email && !('byNumber' in c)) await page.getByLabel('Email', { exact: true }).fill('asha@example.com')
+      else await page.locator('input[type="tel"]').fill('9845022113')
+      const password = page.getByLabel('Password', { exact: true })
+      if (await password.count()) await password.fill('a long password 1')
+      await page.getByRole('button', { name: /^(Email|Text) me a code$/ }).click()
+      const link = page.getByRole('button', { name: c.link, exact: true })
+      await link.waitFor()
+      await link.click()
+      await page.getByRole('button', { name: /^(Email|Text) me a code$/ }).waitFor()
+    } finally {
+      await page.context().close()
+    }
+  })
+})
