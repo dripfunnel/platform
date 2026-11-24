@@ -91,6 +91,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   vi.resetAllMocks()
 })
 
@@ -178,12 +180,18 @@ describe('the Wishlists tab', () => {
 
 describe('one shopper’s wishlist', () => {
   it('lists what they saved with photo, name and price, marks a sold-out product, and links to the customer', async () => {
+    const photo = vi.fn(() => Promise.resolve(new Response(new Blob(['x']))))
+    vi.stubGlobal('fetch', photo)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
     await show(owner, '/carts/wishlist/c1')
+    await settle()
     expect(api.loadWishlistShopper).toHaveBeenCalledWith('c1')
     expect(screen.getByRole('heading', { level: 1, name: 'Asha Rao' })).toBeTruthy()
     const list = within(screen.getByRole('region', { name: w.page.heading }))
     expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([`Chanderi stole${moneyText({ amount: '129900', currency: 'INR' })}`, `Block-print dupatta${w.page.outOfStock}${moneyText({ amount: '168100', currency: 'INR' })}`])
-    expect([...screen.getByRole('region', { name: w.page.heading }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['/api/assets/a1'])
+    // The file needs the acting store's headers, which a bare <img> can't send (#1648).
+    expect(photo).toHaveBeenCalledWith('/api/assets/a1', expect.objectContaining({ credentials: 'same-origin' }))
+    expect([...screen.getByRole('region', { name: w.page.heading }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['blob:photo'])
     expect(screen.getByRole('link', { name: w.page.customer }).getAttribute('href')).toBe('/customers?customer=c1')
     expect(screen.getByRole('link', { name: words.title }).getAttribute('href')).toBe('/carts?pane=wishlists')
   })

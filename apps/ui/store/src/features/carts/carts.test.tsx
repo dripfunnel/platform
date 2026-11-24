@@ -81,6 +81,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   vi.resetAllMocks()
 })
 
@@ -332,10 +334,15 @@ describe('one cart’s page', () => {
 
   it('lists what is also on the shopper’s wishlist, read only, for Staff too', async () => {
     api.loadCart.mockResolvedValue(detail)
+    const photo = vi.fn(() => Promise.resolve(new Response(new Blob(['x']))))
+    vi.stubGlobal('fetch', photo)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
     await show(owner, { entry: '/carts/ab1' })
+    await settle()
     const list = within(screen.getByRole('region', { name: words.page.wishlist }))
     expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([`Chanderi stole${moneyText({ amount: '129900', currency: 'INR' })}`, `Cotton scarf${moneyText({ amount: '49900', currency: 'INR' })}`])
-    expect([...screen.getByRole('region', { name: words.page.wishlist }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['/api/assets/a1'])
+    expect(photo).toHaveBeenCalledWith('/api/assets/a1', expect.objectContaining({ credentials: 'same-origin' }))
+    expect([...screen.getByRole('region', { name: words.page.wishlist }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['blob:photo'])
     cleanup()
     await show(staff, { entry: '/carts/ab1' })
     const asStaff = within(screen.getByRole('region', { name: words.page.wishlist }))

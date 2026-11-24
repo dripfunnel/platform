@@ -7,6 +7,7 @@ import { loadCart, loadReminderSending, type CartDetail } from '../../api/carts'
 import { loadOfferPlace } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import { saysShipping } from '../common/region'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
@@ -171,7 +172,7 @@ export const CartPage = () => {
               <ul className="df-cart-wishes">
                 {wishlist.map((w) => (
                   <li key={w.productId}>
-                    {w.photoUrl ? <img className="df-cart-wish-photo" src={w.photoUrl} alt="" loading="lazy" /> : <span className="df-cart-wish-photo df-cart-wish-photo--none" aria-hidden="true" />}
+                    {w.photoUrl ? <AssetImage className="df-cart-wish-photo" url={w.photoUrl} alt="" placeholder="" /> : <span className="df-cart-wish-photo df-cart-wish-photo--none" aria-hidden="true" />}
                     <strong className="df-cart-wish-name">{w.name ?? words.page.item}</strong>
                     <span>{w.price ? moneyText(w.price) : '—'}</span>
                   </li>

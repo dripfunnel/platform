@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadWishlistShopper, type WishlistReminder, type WishlistShopperDetail } from '../../api/wishlists'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import { moneyText } from '../orders/orderView'
 import { cartStates, sampleWishlistShopper } from './cartStates'
 import { agoText, cartAccessOf } from './cartView'
@@ -116,7 +117,7 @@ export const WishlistShopperPage = () => {
             <ul className="df-cart-wishes">
               {items.map((i) => (
                 <li key={i.productId}>
-                  {i.photoUrl ? <img className="df-cart-wish-photo" src={i.photoUrl} alt="" loading="lazy" /> : <span className="df-cart-wish-photo df-cart-wish-photo--none" aria-hidden="true" />}
+                  {i.photoUrl ? <AssetImage className="df-cart-wish-photo" url={i.photoUrl} alt="" placeholder="" /> : <span className="df-cart-wish-photo df-cart-wish-photo--none" aria-hidden="true" />}
                   <span className="df-carts-cell df-cart-wish-name">
                     <strong>{i.name ?? words.page.item}</strong>
                     {!i.inStock && <span className="df-carts-sub df-carts-bad">{w.outOfStock}</span>}
