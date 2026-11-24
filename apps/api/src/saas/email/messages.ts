@@ -286,6 +286,8 @@ export const en = {
     action: 'See your wishlist',
     why: (host: string) => `You’re getting this because you saved products to your wishlist at ${host}.`,
     unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+    testSubject: (subject: string) => `[Test] ${subject}`,
+    test: 'This is a test of your wishlist reminder, with a sample wishlist.',
   },
   cartReminder: {
     greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),

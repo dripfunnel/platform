@@ -1313,6 +1313,7 @@ type Mutation {
   saveWishlistReminderSettings(input: WishlistReminderSettingsInput!, revision: Int): Int
   sendBackProduct(id: ID!, reason: String!): Boolean
   sendTestReminder(position: Int!): Boolean
+  sendTestWishlistReminder(position: Int!): Boolean
   setApproval(on: Boolean!): Boolean
   setCustomerGroups(groupIds: [ID!]!, id: ID!): [ID!]
   setCustomerNote(id: ID!, note: String): Boolean

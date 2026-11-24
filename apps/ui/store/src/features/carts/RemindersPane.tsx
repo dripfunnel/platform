@@ -1,6 +1,6 @@
 import { minorOf, moneyText as fieldText } from '@dripfunnel/shared/format'
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadReminderSettings, reminderDelays, reminderPercents, reminderText, saveReminderSettings, sendTestReminder, type ReminderSettings, type ReminderStep } from '../../api/carts'
@@ -10,6 +10,7 @@ import '../common/switch.css'
 import { cartRefusal } from './cartActions'
 import { consentNoteOf, type CartAccess } from './cartView'
 import { AutoCard, FormNotes, RuleChecks, SaveBar, StepHead } from './ReminderParts'
+import { ReminderTest } from './ReminderTest'
 
 // The Reminders tab (designs/Carts.dc.html, Reminders; FIRST-RELEASE §9): up to three reminders, who gets reminded, a
 // preview of the chosen one and "Send me a test", saved as one at the revision read.
@@ -60,9 +61,6 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
   const [tested, setTested] = useState<string | null>(null)
-  const [testing, setTesting] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [testError, setTestError] = useState<string | null>(null)
   const latest = useRef(0)
 
   const load = useCallback(() => {
@@ -242,22 +240,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
 
       {step && (
         <aside className="df-reminders-preview" aria-label={words.previewLabel}>
-          <div className="df-reminders-preview-head">
-            <span className="df-eyebrow">{fill(words.previewOf, { n: String(step.position), channel: channelText(step.channel) })}</span>
-            {!ro && (
-              <button type="button" className="df-button" disabled={testBlock !== null} aria-describedby={testBlock ? 'df-reminders-test-note' : undefined} onClick={() => {
-                  setTestError(null)
-                  setTesting(true)
-                }}>
-                {words.test}
-              </button>
-            )}
-          </div>
-          {!ro && testBlock && (
-            <span id="df-reminders-test-note" className="df-carts-sub">
-              {testBlock}
-            </span>
-          )}
+          <ReminderTest eyebrow={fill(words.previewOf, { n: String(step.position), channel: channelText(step.channel) })} canEdit={!ro} canUpgrade={access.canUpgrade} position={step.position} blocked={testBlock} body={words.testBody} email={email} sample={sample !== null} send={sendTestReminder} onSent={setTested} />
           {step.channel === 'email' ? (
             <div className="df-reminders-mail">
               <div className="df-reminders-mail-head">
@@ -300,35 +283,6 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
             setSaved(null)
             setTested(null)
           }} />
-      )}
-
-      {testing && step && (
-        <ConfirmDialog
-          open
-          title={fill(words.testTitle, { n: String(step.position) })}
-          target={email}
-          consequence={words.testBody}
-          confirmLabel={words.testSend}
-          cancelLabel={words.cancel}
-          error={testError}
-          blocked={sending ? words.testSending : null}
-          onConfirm={() => {
-            if (sample) return setTesting(false)
-            // One test per press: the dialog waits while one is on its way, so a double click sends one email.
-            if (sending) return
-            setSending(true)
-            void sendTestReminder(step.position)
-              .then(
-                () => {
-                  setTesting(false)
-                  setTested(fill(words.testSent, { email }))
-                },
-                (error: unknown) => setTestError(isApiError(error, 'RATE_LIMITED') ? words.testTooMany : cartRefusal(error, access.canUpgrade)),
-              )
-              .finally(() => setSending(false))
-          }}
-          onCancel={() => setTesting(false)}
-        />
       )}
     </div>
   )
