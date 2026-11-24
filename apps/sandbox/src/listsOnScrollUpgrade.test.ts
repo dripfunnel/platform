@@ -49,6 +49,33 @@ describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'groce
 
 })
 
+// #1566: the link under the sign-in code box follows the store's sign-in setting; the 2.1.0 codemods bring it to a store made before.
+// Market has no view of its own (it uses Baseline's) but ships its own messages, so only its messages are checked.
+describe.each(['baseline', 'beauty', 'classic', 'electronics', 'fashion', 'grocery', 'home', 'jewelry', 'market'])('the sign-in "use another" link of a %s store made before core 2.1.0', (key) => {
+  const now = shipped(key)
+  const before = undone(now)
+  const view = 'src/theme/components/interactive/SignInView.tsx'
+  const messages = 'content/en/shop.json'
+  const count = (text: string | undefined) => (text ?? '').split('"anotherEmail"').length - 1
+
+  it('has the fixed wording and no anotherEmail in the fixture, so the test means something', () => {
+    expect(count(before.get(messages))).toBe(0)
+    if (now.has(view)) expect(before.get(view)).toContain("{t('shop.account.another')}")
+  })
+
+  it('picks the text from the store’s sign-in ways, adds the message once, and a second run changes nothing', () => {
+    const once = applyCodemods(before, codemods)
+    expect(count(once.get(messages))).toBe(1)
+    expect(once.get(messages)).toBe(now.get(messages))
+    if (now.has(view)) {
+      expect(once.get(view)).toBe(now.get(view))
+      expect(once.get(view)).toContain("'shop.account.anotherEmail'")
+      expect(once.get(view)).toContain("'shop.account.anotherNumber'")
+    }
+    expect(applyCodemods(once, codemods)).toEqual(once)
+  })
+})
+
 // A store made before core 0.12.0 (#1385) has the product grid's Load more button; Market ships it still.
 describe.each(['baseline', 'classic', 'market'])('the product grids of a %s store made before core 0.12.0', (key) => {
   const loadMore = `/** "Load more" through fetchMore, and the retry when the next page didn't load. */
