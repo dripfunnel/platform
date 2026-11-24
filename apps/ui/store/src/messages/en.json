@@ -6139,6 +6139,7 @@
       "newGroupLabel": "New group name",
       "newGroup": "New group, e.g. Wholesale",
       "createGroup": "Create",
+      "groupNameNeeded": "Enter a name for the group.",
       "groupCreated": "Group “{name}” created. Add people to it on the Customers screen.",
       "anyGroup": "Customers in any of these groups get it.",
       "goCustomers": "Add people to groups on the Customers screen →",
