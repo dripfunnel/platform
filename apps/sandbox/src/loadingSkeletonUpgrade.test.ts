@@ -12,7 +12,7 @@ const walk = (dir: string, rel = ''): string[] =>
     return statSync(join(dir, path)).isDirectory() ? walk(dir, path) : [path]
   })
 const codemods = notesBetween('1.0.0', '2.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
-const laterCodemods = notesBetween('2.0.0', '2.1.0', coreUpgradeNotes).flatMap((n) => n.codemods)
+const laterCodemods = notesBetween('2.0.0', '3.0.0', coreUpgradeNotes).flatMap((n) => n.codemods)
 
 /** The theme with `list` undone, last first. */
 const undoing = (list: typeof codemods, theme: ReadonlyMap<string, string>) => {
