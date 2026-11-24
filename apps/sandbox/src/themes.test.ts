@@ -578,10 +578,11 @@ describe.each(keys)('the %s theme', (key) => {
       await applied.waitFor()
       await page.getByRole('button', { name: 'One fewer' }).click()
       await expect.poll(quantity).toContain('1')
-      expect(await applied.count()).toBe(0)
+      await expect.poll(() => applied.count()).toBe(0)
       expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
       await page.getByRole('button', { name: 'One more' }).click()
       await expect.poll(quantity).toContain('2')
+      await page.waitForLoadState('networkidle')
       expect(await applied.count()).toBe(0)
     } finally {
       await context.close()
