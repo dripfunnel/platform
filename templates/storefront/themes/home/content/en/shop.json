@@ -249,6 +249,7 @@
     "code": "6-digit code",
     "codeRule": "Enter the 6 digits we sent.",
     "another": "Use another email or number",
+    "anotherEmail": "Use another email",
     "addPhone": "Add",
     "changePhone": "Change",
     "phoneUse": "Used to sign in with a text code and for delivery updates.",
