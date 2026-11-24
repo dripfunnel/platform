@@ -358,6 +358,40 @@ describe('a new offer', () => {
   })
 })
 
+describe('a new customer group in the offer editor', () => {
+  const openGroups = async () => {
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.who.groups.title}`) }))
+  }
+  const box = () => screen.getByRole('textbox', { name: words.newGroupLabel })
+
+  it('says a name is needed, marks the box and creates nothing, for an empty or spaces-only name (#1699)', async () => {
+    await openGroups()
+    for (const typed of ['', '   ']) {
+      fireEvent.change(box(), { target: { value: typed } })
+      fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+      await settle()
+      expect(screen.getByRole('alert').textContent).toBe(words.groupNameNeeded)
+      expect(box().getAttribute('aria-invalid')).toBe('true')
+      expect(lists.createGroup).not.toHaveBeenCalled()
+    }
+  })
+
+  it('clears the message when the merchant types, and still creates a valid name (#1699)', async () => {
+    lists.createGroup.mockResolvedValue('g2')
+    await openGroups()
+    fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+    expect(screen.getByRole('alert').textContent).toBe(words.groupNameNeeded)
+    fireEvent.change(box(), { target: { value: 'Wholesale' } })
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(box().getAttribute('aria-invalid')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+    await settle()
+    expect(lists.createGroup).toHaveBeenCalledWith('Wholesale')
+    expect(screen.getByText(/Group “Wholesale” created/)).toBeTruthy()
+  })
+})
+
 describe('editing an offer', () => {
   it('confirms a change to a live offer, says the old code stops working, and saves at the revision read', async () => {
     await show(owner, '/offers/o1/edit')
