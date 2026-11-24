@@ -466,7 +466,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
         {d.trigger === 'code' && isNew && (
           <div className="df-offer-single">
             <label className="df-offer-check">
-              <input type="checkbox" checked={d.singleUse} disabled={disabled} onChange={() => set({ singleUse: !d.singleUse, perCustomer: d.singleUse ? d.perCustomer : '1', totalUses: d.singleUse ? d.totalUses : '' })} />
+              <input type="checkbox" checked={d.singleUse} disabled={disabled} onChange={() => set({ singleUse: !d.singleUse, perCustomer: d.singleUse ? d.perCustomer : '1', totalLimited: d.singleUse ? d.totalLimited : false, totalUses: d.singleUse ? d.totalUses : '' })} />
               <strong>{words.singleUse}</strong>
             </label>
             {d.singleUse && (
@@ -726,11 +726,11 @@ const When = ({ draft: d, set, errors: e, facts, disabled }: { draft: OfferDraft
         <label className="df-offer-inline">
           <span>{words.total}</span>
           <span className="df-offer-row">
-            <select value={d.totalUses ? 'n' : 'none'} disabled={disabled} onChange={(ev) => set({ totalUses: ev.target.value === 'n' ? '100' : '' })}>
+            <select value={d.totalLimited ? 'n' : 'none'} disabled={disabled} onChange={(ev) => set({ totalLimited: ev.target.value === 'n', totalUses: ev.target.value === 'n' ? '100' : '' })}>
               <option value="none">{words.unlimited}</option>
               <option value="n">{words.limitTo}</option>
             </select>
-            {d.totalUses && <input className="df-offer-small" value={d.totalUses} inputMode="numeric" readOnly={disabled} aria-label={words.totalLabel} aria-invalid={Boolean(e.total) || undefined} onChange={(ev) => set({ totalUses: ev.target.value.replace(/\D/g, '') || '0' })} />}
+            {d.totalLimited && <input className="df-offer-small" value={d.totalUses} inputMode="numeric" readOnly={disabled} aria-label={words.totalLabel} aria-invalid={Boolean(e.total) || undefined} onChange={(ev) => set({ totalUses: ev.target.value.replace(/\D/g, '') })} />}
           </span>
           <span className="df-offers-sub">{d.totalUses ? fill(words.totalStops, { count: d.totalUses }) : words.totalHelp}</span>
         </label>
