@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../api/stock'
@@ -388,12 +388,11 @@ describe('The address search, above the map in a location’s form', () => {
     fireEvent.change(field(words.form.name), { target: { value: 'Shed' } })
     await typeIn('viman')
     fireEvent.mouseDown(screen.getByRole('option'))
-    await settle()
+    await waitFor(() => expect(field(words.form.line1).value).toBe('5 Nagar Road, Viman Nagar'))
     expect(map.select).toHaveBeenCalledWith('p1')
     expect(map.draw).toHaveBeenLastCalledWith({ latitude: 18.57, longitude: 73.92 }, 17, expect.any(Function))
     expect(screen.getByText(fill(words.map.pinned, { at: 'Pin at 18.57000, 73.92000' }))).toBeTruthy()
     expect(map.place).toHaveBeenCalledWith({ latitude: 18.57, longitude: 73.92 })
-    expect(field(words.form.line1).value).toBe('5 Nagar Road, Viman Nagar')
     expect(field(words.form.name).value).toBe('Shed')
     expect(search().value).toBe('Viman Nagar, Pune, Maharashtra')
     expect(screen.queryByRole('listbox')).toBeNull()
