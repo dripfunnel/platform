@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { factsOf } from '#auth/activity'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
@@ -437,6 +437,7 @@ describe('SES hook', () => {
 describe('the Email sender is the From address', () => {
   const emailRow = (partnerId: string) => db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${partnerId} and kind = 'email' limit 1`
   const setStatus = async (partnerId: string, status: string) => db.sql`update partner_domain set status = ${status} where partner_id = ${partnerId} and kind = 'email'`
+  afterEach(() => setStatus(store.partnerId, 'live'))
   const fromOf = async (target: { id: string; partnerId: string }, ses: SesApi) => {
     await queue('store-suspended', { storeId: target.id, reason: 'Unpaid invoice' }, { partnerId: target.partnerId, storeId: target.id })
     await relay(ses)
@@ -464,7 +465,6 @@ describe('the Email sender is the From address', () => {
     await setStatus(store.partnerId, 'waiting')
     const fallback = fakeSes()
     await fromOf(store, fallback.api)
-    await setStatus(store.partnerId, 'live')
     expect(fallback.sent[0]?.from).toMatch(new RegExp(`<no-reply@([a-z0-9-]+\\.)?${senderDomain.replace(/\./g, '\\.')}>$`))
     expect(live.sent[0]?.from.split(' <')[0]).toBe(fallback.sent[0]?.from.split(' <')[0])
   })
@@ -473,7 +473,6 @@ describe('the Email sender is the From address', () => {
     await setStatus(store.partnerId, status)
     const ses = fakeSes()
     await fromOf(store, ses.api)
-    await setStatus(store.partnerId, 'live')
     expect(ses.sent).toHaveLength(1)
     expect(ses.sent[0]?.from).toMatch(new RegExp(`<no-reply@([a-z0-9-]+\\.)?${senderDomain.replace(/\./g, '\\.')}>$`))
   })

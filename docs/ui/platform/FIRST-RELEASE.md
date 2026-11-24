@@ -449,8 +449,8 @@ for every store's portal and emails, right away."). (CONSOLE-DESIGN F8; SAAS §3
 ### 9.1 The two addresses
 
 One card each — **Merchant portal** (`store.northstar.com`, "Where your merchants sign in and
-build their shops."), **Email sender** (`mail.…`, "Emails to your merchants and their
-suppliers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
+build their shops."), **Email sender** (`mail.…`, "Emails to your merchants, their
+suppliers and their shoppers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
 Live · Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every role),
 **Remove address** (Owner, Admin, and staff in a setup session; never while impersonating), and a record table: Type, Name, Value to add (with Copy and a plain-words line — "DKIM: signs
 every email so inboxes trust it."), What we see ("Nothing found yet", or the found value with
