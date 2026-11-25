@@ -321,6 +321,39 @@ describe('the Customers screen', () => {
     expect(screen.queryByRole('region', { name: 'Edit Ananya Rao' })).toBeNull()
   })
 
+  describe('fills the address fields with the address the panel shows (#1593)', () => {
+    const shipTo = { orderNumber: '1003', address: { name: 'Ananya Rao', line1: '#9 matha', line2: null, city: 'bangalore', region: 'Karnataka', postalCode: '560090', country: 'IN', phone: null } }
+    const edit = async (customer: Customer) => {
+      api.loadCustomer.mockResolvedValue(customer)
+      await show(owner, { entry: '/customers?customer=c1' })
+      fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
+      const form = within(screen.getByRole('region', { name: 'Edit Ananya Rao' }))
+      const box = (label: string) => form.getByRole<HTMLInputElement>('textbox', { name: new RegExp(label.replace(/[()]/g, '\\$&')) }).value
+      return { form, fields: () => [words.editForm.address, words.editForm.line2, words.editForm.city, words.editForm.region, words.editForm.postal, words.editForm.country].map(box) }
+    }
+
+    it('the newest order’s when nothing is saved, and Save keeps it as the saved address', async () => {
+      const { form, fields } = await edit({ ...ananya, addresses: [], lastShipTo: shipTo })
+      expect(fields()).toEqual(['#9 matha', '', 'bangalore', 'Karnataka', '560090', 'IN'])
+      fireEvent.click(form.getByRole('button', { name: words.editForm.save }))
+      await settle()
+      expect(api.updateCustomer).toHaveBeenCalledWith('c1', { name: 'Ananya Rao', phone: '+91 98450 12345', address: { name: 'Ananya Rao', line1: '#9 matha', line2: null, city: 'bangalore', region: 'Karnataka', postalCode: '560090', country: 'IN' } })
+    })
+
+    it('and Cancel changes nothing', async () => {
+      const { form } = await edit({ ...ananya, addresses: [], lastShipTo: shipTo })
+      fireEvent.click(form.getByRole('button', { name: words.editForm.cancel }))
+      expect(api.updateCustomer).not.toHaveBeenCalled()
+      expect(detail().getByText(/#9 matha, bangalore, Karnataka 560090, IN \(from order 1003\)/)).toBeTruthy()
+    })
+
+    it('the saved one first, and none when there is none', async () => {
+      expect((await edit({ ...ananya, lastShipTo: shipTo })).fields()).toEqual(['14 3rd Cross', '', 'Bengaluru', 'KA', '560038', 'IN'])
+      cleanup()
+      expect((await edit({ ...ananya, addresses: [], lastShipTo: null })).fields()).toEqual(['', '', '', '', '', ''])
+    })
+  })
+
   it('says under the field which one a refused edit or add names, and highlights it (#1040)', async () => {
     await show(owner)
     fireEvent.click(detail().getByRole('button', { name: words.detail.edit }))
