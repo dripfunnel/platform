@@ -16,7 +16,7 @@ export interface AddressDraft {
 
 export const emptyAddress: AddressDraft = { line1: '', line2: '', city: '', region: '', postal: '', country: '' }
 
-export const addressDraftOf = (address: CustomerAddress | null): AddressDraft =>
+export const addressDraftOf = (address: Omit<CustomerAddress, 'id' | 'isDefault'> | null): AddressDraft =>
   address ? { line1: address.line1, line2: address.line2 ?? '', city: address.city, region: address.region ?? '', postal: address.postalCode ?? '', country: address.country } : emptyAddress
 
 const isFilled = (d: AddressDraft) => Object.values(d).some((v) => v.trim() !== '')
