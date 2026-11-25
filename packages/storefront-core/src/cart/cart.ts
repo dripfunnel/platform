@@ -440,7 +440,9 @@ export type AvailableOffersPage = {
   retry: () => void
 }
 
-const offersKey = (cart: Decoded) => JSON.stringify([cart.id, cart.subtotal.amount, cart.discount?.amount ?? null, cart.codes ?? [], cart.lines.map((l) => [l.id ?? null, l.versionId, l.quantity])])
+// Everything the engine prices the offers on: the delivery chosen and who is signed in too, not only the lines.
+const offersKey = (cart: Decoded) =>
+  JSON.stringify([cart.id, cart.subtotal.amount, cart.discount?.amount ?? null, cart.codes ?? [], cart.lines.map((l) => [l.id ?? null, l.versionId, l.quantity]), cart.shippingOption ?? null, cart.shipping?.amount ?? null, cart.shippingAddress ?? null, shopperToken('session') ?? null])
 
 /** The offers the engine says this cart can use now, read again whenever the cart changes; nothing is worked out here. */
 export const useAvailableOffers = (): AvailableOffersPage => {

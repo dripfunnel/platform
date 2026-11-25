@@ -5,7 +5,7 @@ import { cartOf, line, usd } from '../../test/cart'
 import { Provided, shopAnswering } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { storedShopState } from '../platform/api/tokens'
-import { useAvailableOffers, type AvailableOffersPage } from './cart'
+import { useAvailableOffers, useCartState, type AvailableOffersPage } from './cart'
 
 afterEach(() => {
   cleanup()
@@ -82,6 +82,29 @@ describe('useAvailableOffers (#1698)', () => {
     await act(async () => void (await page.apply('SUMMER20')))
     expect(page.refused).toBe('NOT_ELIGIBLE')
     expect(shown()).toBe('ready SUMMER20:$5.60')
+  })
+
+  it('asks again when the delivery changes but the lines do not, and when the shopper signs in', async () => {
+    localStorage.setItem('df-cart', 'tok-1')
+    let delivery: { shippingOption: string | null; shipping: ReturnType<typeof usd> | null } = { shippingOption: null, shipping: null }
+    const asked = shopAnswering(({ query }) => (asksOffers(query) ? { data: { cart: { availableOffers: [summer] } } } : { data: { cart: cartOf([line('v1', 1)], delivery) } }))
+    let store: ReturnType<typeof useCartState>['store'] | undefined
+    const Store = () => {
+      store = useCartState().store
+      return null
+    }
+    render(<Provided client={createShopClient({ state: storedShopState })}><Probe /><Store /></Provided>)
+    await settle()
+    const offerAsks = () => asked.filter((a) => asksOffers(a.query)).length
+    expect(offerAsks()).toBe(1)
+    delivery = { shippingOption: 'express', shipping: usd(900) }
+    await act(async () => store?.reload())
+    await settle()
+    expect(offerAsks()).toBe(2)
+    sessionStorage.setItem('df-session', 'sess-1')
+    await act(async () => store?.reload())
+    await settle()
+    expect(offerAsks()).toBe(3)
   })
 
   it('reports a failed read, keeps the cart usable, and tries again on retry', async () => {
