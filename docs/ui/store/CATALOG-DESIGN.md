@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-20 (#1567: a filter's card has a Delete button, I4a). Before: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-25 (#1717: a supplier shows and hides its own product, §8). Before: 2026-11-20 (#1567: a filter's card has a Delete button, I4a). Before: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -270,10 +270,10 @@ against them before relying on it, and fix this document where they differ.
     PLATFORM-PROMPT §5.1). Every vendor list, count, search result, export, empty state and
     dropdown is scoped to that vendor's `seller_id` by the scoped query layer and
     `SellerScope`, including derived reads (stock totals, filter counts, collection contents).
-    A vendor never sets `seller_id`, visibility or approval status: those controls don't exist
-    on their screens, and the fields are absent from vendor input types, so the Store API
-    rejects them (PLATFORM-PROMPT §2 items 18–19). The UI still hides them; the server is the
-    gate.
+    A vendor never sets `seller_id` or approval status: those controls don't exist on their
+    screens, and the fields are absent from vendor input types, so the Store API rejects them
+    (PLATFORM-PROMPT §2 items 18–19). A vendor shows and hides only its own saved, approved
+    product (ACCESS.md §7.2, #1717). The UI still hides the rest; the server is the gate.
 17. **The live storefront updates on publish; the preview updates at once.** Each store has
     two links (PLATFORM-PROMPT §2 item 13, [storefront ARCHITECTURE.md](../../storefront/ARCHITECTURE.md)
     §4): a **preview** with live data, which shows catalogue changes immediately, and a
@@ -1621,7 +1621,7 @@ Design once, apply everywhere:
 - Show a vendor anything belonging to the merchant or another vendor. That includes search
   results, counts, filter-choice counts, collection contents, stock totals, exports, "also
   bought", and empty states that say "0 of 340".
-- Offer a vendor a visibility, approval or supplier control.
+- Offer a vendor an approval or supplier control, or a visibility choice on a new product or on one that waits for approval, was sent back or is paused (ACCESS.md §7.2, #1717).
 - Show a raw engine or database term (variant, facet, slug, asset, channel, enabled,
   `seller_id`, minor units) or a raw error message.
 - Show prices in minor units (cents, paise, pence), or tax-exclusive where the store is

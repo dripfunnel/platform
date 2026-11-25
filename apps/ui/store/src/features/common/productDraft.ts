@@ -432,7 +432,7 @@ export type ListingSection = 'specs' | 'highlights' | 'faqs' | 'related' | 'badg
  * The save's input. A supplier never sends what's the store's to set (visibility, tax category); the price
  * in other currencies goes back as it came, since Markets sets those (#296).
  */
-export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier', shown: ReadonlySet<ListingSection> = new Set()): ProductInput => {
+export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier', shown: ReadonlySet<ListingSection> = new Set(), sendsVisibility = side === 'merchant'): ProductInput => {
   const live = draft.versions.filter((v) => !v.removed)
   const grams = gramsOf(draft.weight, draft.units)
   const box = boxOf(draft.box, draft.units)
@@ -476,7 +476,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
     name: draft.name.trim(),
     description: draft.description.trim(),
     productType: draft.kind,
-    ...(side === 'merchant' ? { visible: draft.visible } : {}),
+    ...(sendsVisibility ? { visible: draft.visible } : {}),
     ...(draft.slug.trim() ? { slug: draft.slug.trim() } : {}),
     seoTitle: draft.seoTitle.trim(),
     seoDescription: draft.seoDescription.trim(),

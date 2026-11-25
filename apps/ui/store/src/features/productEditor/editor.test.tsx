@@ -116,6 +116,13 @@ describe('who may do what in the editor', () => {
   it('lets the merchant edit and set the store’s fields; a supplier edits its own; a Stock-only one only proposes new ones', () => {
     expect(editorAccessOf(owner, false, false)).toMatchObject({ side: 'merchant', canEdit: true, storeFields: true, proposes: false })
     expect(editorAccessOf(supplier, false, false)).toMatchObject({ side: 'supplier', canEdit: true, storeFields: false })
+    // Visible / Hidden: the merchant's, and a supplier's on its own saved product only (#1717).
+    expect(editorAccessOf(owner, false, true).canShowHide).toBe(true)
+    expect(editorAccessOf(supplier, false, false).canShowHide).toBe(true)
+    expect(editorAccessOf(supplier, false, true).canShowHide).toBe(false)
+    expect(editorAccessOf(supplier, true, false).canShowHide).toBe(false)
+    expect(editorAccessOf(stockOnly, false, true).canShowHide).toBe(false)
+    expect(editorAccessOf(stockOnly, false, false).canShowHide).toBe(false)
     expect(editorAccessOf(stockOnly, false, true)).toMatchObject({ canEdit: true, proposes: true })
     expect(editorAccessOf(stockOnly, false, false)).toMatchObject({ canEdit: false, viewOnly: true })
     expect(editorAccessOf(staff, false, false)).toMatchObject({ canEdit: false, viewOnly: true })
@@ -510,21 +517,40 @@ describe('the product editor', () => {
     })
   })
 
-  it('gives a supplier its own form: no visibility or tax category, sent-back reason shown, changes submitted', async () => {
-    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'sent_back', sentBackReason: 'Sharper photo please', readiness: null }))
+  it('gives a supplier its own form: no tax category, sent-back reason shown, can’t be shown, changes submitted', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'sent_back', visible: false, sentBackReason: 'Sharper photo please', readiness: null }))
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: 'pending' })
     await show(supplier)
     expect(screen.getByText('“Sharper photo please” Fix it and send it again.')).toBeTruthy()
-    expect(screen.queryByText(words.side.onStore)).toBeNull()
+    expect(screen.getByRole('radio', { name: new RegExp('^' + words.side.visible) }).hasAttribute('disabled')).toBe(true)
     expect(screen.queryByText(words.sections.tax)).toBeNull()
     expect(api.loadTaxSetup).not.toHaveBeenCalled()
     fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
     fireEvent.click(screen.getAllByRole('button', { name: words.submit })[0] as HTMLElement)
     await settle()
     const input = api.saveProduct.mock.calls[0]?.[2] as Record<string, unknown> & { versions: Record<string, unknown>[] }
-    expect('visible' in input).toBe(false)
+    expect(input.visible).toBe(false)
     expect(input.versions.every((v) => !('taxClassId' in v))).toBe(true)
     expect(screen.getByText(words.submitted)).toBeTruthy()
+  })
+
+  it('lets a supplier hide its own approved product, and sends the choice with the save (#1717)', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, readiness: null }))
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(supplier)
+    expect(screen.getByText(words.side.onStore)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp('^' + words.side.hidden) }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.submit })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { visible?: boolean }).visible).toBe(false)
+  })
+
+  it('offers a supplier no Visible / Hidden choice on a new product, or a Stock-only one on any', async () => {
+    await show(supplier, '/products/new')
+    expect(screen.queryByText(words.side.onStore)).toBeNull()
+    cleanup()
+    await show(stockOnly)
+    expect(screen.queryByText(words.side.onStore)).toBeNull()
   })
 
   it('lets a Stock-only supplier propose a new product, and only look at an existing one', async () => {
