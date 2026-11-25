@@ -2,6 +2,7 @@ import { isCommonsUrl } from './commons'
 import { isOpenverseUrl } from './openverse'
 import { isPexelsUrl } from './pexels'
 import { isPixabayUrl, type StockImages, type StockPhoto } from './pixabay'
+import { isUnsplashUrl } from './unsplash'
 
 // One search over every enabled source (docs/storefront/AI-STUDIO.md §8). Ids are `source:id`, so a chosen result is
 // re-asked from its own source and a client never names a file address.
@@ -9,7 +10,7 @@ import { isPixabayUrl, type StockImages, type StockPhoto } from './pixabay'
 /** The most one source adds to a page, so a merged page holds at most this times the sources on. */
 export const maxPerSource = 24
 
-export const isStockUrl = (raw: string): boolean => [isPixabayUrl, isPexelsUrl, isOpenverseUrl, isCommonsUrl].some((check) => check(raw))
+export const isStockUrl = (raw: string): boolean => [isPixabayUrl, isPexelsUrl, isUnsplashUrl, isOpenverseUrl, isCommonsUrl].some((check) => check(raw))
 
 const words = (query: string): string[] => query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
 

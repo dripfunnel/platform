@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { commonsImages } from './commons'
 import { openverseImages } from './openverse'
 import { pexelsImages } from './pexels'
+import { pixabayImages } from './pixabay'
+import { unsplashImages } from './unsplash'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 const serve = (answer: (url: string) => Response | null) => {
@@ -26,12 +28,41 @@ describe('pexels', () => {
   })
 })
 
+describe('pixabay', () => {
+  const hit = (imageWidth: number, imageHeight: number) => ({ id: 7, pageURL: 'https://pixabay.com/p/7', tags: 'ring, gold', webformatURL: 'https://cdn.pixabay.com/w.jpg', largeImageURL: 'https://pixabay.com/get/l.jpg', user: 'Bo', imageWidth, imageHeight })
+  it('gives the downloaded large file’s size, the original scaled to 1280 px on its longest side', async () => {
+    const { fetchImpl } = serve(() => json({ totalHits: 3, hits: [hit(4000, 2500), hit(3000, 6000), hit(800, 600)] }))
+    const found = await pixabayImages({ key: 'k', fetchImpl }).search('ring', 1)
+    expect(found?.photos.map((p) => [p.width, p.height])).toEqual([[1280, 800], [640, 1280], [800, 600]])
+  })
+})
+
+describe('unsplash', () => {
+  const photo = (host: string, location = 'https://api.unsplash.com/photos/u1/download') => ({ id: 'u1', width: 6000, height: 4000, alt_description: 'red linen', description: null, tags: [{ title: 'fabric' }], urls: { small: `https://${host}/s.jpg`, raw: `https://${host}/r.jpg?ixid=1` }, links: { html: 'https://unsplash.com/photos/u1', download_location: location }, user: { name: 'Cy' } })
+  it('parses a search with its tags and the downloaded file’s size, and sends the Access Key as Client-ID', async () => {
+    const { fetchImpl, seen } = serve(() => json({ total: 1, results: [photo('images.unsplash.com'), photo('evil.example')] }))
+    const found = await unsplashImages({ key: 'abc', fetchImpl }).search('linen', 1)
+    expect(found?.photos).toEqual([{ id: 'u1', source: 'unsplash', thumb: 'https://images.unsplash.com/s.jpg', user: 'Cy', pageUrl: 'https://unsplash.com/photos/u1', tags: 'red linen fabric', width: 1920, height: 1280 }])
+    expect(seen[0]?.headers).toEqual({ Authorization: 'Client-ID abc' })
+  })
+  it('pings the download endpoint, then gives a 1920 px file, and refuses a foreign ping address or host', async () => {
+    const ok = serve((url) => (url.endsWith('/download') ? json({ url: 'x' }) : json(photo('images.unsplash.com'))))
+    expect(await unsplashImages({ key: 'abc', fetchImpl: ok.fetchImpl }).download('u1')).toBe('https://images.unsplash.com/r.jpg?ixid=1&w=1920&fm=jpg&q=80')
+    expect(ok.seen.map((s) => s.url)).toEqual(['https://api.unsplash.com/photos/u1', 'https://api.unsplash.com/photos/u1/download'])
+    const foreign = serve(() => json(photo('images.unsplash.com', 'https://evil.example/ping')))
+    expect(await unsplashImages({ key: 'abc', fetchImpl: foreign.fetchImpl }).download('u1')).toBeNull()
+    expect(foreign.seen).toHaveLength(1)
+    expect(await unsplashImages({ key: 'abc', fetchImpl: serve(() => json(photo('evil.example'))).fetchImpl }).download('u1')).toBeNull()
+  })
+})
+
 describe('openverse', () => {
   const id = '3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f'
   it('asks for CC0 and public domain only and builds the thumbnail address itself', async () => {
     const { fetchImpl, seen } = serve(() => json({ result_count: 1, results: [{ id, title: 'Red linen', creator: 'Bo', foreign_landing_url: 'https://flickr.com/1', tags: [{ name: 'cloth' }] }] }))
     const found = await openverseImages({ fetchImpl }).search('linen', 2)
     expect(seen[0]?.url).toContain('license=cc0%2Cpdm')
+    expect(Number(new URL(seen[0]?.url ?? '').searchParams.get('page_size'))).toBeLessThanOrEqual(20)
     expect(found?.photos[0]).toEqual({ id, source: 'openverse', thumb: `https://api.openverse.org/v1/images/${id}/thumb/`, user: 'Bo', pageUrl: 'https://flickr.com/1', tags: 'Red linen cloth' })
   })
   it('gives the downloaded thumbnail’s size, the original scaled to 600 px wide, so a slot wider than it skips the photo', async () => {
@@ -53,6 +84,15 @@ describe('commons', () => {
     expect(found?.photos).toHaveLength(1)
     expect(found?.photos[0]).toMatchObject({ id: '9', source: 'commons', user: 'Bo', tags: expect.stringContaining('Red linen') })
     expect(JSON.stringify(seen[0]?.headers)).toContain('User-Agent')
+    expect(new URL(seen[0]?.url ?? '').searchParams.get('gsrsearch')).toContain('haswbstatement:P275=Q6938433|P6216=Q19652')
+  })
+  it('keeps a thumbnail on thumb.wikimedia.org, where Commons serves most of them', async () => {
+    const found = await commonsImages({ fetchImpl: serve(() => json({ query: { pages: { a: page('CC0', 'thumb.wikimedia.org') } } })).fetchImpl }).search('linen', 1)
+    expect(found?.photos[0]?.thumb).toBe('https://thumb.wikimedia.org/t.jpg')
+  })
+  it('gives no photos, not a failure, when the search finds nothing', async () => {
+    const found = await commonsImages({ fetchImpl: serve(() => json({ batchcomplete: '', query: { searchinfo: { totalhits: 0 } } })).fetchImpl }).search('linen', 1)
+    expect(found).toEqual({ total: 0, photos: [] })
   })
   it('gives the 1280 px thumbnail’s own size, the file the Worker downloads', async () => {
     const sized = { query: { pages: { a: { ...page('CC0'), imageinfo: [{ ...page('CC0').imageinfo[0], thumbwidth: 1280, thumbheight: 853 }] } } } }
@@ -75,7 +115,7 @@ describe('commons', () => {
 
 describe('every adapter', () => {
   const broken = [() => json({}, 500), () => json({ query: 'x' }), () => new Response('not json')]
-  const adapters = (fetchImpl: typeof fetch) => [pexelsImages({ key: 'k', fetchImpl }), openverseImages({ fetchImpl }), commonsImages({ fetchImpl })]
+  const adapters = (fetchImpl: typeof fetch) => [pexelsImages({ key: 'k', fetchImpl }), unsplashImages({ key: 'k', fetchImpl }), openverseImages({ fetchImpl }), commonsImages({ fetchImpl })]
   it('gives null for a failed, malformed or unreadable search answer, and for a thrown fetch', async () => {
     for (const answer of broken) for (const images of adapters(serve(answer).fetchImpl)) expect(await images.search('linen', 1)).toBeNull()
     const thrown = (async () => { throw new Error('down') }) as unknown as typeof fetch
@@ -94,6 +134,7 @@ describe('every adapter', () => {
     const { fetchImpl, seen } = serve(() => json({}))
     expect(await openverseImages({ fetchImpl }).download('not-a-uuid')).toBeNull()
     expect(await commonsImages({ fetchImpl }).download('1 or 1')).toBeNull()
+    expect(await unsplashImages({ key: 'k', fetchImpl }).download('../me')).toBeNull()
     expect(seen).toHaveLength(0)
   })
 })

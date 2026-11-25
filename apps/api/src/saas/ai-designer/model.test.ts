@@ -455,6 +455,21 @@ describe('the rules the AI is given', () => {
     expect(rules).toMatch(/never answer with an Assets image instead/)
   })
 
+  it('spend the photo calls on adding, not only searching', () => {
+    expect(maxToolCalls).toBe(4)
+    expect(rules).toMatch(/four photo calls a change, searches and adds\s+together/)
+    expect(rules).toMatch(/add a\s+fitting result before searching again/)
+  })
+
+  it('choose real photos well: no stand-ins, no repeats, a collection’s own photo, one look, real alt text', () => {
+    expect(rules).toMatch(/no SVG illustration, gradient or\s+empty block standing in for a photo/)
+    expect(rules).toMatch(/A collection's card shows that collection's own photo/)
+    expect(rules).toMatch(/never place the same picture in two unrelated\s+sections/)
+    expect(rules).toMatch(/compare the results' tags and sizes/)
+    expect(rules).toMatch(/one look across the site/)
+    expect(rules).toMatch(/alt text naming what the photo shows/)
+  })
+
   it('use the shop’s own data to decide, live through core, never copied into files (#1242)', () => {
     expect(rules).toMatch(/useProducts\(\{ sort: 'best-selling' \}\)/)
     expect(rules).toMatch(/drawn\s+from useOffers\(\) so it goes when the offer ends/)

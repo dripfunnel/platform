@@ -23,12 +23,20 @@ export interface StockImages {
 
 const hits = z.object({
   totalHits: z.number().int(),
-  hits: z.array(z.object({ id: z.number().int(), pageURL: z.string(), tags: z.string(), webformatURL: z.string(), largeImageURL: z.string(), user: z.string() })),
+  hits: z.array(z.object({ id: z.number().int(), pageURL: z.string(), tags: z.string(), webformatURL: z.string(), largeImageURL: z.string(), user: z.string(), imageWidth: z.number().int().positive().optional(), imageHeight: z.number().int().positive().optional() })),
 })
 
 const perPage = 24
 const api = 'https://pixabay.com/api/'
 const hosts = /^(?:[a-z0-9-]+\.)*pixabay\.com$/
+/** `largeImageURL`, the file downloaded, is the original scaled to at most this on its longest side. */
+const largeSide = 1280
+
+const sizeOf = (width: number | undefined, height: number | undefined) => {
+  if (!width || !height) return {}
+  const scale = Math.min(1, largeSide / Math.max(width, height))
+  return { width: Math.round(width * scale), height: Math.round(height * scale) }
+}
 
 export const isPixabayUrl = (raw: string): boolean => {
   try {
@@ -56,7 +64,7 @@ export const pixabayImages = ({ key, fetchImpl = fetch }: { key: string; fetchIm
     search: async (query, page) => {
       const found = await ask({ q: query.slice(0, 100), page: String(page), per_page: String(perPage) })
       if (!found) return null
-      return { total: found.totalHits, photos: found.hits.filter((h) => isPixabayUrl(h.webformatURL)).map((h) => ({ id: String(h.id), source: 'pixabay', thumb: h.webformatURL, user: h.user, pageUrl: h.pageURL, tags: h.tags })) }
+      return { total: found.totalHits, photos: found.hits.filter((h) => isPixabayUrl(h.webformatURL)).map((h) => ({ id: String(h.id), source: 'pixabay', thumb: h.webformatURL, user: h.user, pageUrl: h.pageURL, tags: h.tags, ...sizeOf(h.imageWidth, h.imageHeight) })) }
     },
     download: async (id) => {
       const found = await ask({ id })
