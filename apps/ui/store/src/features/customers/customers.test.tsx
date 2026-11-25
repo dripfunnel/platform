@@ -332,12 +332,13 @@ describe('the Customers screen', () => {
       return { form, fields: () => [words.editForm.address, words.editForm.line2, words.editForm.city, words.editForm.region, words.editForm.postal, words.editForm.country].map(box) }
     }
 
-    it('the newest order’s when nothing is saved, and Save keeps it as the saved address', async () => {
+    it('the newest order’s when nothing is saved, and Save keeps it as the saved address, a phone-only edit too', async () => {
       const { form, fields } = await edit({ ...ananya, addresses: [], lastShipTo: shipTo })
       expect(fields()).toEqual(['#9 matha', '', 'bangalore', 'Karnataka', '560090', 'IN'])
+      fireEvent.change(form.getByRole('textbox', { name: words.editForm.phone }), { target: { value: '+91 90000 00000' } })
       fireEvent.click(form.getByRole('button', { name: words.editForm.save }))
       await settle()
-      expect(api.updateCustomer).toHaveBeenCalledWith('c1', { name: 'Ananya Rao', phone: '+91 98450 12345', address: { name: 'Ananya Rao', line1: '#9 matha', line2: null, city: 'bangalore', region: 'Karnataka', postalCode: '560090', country: 'IN' } })
+      expect(api.updateCustomer).toHaveBeenCalledWith('c1', { name: 'Ananya Rao', phone: '+91 90000 00000', address: { name: 'Ananya Rao', line1: '#9 matha', line2: null, city: 'bangalore', region: 'Karnataka', postalCode: '560090', country: 'IN' } })
     })
 
     it('and Cancel changes nothing', async () => {
