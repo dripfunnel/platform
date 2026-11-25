@@ -21,7 +21,7 @@ import { failureCode, logEvent } from '#core/log'
 import { activityLog } from '#saas/activity/index'
 import { commitToMain, type PushResult } from './push'
 import { previewFolder, storePrefix } from './layout'
-import { currentCore, deletePrefix, previewManifest, previewSource, templateFiles, TemplateMissing, type SitesBucket } from './templates'
+import { copyTemplatePreview, currentCore, deletePrefix, templateFiles, type SitesBucket } from './templates'
 
 // The create-storefront Workflow's steps (SAAS §5 steps 4–8, storefront LIVE-SHOP.md §3). Each is idempotent, moves the
 // job to itself, and registers its compensation before it acts; a failure anywhere undoes them all, newest first.
@@ -60,8 +60,6 @@ const stopped = 'stopped'
 class Stopped extends Error {
   override name = 'Stopped'
 }
-
-const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 const enter = async (deps: CreateDeps, p: CreateParams, step: ProvisioningStep): Promise<(CreationRow & { repo: string }) | null> => {
   const row = await withSystemScope(deps.sql, async (tx) => {
@@ -154,15 +152,7 @@ const previewStep = async (deps: CreateDeps, p: CreateParams, core: string): Pro
   const ref = p.jobId
   const folder = previewFolder(p.storeId, ref)
   await withSystemScope(deps.sql, (tx) => appendCompensation(tx, p.jobId, { step: 'firstBuild', undo: 'deletePreview', folder, ref }))
-  const manifest = await previewManifest(deps.sites, core, p.template)
-  for (const file of manifest) {
-    const source = await deps.sites.get(previewSource(core, p.template, file.path))
-    if (!source) throw new TemplateMissing(`the ${p.template} preview lacks ${file.path}`)
-    const copied = await deps.sites.put(`${folder}${file.path}`, await source.arrayBuffer(), { sha256: file.sha256, ...(source.httpMetadata ? { httpMetadata: source.httpMetadata } : {}) })
-    const written = copied?.checksums.sha256
-    // SAAS §5 step 7: confirmed from the copy's result, never assumed.
-    if (!written || hex(written) !== file.sha256) throw new Error(`create-storefront: ${file.path} wasn't copied whole`)
-  }
+  await copyTemplatePreview(deps.sites, core, p.template, folder)
   if (!row.repo_head) throw new Error('create-storefront: no head to start the draft from')
   const head = row.repo_head
   await withSystemScope(deps.sql, (tx) => upsertDesignDraft(tx, { storeId: p.storeId, headCommit: head, template: p.template, coreVersion: core, previewRef: ref, at: deps.now() }))

@@ -465,6 +465,7 @@ type Mutation {
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
+  templatePreviewLink(key: String!): TemplatePreview
   testPlatformMapsKey: PlatformMapsResult
   testPlatformSmsAccount(provider: String!): PlatformMessagingResult
   testPlatformWhatsAppAccount: PlatformMessagingResult
@@ -855,6 +856,7 @@ type Query {
   store(id: ID!): Store
   storeCategories: [StoreCategory!]
   storeCategorySample(categoryId: ID!): StoreCategorySampleDetail
+  storefrontTemplates: [StorefrontTemplate!]
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
 }
 
@@ -1062,6 +1064,7 @@ type StoreCategory {
   sample: StoreCategorySample
   sections: [String!]
   storeCount: Int
+  template: StoreCategoryTemplate
 }
 
 input StoreCategoryInput {
@@ -1166,6 +1169,12 @@ enum StoreCategorySection {
   sizeCharts
   specs
   video
+}
+
+type StoreCategoryTemplate {
+  key: String
+  name: String
+  tag: String
 }
 
 type StoreDnsRecord {
@@ -1301,4 +1310,31 @@ type StoreUser {
   role: String
   status: String
   supplier: String
+}
+
+type StorefrontTemplate {
+  categories: [StorefrontTemplateCategory!]
+  demo: String
+  description: String
+  key: String
+  name: String
+  state: String
+  storeCount: Int
+  tag: String
+}
+
+type StorefrontTemplateCategory {
+  id: ID
+  key: String
+  names: [StorefrontTemplateCategoryName!]
+}
+
+type StorefrontTemplateCategoryName {
+  language: String
+  name: String
+}
+
+type TemplatePreview {
+  demo: String
+  url: String
 }

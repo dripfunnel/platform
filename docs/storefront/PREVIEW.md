@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-11-23 (#1681: test keys also take payments on the live storefront until live keys are added; live keys never serve a preview, §5). Before: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-24 (the Admin API signs a template demo store's link, issued to its Owner, §5 step 1). Before: 2026-11-23 (#1681: test keys also take payments on the live storefront until live keys are added; live keys never serve a preview, §5). Before: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -127,6 +127,9 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    staff impersonating and an elevated support session issue it as the user they act as, ACCESS §8, §8.1, #1344) answers the link and records `storefront.preview_opened`. The token is sealed with
    AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
    `storefront.preview_epoch` and the expiry.
+   *2026-11-24:* the Admin API's `templatePreviewLink` signs the same link for a category template's demo store (admin
+   FIRST-RELEASE §11d, DATA-MODEL §7.2), issued to the demo's Owner so step 4's re-check is unchanged; the staff member who
+   asked is logged (`storefront_template.preview_opened`). Only a demo store's link is ever signed for staff.
    *Why:* only the portal can hand out a preview, and every link runs out.
 2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
    is the store the hostname's slug resolves to**. Any mismatch gets the same "This

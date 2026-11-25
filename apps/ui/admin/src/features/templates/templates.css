@@ -1,0 +1,135 @@
+.df-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--df-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-template-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-template-card-link {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.df-template-card-link:hover .df-template-name,
+.df-template-card-link:focus-visible .df-template-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.df-template-card:has(.df-template-card-link:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+/* The merchant gallery's picture frame (store storefront.css), so a template looks the same in both. */
+.df-template-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1280 / 794;
+  padding: var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.df-template-thumb img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.df-template-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  padding: 14px 16px 16px;
+}
+
+.df-template-body > p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.df-template-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--df-space-2);
+}
+
+.df-template-name {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.df-template-key,
+.df-template-count {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.df-template-count {
+  margin-top: auto;
+}
+
+.df-template-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--df-space-1) var(--df-space-3);
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.df-template-facts dt {
+  color: var(--df-color-muted);
+}
+
+.df-template-facts dd {
+  margin: 0;
+}
+
+.df-template-actions {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--df-space-2);
+}
+
+.df-template-crumbs {
+  display: flex;
+  gap: var(--df-space-2);
+  margin-bottom: var(--df-space-2);
+  font-size: 0.8125rem;
+}

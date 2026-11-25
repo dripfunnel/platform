@@ -2,6 +2,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { englishName, type StoreCategory } from '../../api/storeCategories'
+import { collectionKeyOf } from '../../api/templates'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
 import { EmptyState, ErrorState, ListHeader, LoadingState, ReadOnlyNotice, StatusPill } from '@dripfunnel/shared/ui'
 import type { StoreCategoriesScreenState } from './storeCategoriesHarness'
@@ -84,6 +85,15 @@ const Row = ({ category, manage, onAction }: { category: StoreCategory; manage: 
           </ul>
         )}
       </td>
+      <td className="df-nowrap">
+        {category.template ? (
+          <Link to="/templates/$collection" params={{ collection: collectionKeyOf(category.template.tag) }} hash={category.template.key}>
+            {category.template.name}
+          </Link>
+        ) : (
+          <span className="df-muted">{words.noTemplate}</span>
+        )}
+      </td>
       <td className="df-nowrap">{storeCountText(category.storeCount)}</td>
       {manage && (
         <td>
@@ -138,7 +148,7 @@ export const StoreCategories = ({ categories, forced, canManage, onAdd, onAction
     )
   }
 
-  const columns = [words.columns.name, words.columns.key, words.columns.sections, words.columns.stores, ...(manage ? [words.columns.actions] : [])]
+  const columns = [words.columns.name, words.columns.key, words.columns.sections, words.columns.template, words.columns.stores, ...(manage ? [words.columns.actions] : [])]
   return (
     <div className="df-page df-list">
       <Header action={add} />

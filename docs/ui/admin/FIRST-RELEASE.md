@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-20 (in the sample editor: up to 20 photos a product with a main one, a photo per collection, and a product description with the merchant portal's formatting, §11b). Before: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-24 (Templates, §2, §11d, §12; a category's starting template on Store categories, §11b). Before: 2026-11-20 (in the sample editor: up to 20 photos a product with a main one, a photo per collection, and a product description with the merchant portal's formatting, §11b). Before: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -45,6 +45,7 @@ and store states).
 | 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | decided 2026-09-30 |
 | 6a | **Rollouts** (§11a) | Super admin, Engineer on call | paused rollouts | decided on #1312 |
 | 6b | **Store categories** (§11b) | Everyone (Super admin edits) | none | decided 2026-11-16 |
+| 6b.1 | **Templates** (§11d) | Everyone | none | decided 2026-11-24 |
 | 6c | **Platform settings** (§11c) | Everyone (Super admin edits) | none | decided 2026-11-17 (#1544) |
 | 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
 | 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
@@ -434,7 +435,8 @@ What a shop sells (DATA-MODEL §7.2): the list each store's Owner picks from on 
 reads it (`storeCategories.read`); only a Super admin adds, edits, archives or restores (`storeCategories.manage`, ACCESS
 §5.4). There is no prototype screen; it follows the Rollouts list.
 
-- **List**: English name, key, the product page sections it offers, how many stores chose it; archived ones last, marked.
+- **List**: English name, key, the product page sections it offers, its starting template (DATA-MODEL §7.2, read-only, linked to
+  Templates §11d, or "None"), how many stores chose it; archived ones last, marked.
 - **Add / Edit**: an English name (required), optional translations (language code and name), and the sections. The key
   comes from the English name once and never changes. Each takes a reason.
 - **Archive / Restore**: with a reason; Archive restates that the stores that chose it keep it and every other store's
@@ -482,6 +484,29 @@ ACCESS §5.4), and every other role sees "Status only". No one ever sees a secre
 - Every change but Test asks for a reason and is audited (LOGGING §4); each refusal is in words. States: loading, error, empty (no
   account yet) and read-only (`?state=` `loading`, `error`, `empty`, `readonly`).
 
+## 11d. Templates
+
+The template catalogue (CONSOLE-DESIGN L4), decided 2026-11-24, with no prototype screen; it follows Store categories. Every role
+reads it (`storeCategories.read`); nothing on it is edited: templates come from `templates/storefront/themes` and a category's
+starting template from migrations (DATA-MODEL §7.2, §7.8).
+
+- **Collections** (`/templates`, decided 2026-11-24): one card per collection, a template's tag (storefront ARCHITECTURE §2.3,
+  the merchant gallery's category), with its first template's picture (`@dripfunnel/shared/templates`, the merchant gallery's),
+  its templates' names and how many; in the API's order, Classic and "Start from scratch" first.
+- **A collection** (`/templates/{collection}`, its tag in lower case with hyphens, "fashion-apparel"): a breadcrumb back, then a
+  card per template: its picture, name, key, *Retired* when it is, description, the store categories that start from it (or
+  "None"), how many stores' storefronts were made from it, and Preview. An address no template has says so, with a way back.
+  Store categories links each category's template to its card (`/templates/{collection}#{key}`).
+- **Preview** (decided 2026-11-24): a category template opens as its demo store's preview (DATA-MODEL §7.2, 0416): a hidden
+  store under DripFunnel's own partner named "Shopstore", the DripFunnel favicon as its logo and favicon, and the
+  category's sample products and collections, in the template's ready-built preview; never published, test-mode checkout,
+  in a new tab. A Super admin's first **Preview** makes it ("Preview being set up", logged as
+  `storefront_template.demo_created`), and the `template.demo` job fills it in a minute or two; until then every other
+  role sees "No demo store yet". Once ready every role opens it through a signed link issued to the demo's Owner, each
+  opening logged under the staff member (`storefront_template.preview_opened`). A template with no category says
+  "No preview"; one whose category has no sample is refused until a sample is added on Store categories.
+- States: loading, error, empty (`?state=` `loading`, `error`, `empty`).
+
 ## 12. What the Admin API needs for this release
 
 For planning `apps/api/src/apis/admin`; names are *(proposed)*.
@@ -498,7 +523,8 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Staff | `staff(after, before)`. Built on #39: Super admin only (`staff.manage`); each member's role, last sign-in, `twoFactor` (on, off, notSignedIn), an open invitation's dates, and the actions with §10's refusals; `soleSuperAdmin` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite`. Built on #39: throttled like partner invitations (`RATE_LIMITED`), each logged with what changed; accepting is the link's SSO sign-in (ACCESS §6.3) |
 | Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
 | Rollouts | `coreRollouts(after)`, `coreRollout(id)`, `coreRolloutStores(id, state, after, before)` (built on #1312: each store's group, from version, state and error code, never the gate's report; `fleet.read`) | `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout`, `rollBackCoreRollout` (#485; `fleet.manage`, each with a reason) |
-| Store categories | `storeCategories` (each with its names per language, sections, store count, `hasDefaultSample` and `sample`) | `createStoreCategory(input, reason)`, `updateStoreCategory(id, input, reason)`, `archiveStoreCategory(id, archived, reason)`, `addDefaultStoreCategorySample(categoryId, reason)` (answers the category, or the built-in data's problems), `removeStoreCategorySample(categoryId, reason)`, `saveStoreCategorySampleItems(categoryId, input, reason)`; `storeCategorySample(categoryId)` reads it, and `POST /api/store-category-photos?category=` / `GET /api/store-category-photos/{category}/{sha}` upload and preview its photos |
+| Store categories | `storeCategories` (each with its names per language, sections, starting `template`, store count, `hasDefaultSample` and `sample`) | `createStoreCategory(input, reason)`, `updateStoreCategory(id, input, reason)`, `archiveStoreCategory(id, archived, reason)`, `addDefaultStoreCategorySample(categoryId, reason)` (answers the category, or the built-in data's problems), `removeStoreCategorySample(categoryId, reason)`, `saveStoreCategorySampleItems(categoryId, input, reason)`; `storeCategorySample(categoryId)` reads it, and `POST /api/store-category-photos?category=` / `GET /api/store-category-photos/{category}/{sha}` upload and preview its photos |
+| Templates | `storefrontTemplates` (each one's key, name, tag, description, state, the categories starting from it, `storeCount` and `demo`: `none`, `creating` or `ready`; `storeCategories.read`, read in system scope) | `templatePreviewLink(key)` (`storeCategories.read`; answers `demo` and, once ready, the signed `url`; a Super admin's first call makes the demo store; refuses `NOT_FOUND`, `NO_DEMO`, `NO_SAMPLE`, `NO_HOUSE_PARTNER`, `PREVIEW_OFF`) |
 | Platform settings | `platformSms` (each route's pick and the account `serving` it; each account's provider, last four, status, last test and whether India's templates are complete), `platformWhatsApp` (On or Off and the account, never its token), `platformMapsKey` (On or Off and the key as its last four; #1612); `messaging.read`. `partnerDfMessaging(partnerId)` (the three switches, `sms`, `whatsapp` and `maps`; `partners.read`) | `savePlatformSmsAccount`, `testPlatformSmsAccount`, `removePlatformSmsAccount`, `setPlatformSmsRoute`, `savePlatformWhatsAppAccount`, `testPlatformWhatsAppAccount`, `setPlatformWhatsAppEnabled`, `removePlatformWhatsAppAccount`, `savePlatformMapsKey`, `testPlatformMapsKey`, `setPlatformMapsEnabled`, `removePlatformMapsKey` (`messaging.manage`; each but the tests with a reason; built on #1543, drawn on #1544); `setPartnerDfMessaging(partnerId, channel, enabled, reason)` (`partners.messaging`) |
 | Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40), paused rollouts (`pausedRollouts`, null without `fleet.read`, #1312) | |
 
