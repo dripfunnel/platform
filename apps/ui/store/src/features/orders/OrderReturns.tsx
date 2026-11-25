@@ -40,7 +40,7 @@ export const OrderReturns = ({ order, timeZone, canManage, canRefund, disabled, 
         const state = stateOf(r)
         const suppliers = [...new Set(r.lines.map((l) => lines.get(l.lineId)?.supplier).filter((s): s is string => Boolean(s)))]
         const sub = { reason: reasonText(r.reason), time: timeText(r.startedAt, timeZone) }
-        const owed = r.lines.some((l) => lines.has(l.lineId) && leftInReturn(order, r, l.lineId) > 0)
+        const owed = order.paymentState !== 'refunded' && r.lines.some((l) => lines.has(l.lineId) && leftInReturn(order, r, l.lineId) > 0)
         return (
           <section key={r.id} className="df-order-card df-order-return" aria-label={fill(words.title, { number: r.number })}>
             <div className="df-order-card-head">
