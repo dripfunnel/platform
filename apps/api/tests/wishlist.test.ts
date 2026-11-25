@@ -249,26 +249,12 @@ describe('abandonedCart.wishlist and the reminder email', () => {
     expect((await wishlistOf(cart, 'surat')).items).toBeNull()
   })
 
-  it('puts "Still on your wishlist" in the reminder with at most 4 items, under the cart’s lines, and none for a guest', async () => {
+  it('keeps the wishlist out of the cart reminder: only the cart’s lines (#1702)', async () => {
     await remind()
-    const mail = sent.find((e) => e.to.includes('asha@example.com'))
-    const text = mail?.text ?? ''
-    expect(text).toContain('Still on your wishlist')
-    expect(text.indexOf('1 × Kurta')).toBeLessThan(text.indexOf('Still on your wishlist'))
-    for (const name of ['Lehenga', 'Dupatta', 'Stole', 'Shawl']) expect(text).toContain(name)
-    for (const name of ['Scarf', 'Sold out', 'Hidden']) expect(text).not.toContain(name)
-    const guestMail = sent.find((e) => e.to.includes('guest@example.com'))
-    expect(guestMail?.text).toBeTruthy()
-    expect(guestMail?.text).not.toContain('wishlist')
-  })
-
-  it('leaves the block out for a signed-in shopper whose wishlist is empty', async () => {
-    const empty = await signIn('+919845055555')
-    await left(empty, 'bare@example.com', products['Kurta']?.version ?? '')
-    await remind()
-    const mail = sent.find((e) => e.to.includes('bare@example.com'))
-    expect(mail?.text).toContain('Kurta')
-    expect(mail?.text).not.toContain('wishlist')
+    const text = sent.find((e) => e.to.includes('asha@example.com'))?.text ?? ''
+    expect(text).toContain('1 × Kurta')
+    expect(text).not.toContain('wishlist')
+    for (const name of ['Lehenga', 'Dupatta', 'Stole', 'Shawl', 'Scarf', 'Sold out', 'Hidden']) expect(text).not.toContain(name)
   })
 })
 
