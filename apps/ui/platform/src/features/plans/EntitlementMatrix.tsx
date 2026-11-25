@@ -32,7 +32,7 @@ export const EntitlementMatrix = ({ draft, ceilings, disabled, onToggle, onNumbe
     if (def.kind === 'switch') {
       const powered = key === 'powered_by_removal'
       const over = powered && draft.toggles[key] === true && !ceilings.powered.allowed
-      const refused = powered && !ceilings.powered.allowed
+      const refused = powered && !ceilings.powered.allowed && draft.toggles[key] !== true
       return (
         <li key={key}>
           {name}
