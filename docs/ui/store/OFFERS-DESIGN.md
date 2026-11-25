@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-24 (#1644: a code whose conditions the cart does not meet when it is applied is not added). Before: 2026-11-20 (#1661: the save buttons stay disabled until something changes, C4). Before: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
+Last updated: 2026-11-25 (#1694: taking out the cart's last line takes its codes off, §3.1). Before: 2026-11-24 (#1644: a code whose conditions the cart does not meet when it is applied is not added). Before: 2026-11-20 (#1661: the save buttons stay disabled until something changes, C4). Before: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -395,7 +395,8 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
 - **A cart holds up to five codes**; a code that can't work whatever is added comes straight back off it, and so does
   one whose conditions the cart doesn't meet when it is applied (`NOT_ELIGIBLE`; #1644): the shopper sees the message,
   no chip is added, and they apply it again once the cart meets them. A code already held that stops qualifying
-  later (items removed) stays on the cart, as `NOT_ELIGIBLE`.
+  later (items removed) stays on the cart, as `NOT_ELIGIBLE`. Taking out the cart's last line
+  takes its codes off too (#1694), so a product added afterwards starts on a cart with no code.
 - **Used up or ended while the order is being placed** (the last use taken by another order under the same lock):
   placement refuses `OFFER_CHANGED` and the shopper sees the cart again without it. Placement prices the cart afresh, as
   it does a price change, so an offer turned off before "Pay" is simply not on the order.

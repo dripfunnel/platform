@@ -439,6 +439,29 @@ describe('the codes a cart holds', () => {
     for (const code of ['C3-CODE', 'C4-CODE', 'C5-CODE']) expect((await apply(token, code)).state).toBe('DOESNT_COMBINE')
     expect((await apply(token, 'C6-CODE')).code).toBe('TOO_MANY_CODES')
   })
+
+  it('drops its codes when its last line is taken out, for a guest and a signed-in shopper (#1694)', async () => {
+    await off()
+    await offer({ name: 'Emptied', code: 'EMPTIED10', action: { operation: 'order_percentage_discount', percent: 10 } })
+    for (const email of [null, 'emptied@example.com']) {
+      session = null
+      if (email) await signIn(email)
+      const token = await add(kurta, 1)
+      expect((await apply(token, 'EMPTIED10')).state).toBe('APPLIED')
+      await shop(`mutation { setCartQuantity(versionId: "${kurta}", quantity: 0) { cart { id } } }`, token)
+      await add(scarf, 1, token)
+      expect({ email, codes: (await cartOf(token)).codes }).toEqual({ email, codes: [] })
+    }
+    session = null
+  })
+
+  it('keeps its codes while another line remains', async () => {
+    const token = await add(kurta, 1)
+    await add(scarf, 1, token)
+    expect((await apply(token, 'EMPTIED10')).state).toBe('APPLIED')
+    await shop(`mutation { setCartQuantity(versionId: "${kurta}", quantity: 0) { cart { id } } }`, token)
+    expect((await cartOf(token)).codes).toEqual([{ code: 'EMPTIED10', state: 'APPLIED' }])
+  })
 })
 
 describe('the preview storefront (storefront PREVIEW)', () => {
