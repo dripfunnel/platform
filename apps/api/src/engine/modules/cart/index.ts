@@ -533,7 +533,8 @@ export const createCartService = (deps: CartDeps) => {
       if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
       await setCartLineQuantity(tx, row.id, line.id, quantity)
       if (quantity === 0) await releaseCartUploads(tx, row.id, uploadsIn(line.answers))
-      await write(tx, row, {})
+      // An emptied cart starts clean: the next product never inherits its codes (OFFERS-DESIGN §3.1).
+      await write(tx, row, quantity === 0 && row.lines.length === 1 ? { promotionCodes: [] } : {})
     })
 
   /** Edit (storefront ARCHITECTURE §3.5): the line's answers replaced, checked as on add; equal answers join their line. */
