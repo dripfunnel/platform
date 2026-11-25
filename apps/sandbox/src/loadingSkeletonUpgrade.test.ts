@@ -26,14 +26,17 @@ const undoing = (list: typeof codemods, theme: ReadonlyMap<string, string>) => {
   }
   return files
 }
-// The themes as 2.0.0 left them: what a later release added (#1570) is undone first.
+// #1698's cart offers came with no codemod, so stores made before it never get them.
+const withoutCartOffers = (text: string) => text.replace(/^ *\{offers\.status === 'loading'[\s\S]*?\) : null\}\n(?= *<CodeField)/m, '')
+
+// The themes as 2.0.0 left them: what a later release added (#1570, #1698) is undone first.
 const shipped = (theme: string) =>
   undoing(
     laterCodemods,
     new Map(
       [...walk(join(themesDir, theme), 'src/theme'), ...walk(join(themesDir, theme), 'content')]
         .filter((path) => /\.(tsx|css|json)$/.test(path))
-        .map((path) => [path, readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n')] as const),
+        .map((path) => [path, withoutCartOffers(readFileSync(join(themesDir, theme, path), 'utf8').replace(/\r\n/g, '\n'))] as const),
     ),
   )
 
