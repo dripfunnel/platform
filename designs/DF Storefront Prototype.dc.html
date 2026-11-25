@@ -544,8 +544,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
           <sc-if value="{{ cart.showShip }}" hint-placeholder-val="{{ false }}"><div class="stack" style="gap:6px;"><span class="small">{{ cart.shipLine }}</span><div class="prog"><i style="width:{{ cart.shipPct }};"></i></div></div></sc-if>
           <div class="summ" data-req="Price with tax label">
             <div class="tl"><span>Subtotal</span><span>{{ tot.sub }}</span></div>
-            <sc-if value="{{ tot.hasDisc }}" hint-placeholder-val="{{ false }}"><div class="tl"><span>{{ tot.discName }}</span><span class="disc">−{{ tot.disc }}</span></div></sc-if>
             <div class="tl"><span>Delivery</span><span class="muted">Chosen at checkout</span></div>
+            <sc-if value="{{ tot.hasDisc }}" hint-placeholder-val="{{ false }}"><div class="tl"><span>{{ tot.discName }}</span><span class="disc">−{{ tot.disc }}</span></div></sc-if>
             <div class="tl big"><span>Estimated total</span><span>{{ tot.goods }}</span></div>
             <span class="muted small">{{ tot.taxNote }}</span>
           </div>
