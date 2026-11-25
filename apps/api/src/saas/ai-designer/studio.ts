@@ -46,7 +46,7 @@ export interface StudioDeps extends DesignerDeps {
   /** Where a sample site's look is kept for a session, so an earlier turn's site isn't pictured again; null off Cloudflare. */
   lookCache?: LookCache | null
   lookup: DnsLookup | null
-  /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
+  /** Stock image search (Pixabay, Pexels, Unsplash, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
   stock: StockImages | null
   /** The sources the AI may search and add photos from itself; empty or unset is off (AI-STUDIO §8). */
   aiPhotos?: readonly string[]

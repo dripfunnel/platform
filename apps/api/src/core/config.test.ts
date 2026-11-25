@@ -18,6 +18,8 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,foo' })).toThrow()
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'openverse, commons,' }).AI_PHOTO_SOURCES).toEqual(['openverse', 'commons'])
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: '' }).AI_PHOTO_SOURCES).toBeUndefined()
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'unsplash,commons' }).AI_PHOTO_SOURCES).toEqual(['unsplash', 'commons'])
+    expect(parseConfig({ ...hosts, UNSPLASH_ACCESS_KEY: 'abcdefghij0123' }).UNSPLASH_ACCESS_KEY).toBe('abcdefghij0123')
   })
 
   it('gives the AI the sources AI_PHOTO_SOURCES names, Openverse and Commons when unset, none when AI_PHOTOS is 0', () => {
