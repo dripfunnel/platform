@@ -14,13 +14,13 @@ import {
   type WishlistStepRow,
 } from '#db/scoped/wishlistReminders'
 import { defaultWishlistSteps, wishlistRemindKind, wishlistSettingsSchema } from './wishlistJobs'
-import { levelOf, saveNeeds, type ReminderLevel } from './rules'
+import { levelOf, reminderSteps, saveNeeds, type ReminderLevel } from './rules'
 
 // The Wishlists tab's Reminders (FIRST-RELEASE §9): the store's sequence, read by every merchant role and saved by Owner and
 // Manager, and "Send reminder now", "Stop" and "Resume" for one shopper, in the caller's own store scope. The plan's
 // `cart_reminders` level decides what it may do, as for carts: none sends by hand once, the first automatically, the last all three.
 
-export const wishlistRemindersAudit = { saved: 'wishlist_reminders.saved', sent: 'wishlist.reminder_sent', stopped: 'wishlist.reminders_stopped', resumed: 'wishlist.reminders_resumed' } as const
+export const wishlistRemindersAudit = { saved: 'wishlist_reminders.saved', sent: 'wishlist.reminder_sent', stopped: 'wishlist.reminders_stopped', resumed: 'wishlist.reminders_resumed', testSent: 'wishlist.test_reminder_sent' } as const
 
 export interface WishlistStepView {
   position: number
@@ -48,7 +48,8 @@ export type WishlistRemindersResult<T> = { ok: true; value: T } | { ok: false; r
 export interface WishlistRemindersDeps {
   sql: postgres.Sql
   context: TenantContext
-  actor: { id: string; partnerId: string }
+  /** `email`: where a test reminder goes, the person's own address only. */
+  actor: { id: string; partnerId: string; email: string }
   activity: ActivityLog
   facts: RequestFacts
   /** The store's `cart_reminders` index on its plan (saas/entitlements). */
@@ -165,5 +166,16 @@ export const createWishlistRemindersService = ({ sql, context, actor, activity, 
       })
     })
 
-  return { settings, save, remindNow, stop: (id: string, note: string | null) => setStopped(id, true, note), resume: (id: string) => setStopped(id, false, null) }
+  /** "Send me a test": the step's email with a sample wishlist, to the person's own address only, counting in nothing (#1645). */
+  const sendTest = (position: number) =>
+    write(async (): Promise<WishlistRemindersResult<true>> => {
+      if (!Number.isInteger(position) || position < 1 || position > reminderSteps) return { ok: false, reason: 'INVALID_INPUT' }
+      return withSystemScope(sql, async (tx): Promise<WishlistRemindersResult<true>> => {
+        await insertOutbox(tx, { kind: 'email', idempotencyKey: `wishlist-reminder-test:${crypto.randomUUID()}`, payload: { template: 'wishlist-reminder-test', storeId, position, to: actor.email }, partnerId: context.partnerId, storeId })
+        await activity.record(tx, entry(wishlistRemindersAudit.testSent, { type: 'wishlist_reminders', id: storeId, label: `Reminder ${position}` }, null))
+        return { ok: true, value: true }
+      })
+    })
+
+  return { settings, save, remindNow, sendTest, stop: (id: string, note: string | null) => setStopped(id, true, note), resume: (id: string) => setStopped(id, false, null) }
 }

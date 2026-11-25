@@ -102,6 +102,11 @@ export const stopWishlistReminders = async (customerId: string, note: string | n
   await query('mutation S($id: ID!, $note: String) { stopWishlistReminders(customerId: $id, note: $note) }', z.object({ stopWishlistReminders: z.boolean() }), { id: customerId, note })
 }
 
+/** "Send me a test" of one step, to the person's own email only (#1645). */
+export const sendTestWishlistReminder = async (position: number): Promise<void> => {
+  await query('mutation T($p: Int!) { sendTestWishlistReminder(position: $p) }', z.object({ sendTestWishlistReminder: z.boolean() }), { p: position })
+}
+
 export const resumeWishlistReminders = async (customerId: string): Promise<void> => {
   await query('mutation R($id: ID!) { resumeWishlistReminders(customerId: $id) }', z.object({ resumeWishlistReminders: z.boolean() }), { id: customerId })
 }
