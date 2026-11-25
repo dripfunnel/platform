@@ -260,3 +260,80 @@
     top: 96px;
   }
 }
+
+.offers {
+  display: grid;
+  gap: 8px;
+}
+
+.offersTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.offersNote {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.offerList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--surface);
+}
+
+.offerName,
+.offerSaves,
+.offerCode {
+  grid-column: 1;
+}
+
+.offerName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.offerSaves {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.offerCode {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.offerApply {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.offerApply:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

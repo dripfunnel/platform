@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { z } from 'zod'
 import { pinOf, type Pin } from '../checkout/address'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
@@ -8,7 +8,7 @@ import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { navigate } from '../platform/browser/router'
 import { photoOf, type Photo } from '../platform/media/photo'
 import { useStorefront } from '../platform/store/context'
-import { moneySchema, type Money } from '../pricing/money'
+import { formatMoney, moneySchema, type Money } from '../pricing/money'
 import type { Answer } from '../products/questions'
 import { moneyFields, productPath } from '../products/summary'
 
@@ -417,5 +417,69 @@ export const useCart = (): CartPage => {
     addWithAnswers: async (versionId, quantity, answers, gift) => codeOf(await send(versionId, quantity, gift, answers)),
     editAnswers: async (lineId, answers) => codeOf((await store.change(answersMutation, { lineId, answers }, changeSchema)) !== null),
     retry: () => void store.reload(),
+  }
+}
+
+const offersQuery = `query CartOffers { cart { availableOffers { name code saves { ${moneyFields} } } } }`
+const offersSchema = z.object({ cart: z.object({ availableOffers: z.array(z.object({ name: z.string(), code: z.string(), saves: moneySchema })).nullable() }).nullable() })
+
+/** A code the cart would take now, with what it saves in the shopper's own formatting (Shop API `ShopCart.availableOffers`, #1698). */
+export type AvailableOffer = { name: string; code: string; saves: Money; savesText: string }
+
+export type AvailableOffersPage = {
+  /** `loading` until the first answer; later reads keep showing the last list. */
+  status: 'loading' | 'ready' | 'error'
+  /** Best first; never a code already on the cart. */
+  offers: AvailableOffer[]
+  /** The code being applied, so its button can wait. */
+  applying: string | null
+  /** The state the last try was refused with (NOT_ELIGIBLE, SIGN_IN_REQUIRED, …, or UNKNOWN); cleared by the next try. */
+  refused: string | null
+  /** True once the code is on the cart; the cart then answers with it applied and the list is read again. */
+  apply: (code: string) => Promise<boolean>
+  retry: () => void
+}
+
+// Everything the engine prices the offers on: the delivery chosen and who is signed in too, not only the lines.
+const offersKey = (cart: Decoded) =>
+  JSON.stringify([cart.id, cart.subtotal.amount, cart.discount?.amount ?? null, cart.codes ?? [], cart.lines.map((l) => [l.id ?? null, l.versionId, l.quantity]), cart.shippingOption ?? null, cart.shipping?.amount ?? null, cart.shippingAddress ?? null, shopperToken('session') ?? null])
+
+/** The offers the engine says this cart can use now, read again whenever the cart changes; nothing is worked out here. */
+export const useAvailableOffers = (): AvailableOffersPage => {
+  const { client, locale } = useStorefront()
+  const { store, snapshot } = useCartState()
+  const [answer, setAnswer] = useState<{ key: string; offers: { name: string; code: string; saves: Money }[] | null } | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const [applying, setApplying] = useState<string | null>(null)
+  const [refused, setRefused] = useState<string | null>(null)
+  const cart = snapshot.cart
+  const key = snapshot.status === 'ready' && cart && cart.lines.length > 0 && snapshot.overlay.length === 0 ? offersKey(cart) : null
+  useEffect(() => {
+    if (key === null) return
+    let current = true
+    client.query(offersQuery, offersSchema).then(
+      (data) => current && setAnswer({ key, offers: data.cart?.availableOffers ?? [] }),
+      () => current && setAnswer({ key, offers: null }),
+    )
+    return () => {
+      current = false
+    }
+  }, [client, key, attempt])
+  const held = new Set((cart?.codes ?? []).flatMap((c) => (c.code ? [c.code.toUpperCase()] : [])))
+  const offers = (answer?.offers ?? []).filter((o) => !held.has(o.code.toUpperCase())).map((o) => ({ ...o, savesText: formatMoney(o.saves, locale) }))
+  return {
+    status: snapshot.status === 'loading' || (key !== null && answer === null) ? 'loading' : key !== null && answer?.key === key && answer.offers === null ? 'error' : 'ready',
+    offers,
+    applying,
+    refused,
+    apply: async (code) => {
+      setApplying(code)
+      setRefused(null)
+      const state = (await store.change(applyMutation, { code }, codeSchema))?.state ?? null
+      setApplying(null)
+      if (state !== 'APPLIED') setRefused(state ?? 'UNKNOWN')
+      return state === 'APPLIED'
+    },
+    retry: () => setAttempt((n) => n + 1),
   }
 }

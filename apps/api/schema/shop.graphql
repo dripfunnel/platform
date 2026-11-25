@@ -143,6 +143,12 @@ type ShopAppliedGiftCard {
   last4: String
 }
 
+type ShopAvailableOffer {
+  code: String
+  name: String
+  saves: ShopMoney
+}
+
 type ShopBadge {
   label: String
   tone: String
@@ -169,6 +175,7 @@ type ShopBlogPostPage {
 
 type ShopCart {
   amountDue: ShopMoney
+  availableOffers: [ShopAvailableOffer!]
   billingAddress: ShopAddressLines
   checkoutStep: String
   codes: [ShopCartCode!]

@@ -401,6 +401,23 @@ export const selectCartOffers = (tx: ScopedSql, storeId: string, codes: readonly
     order by p.created_at, p.id
   `
 
+/**
+ * The shared codes a shopper may be shown (#1698): of live code offers, never a single-use code or a reminder's. Who an offer
+ * is for stays its own conditions' to decide, so this only says which codes are worth pricing.
+ */
+export const selectSharedCodes = async (tx: ScopedSql, storeId: string, now: Date, limit: number): Promise<string[]> => {
+  const rows = await tx<{ code: string }[]>`
+    select c.code from promotion_code c join promotion p on p.id = c.promotion_id and p.store_id = c.store_id
+    where c.store_id = ${storeId} and p.trigger = 'code' and p.deleted_at is null and p.enabled
+      and (p.starts_at is null or p.starts_at <= ${now}) and (p.ends_at is null or p.ends_at > ${now})
+      and (p.total_uses_limit is null or p.uses_count < p.total_uses_limit)
+      and not c.single_use and c.batch_id is null and c.order_id is null and c.replaced_at is null and (c.expires_at is null or c.expires_at > ${now})
+    order by p.created_at desc, c.id
+    limit ${limit}
+  `
+  return rows.map((r) => r.code)
+}
+
 /** How often a signed-in shopper has used each offer, by account only: an order's email is whatever its placer typed (fact 8). */
 export const selectShopperUses = async (tx: ScopedSql, storeId: string, ids: readonly string[], customerId: string | null): Promise<Map<string, number>> => {
   if (ids.length === 0 || customerId === null) return new Map()

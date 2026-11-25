@@ -316,6 +316,14 @@ promotions tests before relying on it.
     Offers apply to orders, not to product prices. A "20% off Summer" offer does **not**
     change the price on the product page or in listings unless the Shop API returns a
     discounted price and the storefront shows it.
+    - **The cart lists the code offers the shopper can use (#1698).** The Shop API's
+      `ShopCart.availableOffers` answers the shared codes this cart qualifies for now, so a
+      shopper needn't know the code. There is no "show in cart" setting: **"Who is it for?"
+      is the control**, so an offer for everyone is listed to everyone whose cart qualifies,
+      and a group, named-customer or first-order offer only to those it is for (a guest never
+      sees one needing a sign-in). A merchant who wants a code kept private hands out
+      single-use codes or restricts the audience. Not listed: single-use and reminder
+      codes, codes beyond the store's 50 newest shared ones, and "add ₹X more" hints (a later card).
     - The engine computing a product's price after automatic offers for the Shop API, and
       `@dripfunnel/storefront-core` showing "Sale −20%" badges and crossed-out prices, are
       engine and storefront requirements, `(release: decide)`. The storefront may display

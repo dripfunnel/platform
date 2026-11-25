@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
-import { selectCartOffers, selectCartShopper, selectProductTargets, selectShopperUses, type CartOfferRow } from '#db/scoped/promotions'
+import { selectCartOffers, selectCartShopper, selectProductTargets, selectSharedCodes, selectShopperUses, type CartOfferRow } from '#db/scoped/promotions'
 import { codeAnswerOf, localTimeIn, parseAction, parseCondition, statusOf, type Condition } from './definition'
 import { priceOffers, type PricingOffer, type PricingResult } from './pricing'
 
@@ -55,6 +55,10 @@ export interface CartOffers {
   codes: { code: string; state: CodeState }[]
 }
 
+/** Shareable codes priced per cart read, and offers listed. */
+const maxCandidates = 50
+const maxListed = 5
+
 const pricingOf = (row: CartOfferRow): PricingOffer | null => {
   const conditions = row.conditions.map((c) => parseCondition({ operation: c.operation, ...c.args }))
   const action = row.action ? parseAction({ operation: row.action.operation, ...row.action.args }) : null
@@ -65,10 +69,12 @@ const pricingOf = (row: CartOfferRow): PricingOffer | null => {
 const firstOrderIn = (conditions: readonly Condition[]) => conditions.some((c) => c.operation === 'first_order' || (c.operation === 'any_of' && c.conditions.some((x) => x.operation === 'first_order')))
 
 /** What pricing the offers reads; `productIds` may still be coming, so the cart's own reads run alongside (#1590). */
-export const loadCartOffers = (sql: postgres.Sql, input: Pick<CartOffersInput, 'storeId' | 'codes' | 'customerId' | 'now'>, productIds: Promise<readonly string[]>) =>
+export const loadCartOffers = (sql: postgres.Sql, input: Pick<CartOffersInput, 'storeId' | 'codes' | 'customerId' | 'now'> & { shared?: boolean }, productIds: Promise<readonly string[]>) =>
   withSystemScope(sql, async (tx) => {
     const { storeId, customerId } = input
-    const [rows, shopper] = await Promise.all([selectCartOffers(tx, storeId, input.codes, input.now), selectCartShopper(tx, storeId, customerId)])
+    // `shared`: the store's shareable codes are read too, for availableOffersOf (#1698); pricing still names only the cart's.
+    const codes = input.shared ? [...input.codes, ...(await selectSharedCodes(tx, storeId, input.now, maxCandidates))] : input.codes
+    const [rows, shopper] = await Promise.all([selectCartOffers(tx, storeId, codes, input.now), selectCartShopper(tx, storeId, customerId)])
     const [uses, targets] = await Promise.all([
       selectShopperUses(tx, storeId, [...new Set(rows.filter((r) => r.per_customer_limit !== null).map((r) => r.id))], customerId),
       productIds.then((ids) => selectProductTargets(tx, storeId, [...new Set(ids)])),
@@ -77,12 +83,41 @@ export const loadCartOffers = (sql: postgres.Sql, input: Pick<CartOffersInput, '
   })
 export type CartOfferFacts = Awaited<ReturnType<typeof loadCartOffers>>
 
+export interface AvailableOffer {
+  offerId: string
+  name: string
+  code: string
+  /** What applying it changes in the cart's discount, today: always more than 0. */
+  saves: bigint
+}
+
+/**
+ * The shared codes (loaded with `shared`) the cart would take now and gain from, best first (#1698). Each is priced on top
+ * of the codes already held, so who it is for, its limits and what it combines with decide, as for a shopper typing it.
+ */
+export const availableOffersOf = (facts: CartOfferFacts, input: CartOffersInput): AvailableOffer[] => {
+  const held = new Set(input.codes.map((c) => c.toLowerCase()))
+  const before = priceCartOffers(facts, input).pricing.discount
+  const listed: AvailableOffer[] = []
+  for (const row of facts.rows) {
+    if (row.trigger !== 'code' || !row.code || held.has(row.code.toLowerCase())) continue
+    const priced = priceCartOffers(facts, { ...input, codes: [...input.codes, row.code] })
+    const state = priced.codes.find((c) => c.code === row.code)?.state
+    const saves = priced.pricing.discount - before
+    if (state === 'APPLIED' && saves > 0n) listed.push({ offerId: row.id, name: row.name, code: row.code, saves })
+  }
+  return listed.sort((a, b) => (a.saves === b.saves ? 0 : a.saves > b.saves ? -1 : 1)).slice(0, maxListed)
+}
+
 export const priceCartOffers = ({ rows, uses, shopper, targets }: CartOfferFacts, input: CartOffersInput): CartOffers => {
   const { now, customerId } = input
   const states = new Map<string, CodeState>()
   const offers: PricingOffer[] = []
   const limits = new Map<string, number | null>()
+  const held = new Set(input.codes.map((c) => c.toLowerCase()))
   for (const row of rows) {
+    // Rows read for availableOffersOf name codes the cart doesn't hold: they price nothing.
+    if (row.trigger === 'code' && !(row.code && held.has(row.code.toLowerCase()))) continue
     const status = statusOf({ enabled: row.enabled && !row.deleted, startsAt: row.starts_at, endsAt: row.ends_at, usesCount: row.uses_count, totalUsesLimit: row.total_uses_limit }, now)
     if (row.code) {
       // An automatic offer's old code is no code at all, but the offer itself still applies.

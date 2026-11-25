@@ -229,7 +229,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`useCart()`** in `./theme`: the Shop API's `cart` with its lines (the product's name, address, version, photo, unit
   price, line total, the offers' discount and what stops a line being bought), codes, offers, delivery, tax and totals, and
   `add`, `setQuantity`, `remove`, `applyCode`, `removeCode` and `buyNow`. One cart per page however many components show
-  it (the header's count, the cart page), read once in the browser and never in a static build. *Since #324:* a gift card
+  it (the header's count, the cart page), read once in the browser and never in a static build. *Since #1698:*
+  `useAvailableOffers()` reads the offers the engine says this cart can use (`{ name, code, saves, savesText }`, at most
+  five, read again whenever the cart changes) and `apply(code)` applies one; the starting themes list them in the cart's
+  Summary card above the Discount code field. *Since #324:* a gift card
   is added with its recipient (`add` and `buyNow` take `gift`: name, email, an optional message and send-on date), each
   line carries its `gift`, and `applyGiftCard(number)` and `removeGiftCard()` let a gift card pay part of the cart: the
   cart's `giftCard` says what it takes off, what is left on it and its last four digits, and `amountDue` what is left to
