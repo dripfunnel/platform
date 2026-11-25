@@ -21,7 +21,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-11-09 (#1367: a supplier sees its own lines' answers in either shipping mode, the access table's Orders row). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, My profile, the settled 2-factor question). Before: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
+Last updated: 2026-11-25 (#1717: a supplier shows and hides its own product). Before: 2026-11-09 (#1367: a supplier sees its own lines' answers in either shipping mode, the access table's Orders row). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, My profile, the settled 2-factor question). Before: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
 
 | Document | Covers |
 |---|---|
@@ -236,7 +236,7 @@ From DESIGN-BRIEF §1, CATALOG-DESIGN §8 and OFFERS-DESIGN §8:
 - **Never show a vendor anything of the merchant's or another vendor's**: products, stock,
   counts, search results, filter counts, empty states ("0 of 340"), exports, order totals,
   offers. A vendor opening a URL that isn't theirs sees "not found".
-- **Never offer a vendor** a visibility, approval or supplier control.
+- **Never offer a vendor** an approval or supplier control, or a visibility choice beyond showing and hiding its own approved product (ACCESS.md §7.2, #1717).
 - **Never reveal whether an email has an account**: invitations, sign-up and reset respond
   identically.
 - **Offers are the merchant's alone**: vendors have no row, no URL, no mention.

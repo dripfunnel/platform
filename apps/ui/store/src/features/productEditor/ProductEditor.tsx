@@ -378,7 +378,7 @@ export const ProductEditor = () => {
     if (access.canEdit) {
       let done: Awaited<ReturnType<typeof saveProduct>>
       try {
-        done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side, view.extras.choices.shown), access.proposes)
+        done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side, view.extras.choices.shown, access.canShowHide), access.proposes)
       } catch (error) {
         const field = refusedFieldOf(error)
         if (field) setRefused({ draft, problems: [field] })
@@ -673,7 +673,7 @@ export const ProductEditor = () => {
             </>
           )}
         </div>
-        <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShow={product?.approval !== 'pending'} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} badges={view.extras.badges} />
+        <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShowHide={access.canShowHide} canShow={product?.approval !== 'pending' && !(access.side === 'supplier' && product?.approval === 'sent_back')} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} badges={view.extras.badges} />
       </div>
 
       {(access.canEdit || access.canStock) && (dirty || failure) && (

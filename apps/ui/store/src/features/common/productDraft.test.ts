@@ -95,6 +95,7 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(merchant.visible).toBe(true)
     const supplier = inputOf(d, 'INR', 'supplier')
     expect('visible' in supplier).toBe(false)
+    expect(inputOf(d, 'INR', 'supplier', new Set(), true).visible).toBe(true)
     expect(supplier.versions.every((v) => !('taxClassId' in v))).toBe(true)
     expect(supplier.versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000' }])
     // A download or a service has no parcel.
