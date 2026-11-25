@@ -13,6 +13,7 @@ import './staff'
 import './apps'
 import './fleet'
 import './storeCategories'
+import './templates'
 import './messaging'
 
 export type { AdminContext } from './access'

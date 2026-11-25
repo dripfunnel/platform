@@ -25,6 +25,7 @@ const footwear: StoreCategory = {
   archivedAt: null,
   storeCount: 0,
   hasDefaultSample: true,
+  template: null,
   sample: { currency: 'INR', products: 2, collections: [{ name: 'Sneakers', products: 1 }, { name: 'Sandals', products: 1 }], photos: 1, uploadedAt: '2026-11-16T09:00:00.000Z' },
 }
 const detail: SampleDetail = {

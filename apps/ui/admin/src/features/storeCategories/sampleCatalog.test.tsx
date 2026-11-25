@@ -23,6 +23,7 @@ const footwear: StoreCategory = {
   archivedAt: null,
   storeCount: 2,
   hasDefaultSample: true,
+  template: null,
   sample: { currency: 'INR', products: 6, collections: [{ name: 'Sneakers', products: 4 }, { name: 'Sandals', products: 2 }], photos: 9, uploadedAt: '2026-11-16T09:00:00.000Z' },
 }
 const watches: StoreCategory = { ...footwear, id: 'c6', key: 'watches', names: [{ language: 'en', name: 'Watches' }], sample: null }

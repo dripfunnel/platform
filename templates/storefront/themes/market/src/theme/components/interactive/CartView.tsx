@@ -23,7 +23,7 @@ const Plus = () => (
 export const CartView = () => {
   const { store, locale, t } = useStorefront()
   const page = useCart()
-  const [codeNote, setCodeNote] = useState<{ words: string; refused: boolean } | null>(null)
+  const [codeNote, setCodeNote] = useState<{ code: string; words: string; refused: boolean } | null>(null)
   const codeWord = (state: string) =>
     state === 'APPLIED'
       ? t('shop.cart.codes.applied')
@@ -73,6 +73,9 @@ export const CartView = () => {
     )
   }
   const blocked = cart.lines.some((l) => l.problem !== null)
+  const stale = codeNote !== null && !codeNote.refused && !cart.codes.some((c) => c.state === 'APPLIED' && c.code.toUpperCase() === codeNote.code.toUpperCase())
+  if (stale) setCodeNote(null)
+  const note = stale ? null : codeNote
   return (
     <section className={shop.page}>
       <h1 className={shop.title}>{t('shop.cart.title')}</h1>
@@ -130,12 +133,12 @@ export const CartView = () => {
           <CodeField
             label={t('shop.cart.code')}
             button={t('shop.cart.apply')}
-            message={codeNote?.words ?? null}
-            refused={codeNote?.refused ?? false}
+            message={note?.words ?? null}
+            refused={note?.refused ?? false}
             className={styles.code}
             onApply={async (code) => {
               const state = await page.applyCode(code)
-              setCodeNote({ words: state ? codeWord(state) : t('shop.cart.changeFailed'), refused: state !== 'APPLIED' })
+              setCodeNote({ code, words: state ? codeWord(state) : t('shop.cart.changeFailed'), refused: state !== 'APPLIED' })
               return state === 'APPLIED'
             }}
           />

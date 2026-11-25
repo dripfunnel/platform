@@ -7,8 +7,8 @@ export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'laye
 export type NavBadgeSource = 'partnersAwaitingApproval' | 'provisioningAttention' | 'openSessions' | 'pausedRollouts'
 
 export interface NavRow {
-  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'rollouts' | 'categories' | 'settings' | 'impersonate' | 'activity' | 'staff'
-  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/rollouts' | '/categories' | '/settings' | '/impersonate' | '/activity' | '/staff'
+  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'rollouts' | 'categories' | 'templates' | 'settings' | 'impersonate' | 'activity' | 'staff'
+  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/rollouts' | '/categories' | '/templates' | '/settings' | '/impersonate' | '/activity' | '/staff'
   icon: NavIconName
   roles: readonly StaffRole[]
   // The roles the count is shown to on this row.
@@ -44,6 +44,7 @@ export const navRows: readonly NavRow[] = [
   },
   { key: 'rollouts', to: '/rollouts', icon: 'storefront', roles: fleetReaders, badge: { source: 'pausedRollouts', roles: fleetReaders } },
   { key: 'categories', to: '/categories', icon: 'collections', roles: staffRoles },
+  { key: 'templates', to: '/templates', icon: 'storefront', roles: staffRoles },
   { key: 'settings', to: '/settings', icon: 'gear', roles: staffRoles },
   { key: 'impersonate', to: '/impersonate', icon: 'mask', roles: impersonators, badge: { source: 'openSessions', roles: impersonators } },
   { key: 'activity', to: '/activity', icon: 'pulse', roles: staffRoles },

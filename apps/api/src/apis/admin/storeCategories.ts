@@ -85,6 +85,11 @@ const ItemsInput = builder.inputType('StoreCategorySampleInput', {
   }),
 })
 
+// The category's starting template (DATA-MODEL §7.2), read-only: migrations set it.
+const CategoryTemplate = builder.objectRef<{ key: string; name: string; tag: string }>('StoreCategoryTemplate').implement({
+  fields: (t) => ({ key: t.exposeString('key'), name: t.exposeString('name'), tag: t.exposeString('tag') }),
+})
+
 const Category = builder.objectRef<StaffCategory>('StoreCategory').implement({
   fields: (t) => ({
     id: t.exposeID('id'),
@@ -96,6 +101,7 @@ const Category = builder.objectRef<StaffCategory>('StoreCategory').implement({
     storeCount: t.exposeInt('store_count'),
     sample: t.field({ type: SampleType, nullable: true, resolve: (c) => c.sample }),
     hasDefaultSample: t.exposeBoolean('has_default_sample'),
+    template: t.field({ type: CategoryTemplate, nullable: true, resolve: (c) => (c.template_key ? { key: c.template_key, name: c.template_name ?? c.template_key, tag: c.template_tag ?? '' } : null) }),
   }),
 })
 

@@ -12,6 +12,7 @@ import { overBudget, weigh } from './gate/budgets'
 import { buildSite } from './publish/build'
 import { browserMetrics, checkSite, type LoadMetrics } from './publish/check'
 import { fileFor, shopFixture } from './publish/serve'
+import { cartApi } from './test/cart'
 import { buildRuntime } from './runtime/build'
 
 // Card #486: every starting theme in templates/storefront/themes passes the validator, builds the preview bundle a new
@@ -538,6 +539,54 @@ describe.each(keys)('the %s theme', (key) => {
   it('keeps the cart page still for a visitor with no cart, however late its scripts arrive', async ({ skip }) => {
     if (!browser) return skip()
     expect(await shiftOf(browser, '/cart/', true)).toBeLessThan(pageBudgets.cls)
+  })
+
+  // #1680: a code held in the cart that stops applying (here, under two items) is no longer announced as applied, nor again until Apply is pressed.
+  it('stops saying a code is applied once the cart no longer qualifies, also when the quantity goes back up (#1680)', async ({ skip }) => {
+    const out = join(root, `${key}-code-note`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    if (!browser) return skip()
+    const origin = 'https://k7f3q9f2xa.webpreview.store'
+    const api = cartApi([{ versionId: 'a', quantity: 2, problem: null, available: 5 }])
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    await context.addInitScript(() => {
+      localStorage.setItem('df-cart', 'tok')
+      localStorage.setItem('df-consent-v1', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' }))
+    })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') {
+        const body = route.request().postData() ?? ''
+        const asked = JSON.parse(body) as { query: string; variables?: Record<string, unknown> }
+        const cart = /^query Cart|setCartQuantity|applyCode/.test(asked.query)
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cart ? api.answer({ query: asked.query, variables: asked.variables ?? {}, headers: {} }) : shopFixture(snapshot, [])(body)) })
+      }
+      const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+      const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/cart/`)
+      const quantity = () => page.getByRole('group', { name: 'Quantity of Tee a' }).textContent()
+      const applied = page.getByText('Code applied.')
+      await page.getByLabel('Discount code').fill('AUTUMN')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await applied.waitFor()
+      await page.getByRole('button', { name: 'One fewer' }).click()
+      await expect.poll(quantity).toContain('1')
+      await expect.poll(() => applied.count()).toBe(0)
+      expect(await page.getByRole('button', { name: 'Remove the code AUTUMN' }).count()).toBe(1)
+      await page.getByRole('button', { name: 'One more' }).click()
+      await expect.poll(quantity).toContain('2')
+      await page.waitForLoadState('networkidle')
+      expect(await applied.count()).toBe(0)
+    } finally {
+      await context.close()
+    }
   })
 })
 
