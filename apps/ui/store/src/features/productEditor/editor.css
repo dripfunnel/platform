@@ -390,6 +390,10 @@
   gap: var(--df-space-3);
 }
 
+.df-editor-grid > .df-editor-field > :is(input, textarea, select) {
+  margin-top: auto;
+}
+
 .df-editor-money {
   display: flex;
   align-items: center;
