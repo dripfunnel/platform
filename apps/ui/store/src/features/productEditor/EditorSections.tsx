@@ -110,7 +110,7 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
         <p className="df-editor-hint">{words.sections.seoHint}</p>
       </Section>
       <Section title={words.sections.more} summary={words.sections.moreSummary} open={!!open['more']} onToggle={toggle('more')} problem={false}>
-        <div className="df-editor-grid">
+        <div className="df-editor-grid df-editor-grid--aligned">
           {single && (
             <Field label={words.sections.sku} hint={words.sections.skuHint}>
               {(id) => <input id={id} maxLength={64} value={draft.versions[0]?.sku ?? ''} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, versions: x.versions.map((v, i) => (i === 0 ? { ...v, sku: e.target.value } : v)) }))} />}
