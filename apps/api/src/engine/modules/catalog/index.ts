@@ -426,7 +426,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       const product = await clean(tx, input, existing.seller_id, true)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
-      const held = existing.hidden_by === 'plan' || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
+      const held = (sellerId !== null ? existing.hidden_by !== null : existing.hidden_by === 'plan') || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
       if (visibility === 'visible' && existing.visibility !== 'visible' && held) throw new Refused({ reason: 'NOT_SHOWABLE' })
       // A live address changes only when asked for: a rename alone would break every link to it.
       const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
