@@ -6862,6 +6862,7 @@
           }
         },
         "unsaved": "Unsaved changes to your wishlist reminders",
+        "testBody": "It sends the saved reminder to your own email, with a sample wishlist. It doesn’t count in your results.",
         "leave": "Your wishlist reminder changes aren’t saved. Leave without saving?",
         "saved": "Saved.",
         "savedTimings": "Saved. Wishlists waiting for a reminder follow the new timings."
@@ -7551,6 +7552,7 @@
       "cart_reminders.saved": "saved the cart reminder settings",
       "wishlist_reminders.saved": "saved the wishlist reminder settings",
       "wishlist.reminder_sent": "sent a wishlist reminder",
+      "wishlist.test_reminder_sent": "sent a test wishlist reminder",
       "wishlist.reminders_stopped": "stopped reminders for a wishlist",
       "wishlist.reminders_resumed": "resumed reminders for a wishlist",
       "catalogue.approval_changed": "changed whether suppliers’ products need approval",
