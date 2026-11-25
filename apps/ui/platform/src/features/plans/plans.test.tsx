@@ -72,6 +72,26 @@ describe('the plan editor', () => {
     expect(text).not.toContain(words.editor.unsaved)
   })
 
+  it('disables and greys Remove “Powered by” when the contract doesn’t allow it, and leaves it as today when it does (#1623)', async () => {
+    const refused = await view({ editor: { ...editor, ceilings: { ...editor.ceilings, powered: { allowed: false, note: 'firstYear' } } } })
+    expect(refused).toMatch(/<label class="df-matrix-toggle df-matrix-toggle--refused"><input type="checkbox" disabled=""/)
+    const allowed = await view()
+    expect(allowed).not.toContain('df-matrix-toggle--refused')
+    const included = allowed.match(new RegExp(`<input type="checkbox"[^>]*>${words.editor.includedLabel}`, 'g')) ?? []
+    expect(included.length).toBeGreaterThan(0)
+    for (const box of included) expect(box).not.toContain('disabled')
+  })
+
+  it('keeps an already ticked Remove “Powered by” untickable when the contract refuses it, so Save can be unblocked (#1623)', async () => {
+    const draft = { ...original, toggles: { ...original.toggles, powered_by_removal: true } }
+    const html = await view({ editor: { ...editor, ceilings: { ...editor.ceilings, powered: { allowed: false, note: 'firstYear' } } }, draft })
+    expect(html).not.toContain('df-matrix-toggle--refused')
+    const box = html.match(/<input type="checkbox"[^>]*aria-describedby="ceiling-powered"[^>]*>/)?.[0] ?? ''
+    expect(box).toContain('checked=""')
+    expect(box).not.toContain('disabled')
+    expect(textOf(html)).toContain(words.editor.poweredRefused)
+  })
+
   it('marks a value above the ceiling, disables Save with the reason, and shows the save bar only when something changed', async () => {
     const draft = { ...original, numbers: { ...original.numbers, products: '25000' } }
     const html = await view({ draft })

@@ -122,6 +122,11 @@
   accent-color: var(--df-color-brand);
 }
 
+.df-matrix-toggle--refused {
+  color: var(--df-color-muted);
+  cursor: not-allowed;
+}
+
 .df-matrix-input {
   height: 36px;
   max-width: 10rem;
