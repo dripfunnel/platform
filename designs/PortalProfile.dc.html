@@ -112,7 +112,7 @@ class Component extends DCLogic {
     const setD = (k, v) => this.setState({ d: { ...s.d, [k]: v }, detailErr: '' });
     const setPw = (k, v) => this.setState({ pw: { ...s.pw, [k]: v }, pwErr: '' });
     const toggleEye = (k) => this.setState({ showPw: { ...s.showPw, [k]: !s.showPw[k] } });
-    const EYE = 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', EYE_OFF = 'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22';
+    const EYE = 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', EYE_OFF = 'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22';
     const eyeOf = k => ({ label: s.showPw[k] ? 'Hide password' : 'Show password', d: s.showPw[k] ? EYE_OFF : EYE });
     const th = app.theme === 'dark' ? 'dark' : 'light';
     return {
