@@ -71,6 +71,10 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [visit, setVisit] = useState({ path: '/', count: 0 })
   const [shownPath, setShownPath] = useState('/')
   const [editing, setEditing] = useState(false)
+  const shownNow = useRef(shownPath)
+  useEffect(() => {
+    shownNow.current = shownPath
+  }, [shownPath])
   const [textKey, setTextKey] = useState<string | null>(null)
   const [pageFailed, setPageFailed] = useState(false)
   const [discarding, setDiscarding] = useState(false)
@@ -93,6 +97,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
 
   // The chat's newest page; only the latest read lands.
   const chatAsk = useRef(0)
+  const photoNotes = useRef<Set<string> | null>(null)
   const loadChat = useCallback(() => {
     const ask = ++chatAsk.current
     return api.loadDesignChat(null).then(
@@ -101,6 +106,14 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         setChat([...page.messages].reverse())
         setEarlier(page.next)
         setChatRead('ready')
+        const photos = page.messages.filter((m) => m.role === 'note' && m.text.startsWith('photo:')).map((m) => m.id)
+        const seen = photoNotes.current
+        photoNotes.current = new Set([...(seen ?? []), ...photos])
+        // An added photo is shown to shoppers only once its change ends, after the frame's own hot reload asked for it.
+        if (seen && photos.some((id) => !seen.has(id))) {
+          setEditing(false)
+          setVisit((was) => ({ path: shownNow.current, count: was.count + 1 }))
+        }
       },
       () => ask === chatAsk.current && setChatRead((was) => (was === 'ready' ? was : 'failed')),
     )

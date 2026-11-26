@@ -3,7 +3,7 @@ export { useWishlist, type WishlistItem, type WishlistPage } from '../wishlist/w
 export { useAccount, useSignIn, type Account, type AccountPage, type CodeStep, type SavedAddress, type SignInChannel, type SignInPage } from '../account/account'
 export { AddToCart, BuyNow } from '../cart/buttons'
 export { EditAnswers, LineAnswers } from '../cart/answers'
-export { useCart, type Cart, type CartLine, type CartPage, type DeliveryOption, type GiftRecipient, type LineAnswer, type LineProblem } from '../cart/cart'
+export { useAvailableOffers, useCart, type AvailableOffer, type AvailableOffersPage, type Cart, type CartLine, type CartPage, type DeliveryOption, type GiftRecipient, type LineAnswer, type LineProblem } from '../cart/cart'
 export { addressDraft, orderPath, useCheckout, type CheckoutPage, type CheckoutStepId, type PayPhase, type PaymentChoice } from '../checkout/checkout'
 export { type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
 export { PlaceOrder } from '../checkout/place'

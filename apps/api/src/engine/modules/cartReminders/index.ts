@@ -4,7 +4,7 @@ import { defaultSteps } from './rules'
 
 export { cartRemindKind, decideReminder, fallBackToEmail, markAbandonedCarts, queueDueReminders, recoverCarts, type ReminderDecision } from './jobs'
 export { cartsAudit, createCartsService, maxStopNote, summaryDays, type AbandonedCartDetail, type AbandonedCartView, type CartStatus, type CartsRefusal, type CartsResult } from './carts'
-export { reminderWishlistItems, type WishlistItemNow } from './wishlist'
+export { type WishlistItemNow } from './wishlist'
 export { decideWishlistReminder, defaultWishlistSteps, queueDueWishlistReminders, wishlistRemindKind, wishlistSettingsSchema, wishlistSkipReasonOf, type WishlistReminderDecision, type WishlistSettingsInput, type WishlistSettingsValue } from './wishlistJobs'
 export { createWishlistsService, type WishlistShopperDetail } from './wishlists'
 export { createWishlistRemindersService, maxWishlistStopNote, wishlistRemindersAudit, type WishlistRemindersRefusal, type WishlistRemindersResult, type WishlistSettingsView, type WishlistStepView } from './wishlistService'

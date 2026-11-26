@@ -110,7 +110,7 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
         <p className="df-editor-hint">{words.sections.seoHint}</p>
       </Section>
       <Section title={words.sections.more} summary={words.sections.moreSummary} open={!!open['more']} onToggle={toggle('more')} problem={false}>
-        <div className="df-editor-grid">
+        <div className="df-editor-grid df-editor-grid--aligned">
           {single && (
             <Field label={words.sections.sku} hint={words.sections.skuHint}>
               {(id) => <input id={id} maxLength={64} value={draft.versions[0]?.sku ?? ''} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, versions: x.versions.map((v, i) => (i === 0 ? { ...v, sku: e.target.value } : v)) }))} />}
@@ -149,13 +149,13 @@ const Switch = ({ label, sub, on, disabled, onChange }: { label: string; sub: st
 const needWords: Record<string, string> = messages.products.needs
 
 /** The side panel: whether it shows, where it is ready to sell, and what a shopper sees. */
-export const SidePanel = ({ draft, update, storeFields, canShow, readiness, currency, inclusive, approvalNote, badges }: { draft: Draft; update: Update; storeFields: boolean; canShow: boolean; readiness: EditorProduct['readiness'] | undefined; currency: string; inclusive: boolean | null; approvalNote: boolean; badges: readonly { id: string; label: string; rule: string }[] | null }) => {
+export const SidePanel = ({ draft, update, storeFields, canShowHide, canShow, readiness, currency, inclusive, approvalNote, badges }: { draft: Draft; update: Update; storeFields: boolean; canShowHide: boolean; canShow: boolean; readiness: EditorProduct['readiness'] | undefined; currency: string; inclusive: boolean | null; approvalNote: boolean; badges: readonly { id: string; label: string; rule: string }[] | null }) => {
   const range = priceRange(draft, currency)
   const money = (amount: number) => formatMoney({ amount, currency }, locale)
   const first = draft.options[0]
   return (
     <aside className="df-editor-side">
-      {storeFields && (
+      {canShowHide && (
         <section className="df-editor-card">
           <h2>{words.side.onStore}</h2>
           <div role="radiogroup" aria-label={words.side.onStore} className="df-editor-vis-options">

@@ -544,8 +544,8 @@ button,input,select,textarea{font:inherit;color:inherit;}
           <sc-if value="{{ cart.showShip }}" hint-placeholder-val="{{ false }}"><div class="stack" style="gap:6px;"><span class="small">{{ cart.shipLine }}</span><div class="prog"><i style="width:{{ cart.shipPct }};"></i></div></div></sc-if>
           <div class="summ" data-req="Price with tax label">
             <div class="tl"><span>Subtotal</span><span>{{ tot.sub }}</span></div>
-            <sc-if value="{{ tot.hasDisc }}" hint-placeholder-val="{{ false }}"><div class="tl"><span>{{ tot.discName }}</span><span class="disc">−{{ tot.disc }}</span></div></sc-if>
             <div class="tl"><span>Delivery</span><span class="muted">Chosen at checkout</span></div>
+            <sc-if value="{{ tot.hasDisc }}" hint-placeholder-val="{{ false }}"><div class="tl"><span>{{ tot.discName }}</span><span class="disc">−{{ tot.disc }}</span></div></sc-if>
             <div class="tl big"><span>Estimated total</span><span>{{ tot.goods }}</span></div>
             <span class="muted small">{{ tot.taxNote }}</span>
           </div>
@@ -1068,8 +1068,8 @@ class Component extends DCLogic {
     const cart = { lines: cartLines, empty: !cartLines.length, has: cartLines.length > 0, showShip: !!std && tt.physical, shipLine: away > 0 ? `You’re ${this.fmt(away)} away from free ${std.name.toLowerCase()}` : `Your order gets free ${std ? std.name.toLowerCase() : 'delivery'}`, shipPct: std ? Math.min(100, Math.round(tt.goods / std.freeOver * 100)) + '%' : '0%' };
     const taxNote = R.incl ? `Includes ${this.fmt(tt.tax)} GST.` : (tt.taxKnown ? '' : 'Sales tax is added once we know your address.');
     const rows = [{ k: 'Subtotal', v: this.fmt(tt.sub), cls: '' }];
-    if (tt.disc) rows.push({ k: tt.discName, v: '−' + this.fmt(tt.disc), cls: 'disc' });
     if (tt.physical) rows.push({ k: 'Delivery', v: tt.shipKnown ? (tt.ship ? this.fmt(tt.ship) : 'Free') : 'Next step', cls: tt.shipKnown ? '' : 'muted' });
+    if (tt.disc) rows.push({ k: tt.discName, v: '−' + this.fmt(tt.disc), cls: 'disc' });
     if (!R.incl) rows.push({ k: 'Sales tax', v: tt.taxKnown ? this.fmt(tt.tax) : 'After address', cls: tt.taxKnown ? '' : 'muted' });
     if (tt.gc) rows.push({ k: 'Gift card', v: '−' + this.fmt(tt.gc), cls: 'disc' });
     const tot = { sub: this.fmt(tt.sub), disc: this.fmt(tt.disc), discName: tt.discName, hasDisc: tt.disc > 0, goods: this.fmt(tt.goods), total: this.fmt(Math.max(0, tt.total)), taxNote, rows };

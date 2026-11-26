@@ -163,6 +163,7 @@ import { stockImages } from '#integrations/stockImages/combine'
 import { openverseImages } from '#integrations/stockImages/openverse'
 import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
+import { unsplashImages } from '#integrations/stockImages/unsplash'
 import { frameClosed, liveUpgrade, studioForJob, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { uploadDeleteDeliverer, uploadDeleteKind } from '#jobs/queues/deliverers/uploadDelete'
@@ -175,6 +176,9 @@ import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { designRunWorkflow } from '#jobs/workflows/design-run'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
 import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
+import { createTemplateAdminService, lookupDemoSite, type DemoSite } from '#saas/storefrontTemplates/index'
+import { demoTemplateKind } from '#saas/storefrontTemplates/demo'
+import { templateDemoDeliverer } from '#jobs/queues/deliverers/templateDemo'
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
@@ -361,7 +365,8 @@ const routesFor = (config: Config): GoogleRoutes | null => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket; drafts: R2Bucket; repos: StoreRepos; upgrade: UpgradeWorkflow | null } | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket; drafts: R2Bucket; repos: StoreRepos; upgrade: UpgradeWorkflow | null } | null, sites: R2Bucket | null): Deliverers => {
+  const templateDemo = sites && assets ? { sql, sites, assets, activity: activityLog, now: () => new Date() } : null
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const push = pushFor(config)
@@ -393,6 +398,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup, { localPhotos: config.DNS_LOCAL === '1' }),
     [sampleCollectionPhotoKind]: sampleCollectionPhotoDeliverer(sql, assets),
+    ...(templateDemo ? { [demoTemplateKind]: templateDemoDeliverer(templateDemo) } : {}),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
@@ -543,6 +549,7 @@ const handleAdmin = async (
       storeCategories: caller
         ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
         : null,
+      templates: caller ? createTemplateAdminService({ sql, staff: caller.staff, activity: activityLog, facts: factsOf(request), shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
       messaging: caller
         ? createPlatformMessagingService({
@@ -943,6 +950,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     stock: stockImages({
       ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
       ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
+      ...(config.UNSPLASH_ACCESS_KEY ? { unsplash: unsplashImages({ key: config.UNSPLASH_ACCESS_KEY }) } : {}),
       openverse: openverseImages(),
       commons: commonsImages(),
     }),
@@ -1135,7 +1143,7 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
         }
       : null
   const wake = env.OUTBOX_WAKE
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing), wake ? { ...defaultRelayOptions, onBudgetSpent: () => wake.send({ at: Date.now() }).then(() => undefined, (error: unknown) => logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })) } : defaultRelayOptions)
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing, env.STOREFRONT_SITES ?? null), wake ? { ...defaultRelayOptions, onBudgetSpent: () => wake.send({ at: Date.now() }).then(() => undefined, (error: unknown) => logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })) } : defaultRelayOptions)
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }
@@ -1492,6 +1500,11 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
   /** The full re-check of every HTML and /shop-api request on a preview host (PREVIEW.md §5 step 4). */
   previewAccess(check: unknown): Promise<PreviewAccess> {
     return edgeQuery(this.env, this.ctx, (sql) => checkPreview(sql, check))
+  }
+
+  /** A template's demo on the open demo host (PREVIEW.md §9): its store and preview folder, once ready. */
+  demoSite(template: unknown): Promise<DemoSite> {
+    return edgeQuery(this.env, this.ctx, (sql) => lookupDemoSite(sql, template))
   }
 }
 

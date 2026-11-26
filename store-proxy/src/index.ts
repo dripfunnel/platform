@@ -1,3 +1,4 @@
+import { isDemoHost, serveDemo } from './demo'
 import type { Deps } from './deps'
 import type { EdgeApi } from './edge'
 import { lookupHost, serveLive } from './live'
@@ -46,6 +47,7 @@ export const loggedPath = (pathname: string): string => {
 }
 
 const serveStorefront = async (request: Request, url: URL, env: Env, deps: Deps): Promise<Response> => {
+  if (isDemoHost(url.hostname, env.SHOP_DOMAIN)) return serveDemo(request, url, deps)
   const key = previewKeyOf(url.hostname, env.SHOP_DOMAIN)
   if (key !== null) return servePreview(request, url, key, deps)
   const found = await lookupHost(url.hostname, deps)

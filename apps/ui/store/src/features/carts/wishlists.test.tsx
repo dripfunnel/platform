@@ -19,7 +19,7 @@ const carts = vi.hoisted(() => ({ loadCarts: vi.fn(), loadCartCounts: vi.fn(), l
 vi.mock('../../api/carts', async (actual) => ({ ...(await actual<typeof import('../../api/carts')>()), ...carts }))
 const offersApi = vi.hoisted(() => ({ loadOfferPlace: vi.fn() }))
 vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...offersApi }))
-const api = vi.hoisted(() => ({ loadWishlistShoppers: vi.fn(), loadWishlistCounts: vi.fn(), loadWishlistSummary: vi.fn(), loadWishlistShopper: vi.fn(), loadWishlistReminderSettings: vi.fn(), saveWishlistReminderSettings: vi.fn(), remindWishlistNow: vi.fn(), stopWishlistReminders: vi.fn(), resumeWishlistReminders: vi.fn() }))
+const api = vi.hoisted(() => ({ loadWishlistShoppers: vi.fn(), loadWishlistCounts: vi.fn(), loadWishlistSummary: vi.fn(), loadWishlistShopper: vi.fn(), loadWishlistReminderSettings: vi.fn(), saveWishlistReminderSettings: vi.fn(), remindWishlistNow: vi.fn(), stopWishlistReminders: vi.fn(), resumeWishlistReminders: vi.fn(), sendTestWishlistReminder: vi.fn() }))
 vi.mock('../../api/wishlists', async (actual) => ({ ...(await actual<typeof import('../../api/wishlists')>()), ...api }))
 
 const { CartsPage } = await import('./CartsPage')
@@ -87,10 +87,13 @@ beforeEach(() => {
   api.remindWishlistNow.mockResolvedValue(undefined)
   api.stopWishlistReminders.mockResolvedValue(undefined)
   api.resumeWishlistReminders.mockResolvedValue(undefined)
+  api.sendTestWishlistReminder.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   vi.resetAllMocks()
 })
 
@@ -178,12 +181,18 @@ describe('the Wishlists tab', () => {
 
 describe('one shopper’s wishlist', () => {
   it('lists what they saved with photo, name and price, marks a sold-out product, and links to the customer', async () => {
+    const photo = vi.fn(() => Promise.resolve(new Response(new Blob(['x']))))
+    vi.stubGlobal('fetch', photo)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo')
     await show(owner, '/carts/wishlist/c1')
+    await settle()
     expect(api.loadWishlistShopper).toHaveBeenCalledWith('c1')
     expect(screen.getByRole('heading', { level: 1, name: 'Asha Rao' })).toBeTruthy()
     const list = within(screen.getByRole('region', { name: w.page.heading }))
     expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([`Chanderi stole${moneyText({ amount: '129900', currency: 'INR' })}`, `Block-print dupatta${w.page.outOfStock}${moneyText({ amount: '168100', currency: 'INR' })}`])
-    expect([...screen.getByRole('region', { name: w.page.heading }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['/api/assets/a1'])
+    // The file needs the acting store's headers, which a bare <img> can't send (#1648).
+    expect(photo).toHaveBeenCalledWith('/api/assets/a1', expect.objectContaining({ credentials: 'same-origin' }))
+    expect([...screen.getByRole('region', { name: w.page.heading }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['blob:photo'])
     expect(screen.getByRole('link', { name: w.page.customer }).getAttribute('href')).toBe('/customers?customer=c1')
     expect(screen.getByRole('link', { name: words.title }).getAttribute('href')).toBe('/carts?pane=wishlists')
   })
@@ -268,6 +277,64 @@ describe('the Wishlists Reminders tab', () => {
     fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
     await settle()
     expect(screen.getByRole('switch', { name: w.reminders.auto })).toBeTruthy()
+  })
+
+  describe('Send me a test (#1645)', () => {
+    const testButton = () => screen.getByRole('button', { name: words.reminders.test })
+
+    it('sends the saved reminder shown to the person’s own email only, and says where it went', async () => {
+      await show(owner, '/carts?pane=wishlist-reminders')
+      fireEvent.click(screen.getAllByRole('button', { name: /^Preview reminder 2$/ })[0] as HTMLElement)
+      fireEvent.click(testButton())
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText('farhan@kesari.in')).toBeTruthy()
+      expect(within(dialog).getByText(w.reminders.testBody)).toBeTruthy()
+      expect(within(dialog).queryByRole('textbox')).toBeNull()
+      fireEvent.click(within(dialog).getByRole('button', { name: words.reminders.testSend }))
+      await settle()
+      expect(api.sendTestWishlistReminder).toHaveBeenCalledWith(2)
+      expect(screen.getByText(/Test sent to farhan@kesari.in/)).toBeTruthy()
+    })
+
+    it('holds the button back, with the reason, for unsaved changes, a step the plan locks and one that is off', async () => {
+      await show(owner, '/carts?pane=wishlist-reminders')
+      fireEvent.change(screen.getAllByLabelText(words.reminders.subject)[0] as HTMLInputElement, { target: { value: 'New subject' } })
+      expect(testButton()).toHaveProperty('disabled', true)
+      expect(screen.getByText(words.reminders.testSaveFirst)).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: words.reminders.discard }))
+      expect(testButton()).toHaveProperty('disabled', false)
+      fireEvent.click(screen.getByRole('button', { name: /^Preview reminder 3$/ }))
+      expect(testButton()).toHaveProperty('disabled', true)
+      expect(screen.getByText(words.reminders.testOff)).toBeTruthy()
+      cleanup()
+      api.loadWishlistReminderSettings.mockResolvedValue({ ...settings, level: 'onePerCart' })
+      await show(owner, '/carts?pane=wishlist-reminders')
+      fireEvent.click(screen.getByRole('button', { name: /^Preview reminder 2$/ }))
+      expect(testButton()).toHaveProperty('disabled', true)
+      expect(screen.getByText(words.reminders.testLocked)).toBeTruthy()
+    })
+
+    it('sends one test however often Send is pressed while it is on its way, and says when there have been too many', async () => {
+      let answer: () => void = () => undefined
+      api.sendTestWishlistReminder.mockImplementationOnce(() => new Promise<void>((resolve) => (answer = resolve)))
+      await show(owner, '/carts?pane=wishlist-reminders')
+      fireEvent.click(testButton())
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.reminders.testSend }))
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.reminders.testSend }))
+      answer()
+      await settle()
+      expect(api.sendTestWishlistReminder).toHaveBeenCalledTimes(1)
+      api.sendTestWishlistReminder.mockRejectedValue(new ApiError('RATE_LIMITED', 'slow down'))
+      fireEvent.click(testButton())
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.reminders.testSend }))
+      await settle()
+      expect(within(screen.getByRole('dialog')).getByText(words.reminders.testTooMany)).toBeTruthy()
+    })
+
+    it('has no button for Staff or in a read-only store', async () => {
+      await show(staff, '/carts?pane=wishlist-reminders')
+      expect(screen.queryByRole('button', { name: words.reminders.test })).toBeNull()
+    })
   })
 
   it('on a you-send plan offers the plans instead of a switch', async () => {

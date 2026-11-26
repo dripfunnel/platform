@@ -181,6 +181,34 @@ describe('the studio’s frame', () => {
     expect(frame().getAttribute('src')).toBe(frameUrl)
   })
 
+  it('opens the chat at its newest message, and stays put when earlier ones load', async () => {
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(900)
+    const scrolled = vi.spyOn(Element.prototype, 'scrollTop', 'set')
+    await show({ loadDesignChat: vi.fn((after: string | null) => Promise.resolve(after ? { messages: [line('m0', 'user', 'Older')], next: null } : { messages: chat, next: 'p2' })) })
+    expect(scrolled).toHaveBeenLastCalledWith(900)
+    scrolled.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: words.chat.earlier }))
+    await settle()
+    expect(screen.getByText('Older')).toBeTruthy()
+    expect(scrolled).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+  })
+
+  it('opens a new frame on the page shown once a change adds a photo, which is shown to shoppers only after the change', async () => {
+    await show()
+    post({ type: 'df-studio:page', path: '/about/' })
+    const before = frame()
+    api.loadDesignChat.mockResolvedValue({ messages: [line('n2', 'note', 'photo:unsplash:Ana'), ...chat], next: null })
+    typeAndSend('Use a stock photo in the hero')
+    await settle()
+    expect(frame()).not.toBe(before)
+    expect(frame().getAttribute('src')).toBe(`${frameUrl}about/`)
+    const after = frame()
+    typeAndSend('Make the heading bigger')
+    await settle()
+    expect(frame()).toBe(after)
+  })
+
   it('sends the model picked in the composer, and shows no picker when there is no choice', async () => {
     await show({ loadStudioSession: vi.fn().mockResolvedValue({ ...ready, models: ['claude-opus-5-5', 'claude-haiku-5-5'] }) })
     fireEvent.change(screen.getByLabelText(c.model), { target: { value: 'claude-haiku-5-5' } })

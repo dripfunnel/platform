@@ -45,6 +45,19 @@ describe('OrderSummary', () => {
     expect(at(null)).toContain('Next step')
   })
 
+  it('lists Delivery above the discounts, so a saving never shows before the charge it removes (#1679)', () => {
+    const rows = (html: string) => [...html.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1])
+    const cart = (shipping: ReturnType<typeof usd> | null) => shownCart(cartOf([line('v1', 1)], { discounts: [{ name: 'Free delivery', code: null, amount: usd(500) }], shipping, total: usd(1000) }))
+    const atCheckout = renderToStaticMarkup(<OrderSummary cart={cart(usd(500))} at="checkout" locale="en-US" t={t} />)
+    expect(rows(atCheckout).slice(0, 3)).toEqual(['Subtotal', 'Delivery', 'Free delivery'])
+    expect(atCheckout).toContain('$10.00')
+    expect(rows(renderToStaticMarkup(<OrderSummary cart={cart(usd(500))} at="cart" locale="en-US" t={t} />)).slice(0, 3)).toEqual(['Subtotal', 'Delivery', 'Free delivery'])
+    expect(rows(renderToStaticMarkup(<OrderSummary cart={cart(null)} at="checkout" locale="en-US" t={t} />)).slice(0, 3)).toEqual(['Subtotal', 'Delivery', 'Free delivery'])
+    const money = (n: number) => usd(n) as Order['total']
+    const order: Order = { id: 'o-1', number: '1051', cancelled: false, payment: 'paid', method: 'stripe', instructions: null, payBy: null, delivery: null, placedAt: null, lines: [], subtotal: money(1000), discounts: [{ name: 'Free delivery', amount: money(500) }], shipping: money(500), tax: null, total: money(1000), giftCard: null, downloads: [], licenceKeys: [] }
+    expect(rows(renderToStaticMarkup(<OrderSummary order={order} locale="en-US" t={t} />)).slice(0, 3)).toEqual(['Subtotal', 'Delivery', 'Free delivery'])
+  })
+
   it('says the totals are being updated while a change waits, and lists a line that can’t be bought', () => {
     const cart = { ...shownCart(cartOf([line('v1', 2)])), pending: true }
     const html = renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)

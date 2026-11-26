@@ -37,7 +37,7 @@ export const isOpenverseUrl = (raw: string): boolean => {
 export const openverseImages = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}): StockImages => ({
   search: async (query, page) => {
     try {
-      const params = new URLSearchParams({ q: query.slice(0, 100), page: String(page), page_size: '24', license: 'cc0,pdm', mature: 'false' })
+      const params = new URLSearchParams({ q: query.slice(0, 100), page: String(page), page_size: '20', license: 'cc0,pdm', mature: 'false' })
       const response = await fetchImpl(`${api}?${params}`, { signal: AbortSignal.timeout(8_000) })
       if (!response.ok) return null
       const parsed = found.safeParse(await response.json())

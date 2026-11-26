@@ -454,10 +454,19 @@ describe('the backstop itself', () => {
       await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
       await expect(withScope(db.sql, staff, (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
     }
-    // A supplier can't attach to another's product, take one over, or show and hide its own.
+    // A supplier can't attach to another's product or take one over; it shows and hides its own (#1717) unless held.
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_version (product_id, store_id, position) values (${second}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'x', 'iso-x')`)).rejects.toThrow()
-    await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/supplier changes no visibility/)
+    await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1First}`
+    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update product set visibility = 'visible' where id = ${first}`).count)).toBe(1)
+    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update product set visibility = 'visible' where id = ${second}`).count)).toBe(0)
+    for (const held of ["approval_status = 'pending'", "hidden_by = 'plan'"]) {
+      await db.sql.unsafe(`update product set visibility = 'hidden', ${held} where id = '${first}'`)
+      await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/supplier changes no visibility/)
+      await db.sql.unsafe(`update product set approval_status = null, hidden_by = null where id = '${first}'`)
+    }
+    await db.sql`update seller set access_level = 'vendor-stock' where id = ${t.sellerA1First}`
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/Stock only supplier/)
     // Nor create one as a sample, sent back or hidden, which would sit outside the plan's count and the lists.
     for (const column of ['is_sample', 'sent_back_reason', 'status_before_hide']) {
       const value = column === 'is_sample' ? true : column === 'sent_back_reason' ? 'x' : 'visible'

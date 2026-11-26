@@ -334,16 +334,16 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   }
 
   /** `owner` is the product's, so its extras' currencies are its owner's to type whoever saves it (fact 51). */
-  const clean = async (tx: ScopedSql, input: ProductInput, owner: string | null): Promise<Cleaned> => {
+  const clean = async (tx: ScopedSql, input: ProductInput, owner: string | null, mayShowHide = false): Promise<Cleaned> => {
     const currency = await selectPricingCurrency(tx)
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
     if (result === 'INVALID_INPUT') throw new Refused({ reason: result, field: input.versions.map(invalidVersionField).find((f) => f !== null) ?? undefined })
     if (typeof result === 'string') throw new Refused({ reason: result })
-    // Vendor input can't carry visibility (ACCESS §7.2), prices in the store's other currencies (CATALOG O14) or a kind
+    // Vendor input can't carry visibility on a new product (ACCESS §7.2), prices in the store's other currencies (CATALOG O14) or a kind
     // other than a physical item (CATALOG T14):
     // refused, not quietly dropped.
-    if (sellerId !== null && (result.visible !== null || result.productType !== 'physical' || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    if (sellerId !== null && ((result.visible !== null && !mayShowHide) || result.productType !== 'physical' || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
     // A version's tax class is one of the store's live ones (fact 37); a supplier's take the store's default.
     const classes = [...new Set(result.versions.flatMap((v) => (v.taxClassId ? [v.taxClassId] : [])))]
     if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
@@ -424,13 +424,13 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const existing = await selectProduct(tx, storeId, id)
       if (!existing) throw new Refused({ reason: 'NOT_FOUND' })
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
-      const product = await clean(tx, input, existing.seller_id)
+      const product = await clean(tx, input, existing.seller_id, true)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
-      const held = existing.hidden_by === 'plan' || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
+      const held = (sellerId !== null ? existing.hidden_by !== null : existing.hidden_by === 'plan') || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
       if (visibility === 'visible' && existing.visibility !== 'visible' && held) throw new Refused({ reason: 'NOT_SHOWABLE' })
       // A live address changes only when asked for: a rename alone would break every link to it.
       const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
-      const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
+      const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: visibility !== existing.visibility }, now())
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       const { ids: versionIds, extrasChanged } = await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))

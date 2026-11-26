@@ -111,6 +111,13 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const [chatMode, setChatMode] = useState(false)
   const [last, setLast] = useState<ChatRequest | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLOListElement>(null)
+  // Down to the newest message when it changes, as the prototype does; earlier pages added above leave the place alone.
+  const newest = chat.at(-1)?.id ?? null
+  useEffect(() => {
+    const list = listRef.current
+    if (list && newest) list.scrollTop = list.scrollHeight
+  }, [newest])
   const siteId = useId()
   const uploads = useRef(0)
   const undoable = [...chat].reverse().find((m) => m.role === 'ai' && m.canUndo)?.id ?? null
@@ -278,7 +285,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
         <h2 id={`${siteId}-title`}>{words.title}</h2>
         {aiLine && <span className="df-sf-lede">{aiLine}</span>}
       </header>
-      <ol className="df-studio-messages" aria-live="polite">
+      <ol ref={listRef} className="df-studio-messages" aria-live="polite">
         {hasEarlier && (
           <li>
             <button type="button" className="df-sf-link" onClick={onEarlier}>

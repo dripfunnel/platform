@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { createCartService, type AnswerInput, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView, type CustomisationQuote, type PricedAnswer } from '#engine/modules/cart/index'
 import { findGiftCard, type GiftCardView } from '#engine/modules/giftCards/index'
+import type { AvailableOffer } from '#engine/modules/promotions/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
 import { limitCodeTries, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
@@ -182,6 +183,15 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       state: t.exposeString('state'),
     }),
   })
+  const AvailableOfferType = builder.objectRef<AvailableOffer>('ShopAvailableOffer').implement({
+    fields: (t) => ({
+      // The offer's name as the receipt shows it, and the code that `applyCode` takes.
+      name: t.exposeString('name'),
+      code: t.exposeString('code'),
+      // What applying it takes off this cart now.
+      saves: t.field({ type: Money_, resolve: (o, _, ctx) => ({ amount: o.saves, currency: shopOf(ctx).shopper.currency }) }),
+    }),
+  })
   const Cart = builder.objectRef<CartView>('ShopCart').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -202,6 +212,15 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       discounts: t.field({ type: [Discount], resolve: (c) => c.discounts }),
       discount: t.field({ type: Money_, resolve: (c) => c.discount }),
       codes: t.field({ type: [CodeType], resolve: (c) => c.codes }),
+      // Shared codes this cart qualifies for and gains from, best first, at most five (#1698); priced only when asked for.
+      // Asked 30 a minute per store and address, on a bucket of its own; past that the list is empty, never an error.
+      availableOffers: t.field({
+        type: [AvailableOfferType],
+        resolve: async (_, __, ctx) => {
+          const allowed = await limitCodeTries(ctx, 'shop-offers', 'Too many offers asked for. Wait a minute and try again.').then(() => true, () => false)
+          return allowed ? (await cartOf(ctx)).availableOffers() : []
+        },
+      }),
       deliverable: t.exposeBoolean('deliverable', { nullable: true }),
       shippingOptions: t.field({ type: [Option], resolve: (c) => c.shippingOptions }),
       shipping: t.field({ type: Money_, nullable: true, resolve: (c) => c.shipping }),

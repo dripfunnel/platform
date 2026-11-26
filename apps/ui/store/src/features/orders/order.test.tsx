@@ -631,6 +631,15 @@ describe('returns and refunds', () => {
     expect((within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }) as HTMLButtonElement).disabled).toBe(true)
   })
 
+  it('offers no refund on a received return once the whole order is refunded, but keeps it while partly refunded', async () => {
+    const outside = [{ id: 'f3', supplierId: null, returnId: null, amount: inr('100000'), lines: [] }]
+    await show(owner, { ...withReturns, paymentState: 'refunded', refunds: outside })
+    expect(within(screen.getByRole('region', { name: 'Return R-1' })).queryByRole('button', { name: returnWords.refundThese })).toBeNull()
+    cleanup()
+    await show(owner, { ...withReturns, paymentState: 'partly_refunded', refunds: outside })
+    expect(within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese })).toBeTruthy()
+  })
+
   it('gives staff no Receive or Cancel on a return, nor its refund', async () => {
     await show(staff, withReturns)
     const coming = within(screen.getByRole('region', { name: 'Return R-2' }))

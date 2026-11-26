@@ -13,6 +13,7 @@ import { fill, formatTime, messages } from '../../messages'
 import { frameTimeoutMs, LiveFrame } from './LiveFrame'
 import { storefrontTabs, storefrontViews } from './storefrontAccess'
 import { storefrontSearch } from './storefrontSearch'
+import { templatePicture } from '@dripfunnel/shared/templates'
 
 // Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the gallery, the overview, the tabs, and Site settings' three cards.
 
@@ -602,7 +603,7 @@ describe('the template gallery', () => {
     await show()
     const cards = screen.getAllByRole('listitem')
     const pictures = cards.map((card) => card.querySelector('.df-sf-template-thumb img'))
-    expect(pictures.map((img) => [img?.getAttribute('src'), img?.getAttribute('alt')])).toEqual(templates.map((t) => [`/templates/${t.key}.webp`, '']))
+    expect(pictures.map((img) => [img?.getAttribute('src'), img?.getAttribute('alt')])).toEqual(templates.map((t) => [templatePicture(t.key), '']))
     fireEvent.error(pictures[2] as HTMLImageElement)
     const bloom = cards[2] as HTMLElement
     expect(bloom.querySelector('img')).toBeNull()

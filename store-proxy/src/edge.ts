@@ -13,14 +13,18 @@ export interface PreviewCheck {
   epoch: number
 }
 
-/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its four questions. */
+/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its five questions. */
 export interface EdgeApi {
   fetch: (request: Request) => Promise<Response>
   liveHost: (host: string) => Promise<unknown>
   redirects: (storeId: string) => Promise<unknown>
   openPreview: (key: string, token: string) => Promise<unknown>
   previewAccess: (check: PreviewCheck) => Promise<unknown>
+  demoSite: (template: string) => Promise<unknown>
 }
+
+/** `key` is the template's, whether `?theme=` named it by key or by name: the cookie holds it. */
+export type DemoSite = { ok: true; key: string; storeId: string; folder: string } | { ok: false }
 
 const record = (value: unknown): Record<string, unknown> | null => (typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null)
 const isId = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/.test(value)
@@ -77,6 +81,14 @@ export const parseRedirects = (value: unknown): Redirects => {
     if (r['everyLanguage']) found.everyLanguage.set(r['from'], r['to'])
   }
   return found
+}
+
+export const parseDemoSite = (value: unknown): DemoSite => {
+  const v = record(value)
+  if (v?.['ok'] === false) return { ok: false }
+  if (v?.['ok'] === true && typeof v['key'] === 'string' && /^[a-z0-9-]{1,40}$/.test(v['key']) && isId(v['storeId']) && isFolder(v['folder']))
+    return { ok: true, key: v['key'], storeId: v['storeId'], folder: v['folder'] }
+  throw new EdgeAnswerInvalid('demo')
 }
 
 export const parsePreviewAccess = (value: unknown): PreviewAccess => {

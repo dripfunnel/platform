@@ -11,6 +11,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
+import { createTemplateAdminService } from '#saas/storefrontTemplates/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -39,6 +40,7 @@ const admin = async <T = Record<string, unknown>>(source: string, role: StaffRol
     dashboard: null,
     staffMembers: null,
     storeCategories: member ? createStoreCategoryAdminService({ sql: db.sql, staff: member, facts: factsOf(request), activity: activityLog, now: () => now }) : null,
+    templates: member ? createTemplateAdminService({ sql: db.sql, staff: member, activity: activityLog, facts: factsOf(request), shopDomain: null, now: () => now }) : null,
   }
   const result = await graphql({ schema: adminSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   return { data: result.data as T | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -105,6 +107,21 @@ describe('the staff list', () => {
     expect(all).toHaveLength(30)
     expect(all[0]).toMatchObject({ key: 'general', names: [{ language: 'en', name: 'General' }], archivedAt: null, storeCount: 0 })
     expect(all.at(-1)?.key).toBe('religious_spiritual')
+  })
+
+  it('names each category’s starting template, read-only (0409)', async () => {
+    const all = (await admin<{ storeCategories: { key: string; template: { key: string; name: string } | null }[] }>('{ storeCategories { key template { key name } } }', 'staff-support')).data?.storeCategories ?? []
+    expect(all.find((c) => c.key === 'fashion_apparel')?.template).toEqual({ key: 'fashion', name: 'Thread' })
+    expect(all.find((c) => c.key === 'general')?.template).toBeNull()
+  })
+
+  it('lists the templates with the categories that start from them, for every role', async () => {
+    type Template = { key: string; state: string; categories: { key: string }[]; storeCount: number; demo: string }
+    const all = (await admin<{ storefrontTemplates: Template[] }>('{ storefrontTemplates { key state categories { key } storeCount demo } }', 'staff-support')).data?.storefrontTemplates ?? []
+    expect(all.slice(0, 2).map((x) => x.key)).toEqual(['classic', 'baseline'])
+    expect(all.find((x) => x.key === 'fashion')).toMatchObject({ state: 'offered', categories: [{ key: 'fashion_apparel' }], storeCount: 0, demo: 'none' })
+    expect(all.find((x) => x.key === 'classic')?.categories).toEqual([])
+    expect((await admin('{ storefrontTemplates { key } }', 'staff-support').then((r) => r.code)) ?? null).toBeNull()
   })
 
   it('is Super admin only to change, each change logged with its reason', async () => {

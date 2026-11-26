@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-11-23 (#1681: test keys also take payments on the live storefront until live keys are added; live keys never serve a preview, §5). Before: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-26 (#1732: the templates' demos on one open host, `demo.my-store.one/?theme=<key>`, §1, §5 step 1, §6, §9; the signed demo link of 2026-11-24 replaced). Before: 2026-11-24 (the Admin API signs a template demo store's link, issued to its Owner, §5 step 1). Before: 2026-11-23 (#1681: test keys also take payments on the live storefront until live keys are added; live keys never serve a preview, §5). Before: 2026-11-17 (#1292: the preview's `/shop-api/*` goes to the API's default fetch, §5). Before: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -34,6 +34,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | **Served from R2 by the same edge Worker as live sites** | A branch deployment of the store's Pages project (open question in ARCHITECTURE §12, now closed) | Pages per store is gone ([LIVE-SHOP.md](LIVE-SHOP.md) §1), and one serving path for preview and live is less to build and run. |
 | **Each store's preview is its own origin**, named by the store's slug | One host with a path per store | The browser keeps origins apart, so one store's AI-written code can't read another store's preview storage or cookies. This is the run-time wall behind the validator's ban (ARCHITECTURE §3.3). |
 | **A signed link, `noindex` and test-mode checkout** (decided 2026-10-05 on #284) | An open preview | Unchanged: a draft is private and must never be indexed or take real money. |
+| **The templates' demos are the one exception: open, on one shared host, `demo.my-store.one/?theme=<key>`** (decided 2026-11-26 with Kshitij, #1732, §9) | A signed link to each demo store's `{slug}-preview.` host (2026-11-24); `{key}-demo.my-store.one`; `{key}.demo.my-store.one` | A demo is a template written in this repo by people, never AI code, on public sample data: nothing in it is private, so it needs no link and one origin for every theme reads nothing another theme could hide. `demo` is one label deep, so the wildcard and its free certificate cover it (a second level needs a paid certificate). |
 
 ---
 
@@ -127,6 +128,8 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    staff impersonating and an elevated support session issue it as the user they act as, ACCESS §8, §8.1, #1344) answers the link and records `storefront.preview_opened`. The token is sealed with
    AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
    `storefront.preview_epoch` and the expiry.
+   ~~*2026-11-24:* the Admin API's `templatePreviewLink` signs the same link for a category template's demo store.~~
+   Replaced on #1732: a template's demo opens on the open demo host with no link (§9).
    *Why:* only the portal can hand out a preview, and every link runs out.
 2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
    is the store the hostname's slug resolves to**. Any mismatch gets the same "This
@@ -253,6 +256,8 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 - **A draft is private**: its files sit behind the cookie check, never on the public asset host.
 - **No secret reaches the browser** beyond the session cookie. The SPA uses only the public
   store key (ARCHITECTURE §5).
+- **The demo host is the one open host** (§9): it serves only a store with `is_demo` that is an offered template's
+  demo, and its Shop API is a guest-only preview's, so it can't open a merchant's draft or data.
 - **The sealed "Preview" banner** sits in the browser's top layer, so a theme can't hide it
   (ARCHITECTURE §3.5).
 
@@ -295,3 +300,34 @@ There is no per-store hostname fee.
   (decided 2026-10-13 on #313, §5 step 6).
 - ~~How long old preview folders are kept~~ Until the next publish goes live, then deleted bar the current one (decided on
   #317, §3).
+
+---
+
+## 9. The templates' demos
+
+Each offered template's demo store (admin FIRST-RELEASE §11d, DATA-MODEL §7.2) opens at
+**`https://demo.<SHOP_DOMAIN>/?theme=<template key>`**, for example `demo.my-store.one/?theme=thread`
+(decided 2026-11-26 with Kshitij, #1732, §1). Built on #1732 (`store-proxy/src/demo.ts`).
+
+1. **Open, with no link.** Anyone holding the address opens it: a demo is a template on its category's
+   sample catalogue, nothing private.
+2. **The theme sticks with a cookie.** `?theme=` takes the template's key or its name, in any case (`?theme=thread`
+   and `?theme=Thread` alike; a key wins over another template's name, decided 2026-11-26 with Kshitij). It sets
+   `__Host-df_demo` (HttpOnly, Secure, SameSite=Lax), which holds only the template's key, whichever was asked; later pages, chunks and `/shop-api` use it, and a new `?theme=`
+   switches it. Two tabs on different themes share it: the last opened wins (accepted on #1732).
+3. **What it serves.** The edge Worker asks the API's `StorefrontEdge.demoSite(asked)` for the template's key, its demo
+   store and its preview folder: only an offered template whose `demo_store_id` is a store with `is_demo` and a preview in place,
+   in an open store under an open partner. Its answer is kept a minute (the data is public). Anything else (no theme,
+   an unknown, retired or unready template) gets "No demo for this template", with no store data.
+4. **Headers.** As a preview's (§5 step 4): `X-Robots-Tag: noindex, nofollow`, a disallow-all `robots.txt`,
+   `Referrer-Policy: no-referrer`, the files' own CSP, `no-store` on HTML. Chunks are `no-cache`: every theme shares
+   the origin and its file names, so the browser asks again rather than keep another theme's copy. Pages are only read
+   (405 for any other method); `/__open` and `/__studio/` answer nothing.
+5. **Its Shop API.** `/shop-api/*` goes to the API, which finds the demo store from the cookie on the demo host
+   alone (`auth/shopCaller.ts`). It is a preview caller: guests only (sign-in refused `NOT_IN_PREVIEW`), test-mode
+   checkout, wallets hidden (§5 steps 5–6).
+6. **Who links to it.** Admin › Templates › Preview (each opening logged, `storefront_template.preview_opened`) and
+   the Store API's `storefrontTemplates.demoUrl` (the merchant portal's "View demo ↗"), once the demo is ready.
+7. **The name.** The slug `demo` is reserved ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2), and a live
+   store's address never resolves `demo.`. Migration 0418 stops the deploy if a store already holds it, rather than
+   rename that store.

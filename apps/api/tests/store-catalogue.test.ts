@@ -407,7 +407,7 @@ describe('a supplier', () => {
     expect(refusal).toEqual({ code: 'PLAN_LIMIT' })
   })
 
-  it('can’t edit, duplicate or delete what isn’t its own, and can’t set visibility at all', async () => {
+  it('can’t edit, duplicate or delete what isn’t its own, nor set visibility on a new product or in bulk', async () => {
     const input = simple('Taken over')
     for (const id of [merchantProduct, otherSupplierProduct]) {
       expect((await gql(save, 'supplier', { id, revision: 1, input })).code).toBe('NOT_FOUND')
@@ -417,6 +417,27 @@ describe('a supplier', () => {
     expect((await create('supplier', simple('Shown', { visible: true }))).code).toBe('SUPPLIER_FIELD')
     expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'supplier', { ids: [supplierProduct] })).code).toBe('FORBIDDEN')
     expect(await detail('owner', merchantProduct)).toMatchObject({ name: 'Merchant own' })
+  })
+
+  it('shows and hides its own product, but never one that waits for approval, was sent back or is hidden by the plan, a suspension or a removal (#1717)', async () => {
+    const put = (set: string) => db.sql.unsafe(`update product set ${set} where id = '${supplierProduct}'`)
+    const reset = (visibility: string) => put(`approval_status = null, hidden_by = null, status_before_hide = null, sent_back_reason = null, visibility = '${visibility}'`)
+    const saveAs = async (visible: boolean) => {
+      const [row] = await db.sql<{ revision: number }[]>`select revision from product where id = ${supplierProduct}`
+      return gql(save, 'supplier', { id: supplierProduct, revision: row?.revision, input: simple('Anand kurta', { visible }) })
+    }
+    await reset('visible')
+    expect((await saveAs(false)).code).toBeUndefined()
+    expect((await detail('owner', supplierProduct))?.visible).toBe(false)
+    expect((await saveAs(true)).code).toBeUndefined()
+    expect((await detail('owner', supplierProduct))?.visible).toBe(true)
+    expect(await db.sql`select 1 from activity_log where action = 'product.updated' and target_id = ${supplierProduct}`).not.toHaveLength(0)
+    for (const held of ["approval_status = 'pending'", "approval_status = 'sent_back', sent_back_reason = 'Blurry'", "hidden_by = 'plan'", "hidden_by = 'seller_suspended', status_before_hide = 'visible'", "hidden_by = 'seller_removed', status_before_hide = 'visible'"]) {
+      await reset('hidden')
+      await put(held)
+      expect((await saveAs(true)).code).toBe('NOT_SHOWABLE')
+    }
+    await reset('visible')
   })
 
   it('is seen by the merchant as a shared record named for its supplier', async () => {

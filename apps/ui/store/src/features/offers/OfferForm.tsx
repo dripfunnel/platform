@@ -157,6 +157,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
   const ids = { kind: useId(), target: useId(), how: useId(), minimum: useId(), who: useId() }
   const [newGroup, setNewGroup] = useState('')
   const [groupNote, setGroupNote] = useState<string | null>(null)
+  const [groupProblem, setGroupProblem] = useState<string | undefined>()
   const ship = region.ship
   const filter = lists.filters.find((f) => f.values.some((v) => d.filterValueIds.includes(v.id))) ?? lists.filters[0]
   const code = d.code.trim().toUpperCase()
@@ -173,10 +174,11 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
 
   const create = () => {
     const name = newGroup.trim()
-    if (!name) return
+    if (!name) return setGroupProblem(words.groupNameNeeded)
     void onCreateGroup(name).then((id) => {
       if (!id) return
       setNewGroup('')
+      setGroupProblem(undefined)
       setGroupNote(fill(words.groupCreated, { name }))
       set({ groupIds: [...d.groupIds, id] })
     })
@@ -464,7 +466,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
         {d.trigger === 'code' && isNew && (
           <div className="df-offer-single">
             <label className="df-offer-check">
-              <input type="checkbox" checked={d.singleUse} disabled={disabled} onChange={() => set({ singleUse: !d.singleUse, perCustomer: d.singleUse ? d.perCustomer : '1', totalUses: d.singleUse ? d.totalUses : '' })} />
+              <input type="checkbox" checked={d.singleUse} disabled={disabled} onChange={() => set({ singleUse: !d.singleUse, perCustomer: d.singleUse ? d.perCustomer : '1', totalLimited: d.singleUse ? d.totalLimited : false, totalUses: d.singleUse ? d.totalUses : '' })} />
               <strong>{words.singleUse}</strong>
             </label>
             {d.singleUse && (
@@ -561,12 +563,25 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
               </button>
             ))}
             {!disabled && (
-              <span className="df-offer-row">
-                <input value={newGroup} aria-label={words.newGroupLabel} placeholder={words.newGroup} maxLength={60} onChange={(ev) => setNewGroup(ev.target.value)} />
-                <button type="button" className="df-button" onClick={create}>
-                  {words.createGroup}
-                </button>
-              </span>
+              <div className="df-offer-inline">
+                <span className="df-offer-row">
+                  <input
+                    value={newGroup}
+                    aria-label={words.newGroupLabel}
+                    placeholder={words.newGroup}
+                    maxLength={60}
+                    aria-invalid={Boolean(groupProblem) || undefined}
+                    onChange={(ev) => {
+                      setNewGroup(ev.target.value)
+                      setGroupProblem(undefined)
+                    }}
+                  />
+                  <button type="button" className="df-button" onClick={create}>
+                    {words.createGroup}
+                  </button>
+                </span>
+                <Problem text={groupProblem} />
+              </div>
             )}
             {groupNote && <span className="df-offers-good" role="status">{groupNote}</span>}
             {d.groupIds.length > 1 && <span className="df-offers-sub">{words.anyGroup}</span>}
@@ -711,11 +726,11 @@ const When = ({ draft: d, set, errors: e, facts, disabled }: { draft: OfferDraft
         <label className="df-offer-inline">
           <span>{words.total}</span>
           <span className="df-offer-row">
-            <select value={d.totalUses ? 'n' : 'none'} disabled={disabled} onChange={(ev) => set({ totalUses: ev.target.value === 'n' ? '100' : '' })}>
+            <select value={d.totalLimited ? 'n' : 'none'} disabled={disabled} onChange={(ev) => set({ totalLimited: ev.target.value === 'n', totalUses: ev.target.value === 'n' ? '100' : '' })}>
               <option value="none">{words.unlimited}</option>
               <option value="n">{words.limitTo}</option>
             </select>
-            {d.totalUses && <input className="df-offer-small" value={d.totalUses} inputMode="numeric" readOnly={disabled} aria-label={words.totalLabel} aria-invalid={Boolean(e.total) || undefined} onChange={(ev) => set({ totalUses: ev.target.value.replace(/\D/g, '') || '0' })} />}
+            {d.totalLimited && <input className="df-offer-small" value={d.totalUses} inputMode="numeric" readOnly={disabled} aria-label={words.totalLabel} aria-invalid={Boolean(e.total) || undefined} onChange={(ev) => set({ totalUses: ev.target.value.replace(/\D/g, '') })} />}
           </span>
           <span className="df-offers-sub">{d.totalUses ? fill(words.totalStops, { count: d.totalUses }) : words.totalHelp}</span>
         </label>

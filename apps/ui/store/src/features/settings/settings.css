@@ -68,6 +68,39 @@
   grid-column: 1 / -1;
 }
 
+/* Label, hint, box and message take a row each, shared across the grid row, so boxes line up whatever shows (#1611). */
+.df-set-grid--aligned {
+  row-gap: 0;
+  margin-bottom: -12px;
+}
+
+.df-set-grid--aligned > .df-set-field {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  margin-bottom: 12px;
+}
+
+.df-set-grid--aligned > .df-set-field > :is(label, .df-set-label) {
+  grid-row: 1;
+}
+
+.df-set-grid--aligned > .df-set-field > .df-set-help {
+  grid-row: 2;
+  margin-top: 4px;
+}
+
+.df-set-grid--aligned > .df-set-field > :is(input, select, .df-set-pair, .df-phone) {
+  grid-row: 3;
+  margin-top: 4px;
+}
+
+.df-set-grid--aligned > .df-set-field > .df-set-problem {
+  grid-row: 4;
+  margin-top: 4px;
+}
+
 .df-set-field label,
 .df-set-label {
   font-size: 13px;

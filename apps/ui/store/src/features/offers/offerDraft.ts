@@ -67,6 +67,8 @@ export interface OfferDraft {
   startsAt: string
   endsAt: string
   repeat: { days: number[]; from: string; to: string } | null
+  /** "Limit to" is chosen, kept apart from the number so the box can be empty while the merchant types (#1580). */
+  totalLimited: boolean
   totalUses: string
   perCustomer: string
   combines: Offer['combines']
@@ -224,6 +226,7 @@ const blank = (type: OfferKind): OfferDraft => ({
   startsAt: '',
   endsAt: '',
   repeat: null,
+  totalLimited: false,
   totalUses: '',
   perCustomer: type === 'bxgy' || type === 'shipping' ? '' : '1',
   // A new offer combines with nothing; the merchant opts in (#337).
@@ -296,7 +299,7 @@ export const blankDraft = (type: OfferKind, recipe: Recipe | null, ctx: RecipeCo
     case 'vip':
       return { ...d, percent: '15', code: 'VIP15', name: names.vip, who: 'groups' }
     case 'winBack':
-      return { ...d, percent: '15', code: `COMEBACK-${generateCode(5)}`, name: names.winBack, who: 'customers', totalUses: '1' }
+      return { ...d, percent: '15', code: `COMEBACK-${generateCode(5)}`, name: names.winBack, who: 'customers', totalLimited: true, totalUses: '1' }
     default:
       return { ...d, name: fill(messages.offers.editor.defaultNames[d.type], { ship: ctx.ship }) }
   }
@@ -332,6 +335,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
     note: offer.internalName ?? '',
     startsAt: offer.startsAt ? localOf(offer.startsAt, facts.timeZone) : '',
     endsAt: offer.endsAt ? localOf(offer.endsAt, facts.timeZone) : '',
+    totalLimited: Boolean(offer.totalUsesLimit),
     totalUses: offer.totalUsesLimit ? String(offer.totalUsesLimit) : '',
     perCustomer: offer.perCustomerLimit ? String(offer.perCustomerLimit) : '',
     combines: offer.combines,
@@ -452,7 +456,7 @@ export const offerOf = (d: OfferDraft, facts: StoreFacts) => ({
   code: d.trigger === 'code' && !d.singleUse ? d.code.trim().toUpperCase() || null : null,
   startsAt: d.startsAt ? instantOf(d.startsAt, facts.timeZone) : null,
   endsAt: d.endsAt ? endInstantOf(d.endsAt, facts.timeZone) : null,
-  totalUsesLimit: whole(d.totalUses),
+  totalUsesLimit: d.totalLimited ? whole(d.totalUses) : null,
   perCustomerLimit: whole(d.perCustomer),
   combines: d.combines,
   conditions: conditionsOf(d, facts),
@@ -605,7 +609,8 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   else if (starts && ends && ends <= starts) e.ends = words.endsBefore
   if (d.repeat && !d.repeat.days.length) e.repeat = words.repeatDays
   else if (d.repeat && d.repeat.from >= d.repeat.to) e.repeat = words.repeatTimes
-  if (d.totalUses.trim() && !between(d.totalUses, 1, offerLimits.total)) e.total = words.total
+  // "Limit to" with an empty box or 0 is refused, never read as unlimited.
+  if (d.totalLimited && !between(d.totalUses, 1, offerLimits.total)) e.total = words.total
   // Empty is unlimited; anything else must be a whole number the API takes, never read as unlimited.
   if (d.perCustomer.trim() && !between(d.perCustomer, 1, offerLimits.perCustomer)) e.perCustomer = fill(words.perCustomer, { max: formatCount(offerLimits.perCustomer) })
   return e

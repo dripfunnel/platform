@@ -157,6 +157,11 @@
   text-align: left;
 }
 
+/* A link row stacks like a button row, not inline-flex as states.css makes links (#1676). */
+.df-more-panel a.df-button {
+  display: block;
+}
+
 .df-more-panel .df-button:hover:not(:disabled) {
   background: var(--df-color-hover);
 }

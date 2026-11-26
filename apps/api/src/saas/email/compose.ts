@@ -17,7 +17,7 @@ import { downloadUrl } from '#engine/modules/deliveries/index'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
 import { selectKeyCreatorName } from '#db/scoped/apiKeys'
-import { markWishlistReminderSent, selectWishlistReminderToSend, skipWishlistReminder } from '#db/scoped/wishlistReminders'
+import { markWishlistReminderSent, selectWishlistFlow, selectWishlistReminderToSend, skipWishlistReminder } from '#db/scoped/wishlistReminders'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import { defaultReminderStep, defaultReminderSteps, defaultWishlistSteps, mayEmail } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
@@ -115,6 +115,7 @@ const payloads = {
   'gift-card': z.object({ giftCardId: id }),
   'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
   'cart-reminder-test': z.object({ storeId: id, position: z.number().int().min(1).max(3), to: email }),
+  'wishlist-reminder-test': z.object({ storeId: id, position: z.number().int().min(1).max(3), to: email }),
   'wishlist-reminder': z.object({
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
@@ -124,7 +125,6 @@ const payloads = {
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
     lines: z.array(z.object({ name: z.string().max(400), quantity: z.number().int().min(1).max(999), amount: z.string().regex(/^\d{1,18}$/).nullable() })).max(100),
-    wishlist: z.array(z.object({ name: z.string().max(400), amount: z.string().regex(/^\d{1,18}$/).nullable() })).max(4).default([]),
   }),
 } as const
 export type Template = keyof typeof payloads
@@ -612,7 +612,6 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const paragraphs = [
         words.body,
         ...p.lines.map((l) => w.line(l.quantity, l.name, money(l.amount))),
-        ...(p.wishlist.length > 0 ? [w.wishlistTitle, ...p.wishlist.map((i) => w.wishlistLine(i.name, money(i.amount)))] : []),
         ...(r.code && r.code_percent ? [w.code(r.code, r.code_percent)] : []),
       ]
       const note = [w.why(host), w.unsubscribe(`https://${host}/unsubscribe/${token}`), ...(address.length > 0 ? [`${r.store_name}, ${address.join(', ')}`] : [])].join(' ')
@@ -670,6 +669,26 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const paragraphs = [w.test, step?.body ?? '', ...items.map((i) => w.line(1, i.name, null)), ...(percent ? [w.code('BACK-SAMPLE', percent)] : [])].filter((x) => x !== '')
       const brand: Brand = { ...look.brand, name: store.name, supportEmail: null, supportUrl: null }
       const content: EmailContent = { subject: w.testSubject(step?.subject || defaultReminderStep.subject), heading: w.greeting(null), paragraphs, action: { label: w.action, url: `https://${host}/` }, note: w.why(host) }
+      return { send: true, accountSecurity: false, to: [p.to], voice: look.voice, brand, content }
+    }
+    case 'wishlist-reminder-test': {
+      const p = parse(t)
+      if (p.storeId !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const store = await selectStore(tx, p.storeId)
+      if (!store) return { send: false, reason: 'no_recipient' }
+      if (store.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, store.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = (await selectShopHost(tx, p.storeId, hosts.shopDomain)) ?? `${store.code}.example`
+      const saved = (await selectWishlistFlow(tx, p.storeId)).steps.find((x) => x.position === p.position)
+      const step = saved ?? defaultWishlistSteps.find((x) => x.position === p.position)
+      const w = en.wishlistReminder
+      const items = await selectSampleItems(tx, p.storeId)
+      // A sample wishlist and an unsubscribe link that opens nothing; no reminder is recorded for any shopper (Wishlists "Send me a test").
+      const paragraphs = [w.test, step?.body ?? '', ...items.map((i) => w.line(i.name, null))].filter((x) => x !== '')
+      const note = [w.why(host), w.unsubscribe(`https://${host}/unsubscribe/sample`)].join(' ')
+      const brand: Brand = { ...look.brand, name: store.name, supportEmail: null, supportUrl: null }
+      const content: EmailContent = { subject: w.testSubject(step?.subject || defaultWishlistSteps[0].subject), heading: w.greeting(null), paragraphs, action: { label: w.action, url: `https://${host}/account/wishlist/` }, note }
       return { send: true, accountSecurity: false, to: [p.to], voice: look.voice, brand, content }
     }
     case 'store-restored': {

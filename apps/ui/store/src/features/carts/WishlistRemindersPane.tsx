@@ -3,11 +3,12 @@ import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { reminderDelays, reminderText } from '../../api/carts'
-import { loadWishlistReminderSettings, saveWishlistReminderSettings, type WishlistReminderSettings, type WishlistReminderStep } from '../../api/wishlists'
+import { loadWishlistReminderSettings, saveWishlistReminderSettings, sendTestWishlistReminder, type WishlistReminderSettings, type WishlistReminderStep } from '../../api/wishlists'
 import { fill, messages } from '../../messages'
 import { cartRefusal } from './cartActions'
 import type { CartAccess } from './cartView'
 import { AutoCard, FormNotes, RuleChecks, SaveBar, StepHead } from './ReminderParts'
+import { ReminderTest } from './ReminderTest'
 import { stepErrors } from './RemindersPane'
 
 // The Wishlists Reminders tab (FIRST-RELEASE §9): up to three emails after a shopper last saved, who gets them, and a preview.
@@ -33,7 +34,7 @@ const formOf = (s: WishlistReminderSettings): Form => ({
   steps: [...s.steps].sort((a, b) => a.position - b.position).map((x) => ({ ...x })),
 })
 
-export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { access: CartAccess; forced: 'loading' | 'error' | null; sample: WishlistReminderSettings | null; storeName: string }) => {
+export const WishlistRemindersPane = ({ access, forced, sample, storeName, email }: { access: CartAccess; forced: 'loading' | 'error' | null; sample: WishlistReminderSettings | null; storeName: string; email: string }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [orig, setOrig] = useState('')
@@ -42,6 +43,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
   const [stale, setStale] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
+  const [tested, setTested] = useState<string | null>(null)
   const latest = useRef(0)
 
   const load = useCallback(() => {
@@ -107,6 +109,8 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
   }
 
   const step = form.steps[shown] ?? form.steps[0]
+  // A test sends the saved reminder as the plan would, so an unsaved, locked or switched-off one has nothing to send.
+  const testBlock = dirty ? shared.testSaveFirst : lockedStep(shown) ? shared.testLocked : step && !step.enabled ? shared.testOff : null
 
   return (
     <div className="df-reminders">
@@ -165,9 +169,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
 
       {step && (
         <aside className="df-reminders-preview" aria-label={shared.previewLabel}>
-          <div className="df-reminders-preview-head">
-            <span className="df-eyebrow">{fill(shared.previewOf, { n: String(step.position), channel: words.email })}</span>
-          </div>
+          <ReminderTest eyebrow={fill(shared.previewOf, { n: String(step.position), channel: words.email })} canEdit={!ro} canUpgrade={access.canUpgrade} position={step.position} blocked={testBlock} body={words.testBody} email={email} sample={sample !== null} send={sendTestWishlistReminder} onSent={setTested} />
           <div className="df-reminders-mail">
             <div className="df-reminders-mail-head">
               <span>{fill(shared.from, { store: storeName })}</span>
@@ -185,7 +187,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
         </aside>
       )}
 
-      <FormNotes stale={stale} staleText={shared.stale} reloadText={shared.reload} problem={problem} saved={dirty ? null : saved} onReload={() => {
+      <FormNotes stale={stale} staleText={shared.stale} reloadText={shared.reload} problem={problem} saved={dirty ? null : saved} extra={tested} onReload={() => {
           setStale(false)
           load()
         }} />
@@ -196,6 +198,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
             setProblem(null)
             setStale(false)
             setSaved(null)
+            setTested(null)
           }} />
       )}
     </div>

@@ -2,15 +2,12 @@ import { EmptyState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState } from 'react'
 import { scratchTemplate, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
 import { fill, messages } from '../../messages'
-import { isHttps } from '@dripfunnel/shared/format'
 import { chooseRefusal, hasSite } from './overviewView'
 import type { StorefrontApi } from './storefrontApi'
+import { demoUrlOf, TemplateList } from './TemplateList'
 import { wakeStudio } from './useStudioActivity'
-import { SearchSelect } from '../common/SearchSelect'
 
 const words = messages.storefront.gallery
-// Tags are never empty (storefront_template's check), so '' can stand for every category.
-const allTags = ''
 
 export interface TemplateGalleryProps {
   templates: readonly StorefrontTemplate[]
@@ -27,11 +24,6 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(status === 'create_failed' ? words.failed : null)
   const working = useRef(false)
-  const filterId = useId()
-  const [tag, setTag] = useState(allTags)
-  // A template's tag is its category; "Start from scratch" isn't one, so it shows only under All.
-  const tags = [...new Set(templates.filter((t) => t.key !== scratchTemplate).map((t) => t.tag))]
-  const shown = tag === allTags ? templates : templates.filter((t) => t.key !== scratchTemplate && t.tag === tag)
 
   const choose = (template: StorefrontTemplate, keepWords: boolean) => {
     if (working.current) return
@@ -74,63 +66,28 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
       {templates.length === 0 ? (
         <EmptyState title={words.emptyTitle} body={words.emptyBody} />
       ) : (
-        <>
-          {tags.length > 1 && (
-            <div className="df-sf-filter">
-              <span id={filterId}>{words.filter.label}</span>
-              <SearchSelect
-                labelledBy={filterId}
-                options={[{ id: allTags, label: words.filter.all }, ...tags.map((t) => ({ id: t, label: t }))]}
-                value={tag}
-                onChange={setTag}
-                placeholder={words.filter.placeholder}
-                noMatches={words.filter.noMatches}
-              />
-            </div>
-          )}
-          <ul className="df-sf-templates">
-            {shown.map((t) => (
-              <TemplateCard key={t.key} template={t} busy={busy} onPick={() => pick(t)} />
-            ))}
-          </ul>
-        </>
+        <TemplateList
+          templates={templates}
+          isCurrent={(t) => t.current}
+          actions={(t, nameId) => {
+            const demo = demoUrlOf(t)
+            return (
+              <>
+                {demo && (
+                  <a className="df-sf-link" href={demo} target="_blank" rel="noopener noreferrer" aria-describedby={nameId}>
+                    {words.demo}
+                  </a>
+                )}
+                <button type="button" className="df-button df-sf-use" disabled={busy !== null} aria-describedby={nameId} onClick={() => pick(t)}>
+                  {busy === t.key ? words.choosing : t.key === scratchTemplate ? words.scratch : words.use}
+                </button>
+              </>
+            )
+          }}
+        />
       )}
       <KeepWordsDialog template={asking} onCancel={() => setAsking(null)} onChoose={choose} />
     </div>
-  )
-}
-
-const templatePicture = (key: string): string => `${import.meta.env.BASE_URL}templates/${encodeURIComponent(key)}.webp`
-
-const TemplateCard = ({ template, busy, onPick }: { template: StorefrontTemplate; busy: string | null; onPick: () => void }) => {
-  const nameId = useId()
-  const [pictured, setPictured] = useState(true)
-  const scratch = template.key === scratchTemplate
-  return (
-    <li className={`df-sf-template${scratch ? ' df-sf-template--scratch' : ''}${template.current ? ' df-sf-template--current' : ''}`}>
-      {/* One picture per template, the same for every store; a key without one keeps the name tile (FIRST-RELEASE §14). */}
-      <div className="df-sf-template-thumb">
-        {pictured ? <img src={templatePicture(template.key)} alt="" loading="lazy" onError={() => setPictured(false)} /> : <span aria-hidden="true">{template.name}</span>}
-      </div>
-      {template.current && <span className="df-sf-badge">{words.current}</span>}
-      <div className="df-sf-template-body">
-        <div className="df-sf-template-name">
-          <h2 id={nameId}>{template.name}</h2>
-          <span>{template.tag}</span>
-        </div>
-        <p>{template.description}</p>
-        <div className="df-sf-template-actions">
-          {template.demoUrl && isHttps(template.demoUrl) && (
-            <a className="df-sf-link" href={template.demoUrl} target="_blank" rel="noopener noreferrer" aria-describedby={nameId}>
-              {words.demo}
-            </a>
-          )}
-          <button type="button" className="df-button df-sf-use" disabled={busy !== null} aria-describedby={nameId} onClick={onPick}>
-            {busy === template.key ? words.choosing : scratch ? words.scratch : words.use}
-          </button>
-        </div>
-      </div>
-    </li>
   )
 }
 

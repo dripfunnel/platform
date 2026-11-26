@@ -20,6 +20,10 @@ export interface StaffCategoryRow extends StoreCategoryRow {
   store_count: number
   /** DripFunnel ships built-in sample data for it (0401). */
   has_default_sample: boolean
+  /** Its starting template (0409), set by migration. */
+  template_key: string | null
+  template_name: string | null
+  template_tag: string | null
 }
 
 // The Worker's client doesn't parse arrays (pgArray above), so they come back as JSON.
@@ -32,8 +36,10 @@ export const maxStoreCategories = 100
 export const selectCategoriesForStaff = async (tx: ScopedSql, onlyId: string | null = null): Promise<StaffCategoryRow[]> =>
   tx<StaffCategoryRow[]>`
     select ${tx.unsafe(columns)}, (select count(*)::int from store s where s.category_id = c.id) as store_count,
-      exists (select 1 from store_category_default_sample d where d.category_id = c.id) as has_default_sample
+      exists (select 1 from store_category_default_sample d where d.category_id = c.id) as has_default_sample,
+      c.template_key, t.name as template_name, t.tag as template_tag
     from store_category c
+    left join lateral (select name, tag from storefront_template where key = c.template_key) t on true
     ${onlyId === null ? tx`` : tx`where c.id = ${onlyId}`}
     order by archived_at is not null, position, id
     limit ${maxStoreCategories}

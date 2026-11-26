@@ -168,6 +168,80 @@ describe('a new offer', () => {
     expect(within(dialog()).getByText(words.done.off)).toBeTruthy()
   })
 
+  describe('Total uses (#1580)', () => {
+    const totalSelect = () => within(screen.getByText('Total uses').closest('label') as HTMLElement).getByRole('combobox') as HTMLSelectElement
+    const totalBox = () => screen.getByLabelText('Total uses') as HTMLInputElement
+    const limitTo = (value: string) => {
+      fireEvent.change(totalSelect(), { target: { value: 'n' } })
+      fireEvent.change(totalBox(), { target: { value } })
+    }
+    const saveNow = async () => {
+      fireEvent.click(saveButton())
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
+      await settle()
+    }
+    const message = 'Enter 1 or more, or choose Unlimited.'
+
+    it('lets the Limit to box be emptied while Limit to stays chosen, and typing gives just the number', async () => {
+      await show(owner, '/offers/new?recipe=welcome')
+      fireEvent.change(totalSelect(), { target: { value: 'n' } })
+      expect(totalBox().value).toBe('100')
+      expect(screen.getByText('Stops after 100 uses across your whole store.')).toBeTruthy()
+      fireEvent.change(totalBox(), { target: { value: '' } })
+      expect(totalBox().value).toBe('')
+      expect(totalSelect().value).toBe('n')
+      expect(screen.queryByText(/Stops after/)).toBeNull()
+      fireEvent.change(totalBox(), { target: { value: '5' } })
+      expect(totalBox().value).toBe('5')
+      expect(screen.getByText('Stops after 5 uses across your whole store.')).toBeTruthy()
+    })
+
+    it.each(['', '0'])('refuses Limit to with %j in the box on Save, with the box’s message', async (typed) => {
+      await show(owner, '/offers/new?recipe=welcome')
+      limitTo(typed)
+      fireEvent.click(saveButton())
+      expect(screen.getAllByText(message).length).toBeGreaterThan(0)
+      expect(totalBox().getAttribute('aria-invalid')).toBe('true')
+      expect(api.saveOffer).not.toHaveBeenCalled()
+    })
+
+    it('saves the number typed, and Unlimited removes the limit again', async () => {
+      await show(owner, '/offers/new?recipe=welcome')
+      limitTo('5')
+      await saveNow()
+      expect(api.saveOffer).toHaveBeenLastCalledWith(null, null, expect.objectContaining({ totalUsesLimit: 5 }))
+      cleanup()
+      api.saveOffer.mockClear()
+      await show(owner, '/offers/new?recipe=welcome')
+      limitTo('5')
+      fireEvent.change(totalSelect(), { target: { value: 'none' } })
+      expect(screen.queryByLabelText('Total uses')).toBeNull()
+      touch()
+      await saveNow()
+      expect(api.saveOffer).toHaveBeenLastCalledWith(null, null, expect.objectContaining({ totalUsesLimit: null }))
+    })
+
+    it('does not warn that a code has no limits once Limit to is chosen, even while its box is empty', async () => {
+      await show(owner, '/offers/new?recipe=welcome')
+      const perCustomer = within(screen.getByText('Uses per customer').closest('label') as HTMLElement).getByRole('combobox')
+      fireEvent.change(perCustomer, { target: { value: '' } })
+      expect(screen.getByText(words.warns.openCode)).toBeTruthy()
+      fireEvent.change(totalSelect(), { target: { value: 'n' } })
+      expect(screen.queryByText(words.warns.openCode)).toBeNull()
+      fireEvent.change(totalBox(), { target: { value: '' } })
+      expect(screen.queryByText(words.warns.openCode)).toBeNull()
+      fireEvent.change(totalSelect(), { target: { value: 'none' } })
+      expect(screen.getByText(words.warns.openCode)).toBeTruthy()
+    })
+
+    it('shows an existing offer’s limit when it is edited', async () => {
+      api.loadOffer.mockResolvedValue({ ...welcome, totalUsesLimit: 250 })
+      await show(owner, '/offers/o1/edit')
+      expect(totalSelect().value).toBe('n')
+      expect(totalBox().value).toBe('250')
+    })
+  })
+
   it('schedules an offer with a start date ahead, in the store’s time zone', async () => {
     await show(owner, '/offers/new?recipe=welcome')
     fireEvent.change(screen.getAllByRole('combobox').find((c) => (c as HTMLSelectElement).value === 'now') as HTMLElement, { target: { value: 'date' } })
@@ -355,6 +429,40 @@ describe('a new offer', () => {
     await show({ ...owner, store: { id: 's2', name: 'Aurelia Home' } }, '/offers/new?recipe=welcome')
     expect(screen.queryByText(words.kept.title)).toBeNull()
     expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
+  })
+})
+
+describe('a new customer group in the offer editor', () => {
+  const openGroups = async () => {
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(`^${words.who.groups.title}`) }))
+  }
+  const box = () => screen.getByRole('textbox', { name: words.newGroupLabel })
+
+  it('says a name is needed, marks the box and creates nothing, for an empty or spaces-only name (#1699)', async () => {
+    await openGroups()
+    for (const typed of ['', '   ']) {
+      fireEvent.change(box(), { target: { value: typed } })
+      fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+      await settle()
+      expect(screen.getByRole('alert').textContent).toBe(words.groupNameNeeded)
+      expect(box().getAttribute('aria-invalid')).toBe('true')
+      expect(lists.createGroup).not.toHaveBeenCalled()
+    }
+  })
+
+  it('clears the message when the merchant types, and still creates a valid name (#1699)', async () => {
+    lists.createGroup.mockResolvedValue('g2')
+    await openGroups()
+    fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+    expect(screen.getByRole('alert').textContent).toBe(words.groupNameNeeded)
+    fireEvent.change(box(), { target: { value: 'Wholesale' } })
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(box().getAttribute('aria-invalid')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.createGroup }))
+    await settle()
+    expect(lists.createGroup).toHaveBeenCalledWith('Wholesale')
+    expect(screen.getByText(/Group “Wholesale” created/)).toBeTruthy()
   })
 })
 

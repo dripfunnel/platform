@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
+import { demoServed } from './demoStores'
 import { maxPageSize, pgArray, type ScopedSql } from './index'
-import { storefrontHostOf } from './publishing'
 
 // The Storefront area's rows as the Store API reads and the studio writes them (DATA-MODEL §7.8): the template gallery
 // (platform data, read in system scope), the chat, and the store's design state. Every read names the context's store.
@@ -10,15 +10,15 @@ export interface TemplateRow {
   name: string
   tag: string
   description: string
-  /** The demo store's live address, when it has one. */
-  demo_host: string | null
+  /** The demo host serves its demo (storefront PREVIEW.md §9). */
+  demo_ready: boolean
 }
 
 /** The gallery in a fixed order, Classic, "Start from scratch", then the rest by key (storefront ARCHITECTURE §2.3); one page of at most `maxPageSize`. */
-export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null): Promise<TemplateRow[]> =>
+export const selectOfferedTemplates = (tx: ScopedSql): Promise<TemplateRow[]> =>
   tx<TemplateRow[]>`
-    select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx, shopDomain)} end as demo_host
-    from storefront_template t left join store s on s.id = t.demo_store_id
+    select t.key, t.name, t.tag, t.description, ${demoServed(tx)} as demo_ready
+    from storefront_template t
     where t.state = 'offered'
     order by t.key = 'classic' desc, t.key = 'baseline' desc, t.key
     limit ${maxPageSize}`

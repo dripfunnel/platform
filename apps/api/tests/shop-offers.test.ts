@@ -196,11 +196,15 @@ describe('codes (OFFERS fact 6, O3)', () => {
     expect(removed.cart).toEqual({ codes: [], discount: { amount: '0' } })
   })
 
-  it('keeps a code whose conditions the cart doesn’t meet yet, and applies it once it does', async () => {
+  it('does not add a code whose conditions the cart doesn’t meet, and holds it once the cart does (#1644)', async () => {
     await offer({ name: 'Big order', code: 'BIG500', action: { operation: 'order_fixed_discount', amounts: { INR: '50000' } }, conditions: [{ operation: 'minimum_order_amount', amounts: { INR: '200000' } }] })
     const token = await add(kurta, 1)
-    expect((await apply(token, 'BIG500')).state).toBe('NOT_ELIGIBLE')
+    const refused = await apply(token, 'BIG500')
+    expect([refused.state, refused.cart.codes]).toEqual(['NOT_ELIGIBLE', []])
+    expect((await cartOf(token)).codes).toEqual([])
     await add(kurta, 1, token)
+    const met = await apply(token, 'BIG500')
+    expect([met.state, met.cart.codes]).toEqual(['APPLIED', [{ code: 'BIG500', state: 'APPLIED' }]])
     expect((await cartOf(token)).codes).toEqual([{ code: 'BIG500', state: 'APPLIED' }])
   })
 
@@ -425,14 +429,38 @@ describe('the codes a cart holds', () => {
   it('holds five at most, and keeps both of two codes applied at once from two tabs', async () => {
     await off()
     for (const code of ['TABA', 'TABB', 'C3', 'C4', 'C5', 'C6'].map((c) => `${c}-CODE`)) {
-      await offer({ name: code, code, action: { operation: 'order_fixed_discount', amounts: { INR: '100' } }, conditions: [{ operation: 'minimum_quantity', minimum: 50 }] })
+      await offer({ name: code, code, action: { operation: 'order_fixed_discount', amounts: { INR: '100' } } })
     }
     const token = await add(kurta, 1)
     const [a, b] = await Promise.all([apply(token, 'TABA-CODE'), apply(token, 'TABB-CODE')])
-    expect([a.state, b.state]).toEqual(['NOT_ELIGIBLE', 'NOT_ELIGIBLE'])
+    // Each answer is priced as its own change committed, so the tab that took the lock second may read DOESNT_COMBINE or APPLIED.
+    for (const state of [a.state, b.state]) expect(['APPLIED', 'DOESNT_COMBINE']).toContain(state)
     expect((await cartOf(token)).codes.map((c) => c.code).sort()).toEqual(['TABA-CODE', 'TABB-CODE'])
-    for (const code of ['C3-CODE', 'C4-CODE', 'C5-CODE']) expect((await apply(token, code)).state).toBe('NOT_ELIGIBLE')
+    for (const code of ['C3-CODE', 'C4-CODE', 'C5-CODE']) expect((await apply(token, code)).state).toBe('DOESNT_COMBINE')
     expect((await apply(token, 'C6-CODE')).code).toBe('TOO_MANY_CODES')
+  })
+
+  it('drops its codes when its last line is taken out, for a guest and a signed-in shopper (#1694)', async () => {
+    await off()
+    await offer({ name: 'Emptied', code: 'EMPTIED10', action: { operation: 'order_percentage_discount', percent: 10 } })
+    for (const email of [null, 'emptied@example.com']) {
+      session = null
+      if (email) await signIn(email)
+      const token = await add(kurta, 1)
+      expect((await apply(token, 'EMPTIED10')).state).toBe('APPLIED')
+      await shop(`mutation { setCartQuantity(versionId: "${kurta}", quantity: 0) { cart { id } } }`, token)
+      await add(scarf, 1, token)
+      expect({ email, codes: (await cartOf(token)).codes }).toEqual({ email, codes: [] })
+    }
+    session = null
+  })
+
+  it('keeps its codes while another line remains', async () => {
+    const token = await add(kurta, 1)
+    await add(scarf, 1, token)
+    expect((await apply(token, 'EMPTIED10')).state).toBe('APPLIED')
+    await shop(`mutation { setCartQuantity(versionId: "${kurta}", quantity: 0) { cart { id } } }`, token)
+    expect((await cartOf(token)).codes).toEqual([{ code: 'EMPTIED10', state: 'APPLIED' }])
   })
 })
 

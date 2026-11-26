@@ -1,3 +1,4 @@
+import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
 import { wishlistTabs, type WishlistShopperRow, type WishlistSummaryRow, type WishlistTab } from '#db/scoped/wishlist'
 import type { WishlistReminderRow } from '#db/scoped/wishlistReminders'
@@ -39,7 +40,7 @@ export const registerWishlists = (builder: StoreBuilder) => {
     return createWishlistRemindersService({
       sql,
       context: caller.context,
-      actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+      actor: { id: caller.person.id, partnerId: caller.person.partnerId, email: caller.person.email },
       activity: ctx.activity,
       facts: ctx.facts,
       level: () => allowanceFor(sql, caller.context, 'cart_reminders', ctx.now()),
@@ -187,6 +188,17 @@ export const registerWishlists = (builder: StoreBuilder) => {
       args: { customerId: t.arg.id({ required: true }) },
       extensions: { access: write(wishlistRemindersAudit.resumed) },
       resolve: async (_, args, ctx) => answer(ctx, await reminders(ctx).resume(String(args.customerId))),
+    }),
+    // "Send me a test" of one step, to the person's own email only (#1645).
+    sendTestWishlistReminder: t.boolean({
+      args: { position: t.arg.int({ required: true }) },
+      extensions: { access: write(wishlistRemindersAudit.testSent) },
+      resolve: async (_, args, ctx) => {
+        const caller = actingCaller(ctx)
+        const allowed = ctx.allowCodeCheck ? await ctx.allowCodeCheck(`test-wishlist-reminder:${caller.context.storeId}:${caller.person.id}`) : false
+        if (!allowed) throw new GraphQLError('Too many tests. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
+        return answer(ctx, await reminders(ctx).sendTest(args.position))
+      },
     }),
     // The whole tab at the revision it was read at (null before the first save); answers the new revision.
     saveWishlistReminderSettings: t.int({

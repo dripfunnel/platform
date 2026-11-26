@@ -32,13 +32,14 @@ export const EntitlementMatrix = ({ draft, ceilings, disabled, onToggle, onNumbe
     if (def.kind === 'switch') {
       const powered = key === 'powered_by_removal'
       const over = powered && draft.toggles[key] === true && !ceilings.powered.allowed
+      const refused = powered && !ceilings.powered.allowed && draft.toggles[key] !== true
       return (
         <li key={key}>
           {name}
           <span className="df-matrix-kind">{kindOf(def)}</span>
           <div className="df-stack">
-            <label className="df-matrix-toggle">
-              <input type="checkbox" checked={draft.toggles[key] === true} disabled={disabled} aria-invalid={over} aria-describedby={over ? 'ceiling-powered' : undefined} onChange={(event) => onToggle(key, event.target.checked)} />
+            <label className={refused ? 'df-matrix-toggle df-matrix-toggle--refused' : 'df-matrix-toggle'}>
+              <input type="checkbox" checked={draft.toggles[key] === true} disabled={disabled || refused} aria-invalid={over} aria-describedby={over ? 'ceiling-powered' : undefined} onChange={(event) => onToggle(key, event.target.checked)} />
               {words.includedLabel}
             </label>
             {over && (

@@ -10,6 +10,8 @@ export interface EditorAccess {
   canStock: boolean
   /** The store's own settings on a product: whether it shows, its tax category, deleting it. */
   storeFields: boolean
+  /** The Visible / Hidden choice: the merchant's, and a supplier's on its own saved product (#1717). */
+  canShowHide: boolean
   viewOnly: boolean
   readOnlyStore: boolean
 }
@@ -26,6 +28,7 @@ export const editorAccessOf = (acting: { permissions: readonly string[]; seller:
     proposes,
     canStock: !readOnly && has('stock.write'),
     storeFields: canEdit && !supplier,
+    canShowHide: canEdit && (!supplier || (writes && !isNew)),
     viewOnly: !readOnly && !canEdit,
     readOnlyStore: readOnly,
   }

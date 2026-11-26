@@ -35,6 +35,7 @@ const sent: OutgoingEmail[] = []
 const ses: SesApi = { send: async (email) => (sent.push(email), { messageId: `m-${sent.length}` }) }
 const facts = { requestId: 'r', ip: '203.0.113.5', userAgent: null }
 const products: Record<string, { product: string; version: string }> = {}
+let allowTest = true
 
 const gql = async (source: string, who: { session?: string; cart?: string; on?: string } = {}) => {
   const on = who.on ?? host
@@ -52,7 +53,7 @@ const merchant = async (source: string, who: keyof typeof cookies, as: { support
     as.support && resolved.kind === 'acting'
       ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
       : resolved
-  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() }
+  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, allowCodeCheck: async () => allowTest, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -248,26 +249,12 @@ describe('abandonedCart.wishlist and the reminder email', () => {
     expect((await wishlistOf(cart, 'surat')).items).toBeNull()
   })
 
-  it('puts "Still on your wishlist" in the reminder with at most 4 items, under the cart’s lines, and none for a guest', async () => {
+  it('keeps the wishlist out of the cart reminder: only the cart’s lines (#1702)', async () => {
     await remind()
-    const mail = sent.find((e) => e.to.includes('asha@example.com'))
-    const text = mail?.text ?? ''
-    expect(text).toContain('Still on your wishlist')
-    expect(text.indexOf('1 × Kurta')).toBeLessThan(text.indexOf('Still on your wishlist'))
-    for (const name of ['Lehenga', 'Dupatta', 'Stole', 'Shawl']) expect(text).toContain(name)
-    for (const name of ['Scarf', 'Sold out', 'Hidden']) expect(text).not.toContain(name)
-    const guestMail = sent.find((e) => e.to.includes('guest@example.com'))
-    expect(guestMail?.text).toBeTruthy()
-    expect(guestMail?.text).not.toContain('wishlist')
-  })
-
-  it('leaves the block out for a signed-in shopper whose wishlist is empty', async () => {
-    const empty = await signIn('+919845055555')
-    await left(empty, 'bare@example.com', products['Kurta']?.version ?? '')
-    await remind()
-    const mail = sent.find((e) => e.to.includes('bare@example.com'))
-    expect(mail?.text).toContain('Kurta')
-    expect(mail?.text).not.toContain('wishlist')
+    const text = sent.find((e) => e.to.includes('asha@example.com'))?.text ?? ''
+    expect(text).toContain('1 × Kurta')
+    expect(text).not.toContain('wishlist')
+    for (const name of ['Lehenga', 'Dupatta', 'Stole', 'Shawl', 'Scarf', 'Sold out', 'Hidden']) expect(text).not.toContain(name)
   })
 })
 
@@ -483,6 +470,30 @@ describe('wishlist reminders on the Store API: the sequence, and one shopper’s
     expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['resumeWishlistReminders']).toBe(true)
     expect((await detail())?.shopper.stoppedAt).toBeNull()
     expect(await audits('wishlist.reminders_resumed', customerId)).toBe(1)
+  })
+
+  it('sends a test of a step to the person’s own address only, once a press, limited, audited, counted nowhere, and never for Staff (#1645)', async () => {
+    const saved = (await settingsOf('owner'))?.steps.find((x) => x.position === 1)
+    const reminders = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from wishlist_reminder where store_id = ${store}`)[0]?.n ?? 0
+    const before = { mail: sent.length, rows: await reminders() }
+    expect((await merchant('mutation { sendTestWishlistReminder(position: 1) }', 'owner')).data?.['sendTestWishlistReminder']).toBe(true)
+    for (let i = 0; i < 3; i++) await relay()
+    const mails = sent.slice(before.mail)
+    expect(mails.map((m) => m.to)).toEqual([['owner@jaipur.example']])
+    expect(mails[0]?.subject).toBe(`[Test] ${saved?.subject}`)
+    expect(['See your wishlist', 'sample wishlist', 'Unsubscribe', 'saved products to your wishlist'].filter((x) => !mails[0]?.text.includes(x))).toEqual([])
+    expect(await reminders()).toBe(before.rows)
+    const [logged] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'wishlist.test_reminder_sent' and store_id = ${store} and result = 'success'`
+    expect(logged?.n).toBe(1)
+    expect((await merchant('mutation { sendTestWishlistReminder(position: 4) }', 'owner')).code).toBe('INVALID_INPUT')
+    expect((await merchant('mutation { sendTestWishlistReminder(position: 0) }', 'owner')).code).toBe('INVALID_INPUT')
+    for (const who of ['staff', 'supplier'] as const) expect((await merchant('mutation { sendTestWishlistReminder(position: 1) }', who)).code).toBe('FORBIDDEN')
+    expect((await merchant('mutation { sendTestWishlistReminder(position: 1) }', 'owner', { support: 'read' })).code).toBe('READ_ONLY')
+    allowTest = false
+    expect((await merchant('mutation { sendTestWishlistReminder(position: 1) }', 'owner')).code).toBe('RATE_LIMITED')
+    allowTest = true
+    for (let i = 0; i < 3; i++) await relay()
+    expect(sent.length).toBe(before.mail + 1)
   })
 
   it('refuses a note that is too long, Staff, a supplier, and another store’s owner', async () => {

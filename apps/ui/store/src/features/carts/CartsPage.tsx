@@ -197,7 +197,7 @@ export const CartsPage = () => {
       {pane === 'reminders' ? (
         <RemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={settingsSample} storeName={acting.store.name} email={me.email} />
       ) : pane === 'wishlist-reminders' ? (
-        <WishlistRemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={wishlistSettingsSample} storeName={acting.store.name} />
+        <WishlistRemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={wishlistSettingsSample} storeName={acting.store.name} email={me.email} />
       ) : pane === 'wishlists' ? (
         <WishlistsPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={wishlistSample} state={forced ?? undefined} />
       ) : !countsRead && forced !== 'error' ? (

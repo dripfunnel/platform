@@ -22,13 +22,17 @@ export const customerExportFilter = z
   })
   .strict()
 
-const header = ['name', 'email', 'phone', 'city', 'orders', 'spent', 'currency', 'tags', 'groups', 'marketing consent']
+const header = [
+  'name', 'email', 'phone', 'street address', 'flat, floor or building', 'city', 'state or region', 'postal code', 'country',
+  'orders', 'spent', 'currency', 'tags', 'groups', 'note', 'marketing consent',
+]
 
 // One row a customer, or a row a currency for one who has paid in more than one.
 export const customersCsv = (rows: readonly CustomerExportRow[], truncatedAt: number | null): string => {
   const lines = rows.flatMap((r) => {
-    const base = [r.name, r.email, r.phone, r.city, r.orders] as const
-    const tail = [r.tags.join('; '), r.groups.join('; '), r.consent_state] as const
+    const a = r.address
+    const base = [r.name, r.email, r.phone, a?.line1, a?.line2, a?.city, a?.region, a?.postalCode, a?.country, r.orders] as const
+    const tail = [r.tags.join('; '), r.groups.join('; '), r.note, r.consent_state] as const
     if (r.spent.length === 0) return [csvLine([...base, null, null, ...tail])]
     return r.spent.map((s) => csvLine([...base, { amount: BigInt(s.amount), currency: s.currency }, s.currency, ...tail]))
   })

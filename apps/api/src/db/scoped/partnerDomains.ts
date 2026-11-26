@@ -96,7 +96,7 @@ export const updateRecordChecks = async (tx: ScopedSql, checks: readonly { id: s
 export const selectDuePartnerDomains = (tx: ScopedSql, before: Date, limit: number): Promise<{ id: string; partner_id: string }[]> =>
   tx<{ id: string; partner_id: string }[]>`
     select id, partner_id from partner_domain
-    where status in ('waiting', 'failed') and (checked_at is null or checked_at < ${before})
+    where status in ('waiting', 'failed', 'verifying', 'issuing') and (checked_at is null or checked_at < ${before})
     order by checked_at nulls first, id
     limit ${limit}
   `

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cx } from '../cx'
-import { CodeField, EditAnswers, Image, LineAnswers, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
+import { CodeField, EditAnswers, Image, LineAnswers, Link, OrderSummary, Price, useAvailableOffers, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
@@ -23,7 +23,11 @@ const Plus = () => (
 export const CartView = () => {
   const { store, locale, t } = useStorefront()
   const page = useCart()
-  const [codeNote, setCodeNote] = useState<{ words: string; refused: boolean } | null>(null)
+  const offers = useAvailableOffers()
+  const [codeNote, setCodeNote] = useState<{ code: string; words: string; refused: boolean } | null>(null)
+  const applyOffer = async (code: string) => {
+    if (await offers.apply(code)) setCodeNote({ code, words: t('shop.cart.codes.applied'), refused: false })
+  }
   const codeWord = (state: string) =>
     state === 'APPLIED'
       ? t('shop.cart.codes.applied')
@@ -93,6 +97,9 @@ export const CartView = () => {
     )
   }
   const blocked = cart.lines.some((l) => l.problem !== null)
+  const stale = codeNote !== null && !codeNote.refused && !cart.codes.some((c) => c.state === 'APPLIED' && c.code.toUpperCase() === codeNote.code.toUpperCase())
+  if (stale) setCodeNote(null)
+  const note = stale ? null : codeNote
   return (
     <section className={cx(shop.page, styles.page)}>
       <h1 className={shop.title}>{t('shop.cart.title')}</h1>
@@ -147,15 +154,53 @@ export const CartView = () => {
             {t('shop.cart.summary')}
           </h2>
           <OrderSummary cart={cart} at="cart" locale={locale} t={t} className={styles.summary} />
+          {offers.status === 'loading' || offers.status === 'error' || offers.offers.length > 0 ? (
+            <div className={styles.offers}>
+              <h3 className={styles.offersTitle}>{t('shop.cart.offers.title')}</h3>
+              {offers.status === 'loading' ? (
+                <>
+                  <span className={shop.skeletonShort} />
+                  <p className={shop.srOnly}>{t('shop.cart.offers.loading')}</p>
+                </>
+              ) : null}
+              {offers.status === 'error' ? (
+                <p className={styles.offersNote} role="alert">
+                  {t('shop.cart.offers.failed')}{' '}
+                  <button type="button" className={styles.remove} onClick={offers.retry}>
+                    {t('shop.listing.retry')}
+                  </button>
+                </p>
+              ) : null}
+              {offers.offers.length ? (
+                <ul className={styles.offerList}>
+                  {offers.offers.map((o) => (
+                    <li key={o.code} className={styles.offer}>
+                      <span className={styles.offerName}>{o.name}</span>
+                      <span className={styles.offerSaves}>{t('shop.cart.offers.saves', { amount: o.savesText })}</span>
+                      <span className={styles.offerCode}>{t('shop.cart.offers.code', { code: o.code })}</span>
+                      <button type="button" className={styles.offerApply} disabled={offers.applying !== null} aria-label={t('shop.cart.offers.applyCode', { name: o.name })} onClick={() => void applyOffer(o.code)}>
+                        {t('shop.cart.apply')}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {offers.refused ? (
+                <p className={styles.problem} role="alert">
+                  {offers.refused === 'UNKNOWN' ? t('shop.cart.changeFailed') : codeWord(offers.refused)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <CodeField
             label={t('shop.cart.code')}
             button={t('shop.cart.apply')}
-            message={codeNote?.words ?? null}
-            refused={codeNote?.refused ?? false}
+            message={note?.words ?? null}
+            refused={note?.refused ?? false}
             className={styles.code}
             onApply={async (code) => {
               const state = await page.applyCode(code)
-              setCodeNote({ words: state ? codeWord(state) : t('shop.cart.changeFailed'), refused: state !== 'APPLIED' })
+              setCodeNote({ code, words: state ? codeWord(state) : t('shop.cart.changeFailed'), refused: state !== 'APPLIED' })
               return state === 'APPLIED'
             }}
           />

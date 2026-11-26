@@ -11,7 +11,7 @@ const words = messages.customers.editForm
 export const EditCustomer = ({ customer, busy, act, onDone }: { customer: Customer; busy: boolean; act: (work: () => Promise<void>, done: string, onRefused?: (error: unknown) => boolean) => Promise<boolean>; onDone: () => void }) => {
   const [name, setName] = useState(customer.name ?? '')
   const [phone, setPhone] = useState(customer.phone ?? '')
-  const [address, setAddress] = useState(() => addressDraftOf(defaultAddress(customer)))
+  const [address, setAddress] = useState(() => addressDraftOf(defaultAddress(customer) ?? customer.lastShipTo?.address ?? null))
   const [fault, setFault] = useState<CustomerFault | null>(null)
   const first = useRef<HTMLInputElement>(null)
   useEffect(() => first.current?.focus(), [])
