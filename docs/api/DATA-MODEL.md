@@ -1066,7 +1066,9 @@ custom_domain (+ columns) is_primary, checks_until             -- is_primary bui
                     -- states (SAAS §8): "Add the record" = waiting, "We check it" =
                     -- verifying, "Security certificate" = issuing, "Live" = live; failed
                     -- shows the record looked for and checked_at. checks_until = first
-                    -- check + 3 days (every 15 minutes); one row per store: one domain per
+                    -- check + 3 days (every 15 minutes); built so far: verifying and issuing
+                    -- domains are re-checked every 15 minutes with no end (SAAS §8),
+                    -- waiting ones only on Check now; one row per store: one domain per
                     -- store, never per market (§6). Built: host unique on lower(host); one row
                     -- per store is enforced by the service, not yet by an index
                     -- #471 (0291): is_primary, the address the others redirect to (SAAS §8),
