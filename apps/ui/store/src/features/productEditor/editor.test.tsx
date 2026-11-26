@@ -421,12 +421,7 @@ describe('the product editor', () => {
   })
 
   describe('Duplicate (#1446)', () => {
-    const menu = () => screen.queryByRole('button', { name: /^More actions for/ }) as HTMLButtonElement | null
-    const duplicate = () => {
-      const button = menu()
-      if (button && button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
-      return screen.queryByRole('menuitem', { name: messages.products.duplicate }) as HTMLButtonElement | null
-    }
+    const duplicate = () => screen.queryByRole('button', { name: messages.products.duplicate }) as HTMLButtonElement | null
 
     it('makes one copy from an open product, and opens it with the message', async () => {
       listApi.duplicateProduct.mockResolvedValue('p2')
@@ -471,11 +466,11 @@ describe('the product editor', () => {
       expect(listApi.duplicateProduct).toHaveBeenCalledTimes(1)
     })
 
-    it('is in a ⋮ menu beside Delete, not a button of its own, and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
+    it('is a button beside Delete, with no ⋮ menu (#1748), and is not there on a new product, for Staff, for a seat that can only propose, or in a read-only store', async () => {
       await show(owner)
-      expect(screen.queryByRole('button', { name: messages.products.duplicate })).toBeNull()
-      expect(menu()?.getAttribute('aria-haspopup')).toBe('menu')
+      expect(screen.queryByRole('button', { name: /^More actions for/ })).toBeNull()
       expect(duplicate()).toBeTruthy()
+      expect(screen.getByRole('button', { name: words.delete })).toBeTruthy()
       cleanup()
       await show(owner, '/products/new')
       expect(duplicate()).toBeNull()
@@ -566,7 +561,7 @@ describe('the product editor', () => {
     expect(screen.getByText(words.banner.stockOnly)).toBeTruthy()
     expect(field(words.name.label).readOnly).toBe(true)
     expect(screen.queryByRole('button', { name: words.save })).toBeNull()
-    expect(screen.getByRole('button', { name: words.stock.saveStock })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.stock.saveStock })).toBeNull()
   })
 
   it('shows staff and a read-only store the product without a way to change it', async () => {
@@ -943,6 +938,8 @@ const issued = (id: string, last4: string | null) => ({ id, last4, recipientName
 const dialog = () => document.querySelector('dialog') as HTMLElement
 const labelled = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement
 const saveButton = () => screen.getAllByRole('button', { name: words.save })[0] as HTMLElement
+// Save lives in the bar that shows once something changes (#1748), so before an edit there is none.
+const noSave = (name: string = words.save) => expect(screen.queryAllByRole('button', { name })).toHaveLength(0)
 const deferred = <T,>() => {
   let resolve: (value: T) => void = () => undefined
   const promise = new Promise<T>((r) => (resolve = r))
@@ -1416,7 +1413,7 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
       await show(owner)
       fireEvent.click(open('S').getByRole('button', { name: words.cancel }))
       expect(screen.queryByText(words.versions.notMade)).toBeNull()
-      expect((saveButton() as HTMLButtonElement).disabled).toBe(true)
+      noSave()
       fireEvent.click(open('S').getByRole('button', { name: words.versions.hideConfirm }))
       expect(screen.getByRole('button', { name: 'Show S' })).toBeTruthy()
       expect(screen.queryByText(words.versions.notMade)).toBeNull()
@@ -1620,7 +1617,7 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
       fireEvent.click(within(dialog()).getByRole('button', { name: /Blue – front/ }))
       fireEvent.click(within(dialog()).getByRole('button', { name: words.cancel }))
       expect(document.querySelector('dialog')).toBeNull()
-      expect((saveButton() as HTMLButtonElement).disabled).toBe(true)
+      noSave()
     })
 
     it('takes a version back to the main photo with “Use the main photo”', async () => {
@@ -1703,13 +1700,14 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
 describe('Save, only when there is something to save (#1223)', () => {
   const top = (name: string = words.save) => screen.getAllByRole('button', { name })[0] as HTMLButtonElement
 
-  it('is greyed out on opening a product with no changes, turns on with a change and off again when it is undone', async () => {
+  it('is not there on opening a product with no changes, shows once with a change and goes again when it is undone', async () => {
     await show(owner)
-    expect(top().disabled).toBe(true)
+    noSave()
     fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    expect(screen.getAllByRole('button', { name: words.save })).toHaveLength(1)
     expect(top().disabled).toBe(false)
     fireEvent.change(field(words.name.label), { target: { value: 'Block-print Cushion' } })
-    expect(top().disabled).toBe(true)
+    noSave()
   })
 
   it('says how many things need fixing when Save is chosen with a problem, and scrolls to the first (#1327)', async () => {
@@ -1732,7 +1730,7 @@ describe('Save, only when there is something to save (#1223)', () => {
     expect(scrolled.mock.contexts.at(-1)).toBe(field(words.name.label))
   })
 
-  it('shows a spinner beside Saving… on both Save buttons while it saves, and none otherwise (#1327)', async () => {
+  it('shows a spinner beside Saving… on the one Save button while it saves, and none otherwise (#1327)', async () => {
     const answer = deferred<{ id: string; revision: number; approval: null }>()
     api.saveProduct.mockReturnValue(answer.promise)
     await show(owner)
@@ -1742,14 +1740,14 @@ describe('Save, only when there is something to save (#1223)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     const saving = screen.getAllByRole('button', { name: words.saving })
-    expect(saving).toHaveLength(2)
+    expect(saving).toHaveLength(1)
     for (const button of saving) expect(button.querySelector('.df-editor-spinner[aria-hidden="true"]')).toBeTruthy()
     answer.resolve({ id: 'p1', revision: 3, approval: null })
     await settle()
     expect(document.querySelector('.df-editor-spinner')).toBeNull()
   })
 
-  it('is greyed out and reads Saving… while it saves, then stays greyed out with the toast until the next change', async () => {
+  it('is greyed out and reads Saving… while it saves, then goes with the toast until the next change', async () => {
     const answer = deferred<{ id: string; revision: number; approval: null }>()
     api.saveProduct.mockReturnValue(answer.promise)
     await show(owner)
@@ -1761,7 +1759,7 @@ describe('Save, only when there is something to save (#1223)', () => {
     answer.resolve({ id: 'p1', revision: 3, approval: null })
     await settle()
     expect(screen.getByText(words.saved)).toBeTruthy()
-    expect(top().disabled).toBe(true)
+    noSave()
     fireEvent.change(field(words.name.label), { target: { value: 'Renamed again' } })
     expect(top().disabled).toBe(false)
   })
@@ -1795,9 +1793,9 @@ describe('Save, only when there is something to save (#1223)', () => {
     expect(top().disabled).toBe(false)
   })
 
-  it('turns on for a stock count, a collection or a gift card’s details alone', async () => {
+  it('shows for a stock count, a collection or a gift card’s details alone', async () => {
     await show(owner)
-    expect(top().disabled).toBe(true)
+    noSave()
     fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '30' } })
     expect(top().disabled).toBe(false)
     cleanup()
@@ -1810,16 +1808,16 @@ describe('Save, only when there is something to save (#1223)', () => {
     kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: 60, shortestMonths: 60 } }))
     kindApi.loadGiftCards.mockResolvedValue({ rows: [], next: null })
     await show(owner)
-    expect(top().disabled).toBe(true)
+    noSave()
     fireEvent.change(screen.getByLabelText(kinds.giftCard.expiry), { target: { value: 'never' } })
     expect(top().disabled).toBe(false)
   })
 
-  it('is greyed out on Add product until something is typed, and again once the product is saved', async () => {
+  it('is not there on Add product until something is typed, and goes again once the product is saved', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
     api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
     const router = await show(owner, '/products/new')
-    expect(top(words.saveNew).disabled).toBe(true)
+    noSave(words.saveNew)
     fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
     fireEvent.change(field(words.price.price), { target: { value: '1299' } })
     expect(top(words.saveNew).disabled).toBe(false)
@@ -1827,20 +1825,20 @@ describe('Save, only when there is something to save (#1223)', () => {
     await settle()
     await settle()
     expect(router.state.location.pathname).toBe('/products/p9')
-    expect(top().disabled).toBe(true)
+    noSave()
   })
 
-  it('keeps a sent-back supplier product’s Submit greyed out until it is edited, as it is for any product with nothing to send', async () => {
+  it('keeps a sent-back supplier product’s Submit away until it is edited, as it is for any product with nothing to send', async () => {
     api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'sent_back', sentBackReason: 'Sharper photo please', readiness: null }))
     await show(supplier)
-    expect(top(words.submit).disabled).toBe(true)
+    noSave(words.submit)
     fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
     expect(top(words.submit).disabled).toBe(false)
   })
 
-  it('is greyed out for a Stock-only seat until a count is typed', async () => {
+  it('is not there for a Stock-only seat until a count is typed', async () => {
     await show({ ...stockOnly, permissions: [...stockOnly.permissions] })
-    expect(top(words.stock.saveStock).disabled).toBe(true)
+    noSave(words.stock.saveStock)
     fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '5' } })
     expect(top(words.stock.saveStock).disabled).toBe(false)
   })
@@ -1868,12 +1866,12 @@ describe('the description (#1216)', () => {
   it('is not a change to open a description with formatting, or one typed as plain text', async () => {
     api.loadProduct.mockResolvedValue(cushion({ description: '<p>Soft</p><ul><li>One</li><li>Two</li></ul>' }))
     await show(owner)
-    expect(top().disabled).toBe(true)
+    noSave()
     cleanup()
     api.loadProduct.mockResolvedValue(cushion({ description: 'Soft cotton.\nHand wash.\n\nMade in India' }))
     await show(owner)
     expect([...content().querySelectorAll('p')].length).toBe(2)
-    expect(top().disabled).toBe(true)
+    noSave()
   })
 
   it('shows the formatting and can’t be changed by a seat that can’t edit', async () => {
