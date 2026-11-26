@@ -69,6 +69,9 @@ const Row = ({ category, manage, onAction }: { category: StoreCategory; manage: 
               {category.sample ? words.sample.view : words.sample.create}
             </Link>
           )}
+          <Link to="/templates" search={{ category: category.id }} className="df-category-sample-link" aria-label={`${words.templates}: ${name}`}>
+            {words.templates}
+          </Link>
         </div>
       </th>
       <td className="df-muted df-nowrap">{category.key}</td>

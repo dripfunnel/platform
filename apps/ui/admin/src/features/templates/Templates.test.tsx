@@ -6,7 +6,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { collectionKeyOf, collectionsOf, type StorefrontTemplate } from '../../api/templates'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
-import { TemplateCollections, TemplateCollectionView, type TemplateCollectionProps } from './Templates'
+import { TemplateCollections, TemplateCollectionView, type TemplateCollectionProps, type TemplateCollectionsProps } from './Templates'
 import { previewRefusalText } from './TemplatesScreen'
 
 const words = messages.templates
@@ -35,6 +35,15 @@ const render = async (node: ReactNode) => {
   return renderToString(<RouterProvider router={router} />)
 }
 
+const categories = [
+  { id: 'c1', name: 'Fashion & apparel' },
+  { id: 'c2', name: 'Food & Grocery' },
+  { id: 'c3', name: 'General' },
+]
+
+const collections = (props: Partial<TemplateCollectionsProps> = {}) =>
+  render(<TemplateCollections templates={all} categories={categories} category={undefined} forced={null} canMake={false} opening={null} onPreview={noop} onCategory={noop} onReload={noop} {...props} />)
+
 const collection = (props: Partial<TemplateCollectionProps> = {}) =>
   render(<TemplateCollectionView collection={collectionsOf(grocery)[0] ?? null} forced={null} canMake={false} opening={null} onPreview={noop} onReload={noop} {...props} />)
 
@@ -48,7 +57,7 @@ describe('template collections', () => {
   })
 
   it('shows a card per collection with its templates, linked to it', async () => {
-    const html = await render(<TemplateCollections collections={collectionsOf(all)} forced={null} onReload={noop} />)
+    const html = await collections()
     expect(html).toContain('href="/templates/food-grocery"')
     expect(textOf(html)).toContain('Food & grocery')
     expect(textOf(html)).toContain('Basket, Market')
@@ -57,8 +66,37 @@ describe('template collections', () => {
   })
 
   it('draws the forced states', async () => {
-    expect(textOf(await render(<TemplateCollections collections={[]} forced={null} onReload={noop} />))).toContain(words.empty.title)
-    expect(textOf(await render(<TemplateCollections collections={collectionsOf(all)} forced="error" onReload={noop} />))).toContain(words.error.title)
+    expect(textOf(await collections({ templates: [] }))).toContain(words.empty.title)
+    expect(textOf(await collections({ forced: 'error' }))).toContain(words.error.title)
+  })
+})
+
+describe('the category filter', () => {
+  it('offers every category, Any category chosen by default', async () => {
+    const html = await collections()
+    const text = textOf(html)
+    expect(text).toContain(words.filters.anyCategory)
+    for (const c of categories) expect(text).toContain(c.name)
+    expect(text).not.toContain(words.filters.clear)
+  })
+
+  it('shows the chosen category’s templates as cards with Preview, not the collections', async () => {
+    const html = await collections({ category: 'c2' })
+    expect(html).toMatch(/<option value="c2" selected/)
+    expect(html).toContain(`aria-label="${words.preview}: Basket"`)
+    expect(html).not.toContain('Thread')
+    expect(html).not.toContain('href="/templates/food-grocery"')
+    expect(textOf(html)).toContain(words.filters.clear)
+  })
+
+  it('says when no template starts the category', async () => {
+    const text = textOf(await collections({ category: 'c3' }))
+    expect(text).toContain(words.noneForCategory.title)
+    expect(text).toContain('General has no starting template')
+  })
+
+  it('ignores a category that isn’t on the list', async () => {
+    expect(await collections({ category: 'gone' })).toContain('href="/templates/food-grocery"')
   })
 })
 

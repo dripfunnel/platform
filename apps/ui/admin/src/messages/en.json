@@ -2536,6 +2536,16 @@
     "title": "Templates",
     "sub": "The starting themes a store’s storefront is made from, in their collections. Open one to see its templates and preview them with sample products.",
     "collectionsLabel": "Template collections",
+    "filters": {
+      "label": "Filter templates",
+      "category": "Category",
+      "anyCategory": "Any category",
+      "clear": "Clear filter"
+    },
+    "noneForCategory": {
+      "title": "No template starts this category",
+      "body": "{name} has no starting template. Clear the filter to see every collection."
+    },
     "templatesLabel": "{name} templates",
     "breadcrumb": "Breadcrumb",
     "back": "All collections",
@@ -2603,6 +2613,7 @@
     "archived": "Archived",
     "noSections": "No sections",
     "noTemplate": "None",
+    "templates": "Templates",
     "columns": {
       "name": "Category",
       "key": "Key",

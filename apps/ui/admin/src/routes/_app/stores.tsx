@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { loadStoreCategories, englishName } from '../../api/storeCategories'
+import { categoryOptions, loadStoreCategories } from '../../api/storeCategories'
 import { createdWindows, loadStores, setupStates, storefrontStates, storeStatuses } from '../../api/stores'
 import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { cursorParam } from '../../features/common/cursorParam'
@@ -29,7 +29,7 @@ export const Route = createFileRoute('/_app/stores')({
   loader: ({ deps: { after, before, ...filter } }) =>
     unlessPhone(async () => {
       const [page, categories] = await Promise.all([loadStores(filter, { after, before }), loadStoreCategories()])
-      return { ...page, categories: [...categories.filter((c) => !c.archivedAt), ...categories.filter((c) => c.archivedAt)].map((c) => ({ id: c.id, name: englishName(c) })) }
+      return { ...page, categories: categoryOptions(categories) }
     }),
   pendingComponent: StoresLoading,
   errorComponent: StoresRouteError,

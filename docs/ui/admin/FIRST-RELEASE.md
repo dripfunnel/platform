@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-24 (Templates, §2, §11d, §12; a category's starting template on Store categories, §11b). Before: 2026-11-20 (in the sample editor: up to 20 photos a product with a main one, a photo per collection, and a product description with the merchant portal's formatting, §11b). Before: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-26 (Templates' Category filter, and each store category's Templates link to it, §11b, §11d). Before: 2026-11-24 (Templates, §2, §11d, §12; a category's starting template on Store categories, §11b). Before: 2026-11-20 (in the sample editor: up to 20 photos a product with a main one, a photo per collection, and a product description with the merchant portal's formatting, §11b). Before: 2026-11-19 (#1613: the Google Maps panel in Platform settings and the maps switch on a partner's Overview are built, §4.3, §11c, §12; #1612: their API). Before: 2026-11-17 (#1544: Platform settings › Messaging, DripFunnel’s SMS and WhatsApp accounts, §2, §11, §11c, §12; a partner’s DripFunnel’s messaging switches on its Overview, §4.2, §4.3). Before: 2026-11-16 (the sample editor, §11b, §12; store categories: §2, §5.1, §11b, §12). Before: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -436,7 +436,8 @@ reads it (`storeCategories.read`); only a Super admin adds, edits, archives or r
 §5.4). There is no prototype screen; it follows the Rollouts list.
 
 - **List**: English name, key, the product page sections it offers, its starting template (DATA-MODEL §7.2, read-only, linked to
-  Templates §11d, or "None"), how many stores chose it; archived ones last, marked.
+  Templates §11d, or "None"), how many stores chose it; archived ones last, marked. Under its sample line every row, for
+  every role, links **Templates** to Templates filtered to that category (`/templates?category={id}`).
 - **Add / Edit**: an English name (required), optional translations (language code and name), and the sections. The key
   comes from the English name once and never changes. Each takes a reason.
 - **Archive / Restore**: with a reason; Archive restates that the stores that chose it keep it and every other store's
@@ -492,7 +493,10 @@ starting template from migrations (DATA-MODEL §7.2, §7.8).
 
 - **Collections** (`/templates`, decided 2026-11-24): one card per collection, a template's tag (storefront ARCHITECTURE §2.3,
   the merchant gallery's category), with its first template's picture (`@dripfunnel/shared/templates`, the merchant gallery's),
-  its templates' names and how many; in the API's order, Classic and "Start from scratch" first.
+  its templates' names and how many; in the API's order, Classic and "Start from scratch" first. A **Category** filter
+  (every store category, archived last; "Any category" by default, decided 2026-11-26) shows instead the chosen category's
+  template as a card with Preview, as in a collection, or "No template starts this category"; Clear filter sits beside it. It lives in
+  the address (`?category={id}`), so Store categories' Templates link arrives with it chosen.
 - **A collection** (`/templates/{collection}`, its tag in lower case with hyphens, "fashion-apparel"): a breadcrumb back, then a
   card per template: its picture, name, key, *Retired* when it is, description, the store categories that start from it (or
   "None"), how many stores' storefronts were made from it, and Preview. An address no template has says so, with a way back.

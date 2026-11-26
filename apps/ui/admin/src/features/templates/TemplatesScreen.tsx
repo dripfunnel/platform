@@ -16,25 +16,15 @@ const words = messages.templates
 export const previewRefusalText = (failure: unknown): string =>
   isApiError(failure) && (previewRefusals as readonly string[]).includes(failure.code) ? words.refusals[failure.code as (typeof previewRefusals)[number]] : words.refusals.other
 
-export const TemplatesScreen = () => {
-  const templates = listRoute.useLoaderData()
-  const forced = useScreenState(templatesStates, harnessEnabled)
-  const router = useRouter()
-  return <TemplateCollections collections={collectionsOf(templates)} forced={forced} onReload={() => void router.invalidate()} />
-}
-
-export const TemplateCollectionScreen = () => {
-  const templates = collectionRoute.useLoaderData()
-  const { collection: key } = collectionRoute.useParams()
+// The tab opens before the link is made, so the browser doesn't treat it as a pop-up; it closes when there is no link.
+const useTemplatePreview = () => {
   const { me } = appRoute.useLoaderData()
-  const forced = useScreenState(templatesStates, harnessEnabled)
   const router = useRouter()
   const [opening, setOpening] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
 
-  // The tab opens before the link is made, so the browser doesn't treat it as a pop-up; it closes when there is no link.
-  const preview = (template: StorefrontTemplate) => {
+  const onPreview = (template: StorefrontTemplate) => {
     const tab = window.open('about:blank', '_blank')
     if (tab) tab.opener = null
     setOpening(template.key)
@@ -56,17 +46,42 @@ export const TemplateCollectionScreen = () => {
       .finally(() => setOpening(null))
   }
 
+  return { cards: { canMake: demoMakers.includes(me.role), opening, onPreview }, toast: <Toast message={toast} onDone={clearToast} /> }
+}
+
+export const TemplatesScreen = () => {
+  const { templates, categories } = listRoute.useLoaderData()
+  const { category } = listRoute.useSearch()
+  const navigate = listRoute.useNavigate()
+  const forced = useScreenState(templatesStates, harnessEnabled)
+  const router = useRouter()
+  const { cards, toast } = useTemplatePreview()
   return (
     <>
-      <TemplateCollectionView
-        collection={collectionsOf(templates).find((c) => c.key === key) ?? null}
+      <TemplateCollections
+        templates={templates}
+        categories={categories}
+        category={category}
         forced={forced}
-        canMake={demoMakers.includes(me.role)}
-        opening={opening}
-        onPreview={preview}
+        {...cards}
+        onCategory={(next) => void navigate({ search: (prev) => ({ ...prev, category: next }), replace: true })}
         onReload={() => void router.invalidate()}
       />
-      <Toast message={toast} onDone={clearToast} />
+      {toast}
+    </>
+  )
+}
+
+export const TemplateCollectionScreen = () => {
+  const templates = collectionRoute.useLoaderData()
+  const { collection: key } = collectionRoute.useParams()
+  const forced = useScreenState(templatesStates, harnessEnabled)
+  const router = useRouter()
+  const { cards, toast } = useTemplatePreview()
+  return (
+    <>
+      <TemplateCollectionView collection={collectionsOf(templates).find((c) => c.key === key) ?? null} forced={forced} {...cards} onReload={() => void router.invalidate()} />
+      {toast}
     </>
   )
 }
