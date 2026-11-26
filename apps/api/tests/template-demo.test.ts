@@ -6,6 +6,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { demoThemeCookie, resolveShopper } from '#auth/shopCaller'
 import type { StaffMember, StaffRole } from '#auth/staff'
+import { selectOfferedTemplates } from '#db/scoped/design'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { allowanceFor } from '#saas/entitlements/index'
@@ -188,6 +189,22 @@ describe('the demo host', () => {
 
   it('is a name no store can take', () => {
     expect(isReservedSlug('demo')).toBe(true)
+  })
+
+  it('is promised by admin and the gallery only when the demo host serves it', async () => {
+    const gallery = async () => (await withSystemScope(db.sql, selectOfferedTemplates)).find((x) => x.key === 'fashion')?.demo_ready
+    expect(await gallery()).toBe(true)
+    await db.sql`update storefront_template set state = 'retired' where key = 'fashion'`
+    expect((await press('staff-support')).code).toBe('NOT_FOUND')
+    expect(await lookupDemoSite(db.sql, 'fashion')).toEqual({ ok: false })
+    expect((await shop(`${demoThemeCookie}=fashion`)).kind).toBe('unknown')
+    await db.sql`update storefront_template set state = 'offered' where key = 'fashion'`
+    await db.sql`update store set status = 'closed' where id = ${await demoId()}`
+    expect((await press('staff-support')).code).toBe('NOT_FOUND')
+    expect(await gallery()).toBe(false)
+    expect(await lookupDemoSite(db.sql, 'fashion')).toEqual({ ok: false })
+    await db.sql`update store set status = 'active' where id = ${await demoId()}`
+    expect((await press('staff-support')).data?.templatePreviewLink.demo).toBe('ready')
   })
 
   it('stops migration 0418 while a store holds the slug, and passes once none does', async () => {

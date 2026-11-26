@@ -56,19 +56,21 @@ export const createTemplateAdminService = ({ sql, staff, activity, facts, shopDo
       return { ok: true, demo: 'creating', url: null } as const
     })
 
-  /** The demo's open address once its preview is in place (PREVIEW §9); a Super admin's first press makes the demo. */
+  /** The demo's open address once the demo host serves it (PREVIEW §9); a Super admin's first press makes the demo. */
   const previewLink = async (key: string): Promise<PreviewResult> => {
     if (!shopDomain) return { ok: false, code: 'PREVIEW_OFF' }
-    // One read, and the opening recorded in the same transaction once the demo is ready to open.
+    // One read, and the opening recorded in the same transaction once the demo opens.
     const found = await withSystemScope(sql, async (tx) => {
       const template = await selectTemplateDemo(tx, key)
-      if (template?.demo_store_id && template.preview_ref)
+      if (template?.served && template.demo_store_id)
         await activity.record(tx, entry({ action: templateAudit.previewOpened, reason: null, target: { type: 'storefront_template', id: key, label: template.name }, visibility: 'staff', storeId: template.demo_store_id }))
       return template
     })
     if (!found) return { ok: false, code: 'NOT_FOUND' }
     if (!found.demo_store_id) return roleHas(staff.role, 'storeCategories.manage') ? makeDemo(key, found.name) : { ok: false, code: 'NO_DEMO' }
     if (!found.preview_ref) return { ok: true, demo: 'creating', url: null }
+    // A retired template, or a closed demo store or partner: the demo host would answer "No demo for this template".
+    if (!found.served) return { ok: false, code: 'NOT_FOUND' }
     return { ok: true, demo: 'ready', url: demoAddress(shopDomain, key) }
   }
 

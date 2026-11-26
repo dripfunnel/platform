@@ -1,3 +1,4 @@
+import { demoServed } from './demoStores'
 import type { ScopedSql } from './index'
 
 // Which store a storefront request is for (ARCHITECTURE §2; ACCESS §3): its host or its public store key, read in system
@@ -105,7 +106,7 @@ export const selectStorefrontByDemoTemplate = async (tx: ScopedSql, template: st
   (
     await tx<StorefrontRow[]>`
       select ${storefrontColumns(tx)}, true as preview
-      from storefront_template t join store s on s.id = t.demo_store_id join storefront f on f.store_id = s.id join partner p on p.id = s.partner_id
-      where t.key = ${template} and t.state = 'offered' and s.is_demo and s.status <> 'closed' and p.state <> 'closed'
+      from storefront_template t join store s on s.id = t.demo_store_id join storefront f on f.store_id = s.id
+      where t.key = ${template} and ${demoServed(tx)}
     `
   )[0] ?? null
