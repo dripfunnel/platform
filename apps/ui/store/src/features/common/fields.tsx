@@ -65,7 +65,7 @@ export const PasswordField = ({ look, show, hide, ...props }: Omit<FieldProps, '
       look={look}
       type={shown ? 'text' : 'password'}
       trailing={
-        <button type="button" className={`df-${look}-eye`} aria-pressed={shown} aria-label={look === 'profile' ? (shown ? hide : show) : undefined} onClick={() => setShown((s) => !s)}>
+        <button type="button" className={`df-${look}-eye`} aria-pressed={look === 'auth' ? shown : undefined} aria-label={look === 'profile' ? (shown ? hide : show) : undefined} onClick={() => setShown((s) => !s)}>
           {look === 'profile' ? <Icon name={shown ? 'eyeOff' : 'eye'} size={18} /> : shown ? hide : show}
         </button>
       }

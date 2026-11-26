@@ -258,7 +258,7 @@ describe('changing your password', () => {
     expect([words.password.current, words.password.next, words.password.again].map((label) => box(label).type)).toEqual(['password', 'text', 'password'])
     expect(box(words.password.next).value).toBe('a long new one')
     const hide = screen.getByRole('button', { name: words.password.hidePassword })
-    expect(hide.getAttribute('aria-pressed')).toBe('true')
+    expect(hide.hasAttribute('aria-pressed')).toBe(false)
     fireEvent.click(hide)
     expect(box(words.password.next).type).toBe('password')
     expect(screen.queryByRole('button', { name: words.password.hidePassword })).toBeNull()
