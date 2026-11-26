@@ -382,3 +382,55 @@ describe('reading a postcode list', () => {
     expect(readPostalCodes('zips.csv', text, 'US')).toEqual({ kind: 'tooMany' })
   })
 })
+
+describe('Shipping › The courier’s live rate needs a connected partner (#1755)', () => {
+  const live = () => box(new RegExp(w.courierRate))
+  const message = 'Please connect Shiprocket first.'
+  const noPartner = (courierRate: boolean) => ship.loadShipping.mockResolvedValue({ ...us, courierRate, couriers: [courier({ provider: 'shiprocket', status: 'off' })] })
+
+  it('is disabled with the reason while no delivery partner is connected, and a click ticks nothing', async () => {
+    noPartner(false)
+    await show()
+    expect(live().disabled).toBe(true)
+    expect(screen.getByTitle(message)).toBeTruthy()
+    const reason = document.getElementById(live().getAttribute('aria-describedby') ?? '')
+    expect(reason?.textContent).toBe(message)
+    fireEvent.click(live())
+    expect(live().checked).toBe(false)
+  })
+
+  it('ticks as before once a partner is connected', async () => {
+    ship.loadShipping.mockResolvedValue({ ...us, courierRate: false })
+    await show()
+    expect(live().disabled).toBe(false)
+    expect(screen.queryByTitle(message)).toBeNull()
+    fireEvent.click(live())
+    expect(live().checked).toBe(true)
+  })
+
+  it('shows unticked and disabled when it is saved on but no partner is connected', async () => {
+    noPartner(true)
+    await show()
+    expect(live().checked).toBe(false)
+    expect(live().disabled).toBe(true)
+  })
+
+  it('unticks after the last partner is disconnected, even when it was ticked a moment before', async () => {
+    ship.loadShipping.mockResolvedValueOnce({ ...us, courierRate: false }).mockResolvedValue({ ...us, courierRate: true, couriers: [courier({ provider: 'usps', status: 'off' })] })
+    ship.disconnectCourier.mockResolvedValue(null)
+    await show()
+    fireEvent.click(live())
+    expect(live().checked).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect USPS' }))
+    fireEvent.click(dialog().getByRole('button', { name: w.disconnect }))
+    await settle()
+    expect(live().checked).toBe(false)
+    expect(live().disabled).toBe(true)
+  })
+
+  it('gives no hover message to a store that can only look', async () => {
+    noPartner(false)
+    await show({ readOnly: true })
+    expect(screen.queryByTitle(message)).toBeNull()
+  })
+})
