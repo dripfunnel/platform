@@ -52,7 +52,18 @@ export type TextFieldProps = Styled & {
   required?: boolean
   /** The theme's mark for a required field, shown after the label. */
   requiredMark?: string | undefined
+  /** A password field's show and hide button names ("Show password", "Hide password"), in the theme's words; both turn it on (#1731). */
+  showLabel?: string | undefined
+  hideLabel?: string | undefined
 }
+
+const eye = (off: boolean) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+    {off ? <path d="M3 3l18 18" /> : null}
+  </svg>
+)
 
 /** Moves focus into the field it is given on mount, when asked. */
 const useFocusOnMount = (wanted: boolean | undefined) => {
@@ -64,8 +75,10 @@ const useFocusOnMount = (wanted: boolean | undefined) => {
 }
 
 /** A labelled text field with its hint and its error, each tied to it for screen readers. */
-export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, className }: TextFieldProps) => {
+export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, showLabel, hideLabel, className }: TextFieldProps) => {
   const id = useId()
+  const [shown, setShown] = useState(false)
+  const reveal = type === 'password' && Boolean(showLabel && hideLabel)
   const input = useFocusOnMount(autoFocus)
   const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
   return (
@@ -75,7 +88,16 @@ export const TextField = ({ label, value, onChange, type = 'text', autoComplete,
         {required && requiredMark ? <span aria-hidden="true"> {requiredMark}</span> : null}
         {note ? <small> {note}</small> : null}
       </label>
-      <input ref={input} id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
+      {reveal ? (
+        <span style={{ position: 'relative', display: 'grid' }}>
+          <input ref={input} id={id} type={shown ? 'text' : 'password'} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} style={{ paddingInlineEnd: '2.75rem' }} />
+          <button type="button" aria-label={shown ? hideLabel : showLabel} onClick={() => setShown(!shown)} style={{ position: 'absolute', insetBlock: 0, insetInlineEnd: 0, width: '2.75rem', display: 'grid', placeItems: 'center', background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
+            {eye(shown)}
+          </button>
+        </span>
+      ) : (
+        <input ref={input} id={id} type={type} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
+      )}
       {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
       {error ? (
         <small id={`${id}-error`} role="alert">

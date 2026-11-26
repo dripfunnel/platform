@@ -90,7 +90,7 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
         >
           <p className={styles.note}>{t('shop.account.codeSent', { to: sentTo })}</p>
           <TextField label={t('shop.account.code')} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={setCode} error={problem(errors.code, 'code')} className={styles.field} />
-          {purpose === 'reset' ? <TextField label={t('shop.account.newPassword')} type="password" autoComplete="new-password" value={password} onChange={setPassword} hint={t('shop.account.passwordRule')} error={problem(errors.password, 'password')} className={styles.field} /> : null}
+          {purpose === 'reset' ? <TextField label={t('shop.account.newPassword')} type="password" showLabel={t('shop.account.showPassword')} hideLabel={t('shop.account.hidePassword')} autoComplete="new-password" value={password} onChange={setPassword} hint={t('shop.account.passwordRule')} error={problem(errors.password, 'password')} className={styles.field} /> : null}
           <SubmitButton className={shop.primary} disabled={s.busy}>
             {purpose === 'register' ? t('shop.account.create') : purpose === 'reset' ? t('shop.account.saveAndSignIn') : t('pages.signIn.title')}
           </SubmitButton>
@@ -101,7 +101,7 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
       ) : purpose === 'signIn' && !byPhone && s.ways.email ? (
         <Form className={styles.form} onSubmit={() => void s.signIn({ email, password, remember }).then(setErrors)}>
           <TextField label={t('shop.checkout.email')} type="email" autoComplete="username" value={email} onChange={setEmail} error={problem(errors.email)} className={styles.field} />
-          <TextField label={t('shop.account.password')} type="password" autoComplete="current-password" value={password} onChange={setPassword} error={problem(errors.password)} className={styles.field} />
+          <TextField label={t('shop.account.password')} type="password" showLabel={t('shop.account.showPassword')} hideLabel={t('shop.account.hidePassword')} autoComplete="current-password" value={password} onChange={setPassword} error={problem(errors.password)} className={styles.field} />
           <div className={styles.between}>
             <Checkbox checked={remember} onChange={setRemember} className={styles.check}>
               {t('shop.account.remember')}
@@ -133,7 +133,7 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
           ) : (
             <TextField label={t('shop.checkout.email')} type="email" autoComplete="email" value={email} onChange={setEmail} error={problem(errors.to)} className={styles.field} />
           )}
-          {purpose === 'register' ? <TextField label={t('shop.account.password')} type="password" autoComplete="new-password" value={password} onChange={setPassword} hint={t('shop.account.passwordRule')} error={problem(errors.password, 'password')} className={styles.field} /> : null}
+          {purpose === 'register' ? <TextField label={t('shop.account.password')} type="password" showLabel={t('shop.account.showPassword')} hideLabel={t('shop.account.hidePassword')} autoComplete="new-password" value={password} onChange={setPassword} hint={t('shop.account.passwordRule')} error={problem(errors.password, 'password')} className={styles.field} /> : null}
           {purpose === 'signIn' ? (
             <Checkbox checked={remember} onChange={setRemember} className={styles.check}>
               {t('shop.account.remember')}
