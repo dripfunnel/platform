@@ -272,7 +272,7 @@ export const selectCustomerExportRows = (tx: ScopedSql, storeId: string, f: Cust
     select ${listColumns(tx)}, c.consent_state, c.note,
       coalesce(
         (select jsonb_build_object('line1', a.line1, 'line2', a.line2, 'city', a.city, 'region', a.region, 'postalCode', a.postal_code, 'country', a.country)
-          from customer_address a where a.customer_id = c.id and a.deleted_at is null order by a.is_default_shipping desc, a.created_at limit 1),
+          from customer_address a where a.customer_id = c.id and a.deleted_at is null order by a.is_default_shipping desc, a.created_at desc limit 1),
         (select o.shipping_address from "order" o where ${theirOrders(tx)} and o.shipping_address is not null order by o.placed_at desc limit 1)) as address,
       to_json(array(select k.name from customer_group_member g join customer_group k on k.id = g.group_id and k.deleted_at is null where g.customer_id = c.id order by k.name)) as groups
     from customer c

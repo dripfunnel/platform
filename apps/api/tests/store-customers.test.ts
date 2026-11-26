@@ -369,6 +369,25 @@ describe('the customers export', () => {
     }
   })
 
+  it('picks the same saved address as the panel: the default first, else the newest (#1601)', async () => {
+    const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const addressCell = (search: string) =>
+      withScope(db.sql, merchant, async (tx) => customersCsv(await selectCustomerExportRows(tx, t.storeA1, { groupId: null, search }, 10), null).split('\n')[1]?.split(',')[5])
+    const [newest] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'ann1601@example.com', 'Ann Newest', 'unverified') returning id`
+    const [flagged] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'ben1601@example.com', 'Ben Flagged', 'unverified') returning id`
+    const [ann, ben] = [newest?.id ?? '', flagged?.id ?? '']
+    try {
+      for (const [customer, city, isDefault, at] of [[ann, 'Old City', false, '2026-01-01'], [ann, 'New City', false, '2026-06-01'], [ben, 'Default City', true, '2026-01-01'], [ben, 'Later City', false, '2026-06-01']] as const) {
+        await db.sql`insert into customer_address (customer_id, store_id, name, line1, city, country, is_default_shipping, created_at) values (${customer}, ${t.storeA1}, 'x', '1 Road', ${city}, 'IN', ${isDefault}, ${at})`
+      }
+      expect(await addressCell('Ann Newest')).toBe('New City')
+      expect(await addressCell('Ben Flagged')).toBe('Default City')
+    } finally {
+      await db.sql`delete from customer_address where customer_id in (${ann}, ${ben})`
+      await db.sql`delete from customer where id in (${ann}, ${ben})`
+    }
+  })
+
   it('gives another store’s export none of this store’s customers, and cuts a file at its cap', async () => {
     const id = (await gql('mutation { exportCustomers }', 'other')).data?.['exportCustomers'] as string
     await relay()
