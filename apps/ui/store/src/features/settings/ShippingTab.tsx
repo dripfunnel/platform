@@ -325,7 +325,6 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
 
   return (
     <div className="df-set-store">
-      {own && goTab && <OwnDeliveryCard server={server} own={own} canEdit={canEdit} save={saveOwn} goTab={goTab} />}
       <section className="df-set-card" aria-labelledby={`${id}-charge`}>
         <h2 id={`${id}-charge`}>{words.chargeTitle}</h2>
         <p className="df-set-lede">{words.chargeSub}</p>
@@ -347,25 +346,6 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
             sub: draft.pickup ? fill(words.pickupOn, { address: server.pickupAddress ?? words.pickupNoAddress, hours: draft.hours || words.noHours }) : words.pickupOff,
             extra: draft.pickup && canEdit && button(draft.hours ? words.changeHours : words.setHours, draft.hours ? words.changeHours : words.setHours, askHours),
           })}
-        </div>
-      </section>
-
-      <section className="df-set-card" aria-labelledby={`${id}-free`}>
-        <h2 id={`${id}-free`}>{words.freeTitle}</h2>
-        <div role="radiogroup" aria-labelledby={`${id}-free`} className="df-ops-rows">
-          {(['never', 'always', 'over'] as const).map((mode) => (
-            <Fragment key={mode}>
-              {choice({
-                type: 'radio',
-                name: `${id}-free-mode`,
-                checked: draft.freeMode === mode,
-                onChange: () => set({ freeMode: mode }),
-                label: words.free[mode],
-                sub: mode === 'over' && draft.freeMode === 'over' && typeof threshold === 'number' && threshold > 0 ? fill(words.freeOver, { amount: formatMoney({ amount: threshold, currency: server.currency }, locale) }) : '',
-                extra: mode === 'over' && draft.freeMode === 'over' && amount(words.thresholdLabel, draft.threshold, (t) => set({ threshold: t })),
-              })}
-            </Fragment>
-          ))}
         </div>
       </section>
 
@@ -416,6 +396,25 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
         <span className="df-set-help">{words.partnersNote}</span>
       </section>
 
+      <section className="df-set-card" aria-labelledby={`${id}-free`}>
+        <h2 id={`${id}-free`}>{words.freeTitle}</h2>
+        <div role="radiogroup" aria-labelledby={`${id}-free`} className="df-ops-rows">
+          {(['never', 'always', 'over'] as const).map((mode) => (
+            <Fragment key={mode}>
+              {choice({
+                type: 'radio',
+                name: `${id}-free-mode`,
+                checked: draft.freeMode === mode,
+                onChange: () => set({ freeMode: mode }),
+                label: words.free[mode],
+                sub: mode === 'over' && draft.freeMode === 'over' && typeof threshold === 'number' && threshold > 0 ? fill(words.freeOver, { amount: formatMoney({ amount: threshold, currency: server.currency }, locale) }) : '',
+                extra: mode === 'over' && draft.freeMode === 'over' && amount(words.thresholdLabel, draft.threshold, (t) => set({ threshold: t })),
+              })}
+            </Fragment>
+          ))}
+        </div>
+      </section>
+
       <section className="df-set-card" aria-labelledby={`${id}-area`}>
         <h2 id={`${id}-area`}>{words.areaTitle}</h2>
         <div role="radiogroup" aria-labelledby={`${id}-area`} className="df-ops-rows">
@@ -451,6 +450,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
           </div>
         )}
       </section>
+      {own && goTab && <OwnDeliveryCard server={server} own={own} canEdit={canEdit} save={saveOwn} goTab={goTab} />}
       {loginFor && <ShiprocketLoginDialog name={nameOf(loginFor.provider)} channelId={loginFor.accountChannelId} onConnect={(login) => connectWithLogin(loginFor, login)} onCancel={() => setLoginFor(null)} />}
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}|${ask.confirmLabel}`} {...ask} open cancelLabel={messages.settings.payments.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
     </div>

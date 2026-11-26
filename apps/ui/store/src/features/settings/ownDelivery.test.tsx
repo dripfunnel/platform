@@ -129,6 +129,13 @@ describe('Shipping › Own delivery', () => {
     expect(screen.queryByRole('region', { name: w.title })).toBeNull()
   })
 
+  it('sits last, after what the shopper pays, the delivery partners, free delivery and where you deliver, in that order (#1740)', async () => {
+    await show('shipping')
+    const s = messages.settings.shipping
+    const cards = [s.chargeTitle, s.partnersTitle, s.freeTitle, s.areaTitle, w.title].map((name) => screen.getByRole('region', { name }))
+    cards.slice(1).forEach((card, i) => expect(cards[i]?.compareDocumentPosition(card)).toBe(Node.DOCUMENT_POSITION_FOLLOWING))
+  })
+
   it('turns it on over the saved shipping, with when riders are offered and the alert minutes', async () => {
     await show('shipping')
     const card = within(screen.getByRole('region', { name: w.title }))
