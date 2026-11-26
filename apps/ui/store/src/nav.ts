@@ -10,7 +10,7 @@ export type SupplierTier = (typeof supplierTiers)[number]
 
 export type Seat = { side: 'merchant'; role: MerchantRole } | { side: 'supplier'; admin: boolean; tier: SupplierTier }
 
-export type NavKey = 'home' | 'orders' | 'customers' | 'offers' | 'carts' | 'reports' | 'products' | 'collections' | 'storefront' | 'settings' | 'billing' | 'yourProducts' | 'toShip' | 'sales' | 'team'
+export type NavKey = 'home' | 'orders' | 'customers' | 'offers' | 'carts' | 'reports' | 'products' | 'collections' | 'storefront' | 'templates' | 'settings' | 'billing' | 'yourProducts' | 'toShip' | 'sales' | 'team'
 export type NavGroup = 'catalogue' | 'shop' | 'admin'
 export type NavBadgeSource = 'ordersToShip' | 'productsToApprove'
 
@@ -33,7 +33,7 @@ const merchantRows = (role: MerchantRole): NavRow[] => [
   ...(role === 'staff' ? [] : [row('reports', '/reports', 'reports')]),
   row('products', '/products', 'products', { group: 'catalogue', badge: 'productsToApprove' }),
   row('collections', '/collections', 'collections', { group: 'catalogue' }),
-  ...(role === 'staff' ? [] : [row('storefront', '/storefront', 'storefront', { group: 'shop' })]),
+  ...(role === 'staff' ? [] : [row('storefront', '/storefront', 'storefront', { group: 'shop' }), row('templates', '/templates', 'brush', { group: 'shop' })]),
   ...(role === 'owner' ? [row('settings', '/settings', 'settings', { group: 'admin' }), row('billing', '/billing', 'billing', { group: 'admin' })] : []),
 ]
 

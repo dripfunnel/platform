@@ -578,6 +578,7 @@
     "products": "Products",
     "collections": "Collections",
     "storefront": "Storefront",
+    "templates": "Templates",
     "settings": "Settings",
     "billing": "Billing",
     "yourProducts": "Your products",
@@ -8735,5 +8736,17 @@
       "loading": "Loading your versions…",
       "retry": "Try again"
     }
+  },
+  "templates": {
+    "title": "Templates",
+    "lede": "Every look your storefront can start from, shown on sample products. Open a demo to see how it looks and works. Nothing here changes your shop.",
+    "preview": "Preview ↗",
+    "previewLabel": "Preview {name}, in a new tab",
+    "soon": "Demo coming soon",
+    "loading": "Loading templates…",
+    "error": { "title": "We couldn’t load the templates", "body": "Check your connection and try again.", "retry": "Try again" },
+    "emptyTitle": "No templates yet",
+    "emptyBody": "There are no templates to show yet. Try again later.",
+    "denied": { "title": "Templates aren’t part of your role", "body": "Ask the store owner if you need to see them." }
   }
 }
