@@ -340,7 +340,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
         <h2 id={`${id}-charge`}>{words.chargeTitle}</h2>
         <p className="df-set-lede">{words.chargeSub}</p>
         <div role="group" aria-labelledby={`${id}-charge`} className="df-ops-rows">
-          {choice({ type: 'checkbox', checked: draft.courierRate, onChange: () => set({ courierRate: !draft.courierRate }), label: words.courierRate, sub: pricing ? fill(words.courierRateBy, { name: nameOf(pricing.provider) }) : words.courierRateNone, lock: canEdit && !pricing ? (server.couriers.some((c) => c.provider === 'shiprocket') ? words.courierRateLocked : words.courierRateLockedAny) : undefined })}
+          {choice({ type: 'checkbox', checked: draft.courierRate, onChange: () => set({ courierRate: !draft.courierRate }), label: words.courierRate, sub: pricing ? fill(words.courierRateBy, { name: nameOf(pricing.provider) }) : words.courierRateNone, lock: canEdit && !pricing ? (server.couriers.some((c) => c.provider === 'shiprocket' && c.offered) ? words.courierRateLocked : words.courierRateLockedAny) : undefined })}
           {choice({
             type: 'checkbox',
             checked: draft.flatRate,

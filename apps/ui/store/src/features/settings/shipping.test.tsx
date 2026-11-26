@@ -407,6 +407,14 @@ describe('Shipping › The courier’s live rate needs a connected partner (#175
     expect(screen.queryByTitle(message)).toBeNull()
   })
 
+  it('does not send a store to Shiprocket when Shiprocket is listed but not offered to it', async () => {
+    ship.loadShipping.mockResolvedValue({ ...us, courierRate: false, couriers: [courier({ provider: 'shiprocket', status: 'off', offered: false })] })
+    await show()
+    expect(screen.queryByRole('button', { name: 'Connect Shiprocket' })).toBeNull()
+    expect(screen.getByTitle('Please connect a delivery partner first.')).toBeTruthy()
+    expect(screen.queryByTitle(message)).toBeNull()
+  })
+
   it('ticks as before once a partner is connected', async () => {
     ship.loadShipping.mockResolvedValue({ ...us, courierRate: false })
     await show()
