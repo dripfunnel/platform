@@ -4214,6 +4214,7 @@
       "courierRateBy": "Quoted at checkout by {name}, from address and weight.",
       "courierRateNone": "Connect a courier below first.",
       "courierRateLocked": "Please connect Shiprocket first.",
+      "courierRateLockedAny": "Please connect a delivery partner first.",
       "flatRate": "A flat rate",
       "flatRateSub": "Same charge on every order.",
       "flatFallback": "Charged only when no courier can quote an order.",
