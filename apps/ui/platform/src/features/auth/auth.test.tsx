@@ -1,4 +1,5 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
+import { readFileSync } from 'node:fs'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
@@ -100,6 +101,17 @@ describe('accepting an invitation', () => {
     expect(text).toContain('DripFunnel invited you to be the Owner')
     expect(text).toContain('jonas@kaufladen.de')
     expect(text).toContain('The email can’t be changed')
+  })
+
+  it('lets a long email wrap inside the card instead of widening it (#1587)', async () => {
+    const email = 'firstname.lastname+jewellerystore@example.com'
+    const invitation = { partner: 'Jewellery store', role: 'partner-owner', email, invitedBy: 'DripFunnel', secondFactorRequired: false } as const
+    expect(textOf(await render(<AcceptInvite search={{ token: 'tok' }} loaded={{ ok: true, invitation }} />))).toContain(email)
+    // happy-dom has no layout, so this reads the rule that keeps an unbreakable word from stretching the card's column.
+    const css = readFileSync(new URL('./auth.css', import.meta.url), 'utf8').replace(/\s+/g, ' ')
+    const rule = /\.df-auth-summary dd \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(rule).toContain('min-width: 0;')
+    expect(rule).toContain('overflow-wrap: anywhere;')
   })
 
   it('shows a team invitation from the Owner by name', async () => {
