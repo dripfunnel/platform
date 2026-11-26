@@ -960,6 +960,8 @@
       "current": "Current password",
       "next": "New password",
       "again": "Type it again",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "hint": "At least 10 characters. A short sentence works well.",
       "more": {
         "one": "{count} more character",

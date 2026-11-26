@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
+import { messages } from '../../messages'
+import { Field as CommonField, PasswordField as CommonPasswordField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
 // PortalProfile's pieces: a card per section, and the portal's field and buttons in its look (common/fields).
 
@@ -19,6 +20,10 @@ export const Card = ({ title, sub, aside, children }: { title: string; sub?: Rea
 type FieldProps = Omit<CommonFieldProps, 'look' | 'helpTone'> & { helpTone?: 'muted' | 'good' | undefined }
 
 export const Field = ({ helpTone = 'muted', ...props }: FieldProps) => <CommonField look="profile" helpTone={helpTone} {...props} />
+
+export const PasswordField = ({ helpTone = 'muted', ...props }: Omit<FieldProps, 'type' | 'trailing'>) => (
+  <CommonPasswordField look="profile" show={messages.profile.password.showPassword} hide={messages.profile.password.hidePassword} helpTone={helpTone} {...props} />
+)
 
 export const Primary = ({ children, onClick, busy, disabled, type = 'button' }: { children: ReactNode; onClick?: () => void; busy?: boolean; disabled?: boolean; type?: 'button' | 'submit' }) => (
   <CommonPrimary look="profile" type={type} onClick={onClick} busy={busy} disabled={disabled}>

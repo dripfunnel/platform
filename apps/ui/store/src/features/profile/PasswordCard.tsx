@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { changePassword } from '../../api/profile'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
-import { Alert, Card, Field, Primary, Secondary } from './parts'
+import { Alert, Card, PasswordField, Primary, Secondary } from './parts'
 import { profileRefusal } from './profileWords'
 
 const words = messages.profile.password
@@ -76,9 +76,9 @@ export const PasswordCard = ({ changedAt, onChanged, onToast }: { changedAt: str
       {open && (
         <form className="df-profile-form" onSubmit={save} noValidate>
           <div className="df-profile-grid df-profile-grid--three">
-            <Field label={words.current} type="password" autoComplete="current-password" value={current} onValue={edit(setCurrent)} />
-            <Field label={words.next} type="password" autoComplete="new-password" value={next} onValue={edit(setNext)} help={hint.text} helpTone={hint.tone} />
-            <Field label={words.again} type="password" autoComplete="new-password" value={again} onValue={edit(setAgain)} />
+            <PasswordField label={words.current} autoComplete="current-password" value={current} onValue={edit(setCurrent)} />
+            <PasswordField label={words.next} autoComplete="new-password" value={next} onValue={edit(setNext)} help={hint.text} helpTone={hint.tone} />
+            <PasswordField label={words.again} autoComplete="new-password" value={again} onValue={edit(setAgain)} />
           </div>
           <Alert text={error} />
           <div className="df-profile-actions">

@@ -121,6 +121,30 @@
   font-size: 14px;
 }
 
+.df-profile-eye {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-inline-end: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--df-color-muted);
+  cursor: pointer;
+}
+
+.df-profile-eye:hover {
+  color: var(--df-color-text-strong);
+}
+
+.df-profile-eye:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
 .df-profile-control[data-readonly='true'] {
   background: var(--df-color-page);
 }
