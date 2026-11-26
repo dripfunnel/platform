@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-25 (#1694: taking out the cart's last line takes its codes off, §3.1). Before: 2026-11-24 (#1644: a code whose conditions the cart does not meet when it is applied is not added). Before: 2026-11-20 (#1661: the save buttons stay disabled until something changes, C4). Before: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
+Last updated: 2026-11-26 (#1751: the steps' × is disabled at two steps, with a hint, E4). Before: 2026-11-25 (#1694: taking out the cart's last line takes its codes off, §3.1). Before: 2026-11-24 (#1644: a code whose conditions the cart does not meet when it is applied is not added). Before: 2026-11-20 (#1661: the save buttons stay disabled until something changes, C4). Before: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -537,7 +537,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
   product is free").
 - E4. Tiered ("$10 off $50, $25 off $100"): design as one offer with steps, mark
   `(release: decide)`, and show the fallback (separate offers, whose stacking then depends on
-  the combination rules, §3 fact 7).
+  the combination rules, §3 fact 7). The editor keeps two to five steps: with two, each step's × is shown
+  disabled with a hint that a step offer needs two and that unticking the steps box removes them all (#1751).
 - E5. A cap on a percentage ("20% off, up to $30"): `(release: decide)`.
 - E6. **Include customisation extras**, as D7; off, the summary says "Extras don't count towards the order total or the
   minimum".

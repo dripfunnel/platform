@@ -331,8 +331,8 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
                     <span>{fill(words.tierOver, { unit: d.kind === 'percent' ? '%' : facts.main })}</span>
                     <input value={t.minimum} inputMode="decimal" readOnly={disabled} aria-label={fill(words.tierMinimum, { n: String(i + 1) })} onChange={(ev) => set({ tiers: d.tiers.map((x, j) => (j === i ? { ...x, minimum: ev.target.value.replace(/[^\d.]/g, '') } : x)) })} />
                     <span>{facts.main}</span>
-                    {!disabled && d.tiers.length > 2 && (
-                      <button type="button" className="df-offer-remove" aria-label={fill(words.removeTier, { n: String(i + 1) })} onClick={() => set({ tiers: d.tiers.filter((_, j) => j !== i) })}>
+                    {!disabled && (
+                      <button type="button" className="df-offer-remove" disabled={d.tiers.length <= 2} aria-label={fill(words.removeTier, { n: String(i + 1) })} onClick={() => set({ tiers: d.tiers.filter((_, j) => j !== i) })}>
                         <span aria-hidden="true">{words.removeGlyph}</span>
                       </button>
                     )}
@@ -344,6 +344,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
                   </button>
                 )}
                 <span className="df-offers-sub">{words.tiersNote}</span>
+                {!disabled && d.tiers.length <= 2 && <span className="df-offers-sub">{fill(words.tiersMinimum, { label: words.tiers })}</span>}
                 <Problem text={e.tiers} />
               </div>
             )}
