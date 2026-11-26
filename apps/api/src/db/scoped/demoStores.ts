@@ -87,6 +87,23 @@ export const setDemoLogo = async (tx: ScopedSql, storeId: string, assetId: strin
     on conflict (store_id) do update set logo_asset_id = excluded.logo_asset_id, favicon_asset_id = excluded.favicon_asset_id`
 }
 
+/** The one rule for whether `storefront_template t`'s demo is served (PREVIEW.md §9): the demo host, its Shop API, admin's
+ *  Preview and the gallery's demoUrl all ask it, so none promises a demo another refuses. */
+export const demoServed = (tx: ScopedSql) => tx`(t.state = 'offered' and exists (
+  select 1 from store s join partner p on p.id = s.partner_id join design_draft d on d.store_id = s.id
+  where s.id = t.demo_store_id and s.is_demo and s.status <> 'closed' and p.state <> 'closed' and d.preview_deploy_ref is not null))`
+
+/** The demo host's files for a template named by its key or its name, in lower case, a key first (PREVIEW.md §9). */
+export const selectDemoSite = async (tx: ScopedSql, asked: string): Promise<{ key: string; store_id: string; folder: string } | null> =>
+  (
+    await tx<{ key: string; store_id: string; folder: string }[]>`
+      select t.key, t.demo_store_id as store_id, d.preview_deploy_ref as folder
+      from storefront_template t join design_draft d on d.store_id = t.demo_store_id
+      where (t.key = ${asked} or lower(t.name) = ${asked}) and ${demoServed(tx)}
+      order by t.key = ${asked} desc, t.key
+      limit 1`
+  )[0] ?? null
+
 /** Whether the store is a template's demo; any scope that reads its own store row may ask. */
 export const isDemoStore = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
   (await tx<{ is_demo: boolean }[]>`select is_demo from store where id = ${storeId}`)[0]?.is_demo ?? false

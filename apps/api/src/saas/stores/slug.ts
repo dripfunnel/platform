@@ -2,8 +2,8 @@ import type { ScopedSql } from '#db/scoped/index'
 import { storeSlugTaken } from '#db/scoped/signup'
 
 // A store's slug names its free addresses {slug}.<SHOP_DOMAIN> and {slug}-preview.<SHOP_DOMAIN> (USERS-AND-DOMAINS §2, SAAS §4.1).
-/** Names no store can take: the platform's own hosts, and any `-preview` name (it would be another store's preview host). */
-export const reservedSlugs = new Set(['admin', 'api', 'app', 'help', 'hooks', 'mail', 'platform', 'portal', 'preview', 'shop', 'shops', 'status', 'store', 'support', 'www'])
+/** Names no store can take: the platform's own hosts (`demo` serves the templates' demos, PREVIEW §9), and any `-preview` name. */
+export const reservedSlugs = new Set(['admin', 'api', 'app', 'demo', 'help', 'hooks', 'mail', 'platform', 'portal', 'preview', 'shop', 'shops', 'status', 'store', 'support', 'www'])
 export const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 export const isReservedSlug = (name: string): boolean => reservedSlugs.has(name) || name.endsWith('-preview')
 

@@ -2444,7 +2444,8 @@ storefront_template (key PK, name, tag, description, demo_store_id NULL, core_mi
                     -- checked by a trigger), made by a Super admin's first Admin Preview and filled by the
                     -- `template.demo` job: the logo, the category's sample and the template's preview files under
                     -- preview/demo/ with a design_draft whose head_commit is forty zeros (no repo is made). The
-                    -- Admin API reads the catalogue in system scope (admin FIRST-RELEASE §11d).
+                    -- Admin API reads the catalogue in system scope (admin FIRST-RELEASE §11d). #1732: the demo
+                    -- host demo.<SHOP_DOMAIN>/?theme=<key> serves it, read in system scope (storefront PREVIEW §9).
 core_rollout        (id, version, security, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
                      paused_state NULL, percent, started_by NULL, reason, started_at, enrolled_at NULL,
                      finished_at NULL)

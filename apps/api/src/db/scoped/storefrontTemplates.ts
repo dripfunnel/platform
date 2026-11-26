@@ -1,3 +1,4 @@
+import { demoServed } from './demoStores'
 import type { ScopedSql } from './index'
 
 // The template catalogue as staff read it (admin CONSOLE-DESIGN L4, DATA-MODEL §7.8): every template, offered or retired,
@@ -32,20 +33,18 @@ export const selectTemplatesForStaff = (tx: ScopedSql): Promise<StaffTemplateRow
 export interface TemplateDemoRow {
   name: string
   demo_store_id: string | null
-  /** The demo's Owner, whom its preview link is issued to (PREVIEW §5). */
-  owner_id: string | null
   /** Set once the demo's preview files are in place. */
   preview_ref: string | null
+  /** The demo host serves it (demoStores.ts `demoServed`). */
+  served: boolean
 }
 
-/** A template and, when it has one, its demo store's Owner and preview, in one read. */
+/** A template and, when it has one, its demo store's preview, in one read. */
 export const selectTemplateDemo = async (tx: ScopedSql, key: string): Promise<TemplateDemoRow | null> =>
   (
     await tx<TemplateDemoRow[]>`
-      select t.name, t.demo_store_id, m.user_id as owner_id, d.preview_deploy_ref as preview_ref
+      select t.name, t.demo_store_id, d.preview_deploy_ref as preview_ref, ${demoServed(tx)} as served
       from storefront_template t
-      left join lateral (select user_id from membership where store_id = t.demo_store_id and seller_id is null and role_key = 'owner' and status = 'active'
-        order by created_at limit 1) m on true
       left join design_draft d on d.store_id = t.demo_store_id
       where t.key = ${key}`
   )[0] ?? null

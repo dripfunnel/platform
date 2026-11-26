@@ -39,7 +39,7 @@ const words: Record<PreviewRefusal, string> = {
   NO_DEMO: 'This template’s preview isn’t set up yet. A Super admin sets it up by opening it once.',
   NO_SAMPLE: 'Its store category has no sample catalog yet. Add one on Store categories first.',
   NO_HOUSE_PARTNER: 'DripFunnel’s own partner isn’t set up here, so there is nowhere to keep the demo store.',
-  PREVIEW_OFF: 'Previews aren’t switched on here (PREVIEW_LINK_KEY or SHOP_DOMAIN).',
+  PREVIEW_OFF: 'Demos aren’t switched on here (SHOP_DOMAIN).',
 }
 
 const read = { access: { api: 'admin' as const, scope: 'platform' as const, permission: 'storeCategories.read' as const, target: 'none' as const } }

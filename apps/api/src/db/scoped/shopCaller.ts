@@ -1,3 +1,4 @@
+import { demoServed } from './demoStores'
 import type { ScopedSql } from './index'
 
 // Which store a storefront request is for (ARCHITECTURE §2; ACCESS §3): its host or its public store key, read in system
@@ -35,11 +36,14 @@ const storefrontColumns = (tx: ScopedSql) => tx`
   coalesce((select json_object_agg(sf.key, sf.enabled) from store_feature sf where sf.store_id = s.id), '{}'::json) as features
 `
 
-/** `{slug}` of `{slug}.<shopDomain>`, one label deep; a `-preview` name is the preview host's, never a live one. */
+/** `{slug}` of `{slug}.<shopDomain>`, one label deep; a `-preview` name is the preview host's and `demo` the demos', never a live one. */
 export const liveSlugOf = (host: string, shopDomain: string | null): string | null => {
   const label = hostLabelUnder(host, shopDomain)
-  return label !== null && !label.endsWith('-preview') ? label : null
+  return label !== null && label !== demoLabel && !label.endsWith('-preview') ? label : null
 }
+/** `demo.<shopDomain>`: every template's demo, the template named by the visitor's choice (storefront PREVIEW.md §9). */
+export const demoLabel = 'demo'
+export const isDemoHost = (host: string, shopDomain: string | null): boolean => hostLabelUnder(host, shopDomain) === demoLabel
 /** `{slug}` of `{slug}-preview.<shopDomain>`. */
 export const previewSlugOf = (host: string, shopDomain: string | null): string | null => {
   const label = hostLabelUnder(host, shopDomain)
@@ -94,5 +98,15 @@ export const selectStorefrontByPreviewSlug = async (tx: ScopedSql, slug: string)
     await tx<StorefrontRow[]>`
       select ${storefrontColumns(tx)}, true as preview from store s join storefront f on f.store_id = s.id join partner p on p.id = s.partner_id
       where lower(s.slug) = ${slug} and s.status <> 'closed' and p.state <> 'closed'
+    `
+  )[0] ?? null
+
+/** An offered template's demo store, on the demo host only (PREVIEW.md §9): never a store that isn't a demo. */
+export const selectStorefrontByDemoTemplate = async (tx: ScopedSql, template: string): Promise<StorefrontRow | null> =>
+  (
+    await tx<StorefrontRow[]>`
+      select ${storefrontColumns(tx)}, true as preview
+      from storefront_template t join store s on s.id = t.demo_store_id join storefront f on f.store_id = s.id
+      where t.key = ${template} and ${demoServed(tx)}
     `
   )[0] ?? null
