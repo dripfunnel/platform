@@ -55,6 +55,9 @@ export type TextFieldProps = Styled & {
   /** A password field's show and hide button names ("Show password", "Hide password"), in the theme's words; both turn it on (#1731). */
   showLabel?: string | undefined
   hideLabel?: string | undefined
+  /** The password field's input and button together, and the button: the theme lays them out and styles them (docs/storefront/ARCHITECTURE.md §2.1). */
+  revealClassName?: string | undefined
+  toggleClassName?: string | undefined
 }
 
 const eye = (off: boolean) => (
@@ -75,7 +78,7 @@ const useFocusOnMount = (wanted: boolean | undefined) => {
 }
 
 /** A labelled text field with its hint and its error, each tied to it for screen readers. */
-export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, showLabel, hideLabel, className }: TextFieldProps) => {
+export const TextField = ({ label, value, onChange, type = 'text', autoComplete, inputMode, note, hint, error, maxLength = 200, autoFocus, required, requiredMark, showLabel, hideLabel, revealClassName, toggleClassName, className }: TextFieldProps) => {
   const id = useId()
   const [shown, setShown] = useState(false)
   const reveal = type === 'password' && Boolean(showLabel && hideLabel)
@@ -89,9 +92,9 @@ export const TextField = ({ label, value, onChange, type = 'text', autoComplete,
         {note ? <small> {note}</small> : null}
       </label>
       {reveal ? (
-        <span style={{ position: 'relative', display: 'grid' }}>
-          <input ref={input} id={id} type={shown ? 'text' : 'password'} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} style={{ paddingInlineEnd: '2.75rem' }} />
-          <button type="button" aria-label={shown ? hideLabel : showLabel} onClick={() => setShown(!shown)} style={{ position: 'absolute', insetBlock: 0, insetInlineEnd: 0, width: '2.75rem', display: 'grid', placeItems: 'center', background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
+        <span className={revealClassName}>
+          <input ref={input} id={id} type={shown ? 'text' : 'password'} value={value} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} aria-required={required || undefined} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(e.target.value)} />
+          <button type="button" className={toggleClassName} aria-label={shown ? hideLabel : showLabel} onClick={() => setShown(!shown)}>
             {eye(shown)}
           </button>
         </span>

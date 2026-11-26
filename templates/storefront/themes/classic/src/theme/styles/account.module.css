@@ -80,6 +80,34 @@
   gap: 6px;
 }
 
+.reveal {
+  position: relative;
+  display: grid;
+}
+
+.reveal input {
+  padding-inline-end: 3rem;
+}
+
+.revealButton {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.revealButton:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
 .field label {
   font-size: 14px;
   font-weight: 600;

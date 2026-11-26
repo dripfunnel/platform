@@ -311,7 +311,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`<PlaceOrder>`**: the theme words and styles it; core places the order, or asks for another attempt after a failed
   payment; marked `data-df-action` for the smoke test.
 - **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
-  tied to it), `PhoneField` (a mobile number as a country code dropdown, starting in the store's or the address's country,
+  tied to it; a `type="password"` one given `showLabel` and `hideLabel` has an eye button that shows and hides it, laid out by the theme's `revealClassName` and `toggleClassName`, #1731), `PhoneField` (a mobile number as a country code dropdown, starting in the store's or the address's country,
   and the number, handed back as E.164 with no spaces; `checkout/phone.ts` holds the calling codes), `Choices` (radio
   buttons, each option's content the theme's) and `AddressFields` (the country's fields with
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` starts with the map

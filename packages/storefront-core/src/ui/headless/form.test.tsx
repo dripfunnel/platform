@@ -108,6 +108,15 @@ describe('TextField › password', () => {
     expect(box().value).toBe('hunter2hunter2')
   })
 
+  it('lays the input and the button out with the theme’s classes, and writes no style of its own', () => {
+    render(<TextField label="Password" type="password" value="" onChange={() => undefined} showLabel="Show password" hideLabel="Hide password" revealClassName="reveal" toggleClassName="eye" />)
+    const button = screen.getByRole('button', { name: 'Show password' })
+    expect(button.className).toBe('eye')
+    expect(button.parentElement?.className).toBe('reveal')
+    expect(button.parentElement?.contains(screen.getByLabelText('Password'))).toBe(true)
+    expect(button.hasAttribute('style') || button.parentElement?.hasAttribute('style') || screen.getByLabelText('Password').hasAttribute('style')).toBe(false)
+  })
+
   it('has no button without the theme’s words, and none on a field that is not a password', () => {
     const { unmount } = render(<Password words={false} />)
     expect(screen.queryByRole('button')).toBeNull()
