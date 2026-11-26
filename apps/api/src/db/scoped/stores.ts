@@ -492,6 +492,15 @@ export const updateCustomDomainCheck = async (tx: ScopedSql, id: string, check: 
   `
 }
 
+/** Merchant domains Cloudflare is still verifying or issuing, not checked since `before` (SAAS §8). */
+export const selectDueCustomDomains = (tx: ScopedSql, before: Date, limit: number): Promise<{ id: string; store_id: string; partner_id: string | null }[]> =>
+  tx<{ id: string; store_id: string; partner_id: string | null }[]>`
+    select d.id, d.store_id, s.partner_id from custom_domain d join store s on s.id = d.store_id
+    where d.status in ('verifying', 'issuing') and (d.checked_at is null or d.checked_at < ${before})
+    order by d.checked_at nulls first, d.id
+    limit ${limit}
+  `
+
 /** The first time a store's own domain connects; never moved or cleared after (ACCESS.md §8, #1340). */
 export const markStoreDomainConnected = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
   await tx`update store set domain_connected_at = ${at} where id = ${storeId} and domain_connected_at is null`
