@@ -308,6 +308,11 @@
   cursor: pointer;
 }
 
+.df-offer-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .df-offer-checks {
   display: flex;
   flex-wrap: wrap;

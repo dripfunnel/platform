@@ -6035,6 +6035,7 @@
       "removeTier": "Remove step {n}",
       "addTier": "Add a step",
       "tiersNote": "The shopper gets the highest step they reach, not all of them.",
+      "tiersMinimum": "A step offer needs at least two steps. Untick “{label}” to remove them all.",
       "cap": "Cap the discount at",
       "capLabel": "Cap",
       "buys": "Customer buys",

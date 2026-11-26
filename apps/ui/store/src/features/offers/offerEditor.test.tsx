@@ -537,3 +537,51 @@ describe('editing an offer', () => {
     expect(screen.getByText(words.missing)).toBeTruthy()
   })
 })
+
+describe('a step offer’s remove buttons (#1751)', () => {
+  const removes = () => screen.queryAllByRole('button', { name: /^Remove step / }) as HTMLButtonElement[]
+  const hint = () => screen.queryByText(/needs at least two steps/)
+  const tiered: Offer = {
+    ...welcome,
+    action: action({
+      operation: 'tiered_discount',
+      kind: 'percent',
+      tiers: [
+        { minimum: [{ amount: '100000', currency: 'INR' }], percent: 10, amounts: [] },
+        { minimum: [{ amount: '200000', currency: 'INR' }], percent: 15, amounts: [] },
+      ],
+    }),
+  }
+
+  it('shows a disabled × on each of two steps with a hint, and the steps box still clears them', async () => {
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('checkbox', { name: words.tiers }))
+    expect(removes()).toHaveLength(2)
+    expect(removes().map((b) => b.disabled)).toEqual([true, true])
+    expect(hint()).toBeTruthy()
+    fireEvent.click(removes()[0] as HTMLButtonElement)
+    expect(removes()).toHaveLength(2)
+    fireEvent.click(screen.getByRole('checkbox', { name: words.tiers }))
+    expect(removes()).toHaveLength(0)
+    expect(hint()).toBeNull()
+  })
+
+  it('enables the × from three steps, and removing down to two disables them again', async () => {
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('checkbox', { name: words.tiers }))
+    fireEvent.click(screen.getByRole('button', { name: words.addTier }))
+    expect(removes().map((b) => b.disabled)).toEqual([false, false, false])
+    expect(hint()).toBeNull()
+    fireEvent.click(removes()[2] as HTMLButtonElement)
+    expect(removes().map((b) => b.disabled)).toEqual([true, true])
+    expect(hint()).toBeTruthy()
+  })
+
+  it('shows no × and no hint on an offer the store can only view', async () => {
+    api.loadOffer.mockResolvedValue(tiered)
+    await show(owner, '/offers/o1/edit', { readOnly: true })
+    expect(screen.getByRole('checkbox', { name: words.tiers })).toHaveProperty('checked', true)
+    expect(removes()).toHaveLength(0)
+    expect(hint()).toBeNull()
+  })
+})
