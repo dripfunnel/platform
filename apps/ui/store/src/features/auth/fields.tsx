@@ -1,9 +1,9 @@
 import { safeNext } from '@dripfunnel/shared/ui'
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import googleMark from '../../assets/google-mark.svg'
 import { currentBrand } from '../../brand/current'
 import { messages } from '../../messages'
-import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
+import { Field as CommonField, PasswordField as CommonPasswordField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
 const words = messages.auth
 
@@ -15,20 +15,7 @@ type FieldProps = Omit<CommonFieldProps, 'look'>
 
 export const Field = (props: FieldProps) => <CommonField look="auth" {...props} />
 
-export const PasswordField = (props: Omit<FieldProps, 'type' | 'trailing'>) => {
-  const [shown, setShown] = useState(false)
-  return (
-    <Field
-      {...props}
-      type={shown ? 'text' : 'password'}
-      trailing={
-        <button type="button" className="df-auth-eye" aria-pressed={shown} onClick={() => setShown((s) => !s)}>
-          {shown ? words.hide : words.show}
-        </button>
-      }
-    />
-  )
-}
+export const PasswordField = (props: Omit<FieldProps, 'type' | 'trailing'>) => <CommonPasswordField look="auth" show={words.show} hide={words.hide} {...props} />
 
 /** A new password with PortalAuth's four-bar meter and its words. */
 export const NewPasswordField = (props: Omit<FieldProps, 'type' | 'trailing' | 'help' | 'below'>) => {

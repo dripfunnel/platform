@@ -245,6 +245,24 @@ describe('changing your password', () => {
     fireEvent.click(screen.getByRole('button', { name: words.password.open }))
     expect((screen.getByLabelText(words.password.current) as HTMLInputElement).value).toBe('')
   })
+
+  it('shows or hides each box with its own eye button, starting hidden (#1747)', async () => {
+    const { PasswordCard } = await import('./PasswordCard')
+    render(<PasswordCard changedAt={null} onChanged={() => undefined} onToast={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: words.password.open }))
+    const box = (label: string) => screen.getByLabelText(label) as HTMLInputElement
+    typeIn(words.password.next, 'a long new one')
+    expect(screen.getAllByRole('button', { name: words.password.showPassword })).toHaveLength(3)
+    expect([words.password.current, words.password.next, words.password.again].map((label) => box(label).type)).toEqual(['password', 'password', 'password'])
+    fireEvent.click(screen.getAllByRole('button', { name: words.password.showPassword })[1] as HTMLElement)
+    expect([words.password.current, words.password.next, words.password.again].map((label) => box(label).type)).toEqual(['password', 'text', 'password'])
+    expect(box(words.password.next).value).toBe('a long new one')
+    const hide = screen.getByRole('button', { name: words.password.hidePassword })
+    expect(hide.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(hide)
+    expect(box(words.password.next).type).toBe('password')
+    expect(screen.queryByRole('button', { name: words.password.hidePassword })).toBeNull()
+  })
 })
 
 describe('your activity', () => {

@@ -1,4 +1,5 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Icon } from '@dripfunnel/shared/ui'
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { PhoneInput } from './PhoneInput'
 
 // The one labelled field and the two buttons, for every area of the portal (docs/ui/README.md §2). An
@@ -52,6 +53,23 @@ export const Field = ({ look, label, value, onValue, aside, help, helpTone, inva
         </span>
       )}
     </div>
+  )
+}
+
+/** A password box with its show and hide button: the auth look names it in words, the profile look draws the eye. */
+export const PasswordField = ({ look, show, hide, ...props }: Omit<FieldProps, 'type' | 'trailing'> & { show: string; hide: string }) => {
+  const [shown, setShown] = useState(false)
+  return (
+    <Field
+      {...props}
+      look={look}
+      type={shown ? 'text' : 'password'}
+      trailing={
+        <button type="button" className={`df-${look}-eye`} aria-pressed={shown} aria-label={look === 'profile' ? (shown ? hide : show) : undefined} onClick={() => setShown((s) => !s)}>
+          {look === 'profile' ? <Icon name={shown ? 'eyeOff' : 'eye'} size={18} /> : shown ? hide : show}
+        </button>
+      }
+    />
   )
 }
 
