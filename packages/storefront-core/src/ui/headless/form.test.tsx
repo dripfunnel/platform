@@ -80,3 +80,48 @@ describe('PhoneField', () => {
     expect((screen.getByLabelText('Mobile number') as HTMLInputElement).value).toBe('7946095800')
   })
 })
+
+describe('TextField › password', () => {
+  const Password = ({ words = true }: { words?: boolean }) => {
+    const [value, setValue] = useState('')
+    return <TextField label="Password" type="password" value={value} onChange={setValue} {...(words ? { showLabel: 'Show password', hideLabel: 'Hide password' } : {})} />
+  }
+  const box = () => screen.getByLabelText('Password') as HTMLInputElement
+
+  it('starts hidden, shows on a click and hides on the next, the button naming what it does (#1731)', () => {
+    render(<Password />)
+    expect(box().type).toBe('password')
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(box().type).toBe('text')
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(box().type).toBe('password')
+    expect(screen.queryByRole('button', { name: 'Show password' })).toBeTruthy()
+  })
+
+  it('keeps what was typed when it shows, and is a plain button the keyboard reaches and Enter or Space press', () => {
+    render(<Password />)
+    fireEvent.change(box(), { target: { value: 'hunter2hunter2' } })
+    const button = screen.getByRole('button', { name: 'Show password' }) as HTMLButtonElement
+    expect(button.type).toBe('button')
+    expect(button.tabIndex).toBe(0)
+    fireEvent.click(button)
+    expect(box().value).toBe('hunter2hunter2')
+  })
+
+  it('lays the input and the button out with the theme’s classes, and writes no style of its own', () => {
+    render(<TextField label="Password" type="password" value="" onChange={() => undefined} showLabel="Show password" hideLabel="Hide password" revealClassName="reveal" toggleClassName="eye" />)
+    const button = screen.getByRole('button', { name: 'Show password' })
+    expect(button.className).toBe('eye')
+    expect(button.parentElement?.className).toBe('reveal')
+    expect(button.parentElement?.contains(screen.getByLabelText('Password'))).toBe(true)
+    expect(button.hasAttribute('style') || button.parentElement?.hasAttribute('style') || screen.getByLabelText('Password').hasAttribute('style')).toBe(false)
+  })
+
+  it('has no button without the theme’s words, and none on a field that is not a password', () => {
+    const { unmount } = render(<Password words={false} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    unmount()
+    render(<TextField label="Name" value="" onChange={() => undefined} showLabel="Show password" hideLabel="Hide password" />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})

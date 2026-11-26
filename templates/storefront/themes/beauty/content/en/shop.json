@@ -249,6 +249,8 @@
     "how": "How to sign in",
     "password": "Password",
     "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "passwordRule": "At least 10 characters.",
     "remember": "Keep me signed in",
     "forgot": "Forgot password?",
