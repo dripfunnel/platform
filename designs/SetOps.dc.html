@@ -13,7 +13,7 @@
     <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><span style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">{{ cd.title }}</span><span style="font-size:13px;color:var(--muted,#5A6472);">{{ cd.sub }}</span></span><sc-if value="{{ cd.headBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cd.headOn }}" style="height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">{{ cd.headBtn }}</button></sc-if></div>
       <sc-for list="{{ cd.rows }}" as="r" hint-placeholder-count="3">
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:{{ r.bd }};border-radius:10px;background:{{ r.bg }};flex-wrap:wrap;">
+        <div title="{{ r.hint }}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:{{ r.bd }};border-radius:10px;background:{{ r.bg }};flex-wrap:wrap;opacity:{{ r.op }};">
           <sc-if value="{{ r.radio }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.onClick }}" style="width:18px;height:18px;border-radius:50%;border:{{ r.dot }};background:var(--card,#FFFFFF);cursor:pointer;padding:0;flex:none;"></button></sc-if>
           <sc-if value="{{ r.mark }}" hint-placeholder-val="{{ false }}"><span style="width:34px;height:34px;border-radius:8px;background:var(--sunk,#F2F0EC);display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:12px;color:var(--text2,#434A55);flex:none;">{{ r.mark }}</span></sc-if>
           <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:var(--text,#14181F);">{{ r.name }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ r.desc }}</span></span>
@@ -36,7 +36,7 @@ class Component extends DCLogic {
     const app = this.props.app; if (!app) return {};
     const { R, fmt, caps: c, phone } = app; const mode = this.props.mode; const s = this.state;
     const ro = !c.isOwner || c.readOnly;
-    const row = x => ({ radio: false, mark: '', input: false, status: '', btn: '', bd: '1px solid var(--border,#EDEAE5)', bg: 'var(--card,#FFFFFF)', stBg: 'var(--sunk,#F2F0EC)', stFg: 'var(--text2,#434A55)', btnBd: 'var(--field,#D7D3CD)', btnFg: 'var(--text,#14181F)', desc: '', ...x });
+    const row = x => ({ radio: false, mark: '', input: false, status: '', btn: '', bd: '1px solid var(--border,#EDEAE5)', bg: 'var(--card,#FFFFFF)', stBg: 'var(--sunk,#F2F0EC)', stFg: 'var(--text2,#434A55)', btnBd: 'var(--field,#D7D3CD)', btnFg: 'var(--text,#14181F)', desc: '', hint: '', op: '1', ...x });
     const pad = phone ? '14px' : '22px 28px';
     const fx = { fileRef: this.fileRef, onFile: e => this.readCodes(e) };
     if (mode === 'payments') {
@@ -68,7 +68,7 @@ class Component extends DCLogic {
       } });
       return { ...fx, pad, cards: [
         { title: 'What the shopper pays for delivery', sub: 'Two questions: what you charge, and when it’s free.', rows: [
-          radio(sh.mode === 'live', 'The courier’s live rate', pricing ? `Quoted at checkout by ${pricing.name}, from address and weight.` : 'Connect a courier below first.', () => { if (!app.allow('liveRates', 'Live courier rates at checkout')) return; set({ mode: 'live' }); }),
+          radio(sh.mode === 'live', 'The courier’s live rate', pricing ? `Quoted at checkout by ${pricing.name}, from address and weight.` : 'Connect a courier below first.', () => { if (!pricing && sh.mode !== 'live') return; if (!app.allow('liveRates', 'Live courier rates at checkout')) return; set({ mode: 'live' }); }, !pricing && sh.mode !== 'live' ? { hint: 'Please connect Shiprocket first.', op: '0.6' } : {}),
           radio(sh.mode === 'flat', 'A flat rate', 'Same charge on every order.', () => set({ mode: 'flat' }), sh.mode === 'flat' ? { input: true, prefix: R.cur, value: sh.flat, onInput: e => set({ flat: e.target.value }) } : {}),
           radio(sh.mode === 'pickup', 'Nothing — collect in person', sh.mode === 'pickup' ? 'Shown at checkout: ' + [info.street, info.city].filter(Boolean).join(', ') + ' · ' + (sh.pickupHours || 'no hours set yet') : 'Your address and hours show at checkout instead.', () => set({ mode: 'pickup' }), sh.mode === 'pickup' && !ro ? { btn: sh.pickupHours ? 'Change hours' : 'Set hours', btnBd: sh.pickupHours ? 'var(--field,#D7D3CD)' : 'var(--pbd,#F0D4BF)', btnFg: sh.pickupHours ? 'var(--text,#14181F)' : 'var(--link,#B8541F)', btnOn: () => app.modal({ title: 'When can shoppers collect?', body: 'Shown at checkout and in the order confirmation.', value: sh.pickupHours || '', input: { label: 'Days and hours', placeholder: 'Mon–Sat, 10 am – 6 pm', required: true, error: 'Type when you’re open' }, confirm: 'Save hours', onConfirm: v => set({ pickupHours: v.trim() }) }) } : {})
         ] },

@@ -47,8 +47,11 @@ const draftKeys = ['courierRate', 'flatRate', 'flat', 'pickup', 'hours', 'freeMo
 
 const typed = (minor: string | null, currency: string) => (minor === null ? '' : moneyText({ amount: Number(minor), currency }))
 
+const hasPricing = (s: ShippingSettings) => s.couriers.some((c) => c.status === 'pricing')
+
+/** The live rate shows as off while no partner prices, whatever is saved (#1755). */
 const draftOf = (s: ShippingSettings): Draft => ({
-  courierRate: s.courierRate,
+  courierRate: s.courierRate && hasPricing(s),
   flatRate: s.flatRate,
   flat: typed(s.flatAmount, s.currency),
   pickup: s.pickup,
@@ -75,7 +78,7 @@ const inputOf = (d: Draft, s: ShippingSettings): ShippingInput | keyof typeof wo
   const flat = minorOf(d.flat, s.currency)
   const threshold = minorOf(d.threshold, s.currency)
   if (!d.courierRate && !d.flatRate && !d.pickup) return 'method'
-  if (d.courierRate && !s.couriers.some((c) => c.status === 'pricing')) return 'courier'
+  if (d.courierRate && !hasPricing(s)) return 'courier'
   if (flat === 'invalid' || (d.freeMode === 'over' && threshold === 'invalid')) return 'amount'
   if (d.flatRate && flat === null) return 'flat'
   if (d.freeMode === 'over' && !threshold) return 'threshold'
@@ -135,7 +138,10 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
     if (ask !== latest.current) return
     const before = draftOf(base.current)
     adopt(after)
-    setDraft((d) => rebase(d, before, draftOf(after)))
+    setDraft((d) => {
+      const next = rebase(d, before, draftOf(after))
+      return hasPricing(after) ? next : { ...next, courierRate: false }
+    })
   }
 
   const run = async (card: Card, work: () => Promise<string | null>, readBack = true) => {
@@ -274,15 +280,20 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
       </p>
     )
 
-  const choice = (props: { type: 'checkbox' | 'radio'; name?: string; checked: boolean; onChange: () => void; label: string; sub: string; extra?: ReactNode }) => (
-    <div className={props.checked ? 'df-ops-row df-ops-choice df-ops-choice--on' : 'df-ops-row df-ops-choice'}>
+  const choice = (props: { type: 'checkbox' | 'radio'; name?: string; checked: boolean; onChange: () => void; label: string; sub: string; extra?: ReactNode; lock?: string | undefined }) => (
+    <div className={`df-ops-row df-ops-choice${props.checked ? ' df-ops-choice--on' : ''}${props.lock ? ' df-ops-choice--locked' : ''}`} title={props.lock}>
       <label className="df-ops-pick">
-        <input type={props.type} name={props.name} checked={props.checked} disabled={!canEdit || busy} onChange={props.onChange} />
+        <input type={props.type} name={props.name} checked={props.checked} disabled={!canEdit || busy || Boolean(props.lock)} aria-describedby={props.lock ? `${id}-lock` : undefined} onChange={props.onChange} />
         <span className="df-ops-text">
           <strong>{props.label}</strong>
           {props.sub && <span>{props.sub}</span>}
         </span>
       </label>
+      {props.lock && (
+        <span id={`${id}-lock`} className="df-visually-hidden">
+          {props.lock}
+        </span>
+      )}
       {props.extra}
     </div>
   )
@@ -329,7 +340,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, g
         <h2 id={`${id}-charge`}>{words.chargeTitle}</h2>
         <p className="df-set-lede">{words.chargeSub}</p>
         <div role="group" aria-labelledby={`${id}-charge`} className="df-ops-rows">
-          {choice({ type: 'checkbox', checked: draft.courierRate, onChange: () => set({ courierRate: !draft.courierRate }), label: words.courierRate, sub: pricing ? fill(words.courierRateBy, { name: nameOf(pricing.provider) }) : words.courierRateNone })}
+          {choice({ type: 'checkbox', checked: draft.courierRate, onChange: () => set({ courierRate: !draft.courierRate }), label: words.courierRate, sub: pricing ? fill(words.courierRateBy, { name: nameOf(pricing.provider) }) : words.courierRateNone, lock: canEdit && !pricing ? (server.couriers.some((c) => c.provider === 'shiprocket' && c.offered) ? words.courierRateLocked : words.courierRateLockedAny) : undefined })}
           {choice({
             type: 'checkbox',
             checked: draft.flatRate,
