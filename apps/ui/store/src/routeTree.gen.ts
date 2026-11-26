@@ -28,6 +28,7 @@ import { Route as AppSalesRouteImport } from './routes/_app/sales'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStorefrontRouteImport } from './routes/_app/storefront'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
+import { Route as AppTemplatesRouteImport } from './routes/_app/templates'
 import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
 import { Route as AuthConfirmEmailRouteImport } from './routes/_auth/confirm-email'
 import { Route as AuthJoinRouteImport } from './routes/_auth/join'
@@ -142,6 +143,11 @@ const AppStorefrontRoute = AppStorefrontRouteImport.update({
 const AppTeamRoute = AppTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTemplatesRoute = AppTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/storefront': typeof AppStorefrontRoute
   '/team': typeof AppTeamRoute
+  '/templates': typeof AppTemplatesRoute
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/confirm-email': typeof AuthConfirmEmailRoute
   '/join': typeof AuthJoinRoute
@@ -316,6 +323,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/storefront': typeof AppStorefrontRoute
   '/team': typeof AppTeamRoute
+  '/templates': typeof AppTemplatesRoute
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/confirm-email': typeof AuthConfirmEmailRoute
   '/join': typeof AuthJoinRoute
@@ -359,6 +367,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/storefront': typeof AppStorefrontRoute
   '/_app/team': typeof AppTeamRoute
+  '/_app/templates': typeof AppTemplatesRoute
   '/_auth/accept-invite': typeof AuthAcceptInviteRoute
   '/_auth/confirm-email': typeof AuthConfirmEmailRoute
   '/_auth/join': typeof AuthJoinRoute
@@ -403,6 +412,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storefront'
     | '/team'
+    | '/templates'
     | '/accept-invite'
     | '/confirm-email'
     | '/join'
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storefront'
     | '/team'
+    | '/templates'
     | '/accept-invite'
     | '/confirm-email'
     | '/join'
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/storefront'
     | '/_app/team'
+    | '/_app/templates'
     | '/_auth/accept-invite'
     | '/_auth/confirm-email'
     | '/_auth/join'
@@ -653,6 +665,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates': {
+      id: '/_app/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof AppTemplatesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/accept-invite': {
@@ -828,6 +847,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
+  AppTemplatesRoute: typeof AppTemplatesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppBillingKeepRoute: typeof AppBillingKeepRoute
   AppCartsCartIdRoute: typeof AppCartsCartIdRoute
@@ -860,6 +880,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
+  AppTemplatesRoute: AppTemplatesRoute,
   AppIndexRoute: AppIndexRoute,
   AppBillingKeepRoute: AppBillingKeepRoute,
   AppCartsCartIdRoute: AppCartsCartIdRoute,

@@ -343,9 +343,10 @@ describe('checking', () => {
     expect((await run<Added>(add, squatter, { kind: 'email', host: 'squat.freshpartner.example' })).data?.addPartnerDomain).toMatchObject({ ok: true })
   })
 
-  it('queues the scheduled check for waiting and failed addresses once per ten minutes', async () => {
+  it.each(['failed', 'verifying', 'issuing'])('queues the scheduled check for a %s address once per ten minutes', async (status) => {
     const [waiting] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.fresh} and kind = 'email'`
-    await db.sql`update partner_domain set status = 'failed', checked_at = ${new Date(Date.now() - 3_600_000)} where id = ${waiting?.id ?? ''}`
+    await db.sql`delete from outbox where kind = 'domain.recheck' and payload->>'domainId' = ${waiting?.id ?? ''}`
+    await db.sql`update partner_domain set status = ${status}, checked_at = ${new Date(Date.now() - 3_600_000)} where id = ${waiting?.id ?? ''}`
     const queued = () => db.sql`select 1 from outbox where kind = 'domain.recheck' and payload->>'domainId' = ${waiting?.id ?? ''} and idempotency_key like '%:scheduled:%'`
     const at = new Date()
     expect(await queueDueDomainChecks(db.sql, at)).toBeGreaterThan(0)

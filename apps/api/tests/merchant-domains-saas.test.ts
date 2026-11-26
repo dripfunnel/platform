@@ -4,6 +4,7 @@ import { CloudflareRefused, CloudflareUnavailable, type CloudflareApi, type Cust
 import type { DnsLookup } from '#integrations/dns/doh'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
+import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { queueMerchantDomainRemoval } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -151,6 +152,24 @@ describe('removing a merchant domain', () => {
     expect(counts.delivered).toBe(1)
     expect(cloudflare.removed).toEqual([d.host])
     expect((await purgesFor(d)).map((r) => r.payload)).toEqual([{ storeId: d.storeId, host: d.host, reason: 'domain-removed' }])
+  })
+})
+
+describe('the scheduled check', () => {
+  it('queues a domain Cloudflare is verifying or issuing once per 15 minutes, and takes it live when Cloudflare is done', async () => {
+    const at = new Date()
+    const ago = (minutes: number) => new Date(at.getTime() - minutes * 60_000)
+    await db.sql`update custom_domain set status = 'verifying', checked_at = ${ago(60)} where id = ${domains.mine.id}`
+    await db.sql`update custom_domain set status = 'issuing', checked_at = ${ago(5)} where id = ${domains.sibling.id}`
+    await db.sql`update custom_domain set checked_at = ${ago(60)} where id = ${domains.other.id}`
+    await queueDueDomainChecks(db.sql, at)
+    await queueDueDomainChecks(db.sql, new Date(at.getTime() + 1000))
+    const queued = await db.sql<{ payload: { customDomainId: string } }[]>`select payload from outbox where kind = 'custom_domain.recheck'`
+    expect(queued.map((r) => r.payload.customDomainId).filter((id) => Object.values(domains).some((d) => d.id === id))).toEqual([domains.mine.id])
+
+    const cloudflare = fakeCloudflare(async () => hostname('active', 'active'))
+    await relayDue(db.sql, { 'custom_domain.recheck': customDomainRecheckDeliverer(db.sql, dns(true), () => now, cloudflare) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    expect((await rowOf(domains.mine))?.status).toBe('live')
   })
 })
 
