@@ -7,7 +7,9 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { selectCatalogExport } from '#db/scoped/catalogExports'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { selectCustomerExportRows } from '#db/scoped/storeCustomers'
 import { buildCustomerExport, ensureGuestCustomer } from '#engine/modules/customers/index'
+import { customersCsv } from '#engine/modules/customers/exports'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -334,14 +336,56 @@ describe('the customers export', () => {
     const file = (await gql(`{ customerExport(id: "${id}") { state rows csv } }`, 'staff')).data?.['customerExport'] as { state: string; rows: number; csv: string }
     expect([file.state, file.rows]).toEqual(['done', 1])
     expect(file.csv.split('\n')).toEqual([
-      'name,email,phone,city,orders,spent,currency,tags,groups,marketing consent',
+      'name,email,phone,street address,"flat, floor or building",city,state or region,postal code,country,orders,spent,currency,tags,groups,note,marketing consent',
       // A number's + is kept as text, never run as a formula (core/csv).
-      "Priya Shah,priya@example.com,'+919800000001,Pune,2,40.00,INR,VIP; Repeat,Trade,stopped",
-      "Priya Shah,priya@example.com,'+919800000001,Pune,2,20.00,USD,VIP; Repeat,Trade,stopped",
+      "Priya Shah,priya@example.com,'+919800000001,1 Road,,Pune,MH,411001,IN,2,40.00,INR,VIP; Repeat,Trade,Prefers gift wrap,stopped",
+      "Priya Shah,priya@example.com,'+919800000001,1 Road,,Pune,MH,411001,IN,2,20.00,USD,VIP; Repeat,Trade,Prefers gift wrap,stopped",
     ])
     for (const who of ['owner', 'other'] as const) expect((await gql(`{ customerExport(id: "${id}") { id } }`, who)).data?.['customerExport'], who).toBeNull()
     expect((await gql(`{ orderExport(id: "${id}") { id } }`, 'staff')).data?.['orderExport']).toBeNull()
     expect((await entries('customer.exported'))[0]?.changes).toEqual([{ field: 'filter', before: null, after: '{"groupId":null,"search":"searched"}', redacted: false }])
+  })
+
+  it('carries the whole address and the note: the saved default over an order’s address, a note with commas and line breaks in one cell (#1601)', async () => {
+    const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const csvFor = (search: string) =>
+      withScope(db.sql, merchant, async (tx) => customersCsv(await selectCustomerExportRows(tx, t.storeA1, { groupId: null, search }, 10), null).split('\n').slice(1))
+    const note = 'Likes "gift wrap", ring\ntwice'
+    const [saved] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status, note) values (${t.storeA1}, 'zed1601@example.com', 'Zed Saved', 'unverified', ${note}) returning id`
+    const [orderOnly] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'yan1601@example.com', 'Yan Order', 'unverified') returning id`
+    const [empty] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'xia1601@example.com', 'Xia Bare', 'unverified') returning id`
+    try {
+      await db.sql`insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, is_default_shipping)
+        values (${saved?.id ?? ''}, ${t.storeA1}, 'Zed', '4 Park Rd', 'Flat 2', 'Bengaluru', 'KA', '560001', 'IN', true)`
+      await order('Z-1', { customerId: saved?.id ?? null, email: 'zed1601@example.com', city: 'Pune', total: 1000 })
+      await order('Y-1', { customerId: orderOnly?.id ?? null, email: 'yan1601@example.com', city: 'Delhi', total: 500 })
+      expect(await csvFor('Zed Saved')).toEqual(['Zed Saved,zed1601@example.com,,4 Park Rd,Flat 2,Bengaluru,KA,560001,IN,1,10.00,INR,,,"Likes ""gift wrap"", ring', 'twice",not_asked'])
+      expect(await csvFor('Yan Order')).toEqual(['Yan Order,yan1601@example.com,,1 Road,,Delhi,MH,411001,IN,1,5.00,INR,,,,not_asked'])
+      expect(await csvFor('Xia Bare')).toEqual(['Xia Bare,xia1601@example.com,,,,,,,,0,,,,,,not_asked'])
+    } finally {
+      await db.sql`delete from "order" where number in ('Z-1', 'Y-1')`
+      await db.sql`delete from customer_address where customer_id in (${saved?.id ?? ''}, ${orderOnly?.id ?? ''}, ${empty?.id ?? ''})`
+      await db.sql`delete from customer where id in (${saved?.id ?? ''}, ${orderOnly?.id ?? ''}, ${empty?.id ?? ''})`
+    }
+  })
+
+  it('picks the same saved address as the panel: the default first, else the newest (#1601)', async () => {
+    const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const addressCell = (search: string) =>
+      withScope(db.sql, merchant, async (tx) => customersCsv(await selectCustomerExportRows(tx, t.storeA1, { groupId: null, search }, 10), null).split('\n')[1]?.split(',')[5])
+    const [newest] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'ann1601@example.com', 'Ann Newest', 'unverified') returning id`
+    const [flagged] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${t.storeA1}, 'ben1601@example.com', 'Ben Flagged', 'unverified') returning id`
+    const [ann, ben] = [newest?.id ?? '', flagged?.id ?? '']
+    try {
+      for (const [customer, city, isDefault, at] of [[ann, 'Old City', false, '2026-01-01'], [ann, 'New City', false, '2026-06-01'], [ben, 'Default City', true, '2026-01-01'], [ben, 'Later City', false, '2026-06-01']] as const) {
+        await db.sql`insert into customer_address (customer_id, store_id, name, line1, city, country, is_default_shipping, created_at) values (${customer}, ${t.storeA1}, 'x', '1 Road', ${city}, 'IN', ${isDefault}, ${at})`
+      }
+      expect(await addressCell('Ann Newest')).toBe('New City')
+      expect(await addressCell('Ben Flagged')).toBe('Default City')
+    } finally {
+      await db.sql`delete from customer_address where customer_id in (${ann}, ${ben})`
+      await db.sql`delete from customer where id in (${ann}, ${ben})`
+    }
   })
 
   it('gives another store’s export none of this store’s customers, and cuts a file at its cap', async () => {
