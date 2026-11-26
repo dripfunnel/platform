@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
@@ -187,5 +188,14 @@ describe('the demo host', () => {
 
   it('is a name no store can take', () => {
     expect(isReservedSlug('demo')).toBe(true)
+  })
+
+  it('stops migration 0418 while a store holds the slug, and passes once none does', async () => {
+    const migration = readFileSync(new URL('../migrations/0418_reserve_demo_slug.sql', import.meta.url), 'utf8')
+    const [before] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    await db.sql`update store set slug = 'demo' where id = ${t.storeA1}`
+    await expect(db.sql.unsafe(migration)).rejects.toThrow(/holds the slug "demo"/)
+    await db.sql`update store set slug = ${before?.slug ?? null} where id = ${t.storeA1}`
+    await db.sql.unsafe(migration)
   })
 })

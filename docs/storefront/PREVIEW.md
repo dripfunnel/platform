@@ -329,4 +329,5 @@ Each offered template's demo store (admin FIRST-RELEASE §11d, DATA-MODEL §7.2)
 6. **Who links to it.** Admin › Templates › Preview (each opening logged, `storefront_template.preview_opened`) and
    the Store API's `storefrontTemplates.demoUrl` (the merchant portal's "View demo ↗"), once the demo is ready.
 7. **The name.** The slug `demo` is reserved ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2), and a live
-   store's address never resolves `demo.`.
+   store's address never resolves `demo.`. Migration 0418 stops the deploy if a store already holds it, rather than
+   rename that store.
