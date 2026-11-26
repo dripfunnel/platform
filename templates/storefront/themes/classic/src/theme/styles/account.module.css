@@ -85,7 +85,7 @@
   display: grid;
 }
 
-.reveal input {
+.reveal input[type] {
   padding-inline-end: 3rem;
 }
 

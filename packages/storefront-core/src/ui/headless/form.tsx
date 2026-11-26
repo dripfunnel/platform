@@ -52,7 +52,7 @@ export type TextFieldProps = Styled & {
   required?: boolean
   /** The theme's mark for a required field, shown after the label. */
   requiredMark?: string | undefined
-  /** A password field's show and hide button names ("Show password", "Hide password"), in the theme's words; both turn it on (#1731). */
+  /** A password field's show and hide button names ("Show password", "Hide password"), in the theme's words; it needs both, and with only one the field is unchanged (#1731). */
   showLabel?: string | undefined
   hideLabel?: string | undefined
   /** The password field's input and button together, and the button: the theme lays them out and styles them (docs/storefront/ARCHITECTURE.md §2.1). */
