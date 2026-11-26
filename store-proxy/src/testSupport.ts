@@ -1,5 +1,5 @@
 import type { Deps } from './deps'
-import type { EdgeApi, LiveHost, PreviewAccess, PreviewCheck } from './edge'
+import type { DemoSite, EdgeApi, LiveHost, PreviewAccess, PreviewCheck } from './edge'
 import { sessionSeal } from './session'
 
 // In-memory stand-ins for the tests: R2, one data centre's Cache API (honouring max-age against the test's clock, and
@@ -83,6 +83,8 @@ export interface FakeEdge extends EdgeApi {
   access: Map<string, PreviewAccess>
   /** Each store's renamed addresses, old to new, as `redirects` answers them. */
   renamed: Map<string, { from: string; to: string; everyLanguage: boolean }[]>
+  /** What `demoSite` answers per template key. */
+  demos: Map<string, DemoSite>
   calls: string[]
   forwarded: Request[]
 }
@@ -93,6 +95,7 @@ export const fakeEdge = (): FakeEdge => {
     tokens: new Map(),
     access: new Map(),
     renamed: new Map(),
+    demos: new Map(),
     calls: [],
     forwarded: [],
     fetch: async (request) => {
@@ -116,6 +119,10 @@ export const fakeEdge = (): FakeEdge => {
     previewAccess: async (check: PreviewCheck) => {
       edge.calls.push(`previewAccess ${check.key}`)
       return edge.access.get(`${check.key}:${check.storeId}:${check.userId}:${check.epoch}`) ?? { ok: false }
+    },
+    demoSite: async (template) => {
+      edge.calls.push(`demoSite ${template}`)
+      return edge.demos.get(template) ?? { ok: false }
     },
   }
   return edge

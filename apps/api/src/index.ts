@@ -176,7 +176,7 @@ import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { designRunWorkflow } from '#jobs/workflows/design-run'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
 import { createStoreCategoryAdminService } from '#saas/storeCategories/index'
-import { createTemplateAdminService } from '#saas/storefrontTemplates/index'
+import { createTemplateAdminService, lookupDemoSite, type DemoSite } from '#saas/storefrontTemplates/index'
 import { demoTemplateKind } from '#saas/storefrontTemplates/demo'
 import { templateDemoDeliverer } from '#jobs/queues/deliverers/templateDemo'
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
@@ -549,7 +549,7 @@ const handleAdmin = async (
       storeCategories: caller
         ? createStoreCategoryAdminService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date(), photos: { assets: env.ASSETS ?? null, lookup: lookupFor(sql, config) } })
         : null,
-      templates: caller ? createTemplateAdminService({ sql, staff: caller.staff, activity: activityLog, facts: factsOf(request), preview: await previewFor(config), now: () => new Date() }) : null,
+      templates: caller ? createTemplateAdminService({ sql, staff: caller.staff, activity: activityLog, facts: factsOf(request), shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
       messaging: caller
         ? createPlatformMessagingService({
@@ -1500,6 +1500,11 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
   /** The full re-check of every HTML and /shop-api request on a preview host (PREVIEW.md §5 step 4). */
   previewAccess(check: unknown): Promise<PreviewAccess> {
     return edgeQuery(this.env, this.ctx, (sql) => checkPreview(sql, check))
+  }
+
+  /** A template's demo on the open demo host (PREVIEW.md §9): its store and preview folder, once ready. */
+  demoSite(template: unknown): Promise<DemoSite> {
+    return edgeQuery(this.env, this.ctx, (sql) => lookupDemoSite(sql, template))
   }
 }
 

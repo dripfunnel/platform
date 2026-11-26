@@ -7,6 +7,7 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
 import { startStorefront } from '#saas/storefronts/index'
+import { demoAddress } from '#saas/storefrontTemplates/index'
 import { createStorefrontSettingsService } from '#saas/storefrontSettings/index'
 import type { StudioApi } from '#saas/studio/index'
 import { designAudit, designNotes } from './words'
@@ -155,8 +156,8 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     })
     const list = await withSystemScope(sql, async (tx) =>
       Promise.all(
-        (await selectOfferedTemplates(tx, shopDomain)).map(async (t) => {
-          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_host ? `https://${t.demo_host}` : null, current: t.key === current, forCategory: t.key === category }
+        (await selectOfferedTemplates(tx)).map(async (t) => {
+          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_ready && shopDomain ? demoAddress(shopDomain, t.key) : null, current: t.key === current, forCategory: t.key === category }
         }),
       ),
     )

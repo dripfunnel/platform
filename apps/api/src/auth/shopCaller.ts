@@ -1,10 +1,11 @@
 import type postgres from 'postgres'
+import { z } from 'zod'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope } from '#db/scoped/index'
 import { hashSessionId } from './session'
 import { resolveShopperSession } from './shopperAuth'
 import { defaultFeatures, featureKeys, type FeatureKey } from '#db/scoped/catalogListing'
-import { previewSlugOf, selectStorefrontByHost, selectStorefrontByKey, selectStorefrontByPreviewSlug, type StorefrontRow } from '#db/scoped/shopCaller'
+import { isDemoHost, previewSlugOf, selectStorefrontByDemoTemplate, selectStorefrontByHost, selectStorefrontByKey, selectStorefrontByPreviewSlug, type StorefrontRow } from '#db/scoped/shopCaller'
 
 // A Shop API request's store (ACCESS §3, PLATFORM-PROMPT §5.5): from the storefront's host or its public store key,
 // never a secret or an argument; and what it reads in: a language, currency and market the store offers.
@@ -17,6 +18,19 @@ export const shopMarketHeader = 'x-shop-market'
 export const shopCartHeader = 'x-shop-cart'
 /** A signed-in shopper's session token (SAPI 9), handed out by sign-in. */
 export const shopSessionHeader = 'x-shop-session'
+/** Set by store-proxy from `?theme=` on the demo host (storefront PREVIEW.md §9); it names a template and nothing else. */
+export const demoThemeCookie = '__Host-df_demo'
+export const demoTemplateKey = z.string().regex(/^[a-z0-9-]{1,40}$/)
+
+const demoTemplateOf = (request: Request): string | null => {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const [name, ...value] = part.trim().split('=')
+    if (name !== demoThemeCookie) continue
+    const key = demoTemplateKey.safeParse(value.join('='))
+    return key.success ? key.data : null
+  }
+  return null
+}
 
 export interface Shopper {
   context: TenantContext
@@ -73,12 +87,13 @@ export const resolveShopper = async (sql: postgres.Sql, request: Request, host: 
   const name = host.toLowerCase()
   const underDomain = shopDomain !== null && name.endsWith(`.${shopDomain.toLowerCase()}`)
   const previewSlug = previewSlugOf(name, shopDomain)
+  const demo = isDemoHost(name, shopDomain) ? demoTemplateOf(request) : null
   const onPreviewHost = previewSlug !== null
   const { byHost, byKey } = await withSystemScope(sql, async (tx) => ({
-    byHost: onPreviewHost ? await selectStorefrontByPreviewSlug(tx, previewSlug) : await selectStorefrontByHost(tx, name, shopDomain),
+    byHost: demo !== null ? await selectStorefrontByDemoTemplate(tx, demo) : onPreviewHost ? await selectStorefrontByPreviewSlug(tx, previewSlug) : await selectStorefrontByHost(tx, name, shopDomain),
     byKey: validKey ? await selectStorefrontByKey(tx, key) : null,
   }))
-  // A preview host names its store by its key alone, never by a public key (storefront PREVIEW.md §6).
+  // A preview or demo host names its store by its key or template alone, never by a public key (storefront PREVIEW.md §6, §9).
   if ((onPreviewHost || underDomain) && !byHost) return { kind: 'unknown' }
   if (byHost && key !== '' && byKey?.store_id !== byHost.store_id) return { kind: 'key-mismatch' }
   const row = byHost ?? byKey

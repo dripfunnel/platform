@@ -30,7 +30,7 @@ export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
 const previewSchema = z.object({ demo: z.enum(demoStates), url: z.url().nullable() })
 export type TemplatePreview = z.infer<typeof previewSchema>
 
-/** The signed link once the demo is ready; `creating` (no link) while it is being set up. */
+/** The demo's open address once it is ready (storefront PREVIEW.md §9); `creating` (no address) while it is being set up. */
 export const templatePreviewLink = async (key: string): Promise<TemplatePreview> =>
   (await query(`mutation TemplatePreviewLink($key: String!) { templatePreviewLink(key: $key) { demo url } }`, z.object({ templatePreviewLink: previewSchema }), { key })).templatePreviewLink
 

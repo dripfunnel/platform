@@ -3,13 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
-import { previewLinks, type PreviewLinks } from '#auth/previewLink'
+import { demoThemeCookie, resolveShopper } from '#auth/shopCaller'
 import type { StaffMember, StaffRole } from '#auth/staff'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { allowanceFor } from '#saas/entitlements/index'
-import { openPreview } from '#saas/storefronts/index'
-import { createTemplateAdminService } from '#saas/storefrontTemplates/index'
+import { isReservedSlug } from '#saas/stores/slug'
+import { createTemplateAdminService, lookupDemoSite } from '#saas/storefrontTemplates/index'
 import { demoName, demoTemplateKind, fillDemo } from '#saas/storefrontTemplates/demo'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -17,11 +17,10 @@ import { fakeSites, putText, type FakeSites } from './support/sites'
 
 // A category template's demo store (admin FIRST-RELEASE §11d, migration 0416): made by a Super admin's first Preview,
 // hidden from every staff and partner list, filled with the category's sample and the template's preview, and opened
-// through a signed link issued to its demo Owner.
+// on the open demo host, demo.<SHOP_DOMAIN>/?theme=<key> (storefront PREVIEW.md §9).
 
 let db: TestDatabase
 let t: Tenants
-let links: PreviewLinks
 let sites: FakeSites
 let house = ''
 const now = new Date('2026-11-24T06:00:00Z')
@@ -45,7 +44,7 @@ const admin = async <T = Record<string, unknown>>(source: string, role: StaffRol
     provisioning: null,
     dashboard: null,
     staffMembers: null,
-    templates: member ? createTemplateAdminService({ sql: db.sql, staff: member, activity: activityLog, facts: factsOf(request), preview: { domain, links }, now: () => now }) : null,
+    templates: member ? createTemplateAdminService({ sql: db.sql, staff: member, activity: activityLog, facts: factsOf(request), shopDomain: domain, now: () => now }) : null,
   }
   const result = await graphql({ schema: adminSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as T | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -61,7 +60,6 @@ const sampleCsv = ['handle,name,visible,sku,price,collection', 'tee-1,Tee 1,yes,
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
-  links = await previewLinks(btoa(String.fromCharCode(...new Uint8Array(32).fill(5))))
   sites = fakeSites()
   house = (await db.sql<{ id: string }[]>`insert into partner (name, is_house, country) values ('DripFunnel', true, 'IN') returning id`)[0]?.id ?? ''
   for (const role of ['staff-super-admin', 'staff-support'] as const) {
@@ -147,15 +145,47 @@ describe('a template’s demo store', () => {
     expect(await db.sql`select 1 from catalog_import where store_id = ${id}`).toHaveLength(1)
   })
 
-  it('opens for every role once ready, through a link its preview host accepts, each opening logged', async () => {
+  it('opens for every role once ready on the open demo address, each opening logged', async () => {
     const list = await admin<{ storefrontTemplates: { key: string; demo: string }[] }>('{ storefrontTemplates { key demo } }', 'staff-support')
     expect(list.data?.storefrontTemplates.find((x) => x.key === 'fashion')?.demo).toBe('ready')
     const opened = (await press('staff-support')).data?.templatePreviewLink
-    expect(opened?.demo).toBe('ready')
-    const url = new URL(opened?.url ?? 'https://x.test')
-    const [slug] = await db.sql<{ slug: string }[]>`select slug from store where id = ${await demoId()}`
-    expect(url.host).toBe(`${slug?.slug ?? ''}-preview.${domain}`)
-    expect(await openPreview(db.sql, links, slug?.slug, url.searchParams.get('t'), now)).toMatchObject({ ok: true, storeId: await demoId() })
+    expect(opened).toEqual({ demo: 'ready', url: `https://demo.${domain}/?theme=fashion` })
     expect(await withSystemScope(db.sql, (tx) => tx`select 1 from activity_log where action = 'storefront_template.preview_opened' and actor_kind = 'staff'`)).toHaveLength(1)
+  })
+})
+
+describe('the demo host', () => {
+  const shop = (cookie: string | null, session = '') =>
+    resolveShopper(db.sql, new Request(`https://demo.${domain}/shop-api/graphql`, { headers: { ...(cookie === null ? {} : { cookie }), ...(session ? { 'x-shop-session': session } : {}) } }), `demo.${domain}`, domain)
+
+  it('gives store-proxy a ready demo’s key, store and folder, by key or by name, and nothing for any other template', async () => {
+    const ready = { ok: true, key: 'fashion', storeId: await demoId(), folder: 'demo' }
+    expect(await lookupDemoSite(db.sql, 'fashion')).toEqual(ready)
+    const [name] = await db.sql<{ name: string }[]>`select lower(name) as name from storefront_template where key = 'fashion'`
+    expect(await lookupDemoSite(db.sql, name?.name)).toEqual(ready)
+    expect(await lookupDemoSite(db.sql, 'classic')).toEqual({ ok: false })
+    expect(await lookupDemoSite(db.sql, 'Fashion')).toEqual({ ok: false })
+    expect(await lookupDemoSite(db.sql, '../x')).toEqual({ ok: false })
+  })
+
+  it('serves the Shop API for the template its cookie names, as a guest-only preview', async () => {
+    const found = await shop(`a=b; ${demoThemeCookie}=fashion`, 'f'.repeat(64))
+    expect(found.kind).toBe('found')
+    if (found.kind !== 'found') return
+    expect(found.shopper.context.storeId).toBe(await demoId())
+    expect(found.shopper.preview).toBe(true)
+    expect(found.shopper.context.caller).toMatchObject({ kind: 'shopper', customerId: null })
+  })
+
+  it('finds no store without a cookie, for a template with no demo, or for a real store', async () => {
+    expect((await shop(null)).kind).toBe('unknown')
+    expect((await shop(`${demoThemeCookie}=classic`)).kind).toBe('unknown')
+    expect((await shop(`${demoThemeCookie}=../fashion`)).kind).toBe('unknown')
+    const [real] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    expect((await shop(`${demoThemeCookie}=${real?.slug ?? ''}`)).kind).toBe('unknown')
+  })
+
+  it('is a name no store can take', () => {
+    expect(isReservedSlug('demo')).toBe(true)
   })
 })

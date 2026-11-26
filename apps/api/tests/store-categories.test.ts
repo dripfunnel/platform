@@ -40,7 +40,7 @@ const admin = async <T = Record<string, unknown>>(source: string, role: StaffRol
     dashboard: null,
     staffMembers: null,
     storeCategories: member ? createStoreCategoryAdminService({ sql: db.sql, staff: member, facts: factsOf(request), activity: activityLog, now: () => now }) : null,
-    templates: member ? createTemplateAdminService({ sql: db.sql, staff: member, activity: activityLog, facts: factsOf(request), preview: null, now: () => now }) : null,
+    templates: member ? createTemplateAdminService({ sql: db.sql, staff: member, activity: activityLog, facts: factsOf(request), shopDomain: null, now: () => now }) : null,
   }
   const result = await graphql({ schema: adminSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   return { data: result.data as T | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
