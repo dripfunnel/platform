@@ -65,6 +65,12 @@ describe('Store categories', () => {
     expect(textOf(html)).toContain(words.noTemplate)
   })
 
+  it('links every category, with or without a template, to Templates filtered to it, for every role', async () => {
+    const html = await list({ categories: [categoryOf({ id: 'c1' }), categoryOf({ id: 'c2', key: 'books' })], canManage: false })
+    expect(html).toContain('href="/templates?category=c1"')
+    expect(html).toContain('href="/templates?category=c2"')
+  })
+
   it('offers Add, Edit, Archive and Restore to a Super admin only', async () => {
     const text = textOf(await list())
     for (const word of [words.add, words.edit, words.archive, words.restore]) expect(text).toContain(word)

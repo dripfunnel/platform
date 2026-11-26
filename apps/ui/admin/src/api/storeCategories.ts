@@ -44,6 +44,10 @@ const fields = 'id key names { language name } sections archivedAt storeCount te
 
 export const englishName = (category: Pick<StoreCategory, 'names' | 'key'>): string => category.names.find((n) => n.language === 'en')?.name ?? category.key
 
+/** A category filter's choices: live categories first, archived last, each by its English name. */
+export const categoryOptions = (categories: readonly StoreCategory[]): { id: string; name: string }[] =>
+  [...categories.filter((c) => !c.archivedAt), ...categories.filter((c) => c.archivedAt)].map((c) => ({ id: c.id, name: englishName(c) }))
+
 export const loadStoreCategories = async (): Promise<StoreCategory[]> => {
   const { storeCategories } = await query(`query StoreCategories { storeCategories { ${fields} } }`, z.object({ storeCategories: z.array(categorySchema) }))
   return storeCategories
