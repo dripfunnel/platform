@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SessionEndCard } from './ImpBanner'
 import { PortalSessionRoot } from './PortalSessionRoot'
 import type { PortalSession } from './portalSession'
 import type { PortalStaffSession } from './staffSession'
@@ -157,5 +158,29 @@ describe('closing the end card', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     await advance(sessionPollMs)
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows the card again when a new session in the same tab ends', async () => {
+    let current = session({})
+    await renderRoot(() => Promise.resolve(current))
+    current = session({ state: 'ended', endedBy: 'portal' })
+    await advance(sessionPollMs)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    current = session({ id: 'imp-2' })
+    await advance(sessionPollMs)
+    expect(screen.getByRole('button', { name: 'End session' })).toBeTruthy()
+    current = session({ id: 'imp-2', state: 'ended', endedBy: 'admin' })
+    await advance(sessionPollMs)
+    expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  })
+})
+
+describe('a card with no close', () => {
+  it('has no ✕ and ignores Esc', () => {
+    render(<SessionEndCard title="This link no longer works" body="" action={{ label: 'Back to the admin console', href: 'https://admin.dripfunnel.ai' }} />)
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: 'This link no longer works' })).toBeTruthy()
   })
 })
