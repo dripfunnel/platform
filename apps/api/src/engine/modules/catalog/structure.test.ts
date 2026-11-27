@@ -13,9 +13,9 @@ const refused = (work: () => unknown) => {
 
 describe('collection rules', () => {
   it('reads each kind of rule and refuses a malformed one', () => {
-    expect(cleanRule({ kind: 'filter_value', valueId: id(1) })).toEqual({ kind: 'filter_value', args: { valueId: id(1) } })
-    expect(cleanRule({ kind: 'name_contains', text: ' linen ' })).toEqual({ kind: 'name_contains', args: { text: 'linen' } })
-    expect(cleanRule({ kind: 'price_range', currency: 'INR', min: '0', max: '50000' })).toEqual({ kind: 'price_range', args: { currency: 'INR', min: '0', max: '50000' } })
+    expect(cleanRule({ kind: 'filter_value', valueId: id(1) })).toEqual({ kind: 'filter_value', args: { valueIds: [id(1)], match: 'any' }, joiner: 'and' })
+    expect(cleanRule({ kind: 'name_contains', text: ' linen ' })).toEqual({ kind: 'name_contains', args: { text: 'linen' }, joiner: 'and' })
+    expect(cleanRule({ kind: 'price_range', currency: 'INR', min: '0', max: '50000' })).toEqual({ kind: 'price_range', args: { currency: 'INR', min: '0', max: '50000' }, joiner: 'and' })
     expect(refused(() => cleanRule({ kind: 'price_range', currency: 'INR', min: '500', max: '100' }))).toBe('INVALID_RULE')
     expect(refused(() => cleanRule({ kind: 'filter_value', valueId: 'nope' }))).toBe('INVALID_RULE')
     expect(refused(() => cleanRule({ kind: 'sql', text: 'drop' }))).toBe('INVALID_RULE')
@@ -24,12 +24,12 @@ describe('collection rules', () => {
 })
 
 describe('a collection before it is written', () => {
-  it('keeps rules only on an automatic collection and products only on a hand-picked one', () => {
+  it('reads the old kind and products as blocks: rules on an automatic collection, one picks block on a hand-picked one', () => {
     const auto = cleanCollection({ name: 'Linen', kind: 'automatic', rules: [{ kind: 'name_contains', text: 'linen' }], productIds: [id(1)] })
     expect(auto).toMatchObject({ fields: { slug: 'linen', kind: 'automatic', sort: 'newest' }, productIds: [] })
     expect(auto.rules).toHaveLength(1)
     const manual = cleanCollection({ name: 'Picks', kind: 'manual', rules: [{ kind: 'name_contains', text: 'x' }], productIds: [id(2), id(1), id(2)] })
-    expect(manual).toMatchObject({ rules: [], productIds: [id(2), id(1)], fields: { sort: 'manual' } })
+    expect(manual).toMatchObject({ rules: [{ kind: 'picks', args: { productIds: [id(2), id(1)] }, joiner: 'and' }], productIds: [id(2), id(1)], fields: { sort: 'manual' } })
   })
 
   it('limits a child to its parent only when it has one, and refuses the rest', () => {
