@@ -1,59 +1,12 @@
-import type { Money } from '@dripfunnel/shared/format'
 import { ApiError, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
 import { pageInfoFields, pageInfoSchema, type Page } from './page'
 
-// Billing on the Platform API (FIRST-RELEASE.md §11, §14.3, §16; #201): merchants' payments,
-// payouts and DripFunnel's invoices, who bills, and the payout account and card. Every figure,
-// date and status is the API's; the console words them.
+// Billing on the Platform API (FIRST-RELEASE.md §11, §14.3, §16; #201): DripFunnel's invoices, and the
+// payout account and card. Every figure, date and status is the API's; the console words them.
 
 const money = z.object({ amount: z.number().int(), currency: z.string() })
-
-const paymentSchema = z.object({
-  id: z.string(),
-  at: z.string(),
-  storeId: z.string(),
-  storeName: z.string(),
-  kind: z.enum(['subscription', 'proration', 'refund']),
-  amount: money,
-  status: z.enum(['paid', 'failed', 'recovered', 'refunded']),
-  // Stripe's own sentence about a failure, shown as given.
-  note: z.string().nullable(),
-  cardLast4: z.string().nullable(),
-})
-export type MerchantPayment = z.infer<typeof paymentSchema>
-export type PaymentStatus = MerchantPayment['status']
-
-const failedSchema = z.object({
-  id: z.string(),
-  storeId: z.string(),
-  storeName: z.string(),
-  amount: money,
-  why: z.string().nullable(),
-  cardLast4: z.string().nullable(),
-  retryAt: z.string().nullable(),
-  attempt: z.number().int(),
-  attempts: z.number().int(),
-})
-export type FailedPayment = z.infer<typeof failedSchema>
-
-// `heldContract` waits on the contract term's model (FIRST-RELEASE §18), so the API never answers it.
-const nextSchema = z.object({ state: z.enum(['scheduled', 'heldNoAccount', 'heldVerifying', 'heldVerification', 'first']), date: z.string().nullable(), soFar: money.nullable(), toLast4: z.string().nullable() })
-export type NextPayout = { state: 'scheduled'; date: string; soFar: Money; toLast4: string | null } | { state: 'heldNoAccount' | 'heldVerifying' | 'heldVerification' } | { state: 'first' }
-
-const payoutSchema = z.object({
-  id: z.string(),
-  month: z.string(),
-  collected: money,
-  fee: money,
-  adjustment: z.object({ amount: money, note: z.string().nullable() }).nullable(),
-  payout: money,
-  paidOn: z.string().nullable(),
-  status: z.enum(['paid', 'scheduled', 'held', 'failed']),
-  toLast4: z.string().nullable(),
-})
-export type Payout = z.infer<typeof payoutSchema>
 
 const invoiceSchema = z.object({ id: z.string(), number: z.string().nullable(), at: z.string(), what: z.string(), amount: money, status: z.enum(['paid', 'open', 'overdue']) })
 export type Invoice = z.infer<typeof invoiceSchema>
@@ -65,66 +18,22 @@ const paymentMethodSchema = z.object({ brand: z.string().nullable(), last4: z.st
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>
 
 export interface BillingMoney {
-  failed: readonly FailedPayment[]
-  // More payments are being retried than the block shows; they are in the paged list too.
-  failedMore: boolean
-  payments: Page<MerchantPayment>
-  nextPayout: NextPayout
-  payouts: Page<Payout>
   invoices: Page<Invoice>
   // When the payment provider last answered, and since when it has been slow (the stale strip).
   staleSince: string | null
-  payoutAccount: PayoutAccount | null
 }
 
-const paymentFields = `items { id at storeId storeName kind amount { amount currency } status note cardLast4 } ${pageInfoFields}`
-const payoutFields = `items { id month collected { amount currency } fee { amount currency } adjustment { amount { amount currency } note } payout { amount currency } paidOn status toLast4 } ${pageInfoFields}`
 const invoiceFields = `items { id number at what amount { amount currency } status } ${pageInfoFields}`
 
 const page = <T extends z.ZodType>(item: T) => z.object({ items: z.array(item), pageInfo: pageInfoSchema })
 
-const nextOf = (n: z.infer<typeof nextSchema>): NextPayout => {
-  if (n.state !== 'scheduled') return { state: n.state }
-  if (!n.date || !n.soFar) throw new ApiError('BAD_RESPONSE', 'A scheduled payout came without its date or amount.')
-  return { state: 'scheduled', date: n.date, soFar: n.soFar, toLast4: n.toLast4 }
-}
-
 export const loadBilling = async (): Promise<BillingMoney> => {
   const answer = await query(
-    `{
-      merchantPayments { failedMore failed { id storeId storeName amount { amount currency } why cardLast4 retryAt attempt attempts } ${paymentFields} }
-      nextPayout { state date soFar { amount currency } toLast4 }
-      payouts { ${payoutFields} }
-      partnerInvoices { ${invoiceFields} }
-      billingSettings { staleSince payoutAccount { bank last4 status failure } }
-    }`,
-    z.object({
-      merchantPayments: page(paymentSchema).extend({ failed: z.array(failedSchema), failedMore: z.boolean() }),
-      nextPayout: nextSchema,
-      payouts: page(payoutSchema),
-      partnerInvoices: page(invoiceSchema),
-      billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema.nullable() }),
-    }),
+    `{ partnerInvoices { ${invoiceFields} } billingSettings { staleSince } }`,
+    z.object({ partnerInvoices: page(invoiceSchema), billingSettings: z.object({ staleSince: z.string().nullable() }) }),
   )
-  const { failed, failedMore, ...payments } = answer.merchantPayments
-  return {
-    failed,
-    failedMore,
-    payments,
-    nextPayout: nextOf(answer.nextPayout),
-    payouts: answer.payouts,
-    invoices: answer.partnerInvoices,
-    staleSince: answer.billingSettings.staleSince,
-    // Null for a staff session, which never sees the partner's payout details.
-    payoutAccount: answer.billingSettings.payoutAccount,
-  }
+  return { invoices: answer.partnerInvoices, staleSince: answer.billingSettings.staleSince }
 }
-
-export const loadMorePayments = async ({ after }: PageRequest): Promise<Page<MerchantPayment>> =>
-  (await query(`query More($after: String) { merchantPayments(after: $after) { ${paymentFields} } }`, z.object({ merchantPayments: page(paymentSchema) }), { after })).merchantPayments
-
-export const loadMorePayouts = async ({ after }: PageRequest): Promise<Page<Payout>> =>
-  (await query(`query More($after: String) { payouts(after: $after) { ${payoutFields} } }`, z.object({ payouts: page(payoutSchema) }), { after })).payouts
 
 export const loadMoreInvoices = async ({ after }: PageRequest): Promise<Page<Invoice>> =>
   (await query(`query More($after: String) { partnerInvoices(after: $after) { ${invoiceFields} } }`, z.object({ partnerInvoices: page(invoiceSchema) }), { after })).partnerInvoices
@@ -147,11 +56,6 @@ const refusalOf = (reason: string | null): BillingRefusal => {
   const known = billingRefusals.find((code) => code === reason)
   if (!known) throw new ApiError(reason ?? 'UNKNOWN', 'The API refused with a code this console does not know.')
   return known
-}
-
-export const setBillingMode = async (mode: 'dripfunnel' | 'own'): Promise<{ ok: true } | { ok: false; reason: BillingRefusal }> => {
-  const { setBillingMode: r } = await query(`mutation Mode($mode: String!) { setBillingMode(mode: $mode) { ok reason } }`, z.object({ setBillingMode: resultSchema }), { mode })
-  return r.ok ? { ok: true } : { ok: false, reason: refusalOf(r.reason) }
 }
 
 // Stripe's own link to the tax invoice, read fresh because it expires; only Stripe's hosts.

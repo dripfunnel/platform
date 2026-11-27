@@ -400,11 +400,10 @@ strip ("Payment status from 17:42; Stripe is slow to respond.") with Refresh now
   fee · Adjustments (with the note) · Payout · Paid on · Status · To (last 4 only).
 - **DripFunnel's invoices** ("What you owe DripFunnel for separate fees in your contract. Not
   merchant payments."): id, date, what, amount, status, Tax invoice (PDF).
-- **Who bills your merchants** (Owner, Finance): **DripFunnel, on your behalf** or **You, with
-  your own billing**. Design the second as a variant: Billing then shows only DripFunnel's
-  invoices and this setting, the Stores list gains a Billing status column, each store's
-  Billing tab a Billing status select, and "charged by DripFunnel for Northstar" reads "billed
-  by Northstar" everywhere.
+- **Every partner bills its own merchants** (#1743): there is no choice. Billing shows DripFunnel's
+  invoices and the partner's Razorpay account (#1744); the Stores list has a Billing status column,
+  each store's Billing tab a Billing status select, and the merchant's plan reads "billed by
+  Northstar" everywhere.
 
 ### 6.10 Support
 

@@ -1,4 +1,4 @@
-import type { BillingRead, CataloguePlan, Invoice, PlanValue, Subscription } from '../../api/billing'
+import { noPlanPayments, type BillingRead, type CataloguePlan, type Invoice, type PlanValue, type Subscription } from '../../api/billing'
 
 // Billing's states under ?state= (ui/README.md §6): loading, error, active, trial, trialEnding, pastDue, scheduled,
 // closing, partner, noPlan, readOnly, denied.
@@ -52,6 +52,7 @@ const active: Subscription | null = harness
       cancelAt: null,
       scheduled: null,
       card: { brand: 'visa', last4: '4242', expires: '2028-04' },
+      upiAutoPay: null,
       collectedBy: 'dripfunnel',
       partnerName: 'Kesari Commerce',
       asOf: inDays(0),
@@ -60,6 +61,7 @@ const active: Subscription | null = harness
 
 const read = (subscription: Subscription | null, more: Partial<BillingRead> = {}): BillingRead => ({
   subscription,
+  payments: noPlanPayments,
   plans: plans.map((p) => ({ ...p, current: p.id === subscription?.plan.id })),
   usage: [
     { key: 'products', used: 84, limit: 100, unlimited: false, monthly: false },

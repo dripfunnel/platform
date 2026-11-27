@@ -34,6 +34,8 @@ beforeAll(async () => {
   const [seller] = await db.sql<{ id: string; store_id: string }[]>`select x.id, x.store_id from seller x join store s on s.id = x.store_id where s.partner_id = ${ids.ns} limit 1`
   ids.seller = seller?.id ?? ''
   ids.sellerStore = seller?.store_id ?? ''
+  // These cover the Stripe path #1743 keeps but no longer reaches: its partners are put in it by hand.
+  await db.sql`update partner set billing_mode = 'dripfunnel'`
 }, 120_000)
 
 afterAll(async () => {

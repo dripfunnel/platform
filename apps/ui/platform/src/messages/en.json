@@ -291,7 +291,7 @@
     },
     "billing": {
       "title": "Billing",
-      "lede": "Your merchants’ payments, your payouts and DripFunnel’s invoices, kept apart."
+      "lede": "DripFunnel’s invoices to you. You bill your merchants yourself."
     },
     "support": {
       "title": "Support",
@@ -2972,72 +2972,8 @@
       "retry": "Try again"
     },
     "denied": "Support doesn’t see billing. Ask an Owner, Admin or Finance.",
-    "preLive": "Merchant payments and payouts appear once {product} is live.",
     "stale": "Payment status from {time}; the payment provider is slow to respond.",
     "refresh": "Refresh now",
-    "payments": {
-      "title": "Your merchants’ payments",
-      "lede": {
-        "dripfunnel": "Collected by DripFunnel for {partner}. Money from your merchants.",
-        "own": "Billed by {partner}."
-      },
-      "failedTitle": "Failed, being retried",
-      "failedWhy": "{why} · card ending {last4}",
-      "retry": "Retry {time} · attempt {attempt} of {attempts}",
-      "noFailed": "No failed payments.",
-      "none": "No payments yet.",
-      "date": "Date",
-      "store": "Store",
-      "amount": "Amount",
-      "chargedBy": "Charged by",
-      "status": "Status",
-      "card": "Card",
-      "byDripFunnel": "DripFunnel for {partner}",
-      "byPartner": "{partner}",
-      "statuses": {
-        "paid": "Paid",
-        "failed": "Failed",
-        "recovered": "Recovered",
-        "refunded": "Refunded"
-      },
-      "cardEnding": "ending {last4}",
-      "noCard": "—",
-      "all": "Every payment",
-      "failedNoWhy": "Payment failed",
-      "failedMore": "More payments are being retried than shown here; every one is in the list below."
-    },
-    "payouts": {
-      "title": "Your payouts",
-      "lede": "What DripFunnel pays you: merchant payments minus DripFunnel’s fees.",
-      "next": {
-        "scheduled": "Next payout {date}: about {amount} so far, to account ending {last4}.",
-        "heldVerification": "Next payout held: your payout account failed verification.",
-        "first": "Your first payout comes the month after your first merchant pays.",
-        "scheduledNoAccount": "Next payout {date}: about {amount} so far.",
-        "heldNoAccount": "Next payout held: add a payout account in Settings, and payouts start once it’s verified.",
-        "heldVerifying": "Next payout waits for your payout account to be verified (1–2 business days)."
-      },
-      "month": "Month",
-      "collected": "Collected",
-      "fee": "DripFunnel’s fee",
-      "adjustments": "Adjustments",
-      "payout": "Payout",
-      "paidOn": "Paid on",
-      "status": "Status",
-      "to": "To",
-      "statuses": {
-        "paid": "Paid",
-        "scheduled": "Scheduled",
-        "failed": "Failed",
-        "held": "Held"
-      },
-      "none": "No payouts yet.",
-      "noAdjustment": "—",
-      "tableLabel": "Payouts by month",
-      "notPaid": "Not paid yet",
-      "toAccount": "account ending {last4}",
-      "noAccount": "—"
-    },
     "invoices": {
       "title": "DripFunnel’s invoices",
       "lede": "What you owe DripFunnel for separate fees in your contract. Not merchant payments.",
@@ -3057,27 +2993,10 @@
       "noNumber": "—",
       "pdfFor": "Tax invoice (PDF) for {invoice}"
     },
-    "settings": {
-      "title": "Who bills your merchants",
-      "dripfunnel": {
-        "label": "DripFunnel, on your behalf",
-        "body": "We charge your merchants, retry failed payments and pay you monthly, minus our fee."
-      },
-      "own": {
-        "label": "You, with your own billing",
-        "body": "You charge merchants yourself and set each store’s billing status. DripFunnel invoices you for its fees."
-      },
-      "ownersAndFinance": "Only Owners and Finance change this.",
-      "payoutAccount": "Payout account",
-      "payoutLink": "Payout and payment settings",
-      "accountEnding": "Account ending {last4}",
-      "noAccount": "No payout account yet"
-    },
     "staleTitle": "Payment status may be behind",
     "showMore": "Show more",
     "moreFailed": "More couldn’t be loaded. Try again.",
     "toasts": {
-      "modeChanged": "Who bills your merchants is now: {mode}.",
       "failed": "That didn’t go through. Nothing was changed. Try again.",
       "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again."
     },
@@ -3089,6 +3008,66 @@
       "TOKEN_REFUSED": "The payment provider refused the details. Check them and try again.",
       "NO_COUNTRY": "DripFunnel needs your company’s country first. Ask your partner manager to add it.",
       "NO_PDF": "This invoice has no PDF yet. Try again later."
+    },
+    "razorpay": {
+      "title": "Razorpay account",
+      "lede": "Your merchants pay their plan into your own Razorpay account, by card or UPI AutoPay, renewed automatically. DripFunnel never holds the money.",
+      "loading": "Loading your Razorpay account",
+      "error": "We couldn’t load your Razorpay account",
+      "errorBody": "Nothing was changed. Try again in a moment.",
+      "retry": "Try again",
+      "modes": {
+        "live": {
+          "label": "Live",
+          "body": "Your merchants’ real payments."
+        },
+        "test": {
+          "label": "Test",
+          "body": "For trying it out on test stores. No real money moves."
+        }
+      },
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "checked": "checked with Razorpay {date}",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "cancel": "Cancel",
+      "connectCta": "Check and connect",
+      "connectTitle": {
+        "live": "Connect Razorpay live keys",
+        "test": "Connect Razorpay test keys"
+      },
+      "connectBody": {
+        "live": "Copy these from Razorpay › Settings › API keys, in Live mode. We check them with Razorpay before saving. They’re stored encrypted and never shown again.",
+        "test": "Copy these from Razorpay › Settings › API keys, in Test mode. We check them with Razorpay before saving. They’re stored encrypted and never shown again."
+      },
+      "fields": {
+        "keyId": "Key ID",
+        "keySecret": "Key secret",
+        "webhookSecret": "Webhook secret"
+      },
+      "incomplete": "Fill in all three: a Key ID that starts with rzp_{mode}_, its secret, and the webhook secret you set in Razorpay.",
+      "disconnectTitle": "Disconnect Razorpay {mode}?",
+      "disconnectBody": {
+        "live": "Merchants can’t add a card or UPI AutoPay, and renewals can’t be charged, until you connect again. Stores keep their plans; a renewal that can’t be charged goes past due. The keys are deleted here.",
+        "test": "Test stores can’t take test payments until you connect again. The keys are deleted here."
+      },
+      "webhook": "Webhook address",
+      "webhookHint": "In Razorpay › Settings › Webhooks, add this address with the webhook secret you give us, for subscription events (subscription.charged, subscription.pending, subscription.halted, subscription.cancelled).",
+      "copy": "Copy",
+      "copied": "Webhook address copied.",
+      "copyFailed": "Your browser didn’t allow copying. Select the address and copy it yourself.",
+      "ownersAndFinance": "Only Owners and Finance connect or disconnect Razorpay.",
+      "connectedToast": "Razorpay {mode} keys connected.",
+      "disconnectedToast": "Razorpay {mode} disconnected.",
+      "failed": "That didn’t go through. Nothing was changed. Try again.",
+      "refusals": {
+        "INVALID_INPUT": "Those keys aren’t the right shape for this mode. Check the Key ID starts with the mode you chose.",
+        "KEY_REJECTED": "Razorpay refused these keys. Check the Key ID and secret are a pair, and the key is active. Nothing was saved.",
+        "PROVIDER_UNAVAILABLE": "Razorpay didn’t answer. Nothing was saved. Try again in a moment.",
+        "NOT_CONFIGURED": "Keys can’t be stored on this platform yet. Ask DripFunnel support.",
+        "NOT_FOUND": "Those keys are already gone. Reload the page."
+      }
     }
   },
   "support": {

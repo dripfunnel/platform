@@ -657,7 +657,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `setup.retry` (retry a stuck signup step) | §6.3, §5 | ✓ | ✓ | | | |
 | `stores.billingStatus` (only when the partner bills its merchants) | §6.1, §6.3 | ✓ | ✓ | | ✓ | |
 | `billing.read` (payments, payouts, invoices, settings) | §11 | ✓ | ✓ | | ✓ | ✓ |
-| `billing.write` (who bills the merchants) | §11.4 | ✓ | | | ✓ | |
+| `billing.write` (the partner's Razorpay keys for its merchants' plans: connect and disconnect, live and test; #1744. Every partner bills its own merchants since #1743) | §11.4 | ✓ | | | ✓ | |
 | `payout.write`, `card.write` (payout account, payment method) | §14.3 | ✓ | | | ✓ | |
 | `support.session` (start, return to, end own; request write elevation) | §12 | ✓ | ✓ | ✓ | | |
 | `exports` (stores, reports) | §6.1, §10 | ✓ | ✓ | ✓ | ✓ | ✓ |

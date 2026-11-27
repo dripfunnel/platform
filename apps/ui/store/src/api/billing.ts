@@ -25,6 +25,8 @@ const subscriptionSchema = z.object({
   cancelAt: z.string().nullable(),
   scheduled: z.object({ plan: named, interval: z.enum(billingIntervals), at: z.string() }).nullable(),
   card: z.object({ brand: z.string(), last4: z.string(), expires: z.string().nullable() }).nullable(),
+  // The saved Razorpay method, "Visa ending 4242" or a masked UPI handle (#1744); null on Stripe or with none.
+  upiAutoPay: z.string().nullable(),
   collectedBy: z.enum(['dripfunnel', 'partner']),
   partnerName: z.string(),
   asOf: z.string().nullable(),
@@ -92,13 +94,24 @@ export interface BillingRead {
   details: BillingDetails | null
   store: BillingStoreInfo | null
   invoices: InvoicePage
+  /** Card or UPI AutoPay paid to the partner through its Razorpay (#1744), and a charge waiting on Razorpay or the Owner. */
+  payments: PlanPayments
 }
+
+const planPaymentsSchema = z.object({
+  available: z.boolean(),
+  mode: z.enum(['live', 'test']).nullable(),
+  // The store already has its Razorpay subscription: a plan change replaces it with a new one; without one, the first payment starts it.
+  subscribed: z.boolean(),
+})
+export type PlanPayments = z.infer<typeof planPaymentsSchema>
+export const noPlanPayments: PlanPayments = { available: false, mode: null, subscribed: false }
 
 export const invoicePageSize = 10
 
 const invoiceFields = 'nodes { id number kind status amount { amount currency } tax { amount currency } issuedAt paidAt lines { label kind } } pageInfo { hasNextPage endCursor }'
 const subscriptionFields =
-  'plan { id name } status interval price { amount currency } periodStart periodEnd trialEndsAt cancelAt scheduled { plan { id name } interval at } card { brand last4 expires } collectedBy partnerName asOf'
+  'plan { id name } status interval price { amount currency } periodStart periodEnd trialEndsAt cancelAt scheduled { plan { id name } interval at } card { brand last4 expires } upiAutoPay collectedBy partnerName asOf'
 
 export const loadBilling = async (): Promise<BillingRead> => {
   const r = await query(
@@ -109,6 +122,7 @@ export const loadBilling = async (): Promise<BillingRead> => {
       billingDetails { legalName email address { line1 line2 city region postal country } taxId taxIdKind }
       storeInfo { legalName name contactEmail country taxId address { street city postal region } }
       invoices(first: $first) { ${invoiceFields} }
+      planPayments { available mode subscribed }
     }`,
     z.object({
       subscription: subscriptionSchema.nullable(),
@@ -117,6 +131,7 @@ export const loadBilling = async (): Promise<BillingRead> => {
       billingDetails: detailsSchema.nullable(),
       storeInfo: storeInfoSchema.nullable(),
       invoices: invoicePageSchema,
+      planPayments: planPaymentsSchema,
     }),
     { first: invoicePageSize },
   )
@@ -127,6 +142,7 @@ export const loadBilling = async (): Promise<BillingRead> => {
     details: r.billingDetails,
     store: r.storeInfo,
     invoices: { rows: r.invoices.nodes, next: r.invoices.pageInfo.hasNextPage ? r.invoices.pageInfo.endCursor : null },
+    payments: r.planPayments,
   }
 }
 
@@ -212,3 +228,28 @@ export const exportStoreData = async (): Promise<string> => {
 
 export const loadStoreDataExport = async (id: string): Promise<StoreDataPart[]> =>
   (await query('query X($id: ID!) { storeDataExport(id: $id) { id kind state rows truncated csv expiresAt } }', z.object({ storeDataExport: z.array(dataPartSchema).nullable() }), { id })).storeDataExport ?? []
+
+// ---- Card or UPI AutoPay through Razorpay Subscriptions on the partner's account (#1744) ----
+
+const checkoutSchema = z.object({ keyId: z.string(), subscriptionId: z.string(), amount: moneySchema, mode: z.enum(['live', 'test']), upi: z.boolean() })
+export type PlanCheckout = z.infer<typeof checkoutSchema>
+
+/** A paid plan through Razorpay: a new subscription Checkout opens on, the first one or the one a plan change starts. */
+export const startPlanPayment = async (planId: string, interval: BillingInterval, when: PlanChangeWhen = 'NOW'): Promise<PlanCheckout> =>
+  (
+    await query('mutation F($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen) { startPlanPayment(planId: $p, interval: $i, when: $w) { keyId subscriptionId amount { amount currency } mode upi } }', z.object({ startPlanPayment: checkoutSchema }), {
+      p: planId,
+      i: interval,
+      w: when,
+    })
+  ).startPlanPayment
+
+/** Checkout's answer: the API checks it and reads the subscription back from Razorpay before anything is saved. */
+export const confirmPlanPayment = async (answer: { paymentId: string; subscriptionId: string; signature: string }): Promise<{ subscription: Subscription; outcome: string }> =>
+  (
+    await query(
+      `mutation C($p: String!, $s: String!, $g: String!) { confirmPlanPayment(paymentId: $p, subscriptionId: $s, signature: $g) { outcome subscription { ${subscriptionFields} } } }`,
+      z.object({ confirmPlanPayment: z.object({ outcome: z.string(), subscription: subscriptionSchema }) }),
+      { p: answer.paymentId, s: answer.subscriptionId, g: answer.signature },
+    )
+  ).confirmPlanPayment

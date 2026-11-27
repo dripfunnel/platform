@@ -4,7 +4,7 @@ import { ConfirmDialog, EmptyState, ErrorState, LoadingState, reserveTab, Strip,
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cancelStore, changePlan, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
+import { cancelStore, changePlan, confirmPlanPayment, invoicePdf, startPlanPayment, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { downloadCsv } from '../common/download'
@@ -12,8 +12,10 @@ import { refusalIn } from '../common/refusal'
 import { BillingDetailsDialog } from './BillingDetailsDialog'
 import { billingSeat } from './billingSeat'
 import { billingSample, billingStates } from './billingStates'
-import { billToLines, cardText, dayOf, invoiceCsvRows, invoiceRow, isFree, metersOf, money } from './billingView'
+import { billToLines, dayOf, invoiceCsvRows, invoiceRow, isFree, metersOf, money } from './billingView'
+import { PaymentMethodCard } from './PaymentMethodCard'
 import { PlanGrid } from './PlanGrid'
+import { openCheckout } from './razorpayCheckout'
 import { StoreDataPanel, useStoreDataExport } from './StoreData'
 import './billing.css'
 
@@ -104,12 +106,24 @@ export const BillingPage = () => {
     }
   }
 
-  const confirmChange = (when: PlanChangeWhen) => {
+  const confirmChange = (when: PlanChangeWhen, pay: boolean) => {
     if (!change || !sub) return
     if (sample) return openChange(null)
     setChangeError(null)
     setBusy(true)
-    changePlan(change.plan.id, change.interval, when)
+    // A paid plan through Razorpay is a new subscription approved in Checkout, the first or a change's (#1744; SAAS §7.4).
+    // Razorpay's Checkout takes over the screen, so the dialog closes as it opens; what goes wrong after shows on the page.
+    let inCheckout = false
+    const changed = pay
+      ? startPlanPayment(change.plan.id, change.interval, when)
+          .then((start) => {
+            inCheckout = true
+            openChange(null)
+            return openCheckout(start, { name: sub.partnerName, description: fill(words.change.checkoutLine, { plan: change.plan.name }) })
+          })
+          .then(async (answer) => (answer ? (await confirmPlanPayment(answer)).subscription : Promise.reject(new Error('closed'))))
+      : changePlan(change.plan.id, change.interval, when)
+    changed
       .then(async (after) => {
         openChange(null)
         setToast(changedToast(after, change))
@@ -117,7 +131,13 @@ export const BillingPage = () => {
         load()
         await router.invalidate()
       })
-      .catch((error: unknown) => setChangeError(refused(error)))
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.message === 'closed') return
+        if (!inCheckout) return setChangeError(refused(error))
+        // Razorpay may have taken the payment even though confirming failed: show what the API has now.
+        setNotice(refused(error))
+        load()
+      })
       .finally(() => setBusy(false))
   }
 
@@ -156,7 +176,8 @@ export const BillingPage = () => {
       .finally(() => setBusy(false))
   }
 
-  const canChange = Boolean(seat.canWrite && sub && sub.collectedBy === 'dripfunnel' && !sub.cancelAt && (!seat.readOnly || sub.status === 'past_due'))
+  const payments = read?.payments
+  const canChange = Boolean(seat.canWrite && sub && (sub.collectedBy === 'dripfunnel' || payments?.available) && !sub.cancelAt && (!seat.readOnly || sub.status === 'past_due'))
 
   return (
     <div className="df-billing">
@@ -165,7 +186,7 @@ export const BillingPage = () => {
           <h1 className="df-page-title">{words.title}</h1>
           {sub && (
             <p className="df-page-lede">
-              {fill(words.payLine, { partner: sub.partnerName })} {fill(words.collected[sub.collectedBy], { partner: sub.partnerName })}
+              {fill(words.payLine, { partner: sub.partnerName })} {fill(words.collected[sub.collectedBy === 'partner' && read?.payments.available ? 'razorpay' : sub.collectedBy], { partner: sub.partnerName })}
             </p>
           )}
         </div>
@@ -225,17 +246,13 @@ export const BillingPage = () => {
           <div className="df-billing-two">
             <UsageCard read={read} />
             <div className="df-billing-stack">
-              <section className="df-billing-card" aria-labelledby="df-billing-card">
-                <h2 id="df-billing-card">{words.card.title}</h2>
-                <p className="df-billing-strong">{cardText(sub.card)}</p>
-                <p className="df-billing-note">{words.card.note}</p>
-              </section>
+              <PaymentMethodCard sub={sub} payments={read.payments} />
               <DetailsCard read={read} canEdit={seat.canWrite && !seat.readOnly} onEdit={() => setEditing(true)} />
             </div>
           </div>
           <InvoicesCard read={read} sub={sub} sample={Boolean(sample)} onToast={setToast} />
           <StoreDataPanel data={data} />
-          {sub.asOf && <p className="df-billing-note">{fill(words.asOf, { time: formatTime(sub.asOf) })}</p>}
+          {sub.asOf && sub.collectedBy === 'dripfunnel' && <p className="df-billing-note">{fill(words.asOf, { time: formatTime(sub.asOf) })}</p>}
           {seat.canWrite && !sub.cancelAt && (
             <button type="button" className="df-billing-close" onClick={() => openClose(true)}>
               {words.close.open}
@@ -244,7 +261,7 @@ export const BillingPage = () => {
         </>
       )}
       {change && sub && (
-        <ChangeDialog change={change} sub={sub} busy={busy} error={changeError} onConfirm={confirmChange} onCancel={() => openChange(null)} />
+        <ChangeDialog change={change} sub={sub} razorpay={sub.collectedBy === 'partner' && payments?.available ? (payments.subscribed ? 'change' : 'first') : null} busy={busy} error={changeError} onConfirm={confirmChange} onCancel={() => openChange(null)} />
       )}
       {editing && read && <BillingDetailsDialog details={read.details} store={read.store} sample={Boolean(sample)} onSaved={savedDetails} onCancel={() => setEditing(false)} />}
       {closing && sub && (
@@ -270,7 +287,7 @@ const sampleQuotes = (plan: CataloguePlan, interval: BillingInterval, sub: Subsc
     : { PERIOD_END: { offered: ['PERIOD_END'], charge: zero, credit: zero, today: zero, from: sub.periodEnd, nextPrice: price } }
 }
 
-const ChangeDialog = ({ change, sub, busy, error, onConfirm, onCancel }: { change: Change; sub: Subscription; busy: boolean; error: string | null; onConfirm: (when: PlanChangeWhen) => void; onCancel: () => void }) => {
+const ChangeDialog = ({ change, sub, razorpay, busy, error, onConfirm, onCancel }: { change: Change; sub: Subscription; razorpay: 'first' | 'change' | null; busy: boolean; error: string | null; onConfirm: (when: PlanChangeWhen, pay: boolean) => void; onCancel: () => void }) => {
   const w = words.change
   const per = w.per[change.interval]
   if ('keep' in change)
@@ -284,7 +301,8 @@ const ChangeDialog = ({ change, sub, busy, error, onConfirm, onCancel }: { chang
         cancelLabel={w.cancel}
         blocked={busy ? w.loading : null}
         error={error}
-        onConfirm={() => onConfirm('NOW')}
+        notes={razorpay === 'change' ? [w.changeNote] : []}
+        onConfirm={() => onConfirm('NOW', razorpay === 'change')}
         onCancel={onCancel}
       />
     )
@@ -299,24 +317,30 @@ const ChangeDialog = ({ change, sub, busy, error, onConfirm, onCancel }: { chang
     return fill(w.now, { today: money(q.today), charge: money(q.charge), plan: change.plan.name, credit: money(q.credit), current: sub.plan.name, from: dayOf(q.from), price, per })
   }
   const nextPrice = change.quotes[first]?.nextPrice
-  const needsCard = !sub.card && nextPrice !== undefined && nextPrice.amount !== '0'
+  const needsCard = !razorpay && !sub.card && !sub.upiAutoPay && nextPrice !== undefined && nextPrice.amount !== '0'
+  const payWith = (when: PlanChangeWhen) => {
+    const q = change.quotes[when]
+    if (razorpay === 'first') return Boolean(q && q.today.amount !== '0')
+    return razorpay === 'change' && q !== undefined && q.nextPrice.amount !== '0'
+  }
   return (
     <ConfirmDialog
       open
       title={fill(w.title, { plan: change.plan.name })}
       target={fill(w.target, { plan: change.plan.name, price: nextPrice ? `${money(nextPrice)} ${per}` : '' })}
       consequence={(_, picks) => consequence(ways.find((when) => when === picks['when']) ?? first)}
-      notes={[w.tax]}
+      notes={payWith(first) ? [w.tax, razorpay === 'change' ? w.changeNote : w.payNote] : [w.tax]}
       confirmLabel={fill(w.confirm, { plan: change.plan.name })}
       cancelLabel={w.cancel}
-      choices={
-        ways.length > 1
-          ? [{ key: 'when', label: w.when, options: ways.map((when) => ({ value: when, label: when === 'NOW' ? w.whenNow : w.whenLater })), initial: first, error: () => null }]
-          : []
-      }
+      choices={[
+        ...(ways.length > 1 ? [{ key: 'when', label: w.when, options: ways.map((when) => ({ value: when, label: when === 'NOW' ? w.whenNow : w.whenLater })), initial: first, error: () => null }] : []),
+      ]}
       blocked={needsCard ? w.noCard : busy ? w.loading : null}
       error={error}
-      onConfirm={(_, __, picks) => onConfirm(ways.find((when) => when === picks['when']) ?? first)}
+      onConfirm={(_, __, picks) => {
+        const when = ways.find((way) => way === picks['when']) ?? first
+        onConfirm(when, payWith(when))
+      }}
       onCancel={onCancel}
     />
   )

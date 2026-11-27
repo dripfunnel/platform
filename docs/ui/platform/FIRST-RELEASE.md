@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-24 (#1579: the Email sender's line says its emails reach shoppers too, and a live Email sender is the address every email for the partner's stores comes from, §9). Before: 2026-11-20 (#1657: a store's Domain cell shows its domain's own status, §6.1). Before: 2026-11-19 (#1614: the Google Maps panel built, §14.5). Before: 2026-11-19 (#1612: the API behind Integrations › Google Maps, a partner's own key and its choice of whose key its stores use, §14.5; the panel is #1614's). Before: 2026-11-17 (#1544: DripFunnel's SMS per route and WhatsApp's whose-account choice where Admin enabled them, and what turning them off does, §14.5). Before: 2026-11-16 (#1018: the SMS panel built, with AWS SNS and the choice per route, §14.5). Before: 2026-11-16 (with Gaurav: the SMS panel's Turn off says people on phone codes sign in without 2-factor while WhatsApp is off too, in the WhatsApp panel's own sentence, §14.5). Before: 2026-11-16 (#1505: the WhatsApp panel built, §14.5). Before: 2026-11-16 (#1504: the WhatsApp panel's API built, §14.5). Before: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-16 (a partner's OpenAI key is tested on Add and Test, like the store's). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-26 (#1744: Billing's Razorpay account, §11.4). Before: 2026-11-26 (#1743: Billing no longer offers "Who bills your merchants": every partner bills its own, §11.4). Before: 2026-11-24 (#1579: the Email sender's line says its emails reach shoppers too, and a live Email sender is the address every email for the partner's stores comes from, §9). Before: 2026-11-20 (#1657: a store's Domain cell shows its domain's own status, §6.1). Before: 2026-11-19 (#1614: the Google Maps panel built, §14.5). Before: 2026-11-19 (#1612: the API behind Integrations › Google Maps, a partner's own key and its choice of whose key its stores use, §14.5; the panel is #1614's). Before: 2026-11-17 (#1544: DripFunnel's SMS per route and WhatsApp's whose-account choice where Admin enabled them, and what turning them off does, §14.5). Before: 2026-11-16 (#1018: the SMS panel built, with AWS SNS and the choice per route, §14.5). Before: 2026-11-16 (with Gaurav: the SMS panel's Turn off says people on phone codes sign in without 2-factor while WhatsApp is off too, in the WhatsApp panel's own sentence, §14.5). Before: 2026-11-16 (#1505: the WhatsApp panel built, §14.5). Before: 2026-11-16 (#1504: the WhatsApp panel's API built, §14.5). Before: 2026-11-16 (#1017: the SMS panel's API built, AWS SNS and the routes included, §14.5). Before: 2026-11-16 (with Gaurav, not built yet: the WhatsApp and SMS panels in Settings › Integrations). Before: 2026-11-16 (a partner's OpenAI key is tested on Add and Test, like the store's). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`, its hosts without `dev-`). Before: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -560,6 +560,12 @@ fees so far."
 
 ### 11.4 Settings: who bills your merchants
 
+**Changed on #1743 (2026-11-26):** every partner bills its own merchants (SAAS §7.1), so Billing
+shows only DripFunnel's invoices, under "DripFunnel’s invoices to you. You bill your merchants
+yourself." (the prototype's own-billing lede). The two choices and the payout-account line are
+gone; the Stores list's Billing status column and each store's Billing status select stay. What
+follows describes the screen before #1743.
+
 **DripFunnel, on your behalf** ("We charge your merchants, retry failed payments and pay you
 monthly, minus our fee.") or **You, with your own billing** ("You charge merchants yourself and
 set each store's billing status. DripFunnel invoices you for its fees."), Owner and Finance;
@@ -580,6 +586,12 @@ shell's facts); the four parts are #201's queries, read in one request, each lis
 - `?state=` keeps the screen's own states (`loading`, `error`, `denied`, `prelive`, `own`); there is
   no sample any more.
 - Support is refused even by address. Only the last four digits of a card or account ever appear.
+
+**Built on #1744** (SAAS §7.4; designs/DF Platform Prototype, Billing): under DripFunnel's invoices, **Razorpay account**:
+a row for Live and for Test (Connected with `rzp_live_••••AbCd` and when it was checked, or Not connected), **Connect**
+(Key ID of that mode, key secret, webhook secret; "Check and connect", Razorpay's refusal worded) and **Disconnect**, which
+states what it does first. Owner and Finance only, never a staff session (`razorpayAccount`, `connectRazorpay`,
+`disconnectRazorpay`); the webhook address to copy is shown to everyone who sees Billing.
 
 ---
 
@@ -895,7 +907,7 @@ api/README.md §2.1); a partner id in a request is not authority.
 | Branding | `branding` (look, words, what the contract fixes, contrast results), `emailTemplates`, `brandingHistory` | `saveBrandingDraft`, `publishBranding(when)`, `cancelScheduledBranding(id)`, `rollbackBranding(id)`, `updateEmailTemplate`, `sendTestEmail(template)` |
 | Domains | `partnerDomains`, `merchantDomains(after, before)` | `addPartnerDomain(kind, host)`, `recheckPartnerDomain(kind)`, `recheckMerchantDomain(storeId)` |
 | Reports | `reportGrowth(range, plan, country)`, `reportRevenue(…)`, `reportPlans(…)`, `reportStorePerformance(…)`, `reportUsage(…)`, `reportSetupHealth(…)` | `exportReport(tab, filter)` (a job) |
-| Billing | `merchantPayments(after, before)`, `payouts(after, before)`, `nextPayout`, `partnerInvoices(after, before)`, `billingSettings` | `setBillingMode(mode)`, `downloadInvoice(id)` |
+| Billing | `merchantPayments(after, before)`, `payouts(after, before)`, `nextPayout`, `partnerInvoices(after, before)`, `billingSettings`, `razorpayAccount` | `downloadInvoice(id)`, `connectRazorpay(mode, keyId, keySecret, webhookSecret)`, `disconnectRazorpay(mode)` (#1744) |
 | Support | `supportTargets(search, after, before)`, `supportSessions(filter, after, before)`, `mySupportSession` | `reauthenticate(code)` (a single-use proof), `startSupportSession(membershipId, reason, ticket, proof)`, `endSupportSession(id)`, `returnToSupportSession(id)` (a fresh handoff link); the merchant's Allow/Deny of write access is the Store API's (ACCESS §8) |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` (a job) |
 | Settings | `partnerCompany`, `team(after, before)`, `payoutAccount`, `paymentMethod` | `inviteTeamMember`, `resendTeamInvite`, `revokeTeamInvite`, `changeTeamRole`, `removeTeamMember`, `transferOwnership`, `setPayoutAccount`, `setPaymentMethod(token)` (a hosted-field token, never a card number), `setSecondFactorPolicy(required)` |
@@ -1227,8 +1239,8 @@ secrets and the same code runs.
   `STRIPE_PUBLISHABLE_KEY` Worker variable at request time, or null while it is unset (#278). The
   console loads Stripe.js from `js.stripe.com` only when Settings › Payout and payment opens; no
   `VITE_*` variable (#272 rule 4).
-- `setBillingMode(mode)` (`billing.write`: Owner, Finance) is audited and flips only what the
-  Stores list shows and what `setStoreBillingStatus` allows (#159).
+- Every partner bills its own merchants (#1743; SAAS §7.1): there is no billing-mode mutation. `connectRazorpay` and
+  `disconnectRazorpay` (`billing.write`: Owner, Finance, never a staff session) are audited (#1744; SAAS §7.4).
 - `setPayoutAccount(token)` (`payout.write`) and `setPaymentMethod(token)` (`card.write`): Owner
   and Finance, **never a staff session** (`BLOCKED_WHILE_IMPERSONATING`,
   `PARTNER_ENTERS_THIS_ITSELF`), and they take only Stripe's tokens — a bank account from

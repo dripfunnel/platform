@@ -218,6 +218,7 @@ the missing backend.
 - ~~There is no billing address or GST/VAT number for DripFunnel's invoice. It exists only in the unmounted PortalPayouts.~~
 - ~~A plan change shows no proration.~~
 - ~~PortalKeep asks the merchant to keep one courier, but never applies that choice. Only payment gateways get switched off (:66).~~
+- **Razorpay plan billing (#1744):** "Change card or UPI" / "Add card or UPI AutoPay" (`canAddCard`) and the "Approve your renewal" banner (`approveDue`) are not built. Razorpay renews the subscription itself, and changing the method of a running one isn't offered yet (SAAS §7.4).
 
 ### Shell
 - ~~"My profile" is toast only (shell:635). There is no screen for name, email, password or two-step sign-in.~~

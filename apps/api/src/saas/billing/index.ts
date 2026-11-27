@@ -2,3 +2,5 @@ export { billingAudit, billingPageSize, createPartnerBillingService, retryAttemp
 export type { BillingRefusal, BillingResult, NextPayout, PartnerBillingService } from './partner'
 export { handleStripeEvent, retriedOutcomes } from './webhook'
 export type { EventOutcome } from './webhook'
+export { createPartnerRazorpayService, razorpayAudit } from './razorpay'
+export type { PartnerRazorpayService } from './razorpay'

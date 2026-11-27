@@ -138,7 +138,8 @@ import { stripeTax } from '#integrations/stripe/tax'
 import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
 import { courierHookOf, handleCourierHook } from '#hooks/couriers'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
-import { keyedGateways } from '#integrations/payments/index'
+import { keyedGateways, razorpayBilling } from '#integrations/payments/index'
+import { handleRazorpayBillingHook, razorpayBillingHookOf } from '#hooks/razorpayBilling'
 import { deleteExpiredCarts } from '#db/scoped/cart'
 import { storeEventKind } from '#db/scoped/storeEvents'
 import { deleteOldDeliveries } from '#db/scoped/webhooks'
@@ -191,7 +192,8 @@ import { localActionsKeys, localStorefrontR2 } from '#integrations/local/builds'
 import type { BuildDeps } from '#saas/storefronts/index'
 import { storefrontCreateKind, storefrontUndoKind, type CreateStorefrontParams, type UndoStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
-import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
+import { endTrials, planFollowKind, queueRenewalReminders, queueSubscriptionFollows, suspendOverdueStores } from '#saas/storeBilling/index'
+import { planFollowDeliverer } from '#jobs/queues/deliverers/planFollow'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
@@ -385,6 +387,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(sms ? { [smsKind]: smsDeliverer(sql, sms.accounts, sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
+    ...(secrets ? { [planFollowKind]: planFollowDeliverer({ sql, api: razorpayBilling(), secrets, activity: activityLog, now: () => new Date() }) } : {}),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
@@ -692,7 +695,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
     const stripe = stripeFor(config)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), checkMaps: mapsCheckFor(config), ourSms: ourSmsOf(config, secrets), ourWhatsApp: ourWhatsAppOf(config, secrets), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), ...(config.SMS_LOCAL === '1' ? { checkSms: localSmsCheck, checkWhatsApp: localWhatsAppCheck } : {}), checkMaps: mapsCheckFor(config), ourSms: ourSmsOf(config, secrets), ourWhatsApp: ourWhatsAppOf(config, secrets), hooksHost: config.HOOKS_HOST, now: () => new Date() }))
   })
 }
 
@@ -850,6 +853,15 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
     const allow = async (key: string) => (await limiter.limit({ key })).success
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
+  }
+  const planPaymentHook = razorpayBillingHookOf(url.pathname)
+  if (planPaymentHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const secrets = await (secretsFor(config) ?? null)
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const allow = async (key: string) => (await limiter.limit({ key })).success
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleRazorpayBillingHook(request, planPaymentHook, { sql, api: razorpayBilling(), secrets, activity: activityLog, now: () => new Date() }, allow))
   }
   const courierHook = courierHookOf(url.pathname)
   if (courierHook) {
@@ -1288,6 +1300,24 @@ const endDueTrials: CronJob = async (sql) => {
   if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
 }
 
+// SAAS §7.4 (#1744): Razorpay renews each store's subscription; the Owner is reminded the day before, once a day.
+const remindRenewals: CronJob = async (sql) => {
+  const queued = await queueRenewalReminders(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'plan_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (queued > 0) logEvent({ event: 'plan_reminders_queued', api: 'system', code: 'due', count: queued })
+}
+
+// Every hour, each store whose period has ended is queued to be read back from Razorpay, in case its webhook never came.
+const followPlanSubscriptions: CronJob = async (sql) => {
+  const queued = await queueSubscriptionFollows(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'plan_follow_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (queued > 0) logEvent({ event: 'plan_subscriptions_queued', api: 'system', code: 'ended', count: queued })
+}
+
 // SAAS §7.3: a store 14 days past due is suspended.
 const suspendOverdue: CronJob = async (sql) => {
   const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -1422,8 +1452,8 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [sweepDeliveries, expireSms, expireWhatsAppCodes, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, queueTracking, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
-  '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
+  '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups, followPlanSubscriptions],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages, remindRenewals],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {

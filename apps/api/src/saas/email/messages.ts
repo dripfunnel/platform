@@ -171,6 +171,14 @@ export const en = {
     // Dunning's reason (SAAS §7.3): a suspended store can't pay in the portal, so it names no way to but support.
     unpaid: 'The plan has been unpaid for 14 days.',
   },
+  // #1744 (SAAS §7.4): the pre-debit reminder, a day before the saved method is charged for the next period.
+  planRenewalReminder: {
+    subject: (store: string, amount: string) => `${store}: ${amount} will be charged tomorrow`,
+    heading: (amount: string) => `${amount} will be charged tomorrow`,
+    body: (store: string, plan: string, amount: string, date: string, method: { kind: 'card'; brand: string; last4: string } | { kind: 'upi'; handle: string } | null) =>
+      `${store}’s ${plan} plan renews on ${date}. ${amount} will be charged${method === null ? '' : method.kind === 'upi' ? ` by UPI AutoPay (${method.handle})` : ` to your ${method.brand ? method.brand.charAt(0).toUpperCase() + method.brand.slice(1) : 'card'} ending ${method.last4}`} for the next period.`,
+    change: 'To change your plan or the card or UPI it is charged to, open Billing in your store before then.',
+  },
   storeCancelled: {
     subject: (store: string) => `${store} is closing`,
     heading: 'Your store is closing',

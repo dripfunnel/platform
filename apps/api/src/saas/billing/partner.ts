@@ -15,7 +15,6 @@ import {
   selectPayouts,
   selectRetrying,
   selectShareSince,
-  setBillingMode as writeBillingMode,
   type BillingAccountPatch,
   type BillingAccountRow,
   type InvoiceRow,
@@ -33,7 +32,6 @@ import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 // account and card, which reach Stripe only as tokens made in the browser.
 
 export const billingAudit = {
-  setBillingMode: 'partner.billing_mode_set',
   setPayoutAccount: 'partner.payout_account_set',
   setPaymentMethod: 'partner.payment_method_set',
 } as const
@@ -51,7 +49,7 @@ export type BillingResult = { ok: true } | { ok: false; reason: BillingRefusal }
 // field (`pm_`). A number in either is refused before anything else looks at it.
 const bankToken = z.string().regex(/^btok_[A-Za-z0-9]{6,}$/)
 const cardToken = z.string().regex(/^pm_[A-Za-z0-9]{6,}$/)
-const modeInput = z.enum(['dripfunnel', 'own'])
+// Every partner bills its own merchants (SAAS §7.1, #1743): 'dripfunnel' is no longer a choice.
 const id = z.guid()
 
 export interface PartnerBillingDeps {
@@ -212,18 +210,6 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
   const payoutAccount = () => read(async (tx) => payoutAccountDto(await selectBillingAccount(tx, partnerId)))
   const paymentMethod = () => read(async (tx) => paymentMethodDto(await selectBillingAccount(tx, partnerId)))
 
-  const setBillingMode = (raw: unknown): Promise<BillingResult> => {
-    const mode = modeInput.safeParse(raw)
-    if (!mode.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
-    return read(async (tx): Promise<BillingResult> => {
-      const before = await selectBillingMode(tx, partnerId)
-      if (before === mode.data) return { ok: true }
-      await writeBillingMode(tx, partnerId, mode.data)
-      await activity.record(tx, entry({ action: billingAudit.setBillingMode, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, changes: [{ field: 'billing_mode', before, after: mode.data }] }))
-      return { ok: true }
-    })
-  }
-
   /** Stripe's answer as a refusal the console words; anything else is a real error. */
   const providerRefusal = (error: unknown): { ok: false; reason: BillingRefusal } => {
     if (error instanceof StripeUnavailable) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
@@ -331,7 +317,7 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
     }
   }
 
-  return { merchantPayments, payouts, nextPayout, partnerInvoices, billingSettings, billingClientConfig, payoutAccount, paymentMethod, setBillingMode, setPayoutAccount, setPaymentMethod, downloadInvoice }
+  return { merchantPayments, payouts, nextPayout, partnerInvoices, billingSettings, billingClientConfig, payoutAccount, paymentMethod, setPayoutAccount, setPaymentMethod, downloadInvoice }
 }
 
 export type PartnerBillingService = ReturnType<typeof createPartnerBillingService>

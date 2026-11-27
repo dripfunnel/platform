@@ -199,6 +199,7 @@ type BillingSubscription {
   scheduled: ScheduledPlanChange
   status: String
   trialEndsAt: String
+  upiAutoPay: String
 }
 
 type BillingUsage {
@@ -1172,6 +1173,7 @@ type Mutation {
   chooseShopCategory(id: ID!): ShopCategory
   chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  confirmPlanPayment(paymentId: String!, signature: String!, subscriptionId: String!): PlanPaymentConfirmed
   connectCourier(channelId: String, email: String, password: String, provider: String!, webhookToken: String): String
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
@@ -1338,6 +1340,7 @@ type Mutation {
   signOutOtherSessions: Int
   skipSetupStep(skipped: Boolean!, step: SetupStep!): Boolean
   startCatalogImport(currency: String, file: String!, inventory: String, source: CatalogImportSource): ID
+  startPlanPayment(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen): PlanCheckout
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   stopCartReminders(cartId: ID!, note: String): Boolean
@@ -1925,6 +1928,14 @@ enum PlanChangeWhen {
   PERIOD_END
 }
 
+type PlanCheckout {
+  amount: Money
+  keyId: String
+  mode: String
+  subscriptionId: String
+  upi: Boolean
+}
+
 type PlanKeep {
   from: String
   kept: [ID!]
@@ -1933,6 +1944,17 @@ type PlanKeep {
   plan: BillingPlanName
   products: Int
   waiting: [ID!]
+}
+
+type PlanPaymentConfirmed {
+  outcome: String
+  subscription: BillingSubscription
+}
+
+type PlanPayments {
+  available: Boolean
+  mode: String
+  subscribed: Boolean
 }
 
 type PricingPlan {
@@ -2450,6 +2472,7 @@ type Query {
   planCatalogue: [BillingPlan!]
   planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
   planKeep: PlanKeep
+  planPayments: PlanPayments
   pricing(currency: String): [PricingPlan!]
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]

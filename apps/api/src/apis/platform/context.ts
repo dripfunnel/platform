@@ -5,7 +5,8 @@ import type { SecretBox } from '#auth/secretBox'
 import type { AiProvider } from '#db/schema/saas'
 import type { StripeApi } from '#integrations/stripe/index'
 import type { StoreBillingStripe } from '#integrations/stripe/subscriptions'
-import { createPartnerBillingService } from '#saas/billing/index'
+import { createPartnerBillingService, createPartnerRazorpayService } from '#saas/billing/index'
+import { razorpayBilling, type RazorpayBilling } from '#integrations/payments/index'
 import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -59,16 +60,19 @@ export interface PlatformContextDeps {
   /** DripFunnel's SMS and WhatsApp as each partner may use them (#1543); absent, none. */
   ourSms?: OurSms
   ourWhatsApp?: OurWhatsApp
+  /** Where the partner's Razorpay webhook address is (HOOKS_HOST), and the Razorpay calls; tests pass a stand-in (#1744). */
+  hooksHost?: string
+  razorpay?: RazorpayBilling
 }
 
 /** Every key is tested before it is saved: OpenAI's against OpenAI, a DeepInfra key (`sk-di-`) against DeepInfra. */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> =>
   provider === 'anthropic' ? checkAnthropicKey(key) : openaiChat(key).validateCredentials()
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, maps: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, sms: null, whatsapp: null, maps: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null, razorpay: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, checkMaps = async () => ({ status: 'unavailable' }), ourSms = async () => ({}), ourWhatsApp = async () => null, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, billingStripe = null, checkSms = checkSmsAccount, checkWhatsApp = checkMetaWhatsAppAccount, checkMaps = async () => ({ status: 'unavailable' }), ourSms = async () => ({}), ourWhatsApp = async () => null, hooksHost = 'hooks.localhost', razorpay = razorpayBilling(), ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -92,5 +96,6 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     // A partner user's own; no staff session reaches it (apis/platform/support.ts).
     support: caller.user && !caller.staff ? createPartnerSupportService({ ...deps, user: caller.user, secrets }) : null,
     billing: createPartnerBillingService({ ...deps, stripe, publishableKey: stripePublishableKey }),
+    razorpay: createPartnerRazorpayService({ ...deps, secrets, api: razorpay, hooksHost }),
   }
 }

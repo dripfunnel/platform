@@ -367,8 +367,10 @@ type Mutation {
   changeMyPassword(current: String!, password: String!): MyProfileResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
+  connectRazorpay(keyId: String!, keySecret: String!, mode: String!, webhookSecret: String!): BillingResult
   createPlan(input: PlanInput!): PlanResult
   createStore(input: CreateStoreInput!): CreateStoreResult
+  disconnectRazorpay(mode: String!): BillingResult
   endSupportSession(id: ID!): SupportSessionResult
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
@@ -400,7 +402,6 @@ type Mutation {
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
   saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
   saveWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, templates: [PartnerWhatsAppTemplateInput!]!): PartnerWhatsAppResult
-  setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setMapsChoice(account: String!): PartnerMapsResult
   setPaymentMethod(token: String!): BillingResult
@@ -1002,6 +1003,7 @@ type Query {
   plans(after: String, first: Int): PlansPage
   provisioning(storeId: ID!): ProvisioningProgress
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
+  razorpayAccount: RazorpayAccount
   reportExport(id: ID!): ReportExportJob
   reportFilters: ReportFilters
   reportGrowth(filter: ReportFilterInput): GrowthReport
@@ -1020,6 +1022,18 @@ type Query {
   supportTargets(after: String, before: String, first: Int, search: String): SupportTargetPage
   team(after: String, before: String, first: Int): TeamPage
   whatsAppAccount: PartnerWhatsApp
+}
+
+type RazorpayAccount {
+  modes: [RazorpayMode!]
+  webhookUrl: String
+}
+
+type RazorpayMode {
+  checkedAt: String
+  connected: Boolean
+  keyHint: String
+  mode: String
 }
 
 type ReauthResult {

@@ -1,8 +1,15 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 import { PaymentRefused, PaymentUnavailable, paymentTimeoutMs } from '#core/payments'
 
 // One call to a payment provider, as every adapter here makes it: a timeout, the provider being down or throttling told
 // apart from it refusing the merchant's keys, and the answer read through a schema or not at all.
+
+const refusalSchema = z.object({ error: z.object({ code: z.string().max(60).optional(), field: z.string().max(60).nullish() }).loose() }).loose()
+const refusalOf = (json: unknown): string => {
+  const read = refusalSchema.safeParse(json)
+  if (!read.success) return ''
+  return [read.data.error.code, read.data.error.field].filter((part) => part && /^[A-Za-z_.]+$/.test(part)).map((part) => ` ${part}`).join('')
+}
 
 export const callProvider = async <S extends z.ZodType>(fetchImpl: typeof fetch, url: string, init: RequestInit, schema: S, allow: readonly number[] = []): Promise<z.infer<S>> => {
   let response: Response
@@ -12,8 +19,8 @@ export const callProvider = async <S extends z.ZodType>(fetchImpl: typeof fetch,
     throw new PaymentUnavailable('no answer')
   }
   if (response.status >= 500 || response.status === 429) throw new PaymentUnavailable(`answered ${response.status}`)
-  if (!response.ok && !allow.includes(response.status)) throw new PaymentRefused(`answered ${response.status}`)
   const json: unknown = await response.json().catch(() => null)
+  if (!response.ok && !allow.includes(response.status)) throw new PaymentRefused(`answered ${response.status}${refusalOf(json)}`)
   const parsed = schema.safeParse(json)
   if (!parsed.success) throw new PaymentUnavailable('answered in a shape we do not read')
   return parsed.data
