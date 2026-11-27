@@ -59,6 +59,8 @@ beforeAll(async () => {
     await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end, stripe_subscription_id)
       values (${storeId}, ${partnerId}, ${p?.id ?? ''}, 1, 'active', 'month', 'INR', 99900, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)}, ${`sub_${storeId.slice(0, 8)}`})`
   }
+  // These cover the Stripe path #1743 keeps but no longer reaches: its partners are put in it by hand.
+  await db.sql`update partner set billing_mode = 'dripfunnel'`
 }, 120_000)
 
 afterAll(async () => {

@@ -48,6 +48,8 @@ beforeAll(async () => {
   await seed(db.url, now)
   ids.ns = (await db.sql<{ id: string }[]>`select id from partner where name = 'Northstar Commerce'`)[0]?.id ?? ''
   ids.bz = (await db.sql<{ id: string }[]>`select id from partner where name = 'Bazaar Cloud'`)[0]?.id ?? ''
+  // These cover the Stripe path #1743 keeps but no longer reaches: its partners are put in it by hand.
+  await db.sql`update partner set billing_mode = 'dripfunnel'`
 }, 120_000)
 
 afterAll(async () => {

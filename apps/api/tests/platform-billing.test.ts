@@ -126,6 +126,8 @@ beforeAll(async () => {
   ids.store = (await db.sql<{ id: string }[]>`select s.id from store s join store_subscription x on x.store_id = s.id where s.partner_id = ${ids.ns} order by s.name limit 1`)[0]?.id ?? ''
   ids.bzStore = (await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} order by name limit 1`)[0]?.id ?? ''
   await db.sql`update store_subscription set stripe_customer_id = 'cus_store1' where store_id = ${ids.store}`
+  // These cover the Stripe path #1743 keeps but no longer reaches: its partners are put in it by hand.
+  await db.sql`update partner set billing_mode = 'dripfunnel'`
 }, 120_000)
 
 afterAll(async () => {
@@ -403,7 +405,7 @@ describe('payout account and card', () => {
 })
 
 describe('who bills, and one partner never another', () => {
-  it('lets Owner and Finance choose who bills, audited, and drops the badge when the partner bills itself', async () => {
+  it('lets Owner and Finance set their own billing, audited, and refuses DripFunnel billing (#1743)', async () => {
     expect((await run(q.mode, callerOf(ids.ns, 'partner-admin'), { m: 'own' })).code).toBe('FORBIDDEN')
     expect((await run(q.mode, callerOf(ids.ns, 'partner-read-only'), { m: 'own' })).code).toBe('FORBIDDEN')
     const finance = callerOf(ids.ns, 'partner-finance')
@@ -411,7 +413,15 @@ describe('who bills, and one partner never another', () => {
     expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'own' })).data?.setBillingMode.ok).toBe(true)
     expect((await run<{ billingSettings: { mode: string } }>(q.settings, finance)).data?.billingSettings.mode).toBe('own')
     expect(await db.sql`select 1 from activity_log where action = 'partner.billing_mode_set' and partner_id = ${ids.ns}`).toHaveLength(1)
-    expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'dripfunnel' })).data?.setBillingMode.ok).toBe(true)
+    expect((await run<{ setBillingMode: { reason: string } }>(q.mode, finance, { m: 'dripfunnel' })).data?.setBillingMode.reason).toBe('INVALID_INPUT')
+    expect((await run<{ billingSettings: { mode: string } }>(q.settings, finance)).data?.billingSettings.mode).toBe('own')
+    await db.sql`update partner set billing_mode = 'dripfunnel' where id = ${ids.ns}`
+  })
+
+  it('makes a new partner bill its own merchants', async () => {
+    const [fresh] = await db.sql<{ id: string; billing_mode: string }[]>`insert into partner (name) values ('Fresh Partner') returning id, billing_mode`
+    expect(fresh?.billing_mode).toBe('own')
+    await db.sql`delete from partner where id = ${fresh?.id ?? ''}`
   })
 
   it("shows each partner only its own payments, payouts, invoices, account, card, counts and stale strip", async () => {
@@ -467,6 +477,6 @@ describe('who bills, and one partner never another', () => {
     expect((await run<{ setPaymentMethod: { ok: boolean } }>(q.pay, finance, { t: 'pm_bazaar1' })).data?.setPaymentMethod.ok).toBe(true)
     expect(await northstarRows()).toEqual(before)
     expect((await db.sql<{ stripe_account_id: string }[]>`select stripe_account_id from partner_billing_account where partner_id = ${ids.bz}`)[0]?.stripe_account_id).toBe('acct_bazaar')
-    await run(q.mode, finance, { m: 'dripfunnel' })
+    await db.sql`update partner set billing_mode = 'dripfunnel' where id = ${ids.bz}`
   })
 })
