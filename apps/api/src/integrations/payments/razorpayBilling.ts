@@ -63,14 +63,16 @@ const eventSchema = z
   })
   .loose()
 
-/** What the saved method is, as a person reads it: a card's network and last four, or a masked UPI handle. */
-export const methodOf = (p: RazorpayPayment): string | null => {
+export type PlanMethod = { kind: 'card'; brand: string; last4: string } | { kind: 'upi'; handle: string }
+
+/** The saved method as data, never a person's words: a card's network and last four, or a masked UPI handle. */
+export const methodOf = (p: RazorpayPayment): PlanMethod | null => {
   if (p.method === 'upi' && p.vpa) {
     const [name = '', bank = ''] = p.vpa.split('@')
-    return `UPI AutoPay · ${name.slice(0, 2)}••••@${bank}`
+    return { kind: 'upi', handle: `${name.slice(0, 2)}••••@${bank}` }
   }
   const last4 = p.card?.last4 && /^\d{4}$/.test(p.card.last4) ? p.card.last4 : null
-  return last4 ? `${p.card?.network ?? 'Card'} ending ${last4}` : null
+  return last4 ? { kind: 'card', brand: (p.card?.network ?? '').toLowerCase(), last4 } : null
 }
 
 /** Razorpay's dates are seconds since the epoch. */

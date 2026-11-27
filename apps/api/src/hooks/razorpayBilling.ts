@@ -16,7 +16,7 @@ export const razorpayBillingHookOf = (pathname: string): { partnerId: string } |
 
 export const handleRazorpayBillingHook = async (request: Request, hook: { partnerId: string }, deps: PlanBillingDeps, allow: (key: string) => Promise<boolean>): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
-  if (!(await allow(`razorpay-billing-hook:${hook.partnerId}`))) return new Response(null, { status: 429 })
+  if (!(await allow(`razorpay-billing-hook:${request.headers.get('cf-connecting-ip') ?? 'unknown'}:${hook.partnerId}`))) return new Response(null, { status: 429 })
   const read = await readCapped(request, maxBodyBytes)
   if (!read.ok) return new Response(null, { status: 413 })
   const body = new TextDecoder().decode(read.bytes)

@@ -2570,7 +2570,8 @@ it.
 - The partner's keys are `partner_credential` rows of kind `billing`, provider `razorpay`, one per mode (`settings.mode`),
   sealed in `key_enc` and read back only in system scope.
 - `store_subscription` gains `razorpay_subscription_id` (unique), `razorpay_customer_id` and `razorpay_mode`;
-  `payment_method_label` holds the method Razorpay charges as a person reads it.
+  the method Razorpay charges is kept as data: a card in `payment_method_brand` and `payment_method_last4`, UPI as brand
+  `upi` with its masked handle in `payment_method_label`.
 - **`razorpay_plan`**: each partner plan version, interval, currency and price as the Razorpay plan made for it, per mode.
 - **`store_plan_charge`**: each payment on a subscription, the first (`subscribe`, waiting until Checkout's answer is
   confirmed) and each renewal Razorpay charged (`renewal`, one per subscription and period), with the plan, amount, period

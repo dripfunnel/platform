@@ -14,8 +14,8 @@ describe('razorpay plan billing', () => {
   })
 
   it('names a card by network and last four, a UPI handle masked, and nothing it can’t read', () => {
-    expect(methodOf({ id: 'pay_1', status: 'captured', amount: 100, currency: 'INR', method: 'card', card: { last4: '1111', network: 'Visa' } })).toBe('Visa ending 1111')
-    expect(methodOf({ id: 'pay_2', status: 'captured', amount: 100, currency: 'INR', method: 'upi', vpa: 'maya.chen@okhdfc' })).toBe('UPI AutoPay · ma••••@okhdfc')
+    expect(methodOf({ id: 'pay_1', status: 'captured', amount: 100, currency: 'INR', method: 'card', card: { last4: '1111', network: 'Visa' } })).toEqual({ kind: 'card', brand: 'visa', last4: '1111' })
+    expect(methodOf({ id: 'pay_2', status: 'captured', amount: 100, currency: 'INR', method: 'upi', vpa: 'maya.chen@okhdfc' })).toEqual({ kind: 'upi', handle: 'ma••••@okhdfc' })
     expect(methodOf({ id: 'pay_3', status: 'captured', amount: 100, currency: 'INR', method: 'netbanking' })).toBeNull()
     expect(dateOf(1_767_225_600)).toEqual(new Date('2026-01-01T00:00:00Z'))
     expect(dateOf(null)).toBeNull()

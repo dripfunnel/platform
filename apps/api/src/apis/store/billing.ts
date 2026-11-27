@@ -73,7 +73,7 @@ export const registerBilling = (builder: StoreBuilder) => {
       scheduled: t.field({ type: Scheduled, nullable: true, resolve: (s) => s.scheduled }),
       card: t.field({ type: Card, nullable: true, resolve: (s) => s.card }),
       // The saved Razorpay method as a person reads it, "Visa ending 4242" or a masked UPI handle (#1744).
-      paymentMethod: t.exposeString('paymentMethod', { nullable: true }),
+      upiAutoPay: t.exposeString('upiAutoPay', { nullable: true }),
       // dripfunnel (on the partner's behalf) or partner: who charges, which the screen says (SAAS §7.1).
       collectedBy: t.exposeString('collectedBy'),
       partnerName: t.exposeString('partnerName'),

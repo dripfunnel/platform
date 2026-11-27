@@ -26,7 +26,7 @@ const subscriptionSchema = z.object({
   scheduled: z.object({ plan: named, interval: z.enum(billingIntervals), at: z.string() }).nullable(),
   card: z.object({ brand: z.string(), last4: z.string(), expires: z.string().nullable() }).nullable(),
   // The saved Razorpay method, "Visa ending 4242" or a masked UPI handle (#1744); null on Stripe or with none.
-  paymentMethod: z.string().nullable(),
+  upiAutoPay: z.string().nullable(),
   collectedBy: z.enum(['dripfunnel', 'partner']),
   partnerName: z.string(),
   asOf: z.string().nullable(),
@@ -111,7 +111,7 @@ export const invoicePageSize = 10
 
 const invoiceFields = 'nodes { id number kind status amount { amount currency } tax { amount currency } issuedAt paidAt lines { label kind } } pageInfo { hasNextPage endCursor }'
 const subscriptionFields =
-  'plan { id name } status interval price { amount currency } periodStart periodEnd trialEndsAt cancelAt scheduled { plan { id name } interval at } card { brand last4 expires } paymentMethod collectedBy partnerName asOf'
+  'plan { id name } status interval price { amount currency } periodStart periodEnd trialEndsAt cancelAt scheduled { plan { id name } interval at } card { brand last4 expires } upiAutoPay collectedBy partnerName asOf'
 
 export const loadBilling = async (): Promise<BillingRead> => {
   const r = await query(

@@ -8,7 +8,7 @@ const words = messages.billing.card
 // subscription charges, saved with the first plan payment. Changing it isn't offered yet (decided on #1744).
 export const PaymentMethodCard = ({ sub, payments }: { sub: Subscription; payments: PlanPayments }) => {
   const own = sub.collectedBy === 'partner'
-  const saved = sub.paymentMethod ?? (sub.card ? cardText(sub.card) : null)
+  const saved = sub.upiAutoPay ? fill(words.upi, { handle: sub.upiAutoPay }) : sub.card ? cardText(sub.card) : null
   const note = !own ? words.note : payments.available ? fill(words.paidTo, { partner: sub.partnerName }) : fill(words.unavailable, { partner: sub.partnerName })
   return (
     <section className="df-billing-card" aria-labelledby="df-billing-card">

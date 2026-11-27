@@ -67,7 +67,7 @@ const sub: Subscription = {
   cancelAt: null,
   scheduled: null,
   card: { brand: 'visa', last4: '4242', expires: '2028-04' },
-  paymentMethod: null,
+  upiAutoPay: null,
   collectedBy: 'dripfunnel',
   partnerName: 'Kesari Commerce',
   asOf: '2026-10-10T09:00:00.000Z',
@@ -232,11 +232,11 @@ describe('the Billing screen', () => {
   })
 
   it('opens Razorpay on a new subscription for the first plan payment when the partner bills by Razorpay (#1744)', async () => {
-    const own = { ...sub, collectedBy: 'partner' as const, card: null, paymentMethod: null }
+    const own = { ...sub, collectedBy: 'partner' as const, card: null, upiAutoPay: null }
     api.loadBilling.mockResolvedValue(read({ subscription: own, payments: { available: true, mode: 'test', subscribed: false } }))
     api.quotePlanChange.mockResolvedValueOnce(quote({ offered: ['NOW'] }))
     api.startPlanPayment.mockResolvedValue({ keyId: 'rzp_test_AbCdEf123456', subscriptionId: 'sub_T1', amount: inr('116600'), mode: 'test', upi: true })
-    api.confirmPlanPayment.mockResolvedValue({ subscription: { ...own, plan: { id: 'pro', name: 'Growth Pro' }, paymentMethod: 'UPI AutoPay · ja••••@okhdfc' }, outcome: 'captured' })
+    api.confirmPlanPayment.mockResolvedValue({ subscription: { ...own, plan: { id: 'pro', name: 'Growth Pro' }, upiAutoPay: 'ja••••@okhdfc' }, outcome: 'captured' })
     const opened: Record<string, unknown>[] = []
     window.Razorpay = class {
       constructor(private readonly options: Record<string, unknown>) {
@@ -261,7 +261,7 @@ describe('the Billing screen', () => {
   })
 
   it('takes a subscribed store’s plan change through Checkout too, at the period’s end when chosen (#1744)', async () => {
-    const own = { ...sub, collectedBy: 'partner' as const, card: null, paymentMethod: 'Visa ending 1111' }
+    const own = { ...sub, collectedBy: 'partner' as const, card: { brand: 'visa', last4: '1111', expires: null }, upiAutoPay: null }
     api.loadBilling.mockResolvedValue(read({ subscription: own, payments: { available: true, mode: 'test', subscribed: true } }))
     api.quotePlanChange.mockResolvedValueOnce(quote()).mockResolvedValueOnce(quote({ charge: inr('0'), credit: inr('0'), today: inr('0'), from: sub.periodEnd }))
     api.startPlanPayment.mockResolvedValue({ keyId: 'rzp_test_AbCdEf123456', subscriptionId: 'sub_T2', amount: inr('0'), mode: 'test', upi: true })

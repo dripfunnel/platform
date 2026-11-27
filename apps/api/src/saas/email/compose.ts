@@ -110,7 +110,7 @@ const payloads = {
   'store-role-changed': z.object({ storeId: id, to: email, role: z.enum(['owner', 'manager', 'staff']) }),
   'store-cancelled': z.object({ storeId: id, until: z.iso.datetime() }),
   // #1744: the day before a renewal is charged on the saved card or UPI AutoPay (SAAS §7.4).
-  'plan-renewal-reminder': z.object({ storeId: id, plan: z.string().min(1).max(100), amount: z.string().regex(/^\d+$/), currency: z.string().regex(/^[A-Z]{3}$/), method: z.string().max(80).nullable(), at: z.iso.datetime() }),
+  'plan-renewal-reminder': z.object({ storeId: id, plan: z.string().min(1).max(100), amount: z.string().regex(/^\d+$/), currency: z.string().regex(/^[A-Z]{3}$/), method: z.discriminatedUnion('kind', [z.object({ kind: z.literal('card'), brand: z.string().max(40), last4: z.string().regex(/^\d{4}$/) }), z.object({ kind: z.literal('upi'), handle: z.string().max(80) })]).nullable(), at: z.iso.datetime() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
   'order-downloads': z.object({ orderId: id }),

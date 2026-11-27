@@ -17,6 +17,7 @@ import {
   selectPlanPrice,
   selectRazorpayPlan,
   selectRazorpayStoresEnding,
+  type RazorpayStoreEnding,
   selectSealedBillingGateway,
   selectStoreByRazorpaySubscription,
   selectSubscribeCharge,
@@ -24,7 +25,7 @@ import {
 } from '#db/scoped/razorpayBilling'
 import { applyPlan, clearScheduledChange, scheduleChange, selectBillingSubscription } from '#db/scoped/storeBilling'
 import { selectStoreForUpdate } from '#db/scoped/stores'
-import { dateOf, methodOf, razorpayKeysSchema, type RazorpayBilling, type RazorpayKeys, type RazorpaySubscription } from '#integrations/payments/index'
+import { dateOf, methodOf, razorpayKeysSchema, type PlanMethod, type RazorpayBilling, type RazorpayKeys, type RazorpaySubscription } from '#integrations/payments/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { transitionStore } from '#saas/stores/index'
 import { dunningLabel } from './dunning'
@@ -40,6 +41,8 @@ export const upiBelow = 1_500_000
 const remindAheadMs = 2 * 86_400_000
 const dayMs = 86_400_000
 const sweepSize = 100
+/** A run stops after this many pages; the next run (hourly, or tomorrow's reminder window) carries on. */
+const sweepPages = 50
 /** How far back the hourly run looks for a store whose period ended without Razorpay's renewal reaching it. */
 const backstopMs = 7 * dayMs
 
@@ -266,7 +269,7 @@ type Applied = 'started' | 'now' | 'scheduled' | 'kept' | 'none'
 
 // An approved subscription, read back: the one it replaces ends first so only one charges, then its plan applies.
 // Null when it isn't this store's; 'none' when it was already settled.
-const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId: string, storeId: string, s: RazorpaySubscription, paymentId: string | null): Promise<{ method: string | null; applied: Applied } | null> => {
+const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId: string, storeId: string, s: RazorpaySubscription, paymentId: string | null): Promise<{ method: PlanMethod | null; applied: Applied } | null> => {
   const notes = s.notes && !Array.isArray(s.notes) ? s.notes : {}
   if (notes['df_store_id'] !== storeId || (s.status !== 'active' && s.status !== 'authenticated')) return null
   const method = paymentId ? methodOf(await deps.api.payment(gateway.keys, paymentId)) : null
@@ -284,7 +287,7 @@ const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId:
     if (!locked || !sub || locked.store_id !== storeId || locked.status === 'captured') return { method, applied: 'none' as const }
     const start = locked.period_start ?? dateOf(s.current_start) ?? at
     const end = locked.period_end ?? dateOf(s.current_end) ?? addInterval(start, locked.interval)
-    await saveRazorpaySubscription(tx, storeId, { subscriptionId: s.id, customerId: s.customer_id ?? null, mode: gateway.mode, label: method })
+    await saveRazorpaySubscription(tx, storeId, { subscriptionId: s.id, customerId: s.customer_id ?? null, mode: gateway.mode, method })
     const move = { planId: locked.plan_id, planVersion: locked.plan_version, interval: locked.interval, amount: locked.amount }
     let applied: Applied = locked.change_when === 'now' ? 'now' : 'started'
     if (locked.change_when === 'period_end') {
@@ -301,7 +304,7 @@ const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId:
 }
 
 /** Checkout's answer: its signature is checked with the key secret, then the subscription is read back and applied. */
-export const confirmSubscription = async (deps: PlanBillingDeps, storeId: string, partnerId: string, answer: CheckoutAnswer): Promise<CheckoutResult<{ method: string | null; applied: Applied }>> => {
+export const confirmSubscription = async (deps: PlanBillingDeps, storeId: string, partnerId: string, answer: CheckoutAnswer): Promise<CheckoutResult<{ method: PlanMethod | null; applied: Applied }>> => {
   const pending = await withSystemScope(deps.sql, (tx) => selectSubscribeCharge(tx, partnerId, answer.subscriptionId))
   if (!pending || pending.store_id !== storeId) return { ok: false, reason: 'NOT_FOUND' }
   const gateway = await openGateway(deps, partnerId, pending.mode)
@@ -348,10 +351,9 @@ export const settleFromRazorpayWebhook = async (deps: PlanBillingDeps, partnerId
 /** The hourly backstop for a missed webhook: each store whose period ended in the last week is read back from Razorpay. */
 export const followEndedSubscriptions = async (deps: PlanBillingDeps): Promise<number> => {
   const at = deps.now()
-  const due = await withSystemScope(deps.sql, (tx) => selectRazorpayStoresEnding(tx, new Date(at.getTime() - backstopMs), at, sweepSize))
   const gateways = new Map<string, Promise<Gateway | null>>()
   let followed = 0
-  for (const store of due) {
+  for await (const store of storesEnding(deps.sql, new Date(at.getTime() - backstopMs), at)) {
     const key = `${store.partner_id}:${store.razorpay_mode}`
     if (!gateways.has(key)) gateways.set(key, openGateway(deps, store.partner_id, store.razorpay_mode))
     const gateway = await gateways.get(key)
@@ -366,23 +368,42 @@ export const followEndedSubscriptions = async (deps: PlanBillingDeps): Promise<n
 }
 
 /** The reminder the day before a renewal, once per period, naming a change scheduled for it (SAAS §7.4). */
-export const queueRenewalReminders = (sql: postgres.Sql, now: Date): Promise<number> =>
-  withSystemScope(sql, async (tx) => {
-    let queued = 0
-    for (const due of await selectRazorpayStoresEnding(tx, new Date(now.getTime() + dayMs), new Date(now.getTime() + remindAheadMs), sweepSize)) {
+export const queueRenewalReminders = async (sql: postgres.Sql, now: Date): Promise<number> => {
+  let queued = 0
+  for await (const due of storesEnding(sql, new Date(now.getTime() + dayMs), new Date(now.getTime() + remindAheadMs))) {
+    queued += await withSystemScope(sql, async (tx) => {
       const sub = await selectBillingSubscription(tx, due.store_id)
-      if (!sub) continue
+      if (!sub) return 0
       const scheduled = sub.next_plan_id && sub.next_plan_version !== null && sub.change_at && sub.change_at.getTime() <= sub.period_end.getTime()
       const amount = scheduled ? await selectPlanPrice(tx, sub.next_plan_id ?? '', sub.next_plan_version ?? 1, sub.currency, sub.next_interval ?? sub.interval) : sub.amount
-      if (!amount) continue
+      if (!amount) return 0
       await queueSideEffect(tx, {
         kind: 'email',
         idempotencyKey: `plan-renewal-reminder:${sub.store_id}:${sub.period_end.toISOString()}`,
-        payload: { template: 'plan-renewal-reminder', storeId: sub.store_id, plan: scheduled ? (sub.next_plan_name ?? sub.plan_name) : sub.plan_name, amount: String(amount), currency: sub.currency, method: sub.payment_method_label, at: sub.period_end.toISOString() },
+        payload: { template: 'plan-renewal-reminder', storeId: sub.store_id, plan: scheduled ? (sub.next_plan_name ?? sub.plan_name) : sub.plan_name, amount: String(amount), currency: sub.currency, method: savedMethodOf(sub), at: sub.period_end.toISOString() },
         partnerId: sub.partner_id,
         storeId: sub.store_id,
       })
-      queued += 1
-    }
-    return queued
-  })
+      return 1
+    })
+  }
+  return queued
+}
+
+/** Every store ending in the window, a page at a time, so one run reaches all of them (up to sweepPages). */
+async function* storesEnding(sql: postgres.Sql, from: Date, until: Date): AsyncGenerator<RazorpayStoreEnding> {
+  let after: { periodEnd: Date; storeId: string } | null = null
+  for (let page = 0; page < sweepPages; page += 1) {
+    const rows = await withSystemScope(sql, (tx) => selectRazorpayStoresEnding(tx, from, until, sweepSize, after))
+    yield* rows
+    const last = rows.at(-1)
+    if (!last || rows.length < sweepSize) return
+    after = { periodEnd: last.period_end, storeId: last.store_id }
+  }
+}
+
+/** The method a store's subscription charges, as stored (db/scoped/razorpayBilling saveRazorpaySubscription). */
+export const savedMethodOf = (s: { payment_method_brand: string | null; payment_method_last4: string | null; payment_method_label: string | null }): PlanMethod | null => {
+  if (s.payment_method_brand === 'upi' && s.payment_method_label) return { kind: 'upi', handle: s.payment_method_label }
+  return s.payment_method_last4 ? { kind: 'card', brand: s.payment_method_brand ?? '', last4: s.payment_method_last4 } : null
+}

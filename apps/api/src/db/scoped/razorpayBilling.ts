@@ -91,10 +91,18 @@ export const selectPlanByRazorpayId = async (tx: ScopedSql, partnerId: string, m
 
 // ---- The store's subscription on Razorpay (system scope, by the caller's own store id) ----
 
-export const saveRazorpaySubscription = async (tx: ScopedSql, storeId: string, s: { subscriptionId: string; customerId: string | null; mode: GatewayMode; label: string | null }): Promise<void> => {
+/** A card is kept as Stripe's are (brand, last four); UPI as brand `upi` with its masked handle in the label. */
+export const saveRazorpaySubscription = async (
+  tx: ScopedSql,
+  storeId: string,
+  s: { subscriptionId: string; customerId: string | null; mode: GatewayMode; method: { kind: 'card'; brand: string; last4: string } | { kind: 'upi'; handle: string } | null },
+): Promise<void> => {
+  const m = s.method
   await tx`
     update store_subscription set razorpay_subscription_id = ${s.subscriptionId}, razorpay_customer_id = coalesce(${s.customerId}, razorpay_customer_id),
-      razorpay_mode = ${s.mode}, payment_method_label = coalesce(${s.label}, payment_method_label), billing_revision = billing_revision + 1
+      razorpay_mode = ${s.mode}, billing_revision = billing_revision + 1
+      ${m ? tx`, payment_method_brand = ${m.kind === 'upi' ? 'upi' : m.brand}, payment_method_last4 = ${m.kind === 'card' ? m.last4 : null},
+        payment_method_label = ${m.kind === 'upi' ? m.handle : null}, payment_method_expires = null` : tx``}
     where store_id = ${storeId}`
 }
 
@@ -114,7 +122,7 @@ export const selectAnyRazorpaySubscription = async (tx: ScopedSql, partnerId: st
 /** A partner that connects another Razorpay account (or none) leaves its stores' subscriptions on the old one: they subscribe again. */
 export const forgetRazorpaySubscriptions = async (tx: ScopedSql, partnerId: string, mode: GatewayMode): Promise<void> => {
   await tx`
-    update store_subscription set razorpay_subscription_id = null, razorpay_customer_id = null, razorpay_mode = null, payment_method_label = null,
+    update store_subscription set razorpay_subscription_id = null, razorpay_customer_id = null, razorpay_mode = null, payment_method_label = null, payment_method_brand = null, payment_method_last4 = null,
       billing_revision = billing_revision + 1
     where partner_id = ${partnerId} and razorpay_mode = ${mode}`
 }
@@ -209,13 +217,14 @@ export interface RazorpayStoreEnding {
   razorpay_mode: GatewayMode
 }
 
-/** Stores on a Razorpay subscription whose period ends in [from, until], for the reminder and to read Razorpay back. */
-export const selectRazorpayStoresEnding = (tx: ScopedSql, from: Date, until: Date, limit: number): Promise<RazorpayStoreEnding[]> =>
+/** Stores on a Razorpay subscription whose period ends in (from, until], a page at a time after `after`. */
+export const selectRazorpayStoresEnding = (tx: ScopedSql, from: Date, until: Date, limit: number, after: { periodEnd: Date; storeId: string } | null = null): Promise<RazorpayStoreEnding[]> =>
   tx<RazorpayStoreEnding[]>`
     select sub.store_id, sub.partner_id, sub.period_end, sub.razorpay_subscription_id, sub.razorpay_mode from store_subscription sub
     join store s on s.id = sub.store_id
     where sub.razorpay_subscription_id is not null and sub.status in ('active', 'past_due') and sub.cancel_at is null and sub.amount > 0
       and sub.period_end > ${from} and sub.period_end <= ${until} and s.status in ('active', 'past_due', 'suspended')
+      ${after ? tx`and (sub.period_end, sub.store_id) > (${after.periodEnd}, ${after.storeId})` : tx``}
     order by sub.period_end, sub.store_id limit ${limit}`
 
 /** A plan version's price in a currency for an interval; null where it has none. */

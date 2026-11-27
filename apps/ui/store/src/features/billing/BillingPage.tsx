@@ -317,7 +317,7 @@ const ChangeDialog = ({ change, sub, razorpay, busy, error, onConfirm, onCancel 
     return fill(w.now, { today: money(q.today), charge: money(q.charge), plan: change.plan.name, credit: money(q.credit), current: sub.plan.name, from: dayOf(q.from), price, per })
   }
   const nextPrice = change.quotes[first]?.nextPrice
-  const needsCard = !razorpay && !sub.card && !sub.paymentMethod && nextPrice !== undefined && nextPrice.amount !== '0'
+  const needsCard = !razorpay && !sub.card && !sub.upiAutoPay && nextPrice !== undefined && nextPrice.amount !== '0'
   const payWith = (when: PlanChangeWhen) => {
     const q = change.quotes[when]
     if (razorpay === 'first') return Boolean(q && q.today.amount !== '0')

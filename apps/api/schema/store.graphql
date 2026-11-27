@@ -192,7 +192,6 @@ type BillingSubscription {
   collectedBy: String
   interval: BillingInterval
   partnerName: String
-  paymentMethod: String
   periodEnd: String
   periodStart: String
   plan: BillingPlanName
@@ -200,6 +199,7 @@ type BillingSubscription {
   scheduled: ScheduledPlanChange
   status: String
   trialEndsAt: String
+  upiAutoPay: String
 }
 
 type BillingUsage {

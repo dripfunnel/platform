@@ -109,7 +109,7 @@ reason), `platform.maps_key_removed`, `platform.maps_enabled` and `platform.maps
 
 **#1744 plan billing entries.** On the partner's log: `partner.razorpay_connected` (the mode as its reason; the key hint
 before and after, never a secret) and `partner.razorpay_disconnected`. On the store's: `billing.plan_changed` (by the Owner,
-or by Razorpay with `razorpay` or `paid` as its reason), `billing.payment_method_set` (the method's label before and after),
+or by Razorpay with `razorpay` or `paid` as its reason), `billing.payment_method_set` (the method before and after: a card's brand and last four, or UPI's masked handle),
 `billing.renewed` (the period's end before and after), and `store.past_due` (`razorpay_pending`, `razorpay_halted` or
 `razorpay_cancelled` as its reason), `store.paid` and `store.restored` with Razorpay as the actor. None carries a key, a token
 or a card number.

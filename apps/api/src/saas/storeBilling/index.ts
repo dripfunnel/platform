@@ -41,14 +41,14 @@ import {
   type BillingSubscriptionRow,
   type CataloguePlanRow,
 } from '#db/scoped/storeBilling'
-import type { RazorpayBilling } from '#integrations/payments/index'
+import type { PlanMethod, RazorpayBilling } from '#integrations/payments/index'
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
 import { taxIdOf } from '#engine/modules/storeInfo/index'
 import { transitionStore } from '#saas/stores/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { keepWithinPlan, productLimitOf } from './keep'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
-import { cancelSubscription, confirmSubscription, startSubscription, type CheckoutAnswer, type PlanBillingDeps, type PlanChange } from './razorpay'
+import { cancelSubscription, confirmSubscription, savedMethodOf, startSubscription, type CheckoutAnswer, type PlanBillingDeps, type PlanChange } from './razorpay'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
 export type { Interval, Quote, When } from './quote'
@@ -163,8 +163,8 @@ const subscriptionDto = (s: BillingSubscriptionRow) => ({
   cancelAt: s.cancel_at,
   scheduled: s.next_plan_id && s.change_at ? { plan: { id: s.next_plan_id, name: s.next_plan_name ?? '' }, interval: s.next_interval ?? s.interval, at: s.change_at } : null,
   card: s.payment_method_last4 ? { brand: s.payment_method_brand ?? '', last4: s.payment_method_last4, expires: s.payment_method_expires ? s.payment_method_expires.toISOString().slice(0, 7) : null } : null,
-  // The saved method as Razorpay names it, a card or a masked UPI handle (#1744); null on Stripe or with none.
-  paymentMethod: s.razorpay_subscription_id ? s.payment_method_label : null,
+  // UPI AutoPay's masked handle on a Razorpay subscription (#1744); a card shows in `card` as Stripe's does.
+  upiAutoPay: s.razorpay_subscription_id && s.payment_method_brand === 'upi' ? s.payment_method_label : null,
   // FIRST-RELEASE §16: the screen says who charges (SAAS §7.1).
   collectedBy: s.billing_mode === 'own' ? ('partner' as const) : ('dripfunnel' as const),
   partnerName: s.partner_name,
@@ -687,7 +687,10 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     if (audit) await system(async (tx) => {
       const after = await selectBillingSubscription(tx, storeId)
       await activity.record(tx, entry(audit, [{ field: 'plan', before: before?.plan_id ?? null, after: after?.next_plan_id ?? after?.plan_id ?? null }]))
-      if (result.value.method !== null) await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'payment_method', before: before?.payment_method_label ?? null, after: result.value.method }]))
+      const was = before ? savedMethodOf(before) : null
+      const now = result.value.method
+      const asText = (m: PlanMethod | null) => (m === null ? null : m.kind === 'upi' ? `upi ${m.handle}` : `${m.brand} ${m.last4}`)
+      if (now !== null && asText(now) !== asText(was)) await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'payment_method', before: asText(was), after: asText(now) }]))
     })
     const after = await subscriptionRow()
     return after ? { ok: true as const, value: { subscription: subscriptionDto(after), outcome: 'captured' } } : refused('NO_SUBSCRIPTION')

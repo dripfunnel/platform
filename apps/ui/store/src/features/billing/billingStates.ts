@@ -52,7 +52,7 @@ const active: Subscription | null = harness
       cancelAt: null,
       scheduled: null,
       card: { brand: 'visa', last4: '4242', expires: '2028-04' },
-      paymentMethod: null,
+      upiAutoPay: null,
       collectedBy: 'dripfunnel',
       partnerName: 'Kesari Commerce',
       asOf: inDays(0),

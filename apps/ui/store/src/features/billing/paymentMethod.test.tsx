@@ -19,7 +19,7 @@ const sub: Subscription = {
   cancelAt: null,
   scheduled: null,
   card: null,
-  paymentMethod: null,
+  upiAutoPay: null,
   collectedBy: 'partner',
   partnerName: 'Kesari Commerce',
   asOf: null,
@@ -42,7 +42,7 @@ describe('the card that pays for the plan', () => {
   })
 
   it('shows the saved method as Razorpay names it, and nothing to change for now', () => {
-    render(<PaymentMethodCard sub={{ ...sub, paymentMethod: 'UPI AutoPay · ma••••@okhdfc' }} payments={{ available: true, mode: 'live', subscribed: true }} />)
+    render(<PaymentMethodCard sub={{ ...sub, upiAutoPay: 'ma••••@okhdfc' }} payments={{ available: true, mode: 'live', subscribed: true }} />)
     expect(screen.getByText('UPI AutoPay · ma••••@okhdfc')).toBeTruthy()
     expect(screen.queryByText(words.testMode)).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()

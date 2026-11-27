@@ -1158,7 +1158,7 @@ Razorpay subscription. With Razorpay connected the Owner changes the plan here. 
 says Razorpay will take today's payment with AutoPay; confirming calls `startPlanPayment`, opens Razorpay's own Checkout on
 the subscription and sends its answer to `confirmPlanPayment`. A subscribed store's change to a paid plan, or keeping its plan after
 a scheduled change, opens Checkout the same way (`startPlanPayment` with `when`) on the new subscription that replaces
-its own (SAAS §7.4); only a free plan goes to `changePlan`. The card box shows the method as the API names it (`paymentMethod`), "Test mode" where
+its own (SAAS §7.4); only a free plan goes to `changePlan`. The card box shows a card as `card` (brand and last four) or UPI AutoPay's masked handle (`upiAutoPay`), worded in the portal's messages, "Test mode" where
 it is, and before the first payment that the method is saved with it; changing the method isn't offered yet. Without
 Razorpay, the card says the partner hasn't set up card payments yet.
 

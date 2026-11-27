@@ -175,8 +175,8 @@ export const en = {
   planRenewalReminder: {
     subject: (store: string, amount: string) => `${store}: ${amount} will be charged tomorrow`,
     heading: (amount: string) => `${amount} will be charged tomorrow`,
-    body: (store: string, plan: string, amount: string, date: string, method: string | null) =>
-      `${store}’s ${plan} plan renews on ${date}. ${amount} will be charged${method ? ` to ${method}` : ''} for the next period.`,
+    body: (store: string, plan: string, amount: string, date: string, method: { kind: 'card'; brand: string; last4: string } | { kind: 'upi'; handle: string } | null) =>
+      `${store}’s ${plan} plan renews on ${date}. ${amount} will be charged${method === null ? '' : method.kind === 'upi' ? ` by UPI AutoPay (${method.handle})` : ` to your ${method.brand ? method.brand.charAt(0).toUpperCase() + method.brand.slice(1) : 'card'} ending ${method.last4}`} for the next period.`,
     change: 'To change your plan or the card or UPI it is charged to, open Billing in your store before then.',
   },
   storeCancelled: {

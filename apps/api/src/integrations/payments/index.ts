@@ -11,4 +11,4 @@ export const keyedGateways = (fetchImpl: typeof fetch = fetch): PaymentGateways 
   phonepe: phonepe({ fetchImpl }),
   paypal: paypal({ fetchImpl }),
 })
-export { dateOf, keyHintOf, methodOf, razorpayBilling, razorpayKeysSchema, type RazorpayBilling, type RazorpayInvoice, type RazorpayKeys, type RazorpayPayment, type RazorpaySubscription } from './razorpayBilling'
+export { dateOf, keyHintOf, methodOf, razorpayBilling, razorpayKeysSchema, type RazorpayBilling, type RazorpayInvoice, type RazorpayKeys, type PlanMethod, type RazorpayPayment, type RazorpaySubscription } from './razorpayBilling'

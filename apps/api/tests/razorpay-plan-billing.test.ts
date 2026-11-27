@@ -170,7 +170,7 @@ const store = async (source: string, who: Who, variables: Record<string, unknown
 }
 const q = {
   start: 'mutation S($p: ID!, $w: PlanChangeWhen) { startPlanPayment(planId: $p, interval: MONTH, when: $w) { keyId subscriptionId amount { amount currency } mode upi } }',
-  confirm: 'mutation C($p: String!, $s: String!, $g: String!) { confirmPlanPayment(paymentId: $p, subscriptionId: $s, signature: $g) { outcome subscription { status plan { id } paymentMethod } } }',
+  confirm: 'mutation C($p: String!, $s: String!, $g: String!) { confirmPlanPayment(paymentId: $p, subscriptionId: $s, signature: $g) { outcome subscription { status plan { id } upiAutoPay card { brand last4 } } } }',
   change: 'mutation P($p: ID!, $w: PlanChangeWhen!) { changePlan(planId: $p, interval: MONTH, when: $w) { status plan { id } scheduled { plan { id } } } }',
   payments: '{ planPayments { available mode subscribed } }',
   close: 'mutation { cancelStore { cancelAt } }',
@@ -292,7 +292,7 @@ describe('the first payment', () => {
     expect(await storeStatus(t.storeA2)).toBe('trial')
     const answer = authorise(started.subscriptionId, { method: 'upi', vpa: 'jenna@okhdfc', card: null })
     const confirmed = await store(q.confirm, 'trialOwner', answer)
-    expect(confirmed.data?.['confirmPlanPayment']).toMatchObject({ outcome: 'captured', subscription: { status: 'active', plan: { id: plans.growth }, paymentMethod: 'UPI AutoPay · je••••@okhdfc' } })
+    expect(confirmed.data?.['confirmPlanPayment']).toMatchObject({ outcome: 'captured', subscription: { status: 'active', plan: { id: plans.growth }, upiAutoPay: 'je••••@okhdfc', card: null } })
     expect(await subRow(t.storeA2)).toMatchObject({ razorpay_subscription_id: started.subscriptionId, razorpay_customer_id: 'cust_T0OWNER1', period_start: clock })
     expect(await storeStatus(t.storeA2)).toBe('active')
     expect((await store(q.payments, 'trialOwner')).data?.['planPayments']).toEqual({ available: true, mode: 'test', subscribed: true })
@@ -475,7 +475,7 @@ describe('the reminder a day before', () => {
     expect(await queueRenewalReminders(db.sql, clock)).toBe(1)
     const sent = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where kind = 'email' and store_id = ${t.storeA1} and payload->>'template' = 'plan-renewal-reminder'`
     expect(sent).toHaveLength(1)
-    expect(sent[0]?.payload).toMatchObject({ amount: '99900', currency: 'INR', plan: 'Growth', method: 'Visa ending 1111', at: end.toISOString() })
+    expect(sent[0]?.payload).toMatchObject({ amount: '99900', currency: 'INR', plan: 'Growth', method: { kind: 'card', brand: 'visa', last4: '1111' }, at: end.toISOString() })
     clock = new Date(end.getTime() - 0.5 * day)
     expect(await queueRenewalReminders(db.sql, clock)).toBe(0)
   })

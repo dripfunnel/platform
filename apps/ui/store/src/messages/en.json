@@ -7186,7 +7186,8 @@
       "paidTo": "Paid to {partner} through Razorpay. Never used for your shoppers’ payments.",
       "unavailable": "{partner} hasn’t set up card payments yet. Your shop keeps working; {partner} will tell you how to pay.",
       "testMode": "Test mode: no real money moves.",
-      "savedWithPlan": "Your card or UPI AutoPay is saved when you pay for your plan, and renewals are charged to it."
+      "savedWithPlan": "Your card or UPI AutoPay is saved when you pay for your plan, and renewals are charged to it.",
+      "upi": "UPI AutoPay · {handle}"
     },
     "details": {
       "title": "On your invoices",
