@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-26 (#1748: an open product has Duplicate and Delete as buttons and no "⋮" menu or header Save, E6). Before: 2026-11-25 (#1717: a supplier shows and hides its own product, §8). Before: 2026-11-20 (#1567: a filter's card has a Delete button, I4a). Before: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-27 (#1558: the collection editor is one Filters card of blocks joined by AND / OR, H3 to H5, fact 11). Before: 2026-11-26 (#1748: an open product has Duplicate and Delete as buttons and no "⋮" menu or header Save, E6). Before: 2026-11-25 (#1717: a supplier shows and hides its own product, §8). Before: 2026-11-20 (#1567: a filter's card has a Delete button, I4a). Before: 2026-11-19 (#1572: an optional pick-one question starts with nothing picked and a Clear link, no "None", fact 53, U4). Before: 2026-11-18 (#1561: the products export has `image` and `image alt` columns, K8). Before: 2026-11-16 (sample catalogs hold 1–50 products in 1–10 collections, A4; the store category replaces P2's presets; the category's sample catalog, A4, K13a). Before: 2026-11-13 (#1448: an A+ Video block takes an uploaded video or a link, Q2, S7). Before: 2026-11-13 (#1450: Create versions asks first, warning about the price and the stock that do not carry over, D3). Before: 2026-11-13 (#1459: a saved physical item can no longer be switched to another kind, §3 fact 48). Before: 2026-11-13 (#1349: each price box in the versions table has its currency outside it, on its left, D4). Before: 2026-11-13 (#1460: a version shows one of the product’s photos, and several versions can show the same one, D12). Before: 2026-11-12 (#1348: the photo count in the editor, and spare photos in an import, F2, K6). Before: 2026-11-12 (#1443: the age check at checkout decided and built, §3 fact 43). Before: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -232,8 +232,9 @@ against them before relying on it, and fix this document where they differ.
     default. Most sellers never touch them. Keep them under "More options". The engine must
     store both per version, with the store default.
 11. **Collections can fill themselves.** The engine provides rule-based and hand-picked
-    collections, with background recomputation (PLATFORM-PROMPT §5.4). Rules cover filter
-    choices (any / all), product name contains, and specific products and versions.
+    collections, with background recomputation (PLATFORM-PROMPT §5.4). A collection is filter
+    blocks joined by AND / OR (#1558): picked products, filter choices (any / all), product name
+    contains, and specific products and versions, so picks and rules can sit in one collection.
     Collections nest. If a child collection can be limited to its parent's products (the
     the first platform's behaviour, "inherit parent's filters"; `(release: decide)` whether the engine keeps
     it), explain it as "Only show products that are also in [Parent]". Because contents are
@@ -929,11 +930,14 @@ depend on an engine capability whose release is not yet chosen.
   (Automatic / Hand-picked) and visibility.
 - H2. Empty state explaining collections with examples ("Summer Sale", "Gifts under $50",
   "Men's Shirts").
-- H3. Create hand-picked: search and add products, and remove them.
-- H4. Create automatic: a rule builder written as sentences — "Products where **Fabric** is
-  **Cotton** *or* **Linen**", "…and **Occasion** is **Wedding**", "name contains 'shirt'". It
-  shows a live preview of matching products and the count.
-- H5. "Match any rule" vs "match all rules", written in words.
+- H3. **Pick products** is a block of the Filters card: search and add products, and remove them.
+- H4. The **Filters** card (#1558) replaces "How should it fill?". Each filter is a block in its own box
+  with a remove (×): **Pick products**, a **filter's values** ("Fabric is **Cotton** *or* **Linen**", with
+  "any of these values" or "all of these values"), or **name contains** "shirt". **+ Add collection filter**
+  adds one. The live preview shows exactly what the blocks and the AND / OR give, with the count.
+- H5. Between two blocks an **AND / OR** switch: AND needs both, OR takes either. AND is read before OR
+  ("A OR B AND C" is A, or B and C together), and the card says so. A collection can hold picked products
+  and filters together ("Pick products OR Fabric is Cotton").
 - H6. Nested collections (Men › Shirts) and the "only products also in the parent" behaviour
   (§3 fact 11), with a diagram if it helps.
 - H7. Collection photo, description, web address and search listing.

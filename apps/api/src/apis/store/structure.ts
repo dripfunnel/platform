@@ -72,7 +72,7 @@ export const registerStructure = (builder: StoreBuilder) => {
     fields: (t) => ({ nodes: t.field({ type: [Facet], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
-  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; inherit_parent: boolean; match: string; image_asset_id: string | null; rules: { kind: string; args: Record<string, unknown> }[]; products: number; computed_at: Date | null; created_at: Date }
+  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; inherit_parent: boolean; match: string; image_asset_id: string | null; rules: { kind: string; args: Record<string, unknown>; joiner: string }[]; products: number; computed_at: Date | null; created_at: Date }
   const CollectionSummaryType = builder.objectRef<CollectionSummary>('CollectionSummary').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -94,10 +94,17 @@ export const registerStructure = (builder: StoreBuilder) => {
   const CollectionPage = builder.objectRef<{ nodes: CollectionSummary[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('CollectionPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [CollectionSummaryType], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
-  const Rule = builder.objectRef<{ kind: string; args: Record<string, unknown> }>('CollectionRule').implement({
+  const stringsOf = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
+  // A filter block's values are `valueIds`; `valueId` is its first, for a client that reads one per rule.
+  const Rule = builder.objectRef<{ kind: string; args: Record<string, unknown>; joiner: string }>('CollectionRule').implement({
     fields: (t) => ({
       kind: t.exposeString('kind'),
-      valueId: t.id({ nullable: true, resolve: (r) => (typeof r.args['valueId'] === 'string' ? r.args['valueId'] : null) }),
+      // How this block joins the one before it: "and" or "or".
+      joiner: t.exposeString('joiner'),
+      valueId: t.id({ nullable: true, resolve: (r) => stringsOf(r.args['valueIds'])[0] ?? null }),
+      valueIds: t.idList({ resolve: (r) => stringsOf(r.args['valueIds']) }),
+      valueMatch: t.string({ nullable: true, resolve: (r) => (typeof r.args['match'] === 'string' ? r.args['match'] : null) }),
+      productIds: t.idList({ resolve: (r) => stringsOf(r.args['productIds']) }),
       text: t.string({ nullable: true, resolve: (r) => (typeof r.args['text'] === 'string' ? r.args['text'] : null) }),
       productId: t.id({ nullable: true, resolve: (r) => (typeof r.args['productId'] === 'string' ? r.args['productId'] : null) }),
       versionId: t.id({ nullable: true, resolve: (r) => (typeof r.args['versionId'] === 'string' ? r.args['versionId'] : null) }),
@@ -158,14 +165,14 @@ export const registerStructure = (builder: StoreBuilder) => {
     fields: (t) => ({ id: t.string(), name: t.string({ required: true }), shopperVisible: t.boolean(), position: t.int(), revision: t.int(), values: t.field({ type: [FacetValueInput], required: true }) }),
   })
   const RuleInput = builder.inputType('CollectionRuleInput', {
-    fields: (t) => ({ kind: t.string({ required: true }), valueId: t.string(), text: t.string(), productId: t.string(), versionId: t.string(), currency: t.string(), min: t.string(), max: t.string() }),
+    fields: (t) => ({ kind: t.string({ required: true }), joiner: t.string(), valueId: t.string(), valueIds: t.stringList(), valueMatch: t.string(), productIds: t.stringList(), text: t.string(), productId: t.string(), versionId: t.string(), currency: t.string(), min: t.string(), max: t.string() }),
   })
   const CollectionInput = builder.inputType('CollectionInput', {
     fields: (t) => ({
       name: t.string({ required: true }),
       slug: t.string(),
       description: t.string(),
-      kind: t.string({ required: true }),
+      kind: t.string(),
       match: t.string(),
       parentId: t.string(),
       inheritParent: t.boolean(),

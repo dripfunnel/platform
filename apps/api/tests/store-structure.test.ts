@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { graphql, type GraphQLSchema } from 'graphql'
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -164,16 +165,16 @@ describe('filters', () => {
     expect((await product('owner', 'Wrong tag', { filterValues: [{ valueId: bValue }] })).code).toBe('INVALID_FILTER')
   })
 
-  it('drops a collection rule whose filter value is removed', async () => {
+  it('takes a removed filter value out of the blocks that name it, and drops a block left with none', async () => {
     const facet = (await saveFacet('owner', { name: 'Season', values: [{ name: 'Summer' }, { name: 'Winter' }] })).id ?? ''
     const [summer, winter] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
-    const made = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Seasonal', kind: 'automatic', match: 'any', rules: [{ kind: 'filter_value', valueId: summer?.id }, { kind: 'filter_value', valueId: winter?.id }] } })).data?.['saveCollection'] as { id: string }
+    const made = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Seasonal', rules: [{ kind: 'filter_value', valueIds: [summer?.id, winter?.id] }] } })).data?.['saveCollection'] as { id: string }
     const revision = ((await gql('{ facets(first: 50) { nodes { id revision } } }', 'owner')).data?.['facets'] as { nodes: { id: string; revision: number }[] }).nodes.find((f) => f.id === facet)?.revision
     expect((await saveFacet('owner', { id: facet, name: 'Season', revision, values: [{ id: winter?.id, name: 'Winter' }] })).code).toBeUndefined()
-    const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: { valueId: string }[] }
-    expect(rules.rules).toEqual([{ valueId: winter?.id }])
+    const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueIds } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: { valueIds: string[] }[] }
+    expect(rules.rules).toEqual([{ valueIds: [winter?.id] }])
     expect((await gql('mutation D($id: ID!) { deleteFacet(id: $id) }', 'owner', { id: facet })).data?.['deleteFacet']).toBe(true)
-    expect(((await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: unknown[] }).rules).toEqual([])
+    expect(((await gql('query C($id: ID!) { collection(id: $id) { rules { valueIds } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: unknown[] }).rules).toEqual([])
   })
 
   it('refuses a save made from an older read, so a value added since isn’t deleted by it', async () => {
@@ -198,12 +199,12 @@ describe('filters', () => {
     const facet = (await saveFacet('owner', { name: 'Colour', values: [{ name: 'Navy' }, { name: 'Navy blue' }] })).id ?? ''
     const [navy, navyBlue] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
     const tagged = await product('owner', 'Navy tee', { filterValues: [{ valueId: navyBlue?.id }] })
-    const rule = await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Navy things', kind: 'automatic', rules: [{ kind: 'filter_value', valueId: navyBlue?.id }] } })
+    const rule = await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Navy things', rules: [{ kind: 'filter_value', valueIds: [navyBlue?.id] }] } })
     const collectionId = (rule.data?.['saveCollection'] as { id: string }).id
     expect((await gql('mutation M($into: ID!, $from: [ID!]!) { mergeFacetValues(into: $into, from: $from) }', 'owner', { into: navy?.id, from: [navyBlue?.id] })).data?.['mergeFacetValues']).toBe(1)
     expect((await facets('owner')).find((f) => f.id === facet)?.values.map((v) => [v.name, v.products])).toEqual([['Navy', 1]])
-    const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: collectionId })).data?.['collection'] as { rules: { valueId: string }[] }
-    expect(rules.rules).toEqual([{ valueId: navy?.id }])
+    const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueIds } } }', 'owner', { id: collectionId })).data?.['collection'] as { rules: { valueIds: string[] }[] }
+    expect(rules.rules).toEqual([{ valueIds: [navy?.id] }])
     await drainRecompute()
     expect((await members(collectionId)).map((m) => m.id)).toEqual([tagged.id])
     expect((await gql('mutation M($into: ID!, $from: [ID!]!) { mergeFacetValues(into: $into, from: $from) }', 'owner', { into: navy?.id, from: [fabric] })).code).toBe('NOT_FOUND')
@@ -425,7 +426,7 @@ describe('collections', () => {
     expect((await members(child.saved?.id ?? '')).map((m) => m.id)).toEqual([a.id])
   })
 
-  it('reads values of one filter as alternatives under “all”, as the rule builder writes them (CATALOG H4)', async () => {
+  it('joins filter blocks by AND and OR, the values of one filter being alternatives inside a block (CATALOG H4, #1558)', async () => {
     const { id: fabricId } = await saveFacet('owner', { name: 'Weave', values: [{ name: 'Khadi' }, { name: 'Chanderi' }] })
     const { id: occasionId } = await saveFacet('owner', { name: 'Occasion', values: [{ name: 'Wedding' }, { name: 'Daily' }] })
     const all = await facets('owner')
@@ -434,15 +435,108 @@ describe('collections', () => {
     const a = await product('owner', 'Khadi sherwani', { filterValues: [{ valueId: khadi }, { valueId: wedding }] })
     const b = await product('owner', 'Chanderi lehenga', { filterValues: [{ valueId: chanderi }, { valueId: wedding }] })
     const c = await product('owner', 'Khadi kurta', { filterValues: [{ valueId: khadi }, { valueId: daily }] })
-    const rules = [{ kind: 'filter_value', valueId: khadi }, { kind: 'filter_value', valueId: chanderi }, { kind: 'filter_value', valueId: wedding }]
-    const both = await save({ name: 'Wedding weaves', kind: 'automatic', match: 'all', rules })
-    const either = await save({ name: 'Weaves or weddings', kind: 'automatic', match: 'any', rules })
+    const blocks = (joiner: string) => [{ kind: 'filter_value', valueIds: [khadi, chanderi], valueMatch: 'any' }, { kind: 'filter_value', valueIds: [wedding], joiner }]
+    const both = await save({ name: 'Wedding weaves', rules: blocks('and') })
+    const either = await save({ name: 'Weaves or weddings', rules: blocks('or') })
+    const everything = await save({ name: 'Khadi with a wedding or daily', rules: [{ kind: 'filter_value', valueIds: [khadi, daily], valueMatch: 'all' }] })
     await drainRecompute()
     expect((await members(both.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id].sort())
     expect((await members(either.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id, c.id].sort())
-    // The list carries each collection's rules, so it can say what it holds without a read per row.
-    const listed = ((await gql('{ collections(first: 50) { nodes { id match inheritParent rules { kind valueId } } } }', 'owner')).data?.['collections'] as { nodes: { id: string; match: string; inheritParent: boolean; rules: { kind: string; valueId: string }[] }[] }).nodes
-    expect(listed.find((n) => n.id === both.saved?.id)).toEqual({ id: both.saved?.id, match: 'all', inheritParent: false, rules: rules.map((r) => ({ kind: r.kind, valueId: r.valueId })) })
+    // "All of these values" needs every one on the product.
+    expect((await members(everything.saved?.id ?? '')).map((m) => m.id)).toEqual([c.id])
+    // The list carries each collection's blocks, so it can say what it holds without a read per row.
+    const listed = ((await gql('{ collections(first: 50) { nodes { id inheritParent rules { kind valueIds valueMatch joiner } } } }', 'owner')).data?.['collections'] as { nodes: { id: string; inheritParent: boolean; rules: { kind: string; valueIds: string[]; valueMatch: string; joiner: string }[] }[] }).nodes
+    expect(listed.find((n) => n.id === both.saved?.id)).toEqual({
+      id: both.saved?.id,
+      inheritParent: false,
+      rules: [{ kind: 'filter_value', valueIds: [khadi, chanderi], valueMatch: 'any', joiner: 'and' }, { kind: 'filter_value', valueIds: [wedding], valueMatch: 'any', joiner: 'and' }],
+    })
+  })
+
+  it('mixes picked products and filters in one collection, AND binding tighter than OR (#1558)', async () => {
+    const [p1, p2, p3] = [await product('owner', 'Mix pick one'), await product('owner', 'Mix pick two'), await product('owner', 'Mix pick three')]
+    const organic = await product('owner', 'Mix organic towel')
+    const organicPick = await product('owner', 'Mix organic robe')
+    const picks = { kind: 'picks', productIds: [p3.id, organicPick.id, p1.id] }
+    const organicBlock = (joiner: string) => ({ kind: 'name_contains', text: 'organic', joiner })
+    const either = await save({ name: 'Picks or organic', rules: [picks, organicBlock('or')] })
+    const both = await save({ name: 'Picks and organic', rules: [picks, organicBlock('and')] })
+    // A or B and C reads as A, or B and C together.
+    const mixed = await save({ name: 'Picks or organic pick two', rules: [{ kind: 'picks', productIds: [p2.id] }, { ...organicBlock('or') }, { kind: 'name_contains', text: 'robe', joiner: 'and' }] })
+    await drainRecompute()
+    expect((await members(either.saved?.id ?? '')).map((m) => m.id)).toEqual([p3.id, organicPick.id, p1.id, organic.id])
+    expect((await members(both.saved?.id ?? '')).map((m) => m.id)).toEqual([organicPick.id])
+    expect((await members(mixed.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([p2.id, organicPick.id].sort())
+    // What the editor reads back: the blocks as saved.
+    const read = (await gql('query C($id: ID!) { collection(id: $id) { kind rules { kind joiner productIds text } } }', 'owner', { id: either.saved?.id })).data?.['collection']
+    expect(read).toEqual({
+      kind: 'automatic',
+      rules: [{ kind: 'picks', joiner: 'and', productIds: [p3.id, organicPick.id, p1.id], text: null }, { kind: 'name_contains', joiner: 'or', productIds: [], text: 'organic' }],
+    })
+    // A picks block next to a filter is not hand-picked: the preview, and a product of another store, follow the same rules as a save.
+    const preview = 'query P($r: [CollectionRuleInput!]!) { collectionPreview(rules: $r) { count products { name } } }'
+    expect((await gql(preview, 'owner', { r: [picks, organicBlock('or')] })).data?.['collectionPreview']).toEqual({ count: 4, products: [{ name: 'Mix pick three' }, { name: 'Mix organic robe' }, { name: 'Mix pick one' }, { name: 'Mix organic towel' }] })
+    await db.sql`update plan_entitlement set amount = 10000 where partner_id = ${t.partnerB} and key = 'products'`
+    const foreign = await product('bOwner', 'Not yours')
+    expect((await save({ name: 'Cross mix', rules: [{ kind: 'picks', productIds: [foreign.id] }, organicBlock('or')] })).code).toBe('INVALID_INPUT')
+    expect((await save({ name: 'Two picks', rules: [{ kind: 'picks', productIds: [p1.id] }, { kind: 'picks', productIds: [p2.id], joiner: 'or' }] })).code).toBe('INVALID_RULE')
+    expect((await save({ name: 'Odd joiner', rules: [picks, { ...organicBlock('xor') }] })).code).toBe('INVALID_RULE')
+  })
+
+  it('keeps a collection of picks alone hand-picked, and adding to it changes its picks block (#1558)', async () => {
+    const [a, b] = [await product('owner', 'Block pick A'), await product('owner', 'Block pick B')]
+    const { saved } = await save({ name: 'Only picks', rules: [{ kind: 'picks', productIds: [a.id] }] })
+    const read = async () => (await gql('query C($id: ID!) { collection(id: $id) { kind rules { kind productIds } } }', 'owner', { id: saved?.id })).data?.['collection']
+    expect(await read()).toEqual({ kind: 'manual', rules: [{ kind: 'picks', productIds: [a.id] }] })
+    expect((await gql('mutation A($c: ID!, $p: [ID!]!) { addProductsToCollection(collectionId: $c, productIds: $p) }', 'owner', { c: saved?.id, p: [b.id] })).data?.['addProductsToCollection']).toBe(2)
+    expect(await read()).toEqual({ kind: 'manual', rules: [{ kind: 'picks', productIds: [a.id, b.id] }] })
+    expect((await members(saved?.id ?? '')).map((m) => m.id)).toEqual([a.id, b.id])
+    // The product editor's membership list writes the same block, and an emptied collection has none.
+    await gql('mutation S($p: ID!, $c: [ID!]!) { setProductCollections(productId: $p, collectionIds: $c) { id } }', 'owner', { p: a.id, c: [] })
+    expect(await read()).toEqual({ kind: 'manual', rules: [{ kind: 'picks', productIds: [b.id] }] })
+    await gql('mutation S($p: ID!, $c: [ID!]!) { setProductCollections(productId: $p, collectionIds: $c) { id } }', 'owner', { p: b.id, c: [] })
+    expect(await read()).toEqual({ kind: 'manual', rules: [] })
+    // One that mixes in a filter fills by itself, so adding by hand is refused.
+    const mixed = await save({ name: 'Picks and a name', rules: [{ kind: 'picks', productIds: [a.id] }, { kind: 'name_contains', text: 'block', joiner: 'or' }] })
+    expect((await gql('mutation A($c: ID!, $p: [ID!]!) { addProductsToCollection(collectionId: $c, productIds: $p) }', 'owner', { c: mixed.saved?.id, p: [b.id] })).code).toBe('INVALID_INPUT')
+  })
+
+  it('turns collections made before blocks into the same products (migration 0422, #1558)', async () => {
+    const sql = readFileSync(new URL('../migrations/0422_collection_filter_blocks.sql', import.meta.url), 'utf8')
+    const { id: weaveId } = await saveFacet('owner', { name: 'Old weave', values: [{ name: 'Old khadi' }, { name: 'Old chanderi' }] })
+    const { id: moodId } = await saveFacet('owner', { name: 'Old mood', values: [{ name: 'Old festive' }] })
+    const all = await facets('owner')
+    const value = (facetId: string | undefined, name: string) => all.find((f) => f.id === facetId)?.values.find((v) => v.name === name)?.id ?? ''
+    const [khadi, chanderi, festive] = [value(weaveId, 'Old khadi'), value(weaveId, 'Old chanderi'), value(moodId, 'Old festive')]
+    const [x, y] = [await product('owner', 'Old pick X'), await product('owner', 'Old pick Y')]
+    const old = async (name: string, kind: string, match: string) =>
+      (await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind, match) values (${t.storeA1}, ${name}, ${name.toLowerCase().replaceAll(' ', '-')}, ${kind}, ${match}) returning id`)[0]?.id ?? ''
+    const oldRule = (collectionId: string, valueId: string, position: number) =>
+      db.sql`insert into collection_rule (collection_id, store_id, kind, args, position) values (${collectionId}, ${t.storeA1}, 'filter_value', ${db.sql.json({ valueId })}, ${position})`
+    const manual = await old('Old hand picked', 'manual', 'all')
+    await db.sql`insert into collection_product (collection_id, product_id, store_id, position, source) values (${manual}, ${y.id}, ${t.storeA1}, 0, 'manual'), (${manual}, ${x.id}, ${t.storeA1}, 1, 'manual')`
+    const everyRule = await old('Old match all', 'automatic', 'all')
+    for (const [i, v] of [khadi, chanderi, festive].entries()) await oldRule(everyRule, v, i)
+    const anyRule = await old('Old match any', 'automatic', 'any')
+    for (const [i, v] of [khadi, festive].entries()) await oldRule(anyRule, v, i)
+    await db.sql.unsafe(sql)
+    const blocks = async (collectionId: string) =>
+      db.sql<{ kind: string; args: unknown; joiner: string }[]>`select kind, args, joiner from collection_rule where collection_id = ${collectionId} order by position`
+    expect(await blocks(manual)).toEqual([{ kind: 'picks', args: { productIds: [y.id, x.id] }, joiner: 'and' }])
+    // Match all: the two values of one filter became one block of "any of these", ANDed with the other filter's.
+    expect(await blocks(everyRule)).toEqual([
+      { kind: 'filter_value', args: { valueIds: [khadi, chanderi], match: 'any' }, joiner: 'and' },
+      { kind: 'filter_value', args: { valueIds: [festive], match: 'any' }, joiner: 'and' },
+    ])
+    // Match any: every rule alternative to the one before it.
+    expect(await blocks(anyRule)).toEqual([
+      { kind: 'filter_value', args: { valueIds: [khadi], match: 'any' }, joiner: 'and' },
+      { kind: 'filter_value', args: { valueIds: [festive], match: 'any' }, joiner: 'or' },
+    ])
+    // Run again, nothing changes.
+    await db.sql.unsafe(sql)
+    expect(await blocks(manual)).toHaveLength(1)
+    expect(await blocks(everyRule)).toHaveLength(2)
   })
 
   it('previews rules not saved yet the way the recompute will fill them, writing nothing', async () => {
@@ -490,8 +584,8 @@ describe('collections', () => {
     const [khadi, chanderi] = ['Khadi', 'Chanderi'].map((n) => weave?.values.find((v) => v.name === n)?.id)
     const wedding = all.find((f) => f.name === 'Occasion')?.values.find((v) => v.name === 'Wedding')?.id
     const query = 'query P($m: String, $r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(match: $m, rules: $r, parentId: $p, inheritParent: $i) { count products { name } } }'
-    const grouped = [{ kind: 'filter_value', valueId: khadi }, { kind: 'filter_value', valueId: chanderi }, { kind: 'filter_value', valueId: wedding }]
-    // Two values of one filter under "all", as the saved "Wedding weaves" holds after its recompute.
+    const grouped = [{ kind: 'filter_value', valueIds: [khadi, chanderi] }, { kind: 'filter_value', valueIds: [wedding] }]
+    // Two values of one filter in a block, ANDed with another's, as the saved "Wedding weaves" holds after its recompute.
     const shown = (await gql(query, 'owner', { m: 'all', r: grouped })).data?.['collectionPreview'] as { count: number; products: { name: string }[] }
     expect(shown.products.map((p) => p.name).sort()).toEqual(['Chanderi lehenga', 'Khadi sherwani'])
     // Inside a parent, as the recompute narrows a child: only what the parent holds.

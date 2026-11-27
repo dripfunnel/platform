@@ -1,15 +1,28 @@
 import type { Collection, CollectionRule, CollectionSummary, RuleInput } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 
-/** "Name contains" in the rule builder's field list; every other field is a filter's id. */
+/** "Name contains" in a filter block's field list; every other field is a filter's id. */
 export const nameField = 'name'
 
-/** One sentence of the rule builder (CATALOG H4): a filter and the values that may match, or a name to look for. */
-export interface RuleRow {
+/** What a block of the Filters card holds: picked products, one filter's values, a name, or a rule this screen keeps as it is. */
+export type BlockKind = 'picks' | 'filter' | 'name' | 'kept'
+
+/** One block of the Filters card (#1558); `joiner` joins it to the block above, and the first one's is unused. */
+export interface Block {
   key: string
+  kind: BlockKind
+  joiner: 'and' | 'or'
+  /** A filter block: the filter's id. */
   field: string
+  /** A filter block: the values ticked, and whether a product needs any or all of them. */
   values: string[]
+  match: 'any' | 'all'
+  /** A name block: the text to look for. */
   text: string
+  /** A picks block: the products, in the order picked. */
+  productIds: string[]
+  /** A rule this screen doesn't draw (a product, a version, a price range): sent back as it is. */
+  rule: CollectionRule | null
 }
 
 export interface CollectionDraft {
@@ -17,96 +30,101 @@ export interface CollectionDraft {
   revision: number | null
   name: string
   description: string
-  kind: 'manual' | 'automatic'
-  match: 'all' | 'any'
   parentId: string | null
   inheritParent: boolean
   visible: boolean
   imageAssetId: string | null
-  rows: RuleRow[]
-  /** Rules this screen doesn't draw (a product, a version, a price range): kept as they are on save. */
-  others: CollectionRule[]
-  productIds: string[]
+  blocks: Block[]
   /** What this screen doesn't draw (its sort, SEO): sent back as loaded, so a save never clears it. Null when new. */
   kept: Pick<Collection, 'sort' | 'seoTitle' | 'seoDescription'> | null
 }
 
-let rowKey = 0
-export const newRow = (field: string): RuleRow => ({ key: `r${++rowKey}`, field, values: [], text: '' })
+let blockKey = 0
+export const newBlock = (kind: BlockKind, field = nameField): Block => ({ key: `b${++blockKey}`, kind, joiner: 'and', field, values: [], match: 'any', text: '', productIds: [], rule: null })
 
-/** The filters a rule may use: those shoppers see, as the prototype offers, and any a saved rule already uses. */
-export const ruleFields = (facets: readonly Facet[], rows: readonly RuleRow[]): Facet[] => facets.filter((f) => f.shopperVisible || rows.some((r) => r.field === f.id))
+/** The filters a block may use: those shoppers see, and any a saved block already uses. */
+export const blockFields = (facets: readonly Facet[], blocks: readonly Block[]): Facet[] => facets.filter((f) => f.shopperVisible || blocks.some((b) => b.kind === 'filter' && b.field === f.id))
+
+const firstFilterBlock = (facets: readonly Facet[]): Block => {
+  const facet = facets.find((f) => f.shopperVisible)
+  return facet ? newBlock('filter', facet.id) : newBlock('name')
+}
 
 export const blankDraft = (facets: readonly Facet[]): CollectionDraft => ({
   id: null,
   revision: null,
   name: '',
   description: '',
-  kind: 'automatic',
-  match: 'all',
   parentId: null,
   inheritParent: false,
   visible: true,
   imageAssetId: null,
-  rows: [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
-  others: [],
-  productIds: [],
+  blocks: [firstFilterBlock(facets)],
   kept: null,
 })
 
 const facetOfValue = (facets: readonly Facet[]) => new Map(facets.flatMap((f) => f.values.map((v) => [v.id, f.id] as const)))
 
-/** The saved rules as the builder's sentences: a filter's values together, a name on its own, the rest kept aside. */
-export const rowsOf = (rules: readonly CollectionRule[], facets: readonly Facet[]): { rows: RuleRow[]; others: CollectionRule[] } => {
+/** The saved rules as the card's blocks, in their order with their joiners. */
+export const blocksOf = (rules: readonly CollectionRule[], facets: readonly Facet[]): Block[] => {
   const owner = facetOfValue(facets)
-  const rows: RuleRow[] = []
-  const others: CollectionRule[] = []
-  for (const rule of rules) {
-    const facet = rule.kind === 'filter_value' && rule.valueId ? owner.get(rule.valueId) : undefined
-    if (facet && rule.valueId) {
-      const row = rows.find((r) => r.field === facet)
-      if (row) row.values.push(rule.valueId)
-      else rows.push({ ...newRow(facet), values: [rule.valueId] })
-    } else if (rule.kind === 'name_contains' && rule.text) rows.push({ ...newRow(nameField), text: rule.text })
-    else others.push(rule)
-  }
-  return { rows, others }
+  return rules.map((rule): Block => {
+    const joiner = rule.joiner === 'or' ? 'or' : 'and'
+    if (rule.kind === 'picks') return { ...newBlock('picks'), joiner, productIds: [...rule.productIds] }
+    const facet = rule.kind === 'filter_value' ? owner.get(rule.valueIds[0] ?? '') : undefined
+    if (facet) return { ...newBlock('filter', facet), joiner, values: [...rule.valueIds], match: rule.valueMatch === 'all' ? 'all' : 'any' }
+    if (rule.kind === 'name_contains' && rule.text) return { ...newBlock('name'), joiner, text: rule.text }
+    return { ...newBlock('kept'), joiner, rule }
+  })
 }
 
-export const draftOf = (c: Collection, facets: readonly Facet[], productIds: readonly string[]): CollectionDraft => {
-  const { rows, others } = rowsOf(c.rules, facets)
+export const draftOf = (c: Collection, facets: readonly Facet[]): CollectionDraft => {
+  const blocks = blocksOf(c.rules, facets)
   return {
     id: c.id,
     revision: c.revision,
     name: c.name,
     description: c.description,
-    kind: c.kind,
-    match: c.match,
     parentId: c.parentId,
     inheritParent: c.inheritParent,
     visible: c.visible,
     imageAssetId: c.imageAssetId,
-    rows: rows.length > 0 || others.length > 0 ? rows : [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
-    others,
-    productIds: [...productIds],
+    blocks: blocks.length > 0 ? blocks : [firstFilterBlock(facets)],
     kept: { sort: c.sort, seoTitle: c.seoTitle, seoDescription: c.seoDescription },
   }
 }
 
-const otherInput = (r: CollectionRule): RuleInput => {
+const keptInput = (r: CollectionRule): RuleInput => {
   const input: RuleInput = { kind: r.kind }
-  for (const key of ['valueId', 'text', 'productId', 'versionId', 'currency', 'min', 'max'] as const) {
+  for (const key of ['text', 'productId', 'versionId', 'currency', 'min', 'max'] as const) {
     const value = r[key]
     if (value !== null) input[key] = value
   }
   return input
 }
 
-/** The rules a save sends: each value picked, each name typed, then the ones this screen keeps aside. Empty rows go. */
-export const ruleInputs = (d: Pick<CollectionDraft, 'rows' | 'others'>): RuleInput[] => [
-  ...d.rows.flatMap((r): RuleInput[] => (r.field === nameField ? (r.text.trim() ? [{ kind: 'name_contains', text: r.text.trim() }] : []) : r.values.map((valueId) => ({ kind: 'filter_value', valueId })))),
-  ...d.others.map(otherInput),
-]
+const inputOfBlock = (b: Block): RuleInput | null => {
+  switch (b.kind) {
+    case 'picks':
+      return b.productIds.length > 0 ? { kind: 'picks', productIds: b.productIds } : null
+    case 'filter':
+      return b.values.length > 0 ? { kind: 'filter_value', valueIds: b.values, valueMatch: b.match } : null
+    case 'name':
+      return b.text.trim() ? { kind: 'name_contains', text: b.text.trim() } : null
+    case 'kept':
+      return b.rule ? keptInput(b.rule) : null
+  }
+}
+
+/** The blocks a save sends, each with how it joins the one before; blocks with nothing in them go. */
+export const ruleInputs = (blocks: readonly Block[]): RuleInput[] =>
+  blocks.flatMap((b) => {
+    const input = inputOfBlock(b)
+    return input ? [{ ...input, joiner: b.joiner }] : []
+  })
+
+/** A collection that is only picked products (or nothing) is "hand-picked"; anything with a filter fills by itself. */
+export const onlyPicks = (blocks: readonly Block[]): boolean => blocks.every((b) => b.kind === 'picks')
 
 export interface SentenceWords {
   is: string
@@ -117,21 +135,29 @@ export interface SentenceWords {
   product: string
   version: string
   priceRange: string
+  picked: string
 }
 
-/** What an automatic collection holds, in the rule builder's words: "Fabric is Linen or Cotton and name contains “shirt”". */
-export const sentenceOf = (c: Pick<CollectionSummary, 'rules' | 'match'>, facets: readonly Facet[], w: SentenceWords): string => {
-  const { rows, others } = rowsOf(c.rules, facets)
+/** What a collection holds, in the Filters card's words: "picked products or Fabric is Linen and name contains “shirt”". */
+export const sentenceOf = (c: Pick<CollectionSummary, 'rules'>, facets: readonly Facet[], w: SentenceWords): string => {
   const names = new Map(facets.flatMap((f) => f.values.map((v) => [v.id, v.name] as const)))
-  const parts = [
-    ...rows.map((r) => {
-      if (r.field === nameField) return w.nameContains.replace('{text}', r.text)
-      const facet = facets.find((f) => f.id === r.field)
-      return `${facet?.name ?? ''} ${w.is} ${r.values.map((v) => names.get(v) ?? '').join(` ${w.orJoin} `)}`
-    }),
-    ...others.map((r) => (r.kind === 'product' ? w.product : r.kind === 'version' ? w.version : w.priceRange)),
-  ]
-  return parts.join(` ${c.match === 'any' ? w.or : w.and} `)
+  return blocksOf(c.rules, facets)
+    .map((b, i) => {
+      const text =
+        b.kind === 'picks'
+          ? w.picked
+          : b.kind === 'name'
+            ? w.nameContains.replace('{text}', b.text)
+            : b.kind === 'filter'
+              ? `${facets.find((f) => f.id === b.field)?.name ?? ''} ${w.is} ${b.values.map((v) => names.get(v) ?? '').join(` ${w.orJoin} `)}`
+              : b.rule?.kind === 'product'
+                ? w.product
+                : b.rule?.kind === 'version'
+                  ? w.version
+                  : w.priceRange
+      return i === 0 ? text : `${b.joiner === 'or' ? w.or : w.and} ${text}`
+    })
+    .join(' ')
 }
 
 /** The list's order: each top-level collection, then the ones inside it, depth first; one whose parent is gone sits at the top. */

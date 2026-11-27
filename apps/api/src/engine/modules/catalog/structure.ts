@@ -104,7 +104,12 @@ const optional = (value: string | null | undefined, max: number): string | null 
 
 export interface RuleInput {
   kind: string
+  /** How this block joins the one before it; the first block's is unused. */
+  joiner?: string | null | undefined
   valueId?: string | null | undefined
+  valueIds?: readonly string[] | null | undefined
+  valueMatch?: string | null | undefined
+  productIds?: readonly string[] | null | undefined
   text?: string | null | undefined
   productId?: string | null | undefined
   versionId?: string | null | undefined
@@ -113,30 +118,43 @@ export interface RuleInput {
   max?: string | null | undefined
 }
 
-/** A rule as the recompute reads it (fact 11): filter choice, name contains, a product or version, a price range. */
-export const cleanRule = (r: RuleInput): RuleRow => {
+/** A block as the recompute reads it (fact 11): picked products, filter values, name contains, a product or version, a price range. */
+export const cleanRule = (r: RuleInput, fallbackJoiner: 'and' | 'or' = 'and'): RuleRow => {
   const id = (v: string | null | undefined) => {
     if (!v || !isUuid(v)) throw new Refused('INVALID_RULE')
     return v.toLowerCase()
   }
+  if (r.joiner != null && r.joiner !== 'and' && r.joiner !== 'or') throw new Refused('INVALID_RULE')
+  const joiner = (r.joiner as 'and' | 'or' | null | undefined) ?? fallbackJoiner
+  const ids = (values: readonly string[]) => [...new Set(values.map((v) => id(v)))]
   switch (r.kind) {
-    case 'filter_value':
-      return { kind: 'filter_value', args: { valueId: id(r.valueId) } }
+    case 'picks': {
+      const productIds = ids(r.productIds ?? [])
+      if (productIds.length === 0) throw new Refused('INVALID_RULE')
+      if (productIds.length > maxCollectionProducts) throw new Refused('TOO_MANY_PRODUCTS')
+      return { kind: 'picks', args: { productIds }, joiner }
+    }
+    case 'filter_value': {
+      const valueIds = ids(r.valueIds ?? (r.valueId ? [r.valueId] : []))
+      if (valueIds.length === 0 || valueIds.length > maxFacetValues) throw new Refused('INVALID_RULE')
+      if (r.valueMatch != null && r.valueMatch !== 'any' && r.valueMatch !== 'all') throw new Refused('INVALID_RULE')
+      return { kind: 'filter_value', args: { valueIds, match: r.valueMatch === 'all' ? 'all' : 'any' }, joiner }
+    }
     case 'name_contains': {
       const text = r.text?.trim() ?? ''
       if (text.length === 0 || text.length > 60) throw new Refused('INVALID_RULE')
-      return { kind: 'name_contains', args: { text } }
+      return { kind: 'name_contains', args: { text }, joiner }
     }
     case 'product':
-      return { kind: 'product', args: { productId: id(r.productId) } }
+      return { kind: 'product', args: { productId: id(r.productId) }, joiner }
     case 'version':
-      return { kind: 'version', args: { versionId: id(r.versionId) } }
+      return { kind: 'version', args: { versionId: id(r.versionId) }, joiner }
     case 'price_range': {
       const currency = r.currency ?? ''
       const min = parseMinor(r.min ?? '', currency)
       const max = parseMinor(r.max ?? '', currency)
       if (!isCurrency(currency) || !min || !max || min.amount > max.amount) throw new Refused('INVALID_RULE')
-      return { kind: 'price_range', args: { currency, min: r.min, max: r.max } }
+      return { kind: 'price_range', args: { currency, min: r.min, max: r.max }, joiner }
     }
     default:
       throw new Refused('INVALID_RULE')
@@ -147,7 +165,8 @@ export interface CollectionInput {
   name: string
   slug?: string | null | undefined
   description?: string | null | undefined
-  kind: string
+  /** Legacy: what a collection holds now follows its blocks; a hand-picked list (`productIds`) still reads as one. */
+  kind?: string | null | undefined
   match?: string | null | undefined
   parentId?: string | null | undefined
   inheritParent?: boolean | null | undefined
@@ -156,8 +175,9 @@ export interface CollectionInput {
   sort?: string | null | undefined
   seoTitle?: string | null | undefined
   seoDescription?: string | null | undefined
+  /** The collection's filter blocks, each joined to the one before it by AND or OR (#1558). */
   rules?: readonly RuleInput[] | null | undefined
-  /** A hand-picked collection's products, in order. */
+  /** Legacy: a hand-picked collection's products, in order; one Pick products block. */
   productIds?: readonly string[] | null | undefined
 }
 
@@ -165,29 +185,34 @@ const sorts = ['manual', 'newest', 'price_asc', 'price_desc', 'best_selling']
 
 export const cleanCollection = (input: CollectionInput): { fields: CollectionFields; slugGiven: boolean; rules: RuleRow[]; productIds: string[] } => {
   const collectionName = name(input.name, 120)
-  if (input.kind !== 'manual' && input.kind !== 'automatic') throw new Refused('INVALID_INPUT')
+  if (input.kind != null && input.kind !== 'manual' && input.kind !== 'automatic') throw new Refused('INVALID_INPUT')
   const match = input.match ?? 'all'
   if (match !== 'all' && match !== 'any') throw new Refused('INVALID_INPUT')
-  const sort = input.sort ?? (input.kind === 'manual' ? 'manual' : 'newest')
-  if (!sorts.includes(sort)) throw new Refused('INVALID_INPUT')
   const parentId = input.parentId ?? null
   if (parentId !== null && !isUuid(parentId)) throw new Refused('INVALID_PARENT')
   const imageAssetId = input.imageAssetId ?? null
   if (imageAssetId !== null && !isUuid(imageAssetId)) throw new Refused('INVALID_INPUT')
-  const rules = input.kind === 'automatic' ? (input.rules ?? []) : []
-  if (rules.length > maxRules) throw new Refused('TOO_MANY_RULES')
-  const productIds = input.kind === 'manual' ? [...new Set((input.productIds ?? []).map((id) => id.toLowerCase()))] : []
-  if (productIds.length > maxCollectionProducts) throw new Refused('TOO_MANY_PRODUCTS')
-  if (!productIds.every((id) => isUuid(id))) throw new Refused('INVALID_INPUT')
+  // A client that still sends the old shape: a picked list is one block; "match any" joins every rule by OR.
+  const legacyPicks: RuleInput[] = input.kind === 'manual' && (input.productIds ?? []).length > 0 ? [{ kind: 'picks', productIds: input.productIds }] : []
+  const given = input.kind === 'manual' ? legacyPicks : (input.rules ?? [])
+  if (given.length > maxRules) throw new Refused('TOO_MANY_RULES')
+  const rules = given.map((r, i) => cleanRule(r, i > 0 && match === 'any' ? 'or' : 'and'))
+  if (rules.filter((r) => r.kind === 'picks').length > 1) throw new Refused('INVALID_RULE')
+  const inheritParent = parentId !== null && input.inheritParent === true
+  const onlyPicks = rules.length === 0 || (rules.length === 1 && rules[0]?.kind === 'picks')
+  const kind = onlyPicks && !inheritParent ? 'manual' : 'automatic'
+  const sort = input.sort ?? (kind === 'manual' ? 'manual' : 'newest')
+  if (!sorts.includes(sort)) throw new Refused('INVALID_INPUT')
+  const productIds = kind === 'manual' && rules[0]?.kind === 'picks' ? (rules[0].args['productIds'] as string[]) : []
   return {
     fields: {
       name: collectionName,
       slug: slugFrom(input.slug?.trim() || collectionName) || 'collection',
       description: optional(input.description, 5000) ?? '',
-      kind: input.kind,
-      match,
+      kind,
+      match: 'all',
       parentId: parentId?.toLowerCase() ?? null,
-      inheritParent: parentId !== null && input.inheritParent === true,
+      inheritParent,
       visibility: input.visible === false ? 'hidden' : 'visible',
       imageAssetId: imageAssetId?.toLowerCase() ?? null,
       sort,
@@ -195,7 +220,7 @@ export const cleanCollection = (input: CollectionInput): { fields: CollectionFie
       seoDescription: optional(input.seoDescription, 320),
     },
     slugGiven: Boolean(input.slug?.trim()),
-    rules: rules.map(cleanRule),
+    rules,
     productIds,
   }
 }
@@ -370,18 +395,20 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
   /** Every id a collection names is checked to be this store's, as RLS would only filter it to nothing. */
   const checkIds = async (tx: ScopedSql, id: string | null, clean: ReturnType<typeof cleanCollection>) => {
     const ruled = (key: string) => clean.rules.map((r) => r.args[key]).filter((v): v is string => typeof v === 'string')
+    const picked = clean.rules.flatMap((r) => (r.kind === 'picks' ? (r.args['productIds'] as string[]) : []))
+    const valuesNamed = clean.rules.flatMap((r) => (r.kind === 'filter_value' ? (r.args['valueIds'] as string[]) : []))
     const known = await knownCatalogueIds(tx, storeId, {
       collections: clean.fields.parentId ? [clean.fields.parentId] : [],
-      products: [...clean.productIds, ...ruled('productId')],
+      products: [...picked, ...ruled('productId')],
       versions: ruled('versionId'),
-      values: ruled('valueId'),
+      values: valuesNamed,
       images: clean.fields.imageAssetId ? [clean.fields.imageAssetId] : [],
     })
     if (clean.fields.parentId && (clean.fields.parentId === id || !known.collections.has(clean.fields.parentId))) throw new Refused('INVALID_PARENT')
-    if (!clean.productIds.every((p) => known.products.has(p))) throw new Refused('INVALID_INPUT')
+    if (!picked.every((p) => known.products.has(p))) throw new Refused('INVALID_INPUT')
     // A collection's picture is one of this store's photos (CATALOG H).
     if (clean.fields.imageAssetId && !known.images.has(clean.fields.imageAssetId)) throw new Refused('INVALID_INPUT')
-    if (!ruled('productId').every((p) => known.products.has(p)) || !ruled('versionId').every((v) => known.versions.has(v)) || !ruled('valueId').every((v) => known.values.has(v))) {
+    if (!ruled('productId').every((p) => known.products.has(p)) || !ruled('versionId').every((v) => known.versions.has(v)) || !valuesNamed.every((v) => known.values.has(v))) {
       throw new Refused('INVALID_RULE')
     }
   }
@@ -389,9 +416,9 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
   /** The live preview of an automatic collection being edited: its rules read as a save would check them, nothing written. */
   const previewCollection = (input: Pick<CollectionInput, 'match' | 'rules' | 'parentId' | 'inheritParent'>) =>
     run(async (tx) => {
-      const clean = cleanCollection({ ...input, name: 'preview', kind: 'automatic' })
+      const clean = cleanCollection({ ...input, name: 'preview' })
       await checkIds(tx, null, clean)
-      return selectRulePreview(tx, storeId, { match: clean.fields.match, rules: clean.rules, parentId: clean.fields.parentId, inheritParent: clean.fields.inheritParent }, previewSize)
+      return selectRulePreview(tx, storeId, { rules: clean.rules, parentId: clean.fields.parentId, inheritParent: clean.fields.inheritParent }, previewSize)
     })
 
   /** CatList's bulk "Add to collection": a hand-picked one only, as automatic ones fill from their rules. */

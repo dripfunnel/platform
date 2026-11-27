@@ -72,11 +72,9 @@ export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWri
     `
     if (!saved) return false
     const kept = pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))
-    // A rule naming a value that goes would point at nothing: it goes with it, and the recompute follows.
-    await tx`
-      delete from collection_rule where store_id = ${storeId} and kind = 'filter_value'
-        and args->>'valueId' in (select id::text from filter_value where filter_id = ${facet.id} and not (id = any(${kept}::uuid[])))
-    `
+    // A block naming a value that goes would point at nothing: the value leaves it, and the recompute follows.
+    const removed = await tx<{ id: string }[]>`select id from filter_value where filter_id = ${facet.id} and not (id = any(${kept}::uuid[]))`
+    await dropValuesFromBlocks(tx, storeId, removed.map((r) => r.id))
     await tx`delete from filter_value where filter_id = ${facet.id} and not (id = any(${kept}::uuid[]))`
   } else {
     await tx`insert into filter (id, store_id, name, position, shopper_visible) values (${facet.id}, ${storeId}, ${facet.name}, ${facet.position}, ${facet.shopperVisible})`
@@ -97,11 +95,20 @@ export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetI
   return facet ? { ids: facet.ids ?? [], revision: facet.revision } : null
 }
 
-export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> => {
+/** The values leave every filter block that names them; a block left with none goes too. */
+const dropValuesFromBlocks = async (tx: ScopedSql, storeId: string, valueIds: readonly string[]): Promise<void> => {
+  if (valueIds.length === 0) return
   await tx`
-    delete from collection_rule where store_id = ${storeId} and kind = 'filter_value'
-      and args->>'valueId' in (select id::text from filter_value where filter_id = ${facetId} and store_id = ${storeId})
+    update collection_rule set args = jsonb_set(args, '{valueIds}',
+      coalesce((select jsonb_agg(v) from jsonb_array_elements(args->'valueIds') v where not ((v #>> '{}') = any(${pgArray(valueIds)}::text[]))), '[]'::jsonb))
+    where store_id = ${storeId} and kind = 'filter_value' and args->'valueIds' ?| ${pgArray(valueIds)}::text[]
   `
+  await tx`delete from collection_rule where store_id = ${storeId} and kind = 'filter_value' and jsonb_array_length(args->'valueIds') = 0`
+}
+
+export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> => {
+  const values = await tx<{ id: string }[]>`select id from filter_value where filter_id = ${facetId} and store_id = ${storeId}`
+  await dropValuesFromBlocks(tx, storeId, values.map((r) => r.id))
   return (await tx<{ name: string }[]>`delete from filter where id = ${facetId} and store_id = ${storeId} returning name`)[0]?.name ?? null
 }
 
@@ -124,8 +131,11 @@ export const mergeFacetValues = async (tx: ScopedSql, storeId: string, targetId:
     on conflict do nothing
   `
   await tx`
-    update collection_rule set args = jsonb_set(args, '{valueId}', to_jsonb(${targetId}::text))
-    where store_id = ${storeId} and kind = 'filter_value' and args->>'valueId' = any(${sources}::text[])
+    update collection_rule set args = jsonb_set(args, '{valueIds}', (
+      select jsonb_agg(distinct x) from (
+        select case when (v #>> '{}') = any(${sources}::text[]) then to_jsonb(${targetId}::text) else v end as x from jsonb_array_elements(args->'valueIds') v
+      ) s))
+    where store_id = ${storeId} and kind = 'filter_value' and args->'valueIds' ?| ${sources}::text[]
   `
   return (await tx`delete from filter_value where store_id = ${storeId} and id = any(${sources}::uuid[])`).count
 }
@@ -165,7 +175,7 @@ export const selectCollections = (tx: ScopedSql, storeId: string, window: PageWi
   const backwards = window.before !== null && window.after === null
   return tx<CollectionListRow[]>`
     select c.id, c.name, c.slug, c.kind, c.visibility, c.parent_id, c.inherit_parent, c.match, c.image_asset_id, c.computed_at, c.updated_at, c.created_at,
-      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
+      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', case when r.kind = 'picks' then '{}'::jsonb else r.args end, 'joiner', r.joiner) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
       (select count(*)::int from collection_product cp join product p on p.id = cp.product_id where cp.collection_id = c.id and p.deleted_at is null) as products
     from collection c
     where c.store_id = ${storeId} and c.deleted_at is null
@@ -176,9 +186,11 @@ export const selectCollections = (tx: ScopedSql, storeId: string, window: PageWi
   `
 }
 
+/** A block of a collection's filters; `joiner` joins it to the block before it (the first one's is unused). */
 export interface RuleRow {
-  kind: 'filter_value' | 'name_contains' | 'product' | 'version' | 'price_range'
+  kind: 'filter_value' | 'name_contains' | 'product' | 'version' | 'price_range' | 'picks'
   args: Record<string, unknown>
+  joiner: 'and' | 'or'
 }
 
 export interface CollectionRow {
@@ -235,7 +247,7 @@ export const selectCollection = async (tx: ScopedSql, storeId: string, id: strin
     await tx<CollectionRow[]>`
       select c.id, c.name, c.slug, c.description, c.kind, c.match, c.parent_id, c.inherit_parent, c.visibility, c.image_asset_id, c.sort,
         c.seo_title, c.seo_description, c.computed_at, c.rule_matches, c.revision,
-        coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
+        coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args, 'joiner', r.joiner) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
       from collection c where c.id = ${id} and c.store_id = ${storeId} and c.deleted_at is null
     `
   )[0] ?? null
@@ -314,9 +326,16 @@ export const setCollectionRules = async (tx: ScopedSql, storeId: string, collect
   await tx`delete from collection_rule where collection_id = ${collectionId}`
   if (rules.length === 0) return
   await tx`
-    insert into collection_rule (collection_id, store_id, kind, args, position)
-    select ${collectionId}, ${storeId}, x.kind, x.args, x.position from jsonb_to_recordset(${rowsOf(tx, rules.map((r, position) => ({ ...r, position })))}) as x(kind text, args jsonb, position int)
+    insert into collection_rule (collection_id, store_id, kind, args, position, joiner)
+    select ${collectionId}, ${storeId}, x.kind, x.args, x.position, x.joiner from jsonb_to_recordset(${rowsOf(tx, rules.map((r, position) => ({ ...r, position })))}) as x(kind text, args jsonb, position int, joiner text)
   `
+}
+
+/** A hand-picked collection's one Pick products block and its products, in the order given. */
+export const setManualPicks = async (tx: ScopedSql, storeId: string, collectionId: string, productIds: readonly string[]): Promise<void> => {
+  await tx`delete from collection_rule where collection_id = ${collectionId}`
+  await setCollectionRules(tx, storeId, collectionId, productIds.length === 0 ? [] : [{ kind: 'picks', args: { productIds: [...productIds] }, joiner: 'and' }])
+  await setCollectionProducts(tx, storeId, collectionId, productIds)
 }
 
 /** A hand-picked collection's products in the order given, each one this store's; the rules' rows go. */
@@ -333,13 +352,8 @@ export const setCollectionProducts = async (tx: ScopedSql, storeId: string, coll
 
 /** CatList's bulk "Add to collection": after what it holds, those it already holds staying where they are. Answers how many it now holds. */
 export const addCollectionProducts = async (tx: ScopedSql, storeId: string, collectionId: string, productIds: readonly string[]): Promise<number> => {
-  await tx`
-    insert into collection_product (collection_id, product_id, store_id, position, source)
-    select ${collectionId}, p.id, ${storeId}, (select coalesce(max(position) + 1, 0) from collection_product where collection_id = ${collectionId}) + x.position, 'manual'
-    from jsonb_to_recordset(${rowsOf(tx, productIds.map((id, position) => ({ id, position })))}) as x(id uuid, position int)
-    join product p on p.id = x.id and p.store_id = ${storeId} and p.deleted_at is null
-    on conflict (collection_id, product_id) do nothing
-  `
+  const held = await tx<{ id: string }[]>`select product_id as id from collection_product where collection_id = ${collectionId} order by position`
+  await setManualPicks(tx, storeId, collectionId, [...new Set([...held.map((r) => r.id), ...productIds])])
   return (await tx<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${collectionId}`)[0]?.n ?? 0
 }
 
@@ -371,26 +385,21 @@ export const selectManualCollectionIds = async (tx: ScopedSql, storeId: string, 
  * the collections it joined that now hold more than they may.
  */
 export const setProductManualCollections = async (tx: ScopedSql, storeId: string, productId: string, ids: readonly string[]): Promise<string[]> => {
-  await tx`
-    delete from collection_product cp using collection c
-    where c.id = cp.collection_id and c.kind = 'manual' and cp.store_id = ${storeId} and cp.product_id = ${productId}
-      and not (cp.collection_id = any(${pgArray(ids)}::uuid[]))
+  const touched = await tx<{ id: string }[]>`
+    select c.id from collection c
+    where c.store_id = ${storeId} and c.kind = 'manual' and c.deleted_at is null
+      and (c.id = any(${pgArray(ids)}::uuid[]) or exists (select 1 from collection_product cp where cp.collection_id = c.id and cp.product_id = ${productId}))
   `
-  const joined: string[] = []
-  for (const id of ids) {
-    const added = await tx`
-      insert into collection_product (collection_id, product_id, store_id, position, source)
-      select ${id}, ${productId}, ${storeId}, coalesce(max(position) + 1, 0), 'manual' from collection_product where collection_id = ${id}
-      on conflict (collection_id, product_id) do nothing
-    `
-    if (added.count > 0) joined.push(id)
+  const tooMany: string[] = []
+  for (const { id } of touched) {
+    const held = (await tx<{ id: string }[]>`select product_id as id from collection_product where collection_id = ${id} order by position`).map((r) => r.id)
+    const wanted = ids.includes(id)
+    if (held.includes(productId) === wanted) continue
+    const next = wanted ? [...held, productId] : held.filter((h) => h !== productId)
+    await setManualPicks(tx, storeId, id, next)
+    if (wanted && next.length > maxCollectionProducts) tooMany.push(id)
   }
-  if (joined.length === 0) return []
-  return (
-    await tx<{ id: string }[]>`
-      select collection_id as id from collection_product where collection_id = any(${pgArray(joined)}::uuid[]) group by collection_id having count(*) > ${maxCollectionProducts}
-    `
-  ).map((r) => r.id)
+  return tooMany
 }
 
 /** Soft delete (§7.1); a child moves to the top level rather than pointing at a deleted parent. */
@@ -423,8 +432,15 @@ export const knownCatalogueIds = async (tx: ScopedSql, storeId: string, ids: { c
 const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
   const a = rule.args
   switch (rule.kind) {
-    case 'filter_value':
-      return tx`exists (select 1 from product_filter_value pfv where pfv.product_id = p.id and pfv.filter_value_id = ${String(a['valueId'])}::uuid)`
+    case 'picks':
+      return tx`p.id = any(${pgArray(idsOf(a['productIds']))}::uuid[])`
+    case 'filter_value': {
+      const values = pgArray(idsOf(a['valueIds']))
+      // "Any of these" is one match; "all of these" needs every one of them on the product.
+      return a['match'] === 'all'
+        ? tx`not exists (select 1 from unnest(${values}::uuid[]) as want(id) where not exists (select 1 from product_filter_value pfv where pfv.product_id = p.id and pfv.filter_value_id = want.id))`
+        : tx`exists (select 1 from product_filter_value pfv where pfv.product_id = p.id and pfv.filter_value_id = any(${values}::uuid[]))`
+    }
     case 'name_contains':
       return tx`p.name ilike ${`%${String(a['text']).replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`}`
     case 'product':
@@ -437,41 +453,44 @@ const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
   }
 }
 
+const idsOf = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
+
 /**
- * A product matching a collection's rules (fact 11). Under "all", values of one filter are alternatives, so
- * "Fabric is Cotton or Linen and Occasion is Wedding" reads as written (CATALOG H4); under "any" every rule is.
+ * A product matching a collection's blocks: AND binds tighter than OR, so "A or B and C" reads as A, or B and C
+ * together (#1558). No blocks match nothing.
  */
-const matchSql = (tx: ScopedSql, match: 'all' | 'any', rules: readonly RuleRow[]) => {
+const matchSql = (tx: ScopedSql, rules: readonly RuleRow[]) => {
   if (rules.length === 0) return tx`false`
-  if (match === 'any') return rules.map((r) => ruleSql(tx, r)).reduce((acc, part) => tx`${acc} or ${part}`)
-  const valueIds = rules.flatMap((r) => (r.kind === 'filter_value' ? [String(r.args['valueId'])] : []))
-  const parts = rules.filter((r) => r.kind !== 'filter_value').map((r) => ruleSql(tx, r))
-  if (valueIds.length > 0)
-    parts.push(tx`not exists (
-      select 1 from filter_value fv where fv.id = any(${pgArray(valueIds)}::uuid[])
-        and not exists (select 1 from product_filter_value pfv join filter_value pv on pv.id = pfv.filter_value_id
-          where pfv.product_id = p.id and pv.filter_id = fv.filter_id and pfv.filter_value_id = any(${pgArray(valueIds)}::uuid[]))
-    )`)
-  return parts.reduce((acc, part) => tx`${acc} and ${part}`)
+  const groups: RuleRow[][] = []
+  rules.forEach((r, i) => {
+    if (i === 0 || r.joiner === 'or') groups.push([r])
+    else groups.at(-1)?.push(r)
+  })
+  return groups.map((g) => tx`(${g.map((r) => ruleSql(tx, r)).reduce((acc, part) => tx`${acc} and ${part}`)})`).reduce((acc, part) => tx`${acc} or ${part}`)
 }
 
-/** What a collection's rules would hold, before it is saved: how many products and the newest few (CATALOG H4's live preview). */
+/** Picked products first, in the order they were picked; the rest newest first, so a cut keeps the same ones every time. */
+const orderSql = (tx: ScopedSql, rules: readonly RuleRow[]) =>
+  tx`coalesce(array_position(${pgArray(rules.flatMap((r) => (r.kind === 'picks' ? idsOf(r.args['productIds']) : [])))}::uuid[], p.id), 1000000), p.created_at desc, p.id desc`
+
+/** What a collection's blocks would hold, before it is saved: how many products and the first few (CATALOG H4's live preview). */
 export const selectRulePreview = async (
   tx: ScopedSql,
   storeId: string,
-  draft: { match: 'all' | 'any'; rules: readonly RuleRow[]; parentId: string | null; inheritParent: boolean },
+  draft: { rules: readonly RuleRow[]; parentId: string | null; inheritParent: boolean },
   limit: number,
 ): Promise<{ count: number; products: { id: string; name: string; imageAssetId: string | null }[] }> => {
-  const joined = matchSql(tx, draft.match, draft.rules)
+  const joined = matchSql(tx, draft.rules)
   const inParent = draft.inheritParent && draft.parentId ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${draft.parentId} and pp.product_id = p.id)` : tx``
   const [row] = await tx<{ count: number; products: { id: string; name: string; imageAssetId: string | null }[] }[]>`
     with matched as (
-      select p.id, p.name, p.created_at from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+      select p.id, p.name, p.created_at, row_number() over (order by ${orderSql(tx, draft.rules)}) as rank
+      from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
     )
     select (select count(*)::int from matched) as count,
-      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name, 'imageAssetId', m.image_asset_id))
-        from (select p.id, p.name, (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as image_asset_id
-          from matched p order by p.created_at desc, p.id desc limit ${limit}) m), '[]'::json) as products
+      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name, 'imageAssetId', m.image_asset_id) order by m.rank)
+        from (select p.id, p.name, p.rank, (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as image_asset_id
+          from matched p order by p.rank limit ${limit}) m), '[]'::json) as products
   `
   return row ?? { count: 0, products: [] }
 }
@@ -481,30 +500,29 @@ export const selectRulePreview = async (
  * its parent reads the parent's new result. Run after commit, from the outbox, never in the request (fact 14).
  */
 export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: Date): Promise<number> => {
-  const collections = await tx<{ id: string; match: 'all' | 'any'; parent_id: string | null; inherit_parent: boolean; depth: number; rules: RuleRow[] }[]>`
+  const collections = await tx<{ id: string; parent_id: string | null; inherit_parent: boolean; depth: number; rules: RuleRow[] }[]>`
     with recursive tree as (
       select id, parent_id, 0 as depth from collection where store_id = ${storeId} and deleted_at is null and parent_id is null
       union all
       select c.id, c.parent_id, tree.depth + 1 from collection c join tree on c.parent_id = tree.id where c.deleted_at is null
     )
-    select c.id, c.match, c.parent_id, c.inherit_parent, tree.depth,
-      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
+    select c.id, c.parent_id, c.inherit_parent, tree.depth,
+      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args, 'joiner', r.joiner) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
     from collection c join tree on tree.id = c.id
     where c.kind = 'automatic'
     order by tree.depth
   `
   for (const c of collections) {
-    const joined = matchSql(tx, c.match, c.rules)
+    const joined = matchSql(tx, c.rules)
     const inParent = c.inherit_parent && c.parent_id ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${c.parent_id} and pp.product_id = p.id)` : tx``
-    // Newest first, so which products a cut keeps is the same at every recompute.
     const [found] = await tx<{ n: number }[]>`
       select count(*)::int as n from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
     `
     await tx`
       with matched as (
-        select p.id, row_number() over (order by p.created_at desc, p.id desc) - 1 as position
+        select p.id, row_number() over (order by ${orderSql(tx, c.rules)}) - 1 as position
         from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
-        order by p.created_at desc, p.id desc
+        order by ${orderSql(tx, c.rules)}
         limit ${maxCollectionProducts}
       ), dropped as (
         delete from collection_product cp where cp.collection_id = ${c.id} and not exists (select 1 from matched m where m.id = cp.product_id)

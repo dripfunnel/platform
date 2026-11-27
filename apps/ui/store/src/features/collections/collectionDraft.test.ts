@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Collection, CollectionRule, CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
-import { blankDraft, collectionsAccess, draftOf, nameField, nested, ruleFields, ruleInputs, rowsOf, sentenceOf } from './collectionDraft'
+import { blankDraft, blockFields, blocksOf, collectionsAccess, draftOf, nameField, nested, newBlock, onlyPicks, ruleInputs, sentenceOf } from './collectionDraft'
 import { slugOf } from '../common/slug'
 
 const facets: Facet[] = [
@@ -10,44 +10,61 @@ const facets: Facet[] = [
   { id: 'tag', name: 'Reorder soon', shopperVisible: false, values: [{ id: 'yes', name: 'Yes' }] },
 ]
 
-const rule = (r: Partial<CollectionRule> & Pick<CollectionRule, 'kind'>): CollectionRule => ({ valueId: null, text: null, productId: null, versionId: null, currency: null, min: null, max: null, ...r })
-const words = { is: 'is', or: 'or', and: 'and', orJoin: 'or', nameContains: 'name contains “{text}”', product: 'a chosen product', version: 'a chosen version', priceRange: 'a price range' }
+const rule = (r: Partial<CollectionRule> & Pick<CollectionRule, 'kind'>): CollectionRule => ({ joiner: 'and', valueIds: [], valueMatch: null, productIds: [], text: null, productId: null, versionId: null, currency: null, min: null, max: null, ...r })
+const words = { is: 'is', or: 'or', and: 'and', orJoin: 'or', nameContains: 'name contains “{text}”', product: 'a chosen product', version: 'a chosen version', priceRange: 'a price range', picked: 'picked products' }
 
-describe('the rule builder’s sentences', () => {
-  it('groups a filter’s values into one sentence, and keeps rules it doesn’t draw aside', () => {
-    const rules = [rule({ kind: 'filter_value', valueId: 'linen' }), rule({ kind: 'name_contains', text: 'shirt' }), rule({ kind: 'filter_value', valueId: 'cotton' }), rule({ kind: 'price_range', currency: 'INR', min: '0', max: '99900' })]
-    const { rows, others } = rowsOf(rules, facets)
-    expect(rows.map((r) => [r.field, r.values, r.text])).toEqual([['fabric', ['linen', 'cotton'], ''], [nameField, [], 'shirt']])
-    expect(others.map((r) => r.kind)).toEqual(['price_range'])
-    // Sent back as the API stores them: one rule per value, the kept ones as they came, empty rows gone.
-    expect(ruleInputs({ rows: [...rows, { key: 'x', field: 'occasion', values: [], text: '' }], others })).toEqual([
-      { kind: 'filter_value', valueId: 'linen' },
-      { kind: 'filter_value', valueId: 'cotton' },
-      { kind: 'name_contains', text: 'shirt' },
-      { kind: 'price_range', currency: 'INR', min: '0', max: '99900' },
+describe('the Filters card’s blocks', () => {
+  const rules = [
+    rule({ kind: 'picks', productIds: ['p1', 'p2'] }),
+    rule({ kind: 'filter_value', valueIds: ['linen', 'cotton'], valueMatch: 'all', joiner: 'or' }),
+    rule({ kind: 'name_contains', text: 'shirt' }),
+    rule({ kind: 'price_range', currency: 'INR', min: '0', max: '99900', joiner: 'or' }),
+  ]
+
+  it('reads saved rules as blocks, in order with their joiners, keeping those it doesn’t draw aside', () => {
+    const blocks = blocksOf(rules, facets)
+    expect(blocks.map((b) => [b.kind, b.joiner, b.field, b.values, b.match, b.text, b.productIds])).toEqual([
+      ['picks', 'and', nameField, [], 'any', '', ['p1', 'p2']],
+      ['filter', 'or', 'fabric', ['linen', 'cotton'], 'all', '', []],
+      ['name', 'and', nameField, [], 'any', 'shirt', []],
+      ['kept', 'or', nameField, [], 'any', '', []],
     ])
   })
 
-  it('says what a collection holds in words, joined by its match', () => {
-    const rules = [rule({ kind: 'filter_value', valueId: 'linen' }), rule({ kind: 'filter_value', valueId: 'cotton' }), rule({ kind: 'filter_value', valueId: 'wedding' })]
-    expect(sentenceOf({ rules, match: 'all' }, facets, words)).toBe('Fabric is Linen or Cotton and Occasion is Wedding')
-    expect(sentenceOf({ rules: [...rules, rule({ kind: 'name_contains', text: 'kurta' })], match: 'any' }, facets, words)).toBe('Fabric is Linen or Cotton or Occasion is Wedding or name contains “kurta”')
+  it('sends them back as the API stores them: a block each, empty ones gone, the kept ones as they came', () => {
+    const blocks = [...blocksOf(rules, facets), { ...newBlock('filter', 'occasion') }, newBlock('picks'), newBlock('name')]
+    expect(ruleInputs(blocks)).toEqual([
+      { kind: 'picks', productIds: ['p1', 'p2'], joiner: 'and' },
+      { kind: 'filter_value', valueIds: ['linen', 'cotton'], valueMatch: 'all', joiner: 'or' },
+      { kind: 'name_contains', text: 'shirt', joiner: 'and' },
+      { kind: 'price_range', currency: 'INR', min: '0', max: '99900', joiner: 'or' },
+    ])
   })
 
-  it('offers the filters shoppers see, and an internal one only when a saved rule uses it', () => {
-    expect(ruleFields(facets, []).map((f) => f.id)).toEqual(['fabric', 'occasion'])
-    expect(ruleFields(facets, [{ key: 'k', field: 'tag', values: ['yes'], text: '' }]).map((f) => f.id)).toEqual(['fabric', 'occasion', 'tag'])
+  it('says what a collection holds in words, each block joined to the one before it', () => {
+    expect(sentenceOf({ rules }, facets, words)).toBe('picked products or Fabric is Linen or Cotton and name contains “shirt” or a price range')
+  })
+
+  it('calls a collection of picks alone, or nothing, hand-picked', () => {
+    expect(onlyPicks(blocksOf([rule({ kind: 'picks', productIds: ['p1'] })], facets))).toBe(true)
+    expect(onlyPicks([])).toBe(true)
+    expect(onlyPicks(blocksOf(rules, facets))).toBe(false)
+  })
+
+  it('offers the filters shoppers see, and an internal one only when a saved block uses it', () => {
+    expect(blockFields(facets, []).map((f) => f.id)).toEqual(['fabric', 'occasion'])
+    expect(blockFields(facets, [{ ...newBlock('filter', 'tag'), values: ['yes'] }]).map((f) => f.id)).toEqual(['fabric', 'occasion', 'tag'])
   })
 })
 
 describe('a collection being edited', () => {
-  const saved: Collection = { id: 'c1', name: 'Summer', slug: 'summer', description: '', kind: 'automatic', match: 'all', parentId: null, inheritParent: false, visible: true, imageAssetId: null, sort: 'newest', seoTitle: null, seoDescription: null, revision: 4, rules: [rule({ kind: 'filter_value', valueId: 'linen' })] }
+  const saved: Collection = { id: 'c1', name: 'Summer', slug: 'summer', description: '', parentId: null, inheritParent: false, visible: true, imageAssetId: null, sort: 'newest', seoTitle: null, seoDescription: null, revision: 4, rules: [rule({ kind: 'filter_value', valueIds: ['linen'], valueMatch: 'any' })] }
 
-  it('starts from the first filter shoppers see, and reads a saved one back as its sentences', () => {
-    expect(blankDraft(facets).rows.map((r) => r.field)).toEqual(['fabric'])
-    expect(blankDraft([]).rows.map((r) => r.field)).toEqual([nameField])
-    const draft = draftOf(saved, facets, [])
-    expect([draft.id, draft.revision, draft.rows.map((r) => [r.field, r.values])]).toEqual(['c1', 4, [['fabric', ['linen']]]])
+  it('starts from the first filter shoppers see, and reads a saved one back as its blocks', () => {
+    expect(blankDraft(facets).blocks.map((b) => b.field)).toEqual(['fabric'])
+    expect(blankDraft([]).blocks.map((b) => b.field)).toEqual([nameField])
+    const draft = draftOf(saved, facets)
+    expect([draft.id, draft.revision, draft.blocks.map((b) => [b.field, b.values])]).toEqual(['c1', 4, [['fabric', ['linen']]]])
   })
 
   it('makes a web address the way the API does', () => {
@@ -57,7 +74,7 @@ describe('a collection being edited', () => {
 })
 
 describe('the list', () => {
-  const c = (id: string, parentId: string | null = null): CollectionSummary => ({ id, name: id, kind: 'manual', visible: true, parentId, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 0, computedAt: null })
+  const c = (id: string, parentId: string | null = null): CollectionSummary => ({ id, name: id, visible: true, parentId, inheritParent: false, imageAssetId: null, rules: [], products: 0, computedAt: null })
 
   it('puts each collection under its parent, however deep, and an orphan at the top', () => {
     expect(nested([c('a'), c('b', 'a'), c('c', 'b'), c('d', 'gone'), c('e')]).map(({ c: x, depth }) => `${x.id}${depth}`)).toEqual(['a0', 'b1', 'c2', 'd0', 'e0'])
