@@ -397,7 +397,7 @@ input CollectionInput {
   description: String
   imageAssetId: String
   inheritParent: Boolean
-  kind: String!
+  kind: String
   match: String
   name: String!
   parentId: String
@@ -440,23 +440,31 @@ type CollectionPreviewProduct {
 
 type CollectionRule {
   currency: String
+  joiner: String
   kind: String
   max: String
   min: String
   productId: ID
+  productIds: [ID!]
   text: String
   valueId: ID
+  valueIds: [ID!]
+  valueMatch: String
   versionId: ID
 }
 
 input CollectionRuleInput {
   currency: String
+  joiner: String
   kind: String!
   max: String
   min: String
   productId: String
+  productIds: [String!]
   text: String
   valueId: String
+  valueIds: [String!]
+  valueMatch: String
   versionId: String
 }
 

@@ -1,4 +1,4 @@
-import type { CollectionSummary } from '../../api/collections'
+import type { CollectionRule, CollectionSummary } from '../../api/collections'
 import type { Filter } from '../../api/filters'
 import type { Menu } from '../../api/menu'
 import type { SizeChart } from '../../api/sizeCharts'
@@ -37,13 +37,13 @@ export const sampleMenu: Menu | null = harness
     }
   : null
 
-const rule = (valueId: string) => ({ kind: 'filter_value', valueId, text: null, productId: null, versionId: null, currency: null, min: null, max: null })
+const block = (kind: string, rest: Partial<CollectionRule>): CollectionRule => ({ kind, joiner: 'and', valueIds: [], valueMatch: null, productIds: [], text: null, productId: null, versionId: null, currency: null, min: null, max: null, ...rest })
+const rule = (valueIds: string[], joiner = 'and') => block('filter_value', { valueIds, valueMatch: 'any', joiner })
+const picks = (productIds: string[]) => block('picks', { productIds })
 const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({
-  kind: 'manual',
   visible: true,
   parentId: null,
   inheritParent: false,
-  match: 'all',
   imageAssetId: null,
   rules: [],
   products: 0,
@@ -53,11 +53,11 @@ const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 
 
 export const sampleCollections: CollectionSummary[] = harness
   ? [
-      summary({ id: 'c-summer', name: 'Summer edit', kind: 'automatic', rules: [rule('fv-Linen'), rule('fv-Cotton')], products: 18 }),
-      summary({ id: 'c-men', name: 'Men', products: 42 }),
-      summary({ id: 'c-shirts', name: 'Shirts', parentId: 'c-men', inheritParent: true, kind: 'automatic', rules: [rule('fv-Linen')], products: 12 }),
-      summary({ id: 'c-wedding', name: 'Wedding guest', kind: 'automatic', rules: [rule('fv-Wedding'), rule('fv-Silk')], products: 7, computedAt: null }),
-      summary({ id: 'c-offer', name: 'Staff picks', visible: false, products: 5 }),
+      summary({ id: 'c-summer', name: 'Summer edit', rules: [rule(['fv-Linen', 'fv-Cotton'])], products: 18 }),
+      summary({ id: 'c-men', name: 'Men', rules: [picks(['p1', 'p2'])], products: 42 }),
+      summary({ id: 'c-shirts', name: 'Shirts', parentId: 'c-men', inheritParent: true, rules: [rule(['fv-Linen'])], products: 12 }),
+      summary({ id: 'c-wedding', name: 'Wedding guest', rules: [rule(['fv-Wedding']), rule(['fv-Silk'])], products: 7, computedAt: null }),
+      summary({ id: 'c-offer', name: 'Staff picks', visible: false, rules: [picks(['p3'])], products: 5 }),
     ]
   : []
 
@@ -77,11 +77,12 @@ export const sampleReads: EditorReads = {
     const s = sampleCollections.find((c) => c.id === id)
     return s ? { ...s, slug: id.replace(/^c-/, ''), description: '', imageAssetId: null, sort: 'newest', seoTitle: null, seoDescription: null, revision: 1 } : null
   },
-  members: async () => sampleProducts.slice(0, 2).map(({ id, name }) => ({ id, name, imageAssetId: null })),
-  preview: async ({ rules, match }) => {
-    const wanted = rules.flatMap((r) => (r.valueId ? [r.valueId] : []))
-    const groups = sampleFilters.map((f) => f.values.map((v) => v.id).filter((v) => wanted.includes(v))).filter((g) => g.length > 0)
-    const hit = sampleProducts.filter((p) => (match === 'any' ? wanted.some((v) => p.values.includes(v)) : groups.length > 0 && groups.every((g) => g.some((v) => p.values.includes(v)))))
+  // AND binds tighter than OR, as the API reads the blocks.
+  preview: async ({ rules }) => {
+    const matches = (p: (typeof sampleProducts)[number], r: (typeof rules)[number]) =>
+      r.kind === 'picks' ? (r.productIds ?? []).includes(p.id) : r.kind === 'name_contains' ? p.name.toLowerCase().includes((r.text ?? '').toLowerCase()) : r.valueMatch === 'all' ? (r.valueIds ?? []).every((v) => p.values.includes(v)) : (r.valueIds ?? []).some((v) => p.values.includes(v))
+    const groups = rules.reduce<(typeof rules)[]>((acc, r, i) => (i === 0 || r.joiner === 'or' ? [...acc, [r]] : [...acc.slice(0, -1), [...(acc.at(-1) ?? []), r]]), [])
+    const hit = sampleProducts.filter((p) => groups.some((g) => g.every((r) => matches(p, r))))
     return { count: hit.length, products: hit.map(({ id, name }) => ({ id, name, imageAssetId: null })) }
   },
   search: async (q) => sampleProducts.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).map(({ id, name, visible, approval }) => ({ id, name, visible, approval, photoUrl: null })),

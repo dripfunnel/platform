@@ -5,12 +5,12 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import type { Collection, CollectionSummary } from '../../api/collections'
+import type { Collection, CollectionRule, CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
 import { fill, messages } from '../../messages'
 
-// CatCollections driven as the merchant would: the list, a new collection by rules or by hand, an edit, a delete.
+// CatCollections driven as the merchant would: the list, a new collection from filter blocks, an edit, a delete.
 
 const words = messages.collections
 const e = words.editor
@@ -18,7 +18,6 @@ const e = words.editor
 const api = vi.hoisted(() => ({
   loadCollections: vi.fn(),
   loadCollection: vi.fn(),
-  loadMembers: vi.fn(),
   searchPickable: vi.fn(),
   previewCollection: vi.fn(),
   saveCollection: vi.fn(),
@@ -42,14 +41,16 @@ const facets: Facet[] = [
   { id: 'fabric', name: 'Fabric', shopperVisible: true, values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }] },
   { id: 'occasion', name: 'Occasion', shopperVisible: true, values: [{ id: 'wedding', name: 'Wedding' }] },
 ]
-const filterRule = (valueId: string) => ({ kind: 'filter_value', valueId, text: null, productId: null, versionId: null, currency: null, min: null, max: null })
-const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({ kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 0, computedAt: '2026-10-05T09:00:00Z', ...c })
-const summer = summary({ id: 'c1', name: 'Summer edit', kind: 'automatic', rules: [filterRule('linen'), filterRule('cotton')], products: 18 })
-const men = summary({ id: 'c2', name: 'Men', products: 42 })
-const shirts = summary({ id: 'c3', name: 'Shirts', parentId: 'c2', inheritParent: true, kind: 'automatic', rules: [filterRule('linen')], products: 7, computedAt: null })
-const offer = summary({ id: 'c4', name: 'Staff picks', visible: false, products: 5 })
+const block = (kind: string, rest: Partial<CollectionRule>): CollectionRule => ({ kind, joiner: 'and', valueIds: [], valueMatch: null, productIds: [], text: null, productId: null, versionId: null, currency: null, min: null, max: null, ...rest })
+const filterRule = (valueIds: string[], joiner = 'and') => block('filter_value', { valueIds, valueMatch: 'any', joiner })
+const picksRule = (productIds: string[]) => block('picks', { productIds })
+const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({ visible: true, parentId: null, inheritParent: false, imageAssetId: null, rules: [], products: 0, computedAt: '2026-10-05T09:00:00Z', ...c })
+const summer = summary({ id: 'c1', name: 'Summer edit', rules: [filterRule(['linen', 'cotton'])], products: 18 })
+const men = summary({ id: 'c2', name: 'Men', rules: [picksRule(['p1'])], products: 42 })
+const shirts = summary({ id: 'c3', name: 'Shirts', parentId: 'c2', inheritParent: true, rules: [filterRule(['linen'])], products: 7, computedAt: null })
+const offer = summary({ id: 'c4', name: 'Staff picks', visible: false, rules: [picksRule(['p3'])], products: 5 })
 
-const full = (c: Partial<Collection> & Pick<Collection, 'id' | 'name'>): Collection => ({ slug: 'x', description: '', kind: 'manual', match: 'all', parentId: null, inheritParent: false, visible: true, imageAssetId: null, sort: 'manual', seoTitle: null, seoDescription: null, revision: 3, rules: [], ...c })
+const full = (c: Partial<Collection> & Pick<Collection, 'id' | 'name'>): Collection => ({ slug: 'x', description: '', parentId: null, inheritParent: false, visible: true, imageAssetId: null, sort: 'manual', seoTitle: null, seoDescription: null, revision: 3, rules: [], ...c })
 
 const settle = (ms = 0) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)))
 
@@ -70,7 +71,6 @@ beforeEach(() => {
   api.loadMarketCountries.mockResolvedValue(['IN'])
   api.previewCollection.mockResolvedValue({ count: 0, products: [] })
   api.searchPickable.mockResolvedValue([])
-  api.loadMembers.mockResolvedValue([])
   filtersApi.loadFilters.mockResolvedValue(facets.map((f, position) => ({ ...f, position, revision: 1, values: f.values.map((v) => ({ ...v, products: 0 })) })))
   editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR' })
   menuApi.loadMenu.mockResolvedValue(null)
@@ -97,7 +97,7 @@ describe('the collections list', () => {
     const rows = within(screen.getByRole('list', { name: words.list.label })).getAllByRole('link')
     expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(['Open Summer edit', 'Open Men', 'Open Shirts', 'Open Staff picks'])
     expect(within(row('Summer edit')).getByText('Fabric is Linen or Cotton')).toBeTruthy()
-    expect(within(row('Summer edit')).getByText('Automatic · 1 rule')).toBeTruthy()
+    expect(within(row('Summer edit')).getByText('Filters · 1 block')).toBeTruthy()
     expect(within(row('Men')).getByText('42 picked')).toBeTruthy()
     expect(within(row('Shirts')).getByText('Inside Men · only products also there')).toBeTruthy()
     expect(within(row('Shirts')).getByText('Updating… 7 so far')).toBeTruthy()
@@ -124,7 +124,7 @@ describe('the collections list', () => {
     await settle()
     expect(router.state.location.search).toEqual({ edit: 'new', name: 'Diwali' })
     expect((screen.getByLabelText(e.name) as HTMLInputElement).value).toBe('Diwali')
-    expect((screen.getByRole('radio', { name: new RegExp(e.manual) }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByRole('searchbox', { name: e.search })).toBeTruthy()
   })
 
   it('explains collections when there are none, with an example in the store’s currency', async () => {
@@ -172,18 +172,18 @@ describe('the collections list', () => {
 })
 
 describe('a collection being made or changed', () => {
-  it('fills by rules: previews what they hold as they change, needs a name, then saves and goes back to the list', async () => {
+  it('fills from filter blocks: previews what they hold as they change, needs a name, then saves and goes back to the list', async () => {
     api.previewCollection.mockResolvedValue({ count: 2, products: [{ id: 'p1', name: 'Mara Linen Shirt' }, { id: 'p2', name: 'Linen Kurta' }] })
     api.saveCollection.mockResolvedValue({ id: 'c9', revision: 1 })
     const router = await show(owner, '/collections?edit=new')
     expect(document.activeElement).toBe(screen.getByLabelText(e.name))
     fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cotton' }))
-    fireEvent.click(screen.getByRole('button', { name: e.addRule }))
-    fireEvent.change(screen.getByLabelText('Rule 2: what to match'), { target: { value: 'occasion' } })
+    fireEvent.change(screen.getByRole('combobox', { name: e.addBlock }), { target: { value: 'occasion' } })
     fireEvent.click(screen.getByRole('button', { name: 'Wedding' }))
     await settle(350)
-    expect(api.previewCollection).toHaveBeenLastCalledWith({ match: 'all', rules: [{ kind: 'filter_value', valueId: 'linen' }, { kind: 'filter_value', valueId: 'cotton' }, { kind: 'filter_value', valueId: 'wedding' }], parentId: null, inheritParent: false })
+    const blocks = [{ kind: 'filter_value', valueIds: ['linen', 'cotton'], valueMatch: 'any', joiner: 'and' }, { kind: 'filter_value', valueIds: ['wedding'], valueMatch: 'any', joiner: 'and' }]
+    expect(api.previewCollection).toHaveBeenLastCalledWith({ rules: blocks, parentId: null, inheritParent: false })
     expect(screen.getByRole('heading', { name: '2 products match' })).toBeTruthy()
     expect(screen.getByText('Mara Linen Shirt')).toBeTruthy()
     // No name: said beside the field, which takes focus; nothing saved.
@@ -196,7 +196,7 @@ describe('a collection being made or changed', () => {
     fireEvent.change(name, { target: { value: 'Wedding linen' } })
     fireEvent.click(screen.getByRole('button', { name: e.save }))
     await settle()
-    expect(api.saveCollection).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Wedding linen', kind: 'automatic', match: 'all', productIds: [], rules: expect.arrayContaining([{ kind: 'filter_value', valueId: 'wedding' }]) }))
+    expect(api.saveCollection).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Wedding linen', rules: blocks }))
     expect(router.state.location.search).toEqual({})
     expect(screen.getByText('“Wedding linen” saved — filling in the background')).toBeTruthy()
     expect(api.loadCollections).toHaveBeenCalledTimes(2)
@@ -217,8 +217,12 @@ describe('a collection being made or changed', () => {
 
   it('shows the picked products’ images too, whether read from the collection or found by search', async () => {
     const fetch = serveAssets()
-    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men' }))
-    api.loadMembers.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt', imageAssetId: 'a1' }, { id: 'p3', name: 'Plain Tee', imageAssetId: null }])
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', rules: [picksRule(['p1', 'p3'])] }))
+    const known: Record<string, { name: string; imageAssetId: string | null }> = { p1: { name: 'Mara Linen Shirt', imageAssetId: 'a1' }, p3: { name: 'Plain Tee', imageAssetId: null }, p2: { name: 'Indigo Kurta', imageAssetId: 'a2' } }
+    api.previewCollection.mockImplementation(async ({ rules }: { rules: { productIds?: string[] }[] }) => {
+      const ids = rules.flatMap((r) => r.productIds ?? [])
+      return { count: ids.length, products: ids.map((id) => ({ id, ...known[id] })) }
+    })
     api.searchPickable.mockResolvedValue([{ id: 'p2', name: 'Indigo Kurta', visible: true, approval: null, photoUrl: '/api/assets/a2' }])
     await show(owner, '/collections?edit=c2')
     await settle(350)
@@ -226,20 +230,49 @@ describe('a collection being made or changed', () => {
     expect(tile('Mara Linen Shirt').querySelector('img')).toBeTruthy()
     expect(tile('Plain Tee').querySelector('img')).toBeNull()
     fireEvent.click(screen.getByRole('checkbox', { name: /Indigo Kurta/ }))
-    await settle()
+    await settle(350)
     expect(tile('Indigo Kurta').querySelector('img')).toBeTruthy()
     expect(fetch).toHaveBeenCalledWith('/api/assets/a1', expect.anything())
     expect(fetch).toHaveBeenCalledWith('/api/assets/a2', expect.anything())
   })
 
-  it('offers how it fills as one radio group, native inputs sharing a name, so the arrow keys move between them', async () => {
+  it('joins blocks by AND or OR, each switch between two blocks, and says AND is read before OR', async () => {
+    api.saveCollection.mockResolvedValue({ id: 'c9', revision: 1 })
     await show(owner, '/collections?edit=new')
-    const group = screen.getByRole('radiogroup', { name: e.fill })
-    const radios = within(group).getAllByRole('radio') as HTMLInputElement[]
-    expect(radios.map((r) => [r.type, r.checked])).toEqual([['radio', true], ['radio', false]])
-    expect(new Set(radios.map((r) => r.name)).size).toBe(1)
-    fireEvent.click(radios[1] as HTMLInputElement)
-    expect(screen.getByRole('searchbox', { name: e.search })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(e.name), { target: { value: 'Mixed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    expect(screen.queryByRole('group', { name: 'How filter 1 and filter 2 combine' })).toBeNull()
+    fireEvent.change(screen.getByRole('combobox', { name: e.addBlock }), { target: { value: 'picks' } })
+    const join = within(screen.getByRole('group', { name: 'How filter 1 and filter 2 combine' }))
+    expect(join.getByRole('button', { name: e.joinAnd }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(join.getByRole('button', { name: e.joinOr }))
+    expect(join.getByRole('button', { name: e.joinOr }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText(e.joinNote)).toBeTruthy()
+    // One Pick products block at most: the option goes once it is there.
+    expect(within(screen.getByRole('combobox', { name: e.addBlock })).queryByRole('option', { name: e.blockPicks })).toBeNull()
+    api.searchPickable.mockResolvedValue([{ id: 'p2', name: 'Indigo Kurta', visible: true, approval: null }])
+    fireEvent.change(screen.getByLabelText(e.search), { target: { value: 'kurta' } })
+    await settle(350)
+    fireEvent.click(screen.getByRole('checkbox', { name: /Indigo Kurta/ }))
+    fireEvent.click(screen.getByRole('button', { name: e.save }))
+    await settle()
+    expect(api.saveCollection.mock.calls[0]?.[2]).toMatchObject({
+      rules: [{ kind: 'filter_value', valueIds: ['linen'], valueMatch: 'any', joiner: 'and' }, { kind: 'picks', productIds: ['p2'], joiner: 'or' }],
+    })
+    expect(screen.getByText('“Mixed” saved — filling in the background')).toBeTruthy()
+  })
+
+  it('removes a block with its ×, and sends the values as any or all of them', async () => {
+    await show(owner, '/collections?edit=new')
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cotton' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter 1: how many values' }), { target: { value: 'all' } })
+    fireEvent.change(screen.getByRole('combobox', { name: e.addBlock }), { target: { value: 'name' } })
+    await settle(350)
+    expect(api.previewCollection).toHaveBeenLastCalledWith(expect.objectContaining({ rules: [{ kind: 'filter_value', valueIds: ['linen', 'cotton'], valueMatch: 'all', joiner: 'and' }] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove filter 1' }))
+    expect(screen.queryByRole('button', { name: 'Linen' })).toBeNull()
+    expect(screen.getByLabelText('Filter 1: name contains')).toBeTruthy()
   })
 
   it('names the pricing currency in the price note, and leaves it out rather than showing an empty one', async () => {
@@ -262,8 +295,11 @@ describe('a collection being made or changed', () => {
 
   it('edits a hand-picked collection at the revision read, adding a product found by search', async () => {
     serveAssets()
-    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', revision: 3, imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' }))
-    api.loadMembers.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt' }])
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', revision: 3, imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas', rules: [picksRule(['p1'])] }))
+    api.previewCollection.mockImplementation(async ({ rules }: { rules: { productIds?: string[] }[] }) => {
+      const ids = rules.flatMap((r) => r.productIds ?? [])
+      return { count: ids.length, products: ids.map((id) => ({ id, name: id, imageAssetId: null })) }
+    })
     api.searchPickable.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt', visible: true, approval: null }, { id: 'p2', name: 'Indigo Kurta', visible: false, approval: null }])
     api.saveCollection.mockResolvedValue({ id: 'c2', revision: 4 })
     await show(owner, '/collections?edit=c2')
@@ -273,10 +309,11 @@ describe('a collection being made or changed', () => {
     await settle(350)
     expect(api.searchPickable).toHaveBeenLastCalledWith('kurta')
     fireEvent.click(screen.getByRole('checkbox', { name: /Indigo Kurta/ }))
+    await settle(350)
     expect(screen.getByRole('heading', { name: '2 products picked' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: e.save }))
     await settle()
-    expect(api.saveCollection).toHaveBeenCalledWith('c2', 3, expect.objectContaining({ kind: 'manual', productIds: ['p1', 'p2'], rules: [] }))
+    expect(api.saveCollection).toHaveBeenCalledWith('c2', 3, expect.objectContaining({ rules: [{ kind: 'picks', productIds: ['p1', 'p2'], joiner: 'and' }] }))
     // An untouched image and what this screen doesn't draw go back as read, so a save never clears them.
     expect(api.saveCollection.mock.calls[0]?.[2]).toMatchObject({ imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' })
   })

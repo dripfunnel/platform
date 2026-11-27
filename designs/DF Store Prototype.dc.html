@@ -541,12 +541,14 @@ class Component extends DCLogic {
   }
 
   matches(c, p, all) {
-    if (c.type === 'manual') return c.productIds.includes(p.id);
+    // #1558: blocks (the picked products, then each rule) joined by AND / OR, AND read before OR.
     const test = r => r.field === 'Name contains' ? p.name.toLowerCase().includes(String(r.values[0] || '').toLowerCase()) : r.values.includes((p.filters || {})[r.field]);
     const rules = c.rules.filter(r => r.values.length);
-    if (!rules.length) return false;
-    const ok = c.match === 'any' ? rules.some(test) : rules.every(test);
-    if (!ok) return false;
+    const blocks = [...(c.productIds.length ? [{ join: 'or', test: () => c.productIds.includes(p.id) }] : []), ...rules.map(r => ({ join: r.join || (c.match === 'any' ? 'or' : 'and'), test: () => test(r) }))];
+    if (!blocks.length) return false;
+    const groups = [];
+    blocks.forEach((b, i) => { if (i === 0 || b.join === 'or') groups.push([b]); else groups[groups.length - 1].push(b); });
+    if (!groups.some(g => g.every(b => b.test()))) return false;
     if (c.parentId && c.inherit) {
       const parent = (all || this.state.collections).find(x => x.id === c.parentId);
       if (parent) return this.matches(parent, p, all);

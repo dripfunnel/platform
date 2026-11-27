@@ -1,17 +1,16 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, Icon, LoadingState } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useId, useRef, useState } from 'react'
-import { deleteCollection, loadCollection, loadMembers, previewCollection, saveCollection, searchPickable, type Collection, type CollectionSummary, type Member, type Pickable, type Preview, type RuleInput } from '../../api/collections'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { deleteCollection, loadCollection, previewCollection, saveCollection, searchPickable, type Collection, type CollectionSummary, type Pickable, type Preview, type RuleInput } from '../../api/collections'
 import { loadMenu } from '../../api/menu'
 import { uploadPhoto, type Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { ImageField } from '../common/ImageField'
-import { RadioCards } from '../common/RadioCards'
 import '../common/switch.css'
 import { slugOf } from '../common/slug'
-import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, type CollectionDraft, type RuleRow } from './collectionDraft'
+import { blankDraft, blockFields, draftOf, nameField, newBlock, onlyPicks, ruleInputs, type Block, type CollectionDraft } from './collectionDraft'
 
 const words = messages.collections.editor
 const imageWords = { upload: words.uploadImage, replace: words.replaceImage, uploading: words.uploadingImage, remove: words.removeImage }
@@ -26,17 +25,16 @@ type Tile = { id: string; name: string; image: string | null }
 /** What the editor reads: the API, or the ?state= harness's samples. */
 export interface EditorReads {
   collection: (id: string) => Promise<Collection | null>
-  members: (id: string) => Promise<Member[]>
-  preview: (draft: { match: 'all' | 'any'; rules: RuleInput[]; parentId: string | null; inheritParent: boolean }) => Promise<Preview>
+  preview: (draft: { rules: RuleInput[]; parentId: string | null; inheritParent: boolean }) => Promise<Preview>
   search: (query: string) => Promise<Pickable[]>
 }
 
-const apiReads: EditorReads = { collection: loadCollection, members: loadMembers, preview: previewCollection, search: searchPickable }
+const apiReads: EditorReads = { collection: loadCollection, preview: previewCollection, search: searchPickable }
 
 export interface CollectionEditorProps {
   /** A collection's id, or `new`. */
   id: string
-  /** A new collection's name from a seasonal suggestion: picked by hand, as the prototype starts one. */
+  /** A new collection's name from a seasonal suggestion: it starts as a Pick products block, as the prototype starts one. */
   suggested: string | null
   facets: readonly Facet[]
   collections: readonly CollectionSummary[]
@@ -46,12 +44,13 @@ export interface CollectionEditorProps {
   reads?: EditorReads
 }
 
-const RuleSentence = ({ row, n, join, fields, disabled, onChange, onRemove }: { row: RuleRow; n: number; join: string; fields: readonly Facet[]; disabled: boolean; onChange: (row: RuleRow) => void; onRemove: (() => void) | null }) => {
-  const facet = fields.find((f) => f.id === row.field)
+const BlockBody = ({ block, n, fields, disabled, onChange, picks }: { block: Block; n: number; fields: readonly Facet[]; disabled: boolean; onChange: (block: Block) => void; picks: ReactNode }) => {
+  const facet = fields.find((f) => f.id === block.field)
+  if (block.kind === 'picks') return <>{picks}</>
+  if (block.kind === 'kept') return <p className="df-coll-hint">{block.rule?.kind === 'product' ? words.keptProduct : block.rule?.kind === 'version' ? words.keptVersion : words.keptPrice}</p>
   return (
     <div className="df-coll-rule">
-      <span className="df-coll-rule-join">{join}</span>
-      <select aria-label={fill(words.field, { n: String(n) })} value={row.field} disabled={disabled} onChange={(e) => onChange({ ...row, field: e.target.value, values: [], text: '' })}>
+      <select aria-label={fill(words.field, { n: String(n) })} value={block.kind === 'name' ? nameField : block.field} disabled={disabled} onChange={(e) => onChange(e.target.value === nameField ? { ...block, kind: 'name', field: nameField, values: [], text: '' } : { ...block, kind: 'filter', field: e.target.value, values: [], text: '' })}>
         {fields.map((f) => (
           <option key={f.id} value={f.id}>
             {f.name}
@@ -59,29 +58,39 @@ const RuleSentence = ({ row, n, join, fields, disabled, onChange, onRemove }: { 
         ))}
         <option value={nameField}>{words.nameContains}</option>
       </select>
-      {row.field === nameField ? (
-        <input aria-label={fill(words.text, { n: String(n) })} value={row.text} readOnly={disabled} placeholder={words.textPlaceholder} maxLength={60} onChange={(e) => onChange({ ...row, text: e.target.value })} />
+      {block.kind === 'name' ? (
+        <input aria-label={fill(words.text, { n: String(n) })} value={block.text} readOnly={disabled} placeholder={words.textPlaceholder} maxLength={60} onChange={(e) => onChange({ ...block, text: e.target.value })} />
       ) : (
         <>
           <span>{words.is}</span>
           {facet?.values.map((v) => {
-            const on = row.values.includes(v.id)
+            const on = block.values.includes(v.id)
             return (
-              <button key={v.id} type="button" className="df-coll-chip" aria-pressed={on} disabled={disabled} onClick={() => onChange({ ...row, values: on ? row.values.filter((x) => x !== v.id) : [...row.values, v.id] })}>
+              <button key={v.id} type="button" className="df-coll-chip" aria-pressed={on} disabled={disabled} onClick={() => onChange({ ...block, values: on ? block.values.filter((x) => x !== v.id) : [...block.values, v.id] })}>
                 {v.name}
               </button>
             )
           })}
+          <select aria-label={fill(words.matchLabel, { n: String(n) })} value={block.match} disabled={disabled} onChange={(e) => onChange({ ...block, match: e.target.value === 'all' ? 'all' : 'any' })}>
+            <option value="any">{words.matchAnyOf}</option>
+            <option value="all">{words.matchAllOf}</option>
+          </select>
         </>
-      )}
-      {onRemove && (
-        <button type="button" className="df-coll-rule-remove" aria-label={fill(words.removeRule, { n: String(n) })} onClick={onRemove}>
-          <Icon name="close" size={14} />
-        </button>
       )}
     </div>
   )
 }
+
+/** The AND / OR between two blocks: AND needs both, OR takes either (AND binds tighter, so the card says so). */
+const JoinSwitch = ({ joiner, n, disabled, onChange }: { joiner: 'and' | 'or'; n: number; disabled: boolean; onChange: (joiner: 'and' | 'or') => void }) => (
+  <div className="df-coll-join" role="group" aria-label={fill(words.joinLabel, { n: String(n), m: String(n + 1) })}>
+    {(['and', 'or'] as const).map((j) => (
+      <button key={j} type="button" aria-pressed={joiner === j} disabled={disabled} title={j === 'and' ? words.joinAndHint : words.joinOrHint} onClick={() => onChange(j)}>
+        {j === 'and' ? words.joinAnd : words.joinOr}
+      </button>
+    ))}
+  </div>
+)
 
 /** CatCollections' editor: name, how it fills (rules or picks), its parent, visibility, and the live preview beside them. */
 export const CollectionEditor = ({ id, suggested, facets, collections, pricingCurrency, canEdit, onDone, reads = apiReads }: CollectionEditorProps) => {
@@ -89,8 +98,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
   const formId = useId()
   const nameRef = useRef<HTMLInputElement>(null)
   const [loaded, setLoaded] = useState<Loaded>(isNew ? { kind: 'ready', slug: null, inMenu: false } : { kind: 'loading' })
-  const [draft, setDraft] = useState<CollectionDraft>(() => (isNew ? { ...blankDraft(facets), ...(suggested ? { name: suggested, kind: 'manual' as const } : {}) } : blankDraft(facets)))
-  const [picked, setPicked] = useState<Record<string, Tile>>({})
+  const [draft, setDraft] = useState<CollectionDraft>(() => (isNew ? { ...blankDraft(facets), ...(suggested ? { name: suggested, blocks: [newBlock('picks')] } : {}) } : blankDraft(facets)))
   const [tried, setTried] = useState(false)
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -110,10 +118,9 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
       async (c) => {
         if (!live) return
         if (!c) return setLoaded({ kind: 'missing' })
-        const [members, menu] = await Promise.all([c.kind === 'manual' ? reads.members(c.id) : Promise.resolve([]), loadMenu().catch(() => undefined)])
+        const menu = await loadMenu().catch(() => undefined)
         if (!live) return
-        setPicked(Object.fromEntries(members.map((m) => [m.id, { id: m.id, name: m.name, image: m.imageAssetId ? `/api/assets/${m.imageAssetId}` : null }])))
-        setDraft(draftOf(c, facets, members.map((m) => m.id)))
+        setDraft(draftOf(c, facets))
         setLoaded({ kind: 'ready', slug: c.slug, inMenu: menu === undefined ? null : (menu?.items ?? []).some((i) => i.collectionId === c.id) })
       },
       () => live && setLoaded({ kind: 'failed' }),
@@ -128,15 +135,15 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
     if (loaded.kind === 'ready') nameRef.current?.focus()
   }, [loaded.kind])
 
-  const rules = ruleInputs(draft)
-  const rulesKey = JSON.stringify([draft.kind, draft.match, rules, draft.parentId, draft.inheritParent])
+  const rules = ruleInputs(draft.blocks)
+  const rulesKey = JSON.stringify([rules, draft.parentId, draft.inheritParent])
   useEffect(() => {
-    if (loaded.kind !== 'ready' || draft.kind !== 'automatic') return setPreview({ kind: 'idle' })
+    if (loaded.kind !== 'ready') return setPreview({ kind: 'idle' })
     let live = true
     setPreview({ kind: 'loading' })
     const timer = setTimeout(
       () =>
-        void reads.preview({ match: draft.match, rules, parentId: draft.parentId, inheritParent: draft.inheritParent }).then(
+        void reads.preview({ rules, parentId: draft.parentId, inheritParent: draft.inheritParent }).then(
           (p) => live && setPreview({ kind: 'ready', preview: p }),
           () => live && setPreview({ kind: 'failed' }),
         ),
@@ -146,11 +153,12 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
       live = false
       clearTimeout(timer)
     }
-    // rulesKey stands for the rules, match and parent, which are rebuilt each render.
+    // rulesKey stands for the blocks and the parent, which are rebuilt each render.
   }, [rulesKey, loaded.kind, reads])
 
+  const hasPicks = draft.blocks.some((b) => b.kind === 'picks')
   useEffect(() => {
-    if (draft.kind !== 'manual') return
+    if (!hasPicks) return
     let live = true
     setSearch({ kind: 'loading' })
     const timer = setTimeout(
@@ -159,7 +167,6 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
           (rows) => {
             if (!live) return
             setSearch({ kind: 'ready', rows })
-            setPicked((n) => ({ ...n, ...Object.fromEntries(rows.map((r) => [r.id, { id: r.id, name: r.name, image: r.photoUrl }])) }))
           },
           () => live && setSearch({ kind: 'failed' }),
         ),
@@ -169,7 +176,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
       live = false
       clearTimeout(timer)
     }
-  }, [query, draft.kind, reads])
+  }, [query, hasPicks, reads])
 
   if (loaded.kind === 'loading') return <LoadingState label={messages.collections.loading} />
   if (loaded.kind === 'failed') return <ErrorState title={words.loadFailed.title} body={words.loadFailed.body} retry={{ label: messages.collections.error.retry, onRetry: () => setAttempt((a) => a + 1) }} />
@@ -186,18 +193,14 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
 
   const ro = !canEdit || saving
   const set = (patch: Partial<CollectionDraft>) => setDraft((d) => ({ ...d, ...patch }))
-  const fields = ruleFields(facets, draft.rows)
+  const fields = blockFields(facets, draft.blocks)
   const nameMissing = draft.name.trim() === ''
   const parents = collections.filter((c) => c.id !== draft.id && (c.parentId === null || c.id === draft.parentId))
   const parent = collections.find((c) => c.id === draft.parentId) ?? null
   const slug = loaded.slug ?? (slugOf(draft.name) || words.slugPlaceholder)
-  const count = draft.kind === 'manual' ? draft.productIds.length : preview.kind === 'ready' ? preview.preview.count : null
-  const shown: Tile[] =
-    draft.kind === 'manual'
-      ? draft.productIds.slice(0, 6).map((p) => picked[p] ?? { id: p, name: '', image: null })
-      : preview.kind === 'ready'
-        ? preview.preview.products.map((p) => ({ id: p.id, name: p.name, image: p.imageAssetId ? `/api/assets/${p.imageAssetId}` : null }))
-        : []
+  const handPicked = onlyPicks(draft.blocks)
+  const count = preview.kind === 'ready' ? preview.preview.count : null
+  const shown: Tile[] = preview.kind === 'ready' ? preview.preview.products.map((p) => ({ id: p.id, name: p.name, image: p.imageAssetId ? `/api/assets/${p.imageAssetId}` : null })) : []
 
   const held = collections.find((c) => c.id === draft.id)?.products ?? count ?? 0
 
@@ -213,17 +216,14 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
       await saveCollection(draft.id, draft.revision, {
         name: draft.name.trim(),
         description: draft.description,
-        kind: draft.kind,
-        match: draft.match,
         parentId: draft.parentId,
         inheritParent: draft.parentId !== null && draft.inheritParent,
         visible: draft.visible,
         imageAssetId: draft.imageAssetId,
-        rules: draft.kind === 'automatic' ? rules : [],
-        productIds: draft.kind === 'manual' ? draft.productIds : [],
+        rules,
         ...draft.kept,
       })
-      onDone(fill(draft.kind === 'automatic' ? words.savedAuto : words.saved, { name: draft.name.trim() }))
+      onDone(fill(handPicked ? words.saved : words.savedAuto, { name: draft.name.trim() }))
     } catch (error) {
       setFailure(refusalOf(error))
       setSaving(false)
@@ -253,8 +253,37 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
     })
   }
 
-  const setRow = (key: string, row: RuleRow) => set({ rows: draft.rows.map((r) => (r.key === key ? row : r)) })
-  const join = (i: number) => (i === 0 ? words.where : draft.match === 'any' ? words.or : words.and)
+  const setBlock = (key: string, block: Block) => set({ blocks: draft.blocks.map((b) => (b.key === key ? block : b)) })
+  const addBlock = (choice: string) => {
+    if (choice === 'picks') return set({ blocks: [...draft.blocks, newBlock('picks')] })
+    if (choice === nameField) return set({ blocks: [...draft.blocks, newBlock('name')] })
+    set({ blocks: [...draft.blocks, newBlock('filter', choice)] })
+  }
+  const pickList = (block: Block) => (
+    <div className="df-coll-picks">
+      <input type="search" aria-label={words.search} placeholder={words.search} value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="df-coll-picklist">
+        {search.kind === 'loading' && <p className="df-coll-hint">{words.searching}</p>}
+        {search.kind === 'failed' && (
+          <p className="df-coll-problem" role="alert">
+            {words.searchFailed}
+          </p>
+        )}
+        {search.kind === 'ready' && search.rows.length === 0 && <p className="df-coll-hint">{fill(words.noProducts, { query: query.trim() })}</p>}
+        {search.kind === 'ready' &&
+          search.rows.map((p) => {
+            const on = block.productIds.includes(p.id)
+            return (
+              <label key={p.id} className={on ? 'df-coll-pick df-coll-pick--on' : 'df-coll-pick'}>
+                <input type="checkbox" checked={on} disabled={ro} onChange={() => setBlock(block.key, { ...block, productIds: on ? block.productIds.filter((x) => x !== p.id) : [...block.productIds, p.id] })} />
+                <span>{p.name}</span>
+                <span className="df-coll-hint">{p.approval === 'pending' ? words.statusWaiting : p.visible ? '' : words.statusHidden}</span>
+              </label>
+            )
+          })}
+      </div>
+    </div>
+  )
 
   return (
     <div className="df-coll-edit">
@@ -317,61 +346,44 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
 
         <section className="df-coll-card" aria-labelledby={`${formId}-fill`}>
           <h2 id={`${formId}-fill`}>{words.fill}</h2>
-          <RadioCards
-            labelledBy={`${formId}-fill`}
-            value={draft.kind}
-            disabled={ro}
-            onChange={(kind) => set({ kind })}
-            options={[
-              { value: 'automatic', label: words.automatic, sub: words.automaticSub },
-              { value: 'manual', label: words.manual, sub: words.manualSub },
-            ]}
-          />
-          {draft.kind === 'automatic' ? (
-            <div className="df-coll-rules">
-              <label className="df-coll-match">
-                <span>{words.matchLead}</span>
-                <select value={draft.match} disabled={ro} onChange={(e) => set({ match: e.target.value === 'any' ? 'any' : 'all' })}>
-                  <option value="all">{words.matchAll}</option>
-                  <option value="any">{words.matchAny}</option>
-                </select>
-              </label>
-              {draft.rows.map((row, i) => (
-                <RuleSentence key={row.key} row={row} n={i + 1} join={join(i)} fields={fields} disabled={ro} onChange={(next) => setRow(row.key, next)} onRemove={ro ? null : () => set({ rows: draft.rows.filter((r) => r.key !== row.key) })} />
-              ))}
-              {draft.others.length > 0 && <p className="df-coll-hint">{fill(plural(words.kept, draft.others.length), { count: formatCount(draft.others.length) })}</p>}
-              {!ro && (
-                <button type="button" className="df-coll-link" onClick={() => set({ rows: [...draft.rows, newRow(fields[1]?.id ?? fields[0]?.id ?? nameField)] })}>
-                  {words.addRule}
-                </button>
-              )}
-              <p className="df-coll-note">{pricingCurrency ? fill(words.priceNote, { currency: pricingCurrency }) : words.priceNoteNoCurrency}</p>
-            </div>
-          ) : (
-            <div className="df-coll-picks">
-              <input type="search" aria-label={words.search} placeholder={words.search} value={query} onChange={(e) => setQuery(e.target.value)} />
-              <div className="df-coll-picklist">
-                {search.kind === 'loading' && <p className="df-coll-hint">{words.searching}</p>}
-                {search.kind === 'failed' && (
-                  <p className="df-coll-problem" role="alert">
-                    {words.searchFailed}
-                  </p>
-                )}
-                {search.kind === 'ready' && search.rows.length === 0 && <p className="df-coll-hint">{fill(words.noProducts, { query: query.trim() })}</p>}
-                {search.kind === 'ready' &&
-                  search.rows.map((p) => {
-                    const on = draft.productIds.includes(p.id)
-                    return (
-                      <label key={p.id} className={on ? 'df-coll-pick df-coll-pick--on' : 'df-coll-pick'}>
-                        <input type="checkbox" checked={on} disabled={ro} onChange={() => set({ productIds: on ? draft.productIds.filter((x) => x !== p.id) : [...draft.productIds, p.id] })} />
-                        <span>{p.name}</span>
-                        <span className="df-coll-hint">{p.approval === 'pending' ? words.statusWaiting : p.visible ? '' : words.statusHidden}</span>
-                      </label>
-                    )
-                  })}
-              </div>
-            </div>
+          {parent && (
+            <label className="df-coll-check">
+              <input type="checkbox" checked={draft.inheritParent} disabled={ro} onChange={(e) => set({ inheritParent: e.target.checked })} />
+              {fill(words.inherit, { name: parent.name })}
+            </label>
           )}
+          <div className="df-coll-rules">
+            {draft.blocks.map((block, i) => (
+              <div key={block.key}>
+                {i > 0 && <JoinSwitch joiner={block.joiner} n={i} disabled={ro} onChange={(joiner) => setBlock(block.key, { ...block, joiner })} />}
+                <div className="df-coll-block">
+                  <div className="df-coll-block-head">
+                    <strong>{block.kind === 'picks' ? words.blockPicks : block.kind === 'kept' ? words.blockKept : words.blockFilter}</strong>
+                    {!ro && (
+                      <button type="button" className="df-coll-rule-remove" aria-label={fill(words.removeBlock, { n: String(i + 1) })} onClick={() => set({ blocks: draft.blocks.filter((b) => b.key !== block.key) })}>
+                        <Icon name="close" size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <BlockBody block={block} n={i + 1} fields={fields} disabled={ro} onChange={(next) => setBlock(block.key, next)} picks={pickList(block)} />
+                </div>
+              </div>
+            ))}
+            {draft.blocks.length > 1 && <p className="df-coll-hint">{words.joinNote}</p>}
+            {!ro && (
+              <select className="df-coll-add" aria-label={words.addBlock} value="" onChange={(e) => addBlock(e.target.value)}>
+                <option value="">{words.addBlock}</option>
+                {!hasPicks && <option value="picks">{words.blockPicks}</option>}
+                {fields.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {fill(words.addFilterValues, { name: f.name })}
+                  </option>
+                ))}
+                <option value={nameField}>{words.nameContains}</option>
+              </select>
+            )}
+            <p className="df-coll-note">{pricingCurrency ? fill(words.priceNote, { currency: pricingCurrency }) : words.priceNoteNoCurrency}</p>
+          </div>
         </section>
 
         <section className="df-coll-card" aria-labelledby={`${formId}-parent`}>
@@ -386,10 +398,6 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
           </select>
           {parent && (
             <>
-              <label className="df-coll-check">
-                <input type="checkbox" checked={draft.inheritParent} disabled={ro} onChange={(e) => set({ inheritParent: e.target.checked })} />
-                {fill(words.inherit, { name: parent.name })}
-              </label>
               <span className="df-coll-hint">{fill(words.flow, { parent: parent.name, parentCount: formatCount(parent.products), name: draft.name || words.untitled, count: count === null ? words.countPending : formatCount(count) })}</span>
             </>
           )}
@@ -417,15 +425,15 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
 
       <aside className="df-coll-preview" aria-labelledby={`${formId}-preview`}>
         <div className="df-coll-preview-head">
-          <h2 id={`${formId}-preview`}>{count === null ? words.preview : fill(plural(draft.kind === 'manual' ? words.picked : words.matching, count), { count: formatCount(count) })}</h2>
+          <h2 id={`${formId}-preview`}>{count === null ? words.preview : fill(plural(handPicked ? words.picked : words.matching, count), { count: formatCount(count) })}</h2>
           <span>{words.preview}</span>
         </div>
-        {preview.kind === 'failed' && draft.kind === 'automatic' && (
+        {preview.kind === 'failed' && (
           <p className="df-coll-problem" role="alert">
             {words.previewFailed}
           </p>
         )}
-        {preview.kind === 'loading' && draft.kind === 'automatic' && <p className="df-coll-hint">{words.searching}</p>}
+        {preview.kind === 'loading' && <p className="df-coll-hint">{words.searching}</p>}
         {shown.length > 0 && (
           <ul className="df-coll-tiles">
             {shown.map((p) => (
@@ -436,7 +444,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
             ))}
           </ul>
         )}
-        {count === 0 && <p className="df-coll-hint">{draft.kind === 'manual' ? words.noPicks : words.noMatch}</p>}
+        {count === 0 && <p className="df-coll-hint">{handPicked ? words.noPicks : words.noMatch}</p>}
       </aside>
 
       {asking && (

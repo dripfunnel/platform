@@ -4,7 +4,7 @@ import type { CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { nested, rowsOf, sentenceOf } from './collectionDraft'
+import { blocksOf, nested, sentenceOf } from './collectionDraft'
 import type { SeasonKey } from './seasonal'
 
 const words = messages.collections
@@ -19,16 +19,16 @@ export interface CollectionListProps {
   onCreate: (name?: string) => void
 }
 
-/** Rules as the builder counts them: a filter with its values is one. */
-const ruleCount = (c: CollectionSummary, facets: readonly Facet[]) => {
-  const { rows, others } = rowsOf(c.rules, facets)
-  return rows.length + others.length
-}
+/** Filters as the card counts them: a block is one, however many values it holds. */
+const blockCount = (c: CollectionSummary, facets: readonly Facet[]) => blocksOf(c.rules, facets).length
+
+/** Only picked products (or nothing): hand-picked; any filter in it makes it fill by itself. */
+const handPicked = (c: CollectionSummary) => c.rules.every((r) => r.kind === 'picks')
 
 const subOf = (c: CollectionSummary, all: readonly CollectionSummary[], facets: readonly Facet[]): string => {
   const parent = all.find((p) => p.id === c.parentId)
   if (parent) return fill(c.inheritParent ? words.list.insideOnly : words.list.inside, { name: parent.name })
-  return c.kind === 'automatic' ? sentenceOf(c, facets, words.sentence) : fill(plural(words.list.picked, c.products), { count: formatCount(c.products) })
+  return !handPicked(c) ? sentenceOf(c, facets, words.sentence) : fill(plural(words.list.picked, c.products), { count: formatCount(c.products) })
 }
 
 /** CatCollections' list: heading, seasonal ideas, then every collection with its children under it, or the empty state. */
@@ -72,7 +72,7 @@ export const CollectionList = ({ collections, facets, canEdit, seasonal, giftPri
       ) : (
         <ul className="df-colls-list" aria-label={words.list.label}>
           {nested(collections).map(({ c, depth }) => {
-            const updating = c.kind === 'automatic' && c.computedAt === null
+            const updating = !handPicked(c) && c.computedAt === null
             return (
               <li key={c.id}>
                 <Link to="/collections" search={{ edit: c.id }} className="df-colls-row" aria-label={fill(words.list.open, { name: c.name })}>
@@ -83,7 +83,7 @@ export const CollectionList = ({ collections, facets, canEdit, seasonal, giftPri
                       <span>{subOf(c, collections, facets)}</span>
                     </span>
                   </span>
-                  <span className="df-colls-type">{c.kind === 'automatic' ? fill(plural(words.list.automatic, ruleCount(c, facets)), { count: formatCount(ruleCount(c, facets)) }) : words.list.handPicked}</span>
+                  <span className="df-colls-type">{!handPicked(c) ? fill(plural(words.list.automatic, blockCount(c, facets)), { count: formatCount(blockCount(c, facets)) }) : words.list.handPicked}</span>
                   <span className={updating ? 'df-colls-count df-colls-count--updating' : 'df-colls-count'}>
                     {updating ? fill(words.list.updating, { count: formatCount(c.products) }) : fill(plural(words.list.products, c.products), { count: formatCount(c.products) })}
                   </span>

@@ -24,7 +24,7 @@ export const lookAlikes = (values: readonly { id: string; name: string }[]): { i
 /** How many collections' rules name one of this filter's values. */
 const usedBy = (filter: Filter, collections: readonly CollectionSummary[]) => {
   const ids = new Set(filter.values.map((v) => v.id))
-  return collections.filter((c) => c.rules.some((r) => r.valueId !== null && ids.has(r.valueId))).length
+  return collections.filter((c) => c.rules.some((r) => r.valueIds.some((v) => ids.has(v)))).length
 }
 
 export interface FiltersTabProps {

@@ -334,18 +334,60 @@
   background: var(--df-color-page);
 }
 
-.df-coll-match {
+.df-coll-block {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  font-size: 14px;
+  padding: 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
 }
 
-.df-coll-match select {
-  height: 36px;
-  padding: 0 8px;
-  border: 1px solid var(--df-color-focus);
+.df-coll-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.df-coll-block .df-coll-rule {
+  padding: 0;
+  border: 0;
+}
+
+.df-coll-join {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+
+.df-coll-join button {
+  min-width: 52px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-coll-join button[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-coll-add {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px dashed var(--df-color-field-border);
   border-radius: var(--df-radius);
   background: var(--df-color-surface);
   color: var(--df-color-info);
@@ -363,12 +405,6 @@
   border-radius: var(--df-radius);
   background: var(--df-color-surface);
   font-size: 14px;
-}
-
-.df-coll-rule-join {
-  width: 40px;
-  color: var(--df-color-muted);
-  font-size: 13px;
 }
 
 .df-coll-rule select {
@@ -472,10 +508,11 @@
 
 .df-coll-pick {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--df-color-border);
   font-size: 14px;
   cursor: pointer;
@@ -483,6 +520,8 @@
 
 .df-coll-pick > span:nth-child(2) {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .df-coll-pick--on {

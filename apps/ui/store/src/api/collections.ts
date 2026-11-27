@@ -3,13 +3,16 @@ import { allPages } from './allPages'
 import { loadAllMarkets } from './markets'
 import { query } from './client'
 
-// Collections (CatCollections, FIRST-RELEASE §12): the merchant side's groups of products, by rules or by hand.
+// Collections (CatCollections, FIRST-RELEASE §12): the merchant side's groups of products, from filter blocks joined by AND / OR.
 
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 
 const ruleSchema = z.object({
   kind: z.string(),
-  valueId: z.string().nullable(),
+  joiner: z.string(),
+  valueIds: z.array(z.string()),
+  valueMatch: z.string().nullable(),
+  productIds: z.array(z.string()),
   text: z.string().nullable(),
   productId: z.string().nullable(),
   versionId: z.string().nullable(),
@@ -18,16 +21,14 @@ const ruleSchema = z.object({
   max: z.string().nullable(),
 })
 export type CollectionRule = z.infer<typeof ruleSchema>
-const ruleFields = 'kind valueId text productId versionId currency min max'
+const ruleFields = 'kind joiner valueIds valueMatch productIds text productId versionId currency min max'
 
 const summarySchema = z.object({
   id: z.string(),
   name: z.string(),
-  kind: z.enum(['manual', 'automatic']),
   visible: z.boolean(),
   parentId: z.string().nullable(),
   inheritParent: z.boolean(),
-  match: z.enum(['all', 'any']),
   imageAssetId: z.string().nullable(),
   rules: z.array(ruleSchema),
   products: z.number().int(),
@@ -41,7 +42,7 @@ export const loadCollections = (): Promise<CollectionSummary[]> =>
     async (after) =>
       (
         await query(
-          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name kind visible parentId inheritParent match imageAssetId rules { ${ruleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
+          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name visible parentId inheritParent imageAssetId rules { ${ruleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
           z.object({ collections: z.object({ nodes: z.array(summarySchema), pageInfo: pageInfoSchema }) }),
           { after },
         )
@@ -53,8 +54,6 @@ const collectionSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string(),
-  kind: z.enum(['manual', 'automatic']),
-  match: z.enum(['all', 'any']),
   parentId: z.string().nullable(),
   inheritParent: z.boolean(),
   visible: z.boolean(),
@@ -70,7 +69,7 @@ export type Collection = z.infer<typeof collectionSchema>
 export const loadCollection = async (id: string): Promise<Collection | null> =>
   (
     await query(
-      `query C($id: ID!) { collection(id: $id) { id name slug description kind match parentId inheritParent visible imageAssetId sort seoTitle seoDescription revision rules { ${ruleFields} } } }`,
+      `query C($id: ID!) { collection(id: $id) { id name slug description parentId inheritParent visible imageAssetId sort seoTitle seoDescription revision rules { ${ruleFields} } } }`,
       z.object({ collection: collectionSchema.nullable() }),
       { id },
     )
@@ -78,19 +77,6 @@ export const loadCollection = async (id: string): Promise<Collection | null> =>
 
 const memberSchema = z.object({ id: z.string(), name: z.string(), imageAssetId: z.string().nullable() })
 export type Member = z.infer<typeof memberSchema>
-
-/** A hand-picked collection's products in its order, every page. */
-export const loadMembers = (id: string): Promise<Member[]> =>
-  allPages(
-    async (after) =>
-      (
-        await query(
-          'query M($id: ID!, $after: String) { collectionProducts(id: $id, first: 50, after: $after) { nodes { id name imageAssetId } pageInfo { hasNextPage endCursor } } }',
-          z.object({ collectionProducts: z.object({ nodes: z.array(memberSchema), pageInfo: pageInfoSchema }) }),
-          { id, after },
-        )
-      ).collectionProducts,
-  )
 
 const pickSchema = z.object({ id: z.string(), name: z.string(), visible: z.boolean(), approval: z.string().nullable(), photoUrl: z.string().nullable() })
 export type Pickable = z.infer<typeof pickSchema>
@@ -107,7 +93,11 @@ export const searchPickable = async (search: string): Promise<Pickable[]> =>
 
 export interface RuleInput {
   kind: string
-  valueId?: string
+  /** How this block joins the one before it: "and" or "or". */
+  joiner?: 'and' | 'or'
+  valueIds?: string[]
+  valueMatch?: 'any' | 'all'
+  productIds?: string[]
   text?: string
   productId?: string
   versionId?: string
@@ -119,26 +109,23 @@ export interface RuleInput {
 const previewSchema = z.object({ count: z.number().int(), products: z.array(memberSchema) })
 export type Preview = z.infer<typeof previewSchema>
 
-/** What rules not saved yet would hold (CATALOG H4's live preview). */
-export const previewCollection = async (draft: { match: 'all' | 'any'; rules: RuleInput[]; parentId: string | null; inheritParent: boolean }): Promise<Preview> =>
+/** What blocks not saved yet would hold (CATALOG H4's live preview). */
+export const previewCollection = async (draft: { rules: RuleInput[]; parentId: string | null; inheritParent: boolean }): Promise<Preview> =>
   (
     await query(
-      'query P($m: String, $r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(match: $m, rules: $r, parentId: $p, inheritParent: $i) { count products { id name imageAssetId } } }',
+      'query P($r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(rules: $r, parentId: $p, inheritParent: $i) { count products { id name imageAssetId } } }',
       z.object({ collectionPreview: previewSchema }),
-      { m: draft.match, r: draft.rules, p: draft.parentId, i: draft.inheritParent },
+      { r: draft.rules, p: draft.parentId, i: draft.inheritParent },
     )
   ).collectionPreview
 
 export interface CollectionInput {
   name: string
   description: string
-  kind: 'manual' | 'automatic'
-  match: 'all' | 'any'
   parentId: string | null
   inheritParent: boolean
   visible: boolean
   rules: RuleInput[]
-  productIds: string[]
   imageAssetId?: string | null
   sort?: string
   seoTitle?: string | null
