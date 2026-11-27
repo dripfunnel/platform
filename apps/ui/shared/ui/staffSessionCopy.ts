@@ -12,6 +12,7 @@ export interface StaffSessionWords {
   endFailed: string
   back: string
   action: string
+  close: string
   notice: string
   noticeSetup: string
   ended: string
@@ -56,4 +57,5 @@ export const staffSessionCopy = (words: StaffSessionWords, format: StaffSessionF
   endFailed: words.endFailed,
   back: words.back,
   action: words.action,
+  close: words.close,
 })

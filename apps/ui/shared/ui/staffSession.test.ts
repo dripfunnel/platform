@@ -28,6 +28,7 @@ const words: StaffSessionWords = {
   endFailed: 'That didn’t go through.',
   back: 'Back',
   action: 'Back to the admin console',
+  close: 'Close',
   notice: 'Support ({staff}) is signed in as {user}. Ends in {time}.',
   noticeSetup: 'DripFunnel is setting up your console: {staff}, until {time}.',
   ended: 'This session has ended',

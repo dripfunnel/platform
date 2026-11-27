@@ -494,7 +494,7 @@ Support access* switch (ACCESS §8), not a staff one.
   acting as, who started the session, the host, a countdown and *End
   session*, plus a *Back to …* link that returns while the session keeps
 running. *End session* closes the record and goes back. When the session ends it shows a full-screen "session ended"
-  card. A reused or unknown link shows "This link no longer works". The
+  card with a ✕ (and Esc) that closes it, leaving the page as it is without a session (#1757). A reused or unknown link shows "This link no longer works". The
   prototype keeps its own sample partner and store; only the banner names
   the real one.
 - **In Admin**, every page shows a strip for each session you have open

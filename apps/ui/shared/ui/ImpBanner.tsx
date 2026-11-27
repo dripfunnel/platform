@@ -78,21 +78,48 @@ export interface SessionEndCardProps {
   title: string
   body: string
   action: { label: string; href: string }
+  // The ended card's ✕ and Esc; left out, the card can't be dismissed (the "link no longer works" card).
+  close?: { label: string; onClose: () => void }
 }
 
 // The full-screen card once a session is over or its link is spent: nothing behind it is usable.
-export const SessionEndCard = ({ title, body, action }: SessionEndCardProps) => {
+export const SessionEndCard = ({ title, body, action, close }: SessionEndCardProps) => {
   const titleId = useId()
   const overRef = useRef<HTMLDivElement>(null)
   const actionRef = useRef<HTMLAnchorElement>(null)
+  const onClose = close?.onClose
   useEffect(() => {
+    if (!onClose) return undefined
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  useEffect(() => {
+    const before = document.activeElement
     actionRef.current?.focus()
     const over = overRef.current
-    return over ? inertAround(over) : undefined
+    const undo = over ? inertAround(over) : undefined
+    return () => {
+      undo?.()
+      // WCAG 2.4.3: focus goes back to where it was, or to the page's main region, never to <body>.
+      if (before instanceof HTMLElement && before !== document.body && before.isConnected) return before.focus()
+      const main = document.querySelector<HTMLElement>('main, [role="main"]')
+      main?.setAttribute('tabindex', '-1')
+      main?.focus()
+    }
   }, [])
   return (
     <div ref={overRef} className="df-session-over" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="df-session-card">
+        {close && (
+          <button type="button" className="df-session-card-close" aria-label={close.label} onClick={close.onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        )}
         <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
           <path d={icons.clock} />
         </svg>

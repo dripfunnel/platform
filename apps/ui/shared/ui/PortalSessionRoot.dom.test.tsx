@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SessionEndCard } from './ImpBanner'
 import { PortalSessionRoot } from './PortalSessionRoot'
 import type { PortalSession } from './portalSession'
 import type { PortalStaffSession } from './staffSession'
@@ -36,6 +37,7 @@ const words: StaffSessionWords = {
   endFailed: 'That didn’t go through.',
   back: 'Back',
   action: 'Back to the admin console',
+  close: 'Close',
   notice: 'Support ({staff}) is signed in as {user}. Ends in {time}.',
   noticeSetup: 'DripFunnel is setting up your console: {staff}, until {time}.',
   ended: 'This session has ended',
@@ -126,5 +128,83 @@ describe('the tab that was in the session', () => {
     const tab = await renderRoot(load)
     await tab.changed()
     expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  })
+})
+
+// #1757: the ended card can be closed, and the tab then shows the portal without a session.
+describe('closing the end card', () => {
+  const ended = () => vi.fn<() => Promise<PortalStaffSession | null>>().mockResolvedValueOnce(session({})).mockResolvedValue(session({ state: 'ended', endedBy: 'portal' }))
+  const openCard = async () => {
+    await renderRoot(ended())
+    await advance(sessionPollMs)
+    expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  }
+
+  it('closes with the ✕, named Close', async () => {
+    await openCard()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('returns focus to where it was and makes the page usable again', async () => {
+    const page = document.createElement('div')
+    page.innerHTML = '<main><button type="button" id="behind">Behind</button></main>'
+    document.body.append(page)
+    const behind = page.querySelector<HTMLElement>('#behind')
+    behind?.focus()
+    await openCard()
+    expect(page.inert).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(page.inert).toBe(false)
+    expect(document.activeElement).toBe(behind)
+    page.remove()
+  })
+
+  it('moves focus to the main region when nothing was focused before', async () => {
+    const page = document.createElement('div')
+    page.innerHTML = '<main id="portal-main"><p>Portal</p></main>'
+    document.body.append(page)
+    await openCard()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(document.activeElement).toBe(page.querySelector('#portal-main'))
+    page.remove()
+  })
+
+  it('closes with Esc', async () => {
+    await openCard()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('stays closed at the next read, and still links back to the admin console while open', async () => {
+    await openCard()
+    expect(screen.getByRole('link', { name: 'Back to the admin console' }).getAttribute('href')).toBe('https://admin.dripfunnel.ai')
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await advance(sessionPollMs)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows the card again when a new session in the same tab ends', async () => {
+    let current = session({})
+    await renderRoot(() => Promise.resolve(current))
+    current = session({ state: 'ended', endedBy: 'portal' })
+    await advance(sessionPollMs)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    current = session({ id: 'imp-2' })
+    await advance(sessionPollMs)
+    expect(screen.getByRole('button', { name: 'End session' })).toBeTruthy()
+    current = session({ id: 'imp-2', state: 'ended', endedBy: 'admin' })
+    await advance(sessionPollMs)
+    expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  })
+})
+
+describe('a card with no close', () => {
+  it('has no ✕ and ignores Esc', () => {
+    render(<SessionEndCard title="This link no longer works" body="" action={{ label: 'Back to the admin console', href: 'https://admin.dripfunnel.ai' }} />)
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: 'This link no longer works' })).toBeTruthy()
   })
 })

@@ -11,6 +11,7 @@ export interface StaffSessionCopy {
   endFailed: string
   back: string
   action: string
+  close: string
 }
 
 export interface StaffSessionLayerProps {
@@ -31,16 +32,20 @@ export const StaffSessionLayer = ({ loadCurrent, loadNotice, end, adminUrl, copy
   const mine = usePolling(loadCurrent)
   const others = usePolling(loadNotice)
   const [endFailed, setEndFailed] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
   const session = mine.value
   const state = session && sessionStateAt(session, now)
   useEffect(() => {
-    if (state === 'open') onOpen()
+    if (state === 'open') {
+      onOpen()
+      setDismissed(false)
+    }
   }, [state, onOpen])
   // The ended card is for the tab that was in the session; the cookie outlives it (ACCESS.md §8.3, #1531).
-  if (session && state && (state === 'open' || seenOpen)) {
+  if (session && state && (state === 'open' || (seenOpen && !dismissed))) {
     if (state !== 'open') {
       const over = copy.over({ ...session, state, endedBy: session.endedBy ?? 'expiry' })
-      return <SessionEndCard title={over.title} body={over.body} action={{ label: copy.action, href: adminUrl }} />
+      return <SessionEndCard title={over.title} body={over.body} action={{ label: copy.action, href: adminUrl }} close={{ label: copy.close, onClose: () => setDismissed(true) }} />
     }
     return (
       <ImpBanner

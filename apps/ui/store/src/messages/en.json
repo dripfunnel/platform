@@ -376,6 +376,7 @@
     "endFailed": "That didn’t end the session. Try again, or end it from the admin console.",
     "back": "Back to the admin console (keeps running)",
     "action": "Back to the admin console",
+    "close": "Close",
     "notice": "Support ({staff}) is signed in as {user}. Ends in {time}.",
     "noticeSetup": "DripFunnel is setting up your console: {staff}, until {time}.",
     "ended": "This session has ended",
