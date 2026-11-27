@@ -192,7 +192,8 @@ import { localActionsKeys, localStorefrontR2 } from '#integrations/local/builds'
 import type { BuildDeps } from '#saas/storefronts/index'
 import { storefrontCreateKind, storefrontUndoKind, type CreateStorefrontParams, type UndoStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
-import { endTrials, followEndedSubscriptions, queueRenewalReminders, suspendOverdueStores } from '#saas/storeBilling/index'
+import { endTrials, planFollowKind, queueRenewalReminders, queueSubscriptionFollows, suspendOverdueStores } from '#saas/storeBilling/index'
+import { planFollowDeliverer } from '#jobs/queues/deliverers/planFollow'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
@@ -386,6 +387,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(sms ? { [smsKind]: smsDeliverer(sql, sms.accounts, sms.senders) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
+    ...(secrets ? { [planFollowKind]: planFollowDeliverer({ sql, api: razorpayBilling(), secrets, activity: activityLog, now: () => new Date() }) } : {}),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
@@ -1307,14 +1309,13 @@ const remindRenewals: CronJob = async (sql) => {
   if (queued > 0) logEvent({ event: 'plan_reminders_queued', api: 'system', code: 'due', count: queued })
 }
 
-// Every hour, a store whose period has ended is read back from Razorpay, in case its webhook never came.
-const followPlanSubscriptions: CronJob = async (sql, config) => {
-  const secrets = await (secretsFor(config) ?? null)
-  const followed = await followEndedSubscriptions({ sql, api: razorpayBilling(), secrets, activity: activityLog, now: () => new Date() }).catch((error: unknown) => {
+// Every hour, each store whose period has ended is queued to be read back from Razorpay, in case its webhook never came.
+const followPlanSubscriptions: CronJob = async (sql) => {
+  const queued = await queueSubscriptionFollows(sql, new Date()).catch((error: unknown) => {
     logEvent({ event: 'plan_follow_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     return 0
   })
-  if (followed > 0) logEvent({ event: 'plan_subscriptions_followed', api: 'system', code: 'ended', count: followed })
+  if (queued > 0) logEvent({ event: 'plan_subscriptions_queued', api: 'system', code: 'ended', count: queued })
 }
 
 // SAAS §7.3: a store 14 days past due is suspended.

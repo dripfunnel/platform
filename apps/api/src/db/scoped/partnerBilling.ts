@@ -52,10 +52,6 @@ export const saveBillingAccount = async (tx: ScopedSql, partnerId: string, patch
 export const selectContractCurrency = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
   (await tx<{ fee_currency: string }[]>`select fee_currency from partner_contract where partner_id = ${partnerId}`)[0]?.fee_currency ?? null
 
-export const setBillingMode = async (tx: ScopedSql, partnerId: string, mode: 'dripfunnel' | 'own'): Promise<void> => {
-  await tx`update partner set billing_mode = ${mode} where id = ${partnerId}`
-}
-
 export interface PaymentRow {
   id: string
   charged_at: Date

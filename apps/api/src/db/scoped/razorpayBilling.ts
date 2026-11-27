@@ -212,19 +212,36 @@ export const markSubscriptionPastDue = async (tx: ScopedSql, storeId: string): P
   await tx`update store_subscription set status = 'past_due' where store_id = ${storeId} and status in ('active', 'trial')`
 }
 
+const scheduledAtEnd = 'sub.next_plan_id is not null and sub.change_at <= sub.period_end'
+
 export interface RazorpayStoreEnding {
   store_id: string
   partner_id: string
   period_end: Date
   razorpay_subscription_id: string
   razorpay_mode: GatewayMode
+  currency: string
+  /** What the next renewal charges: the scheduled plan's price when a change applies at the period's end. */
+  renewal_amount: number | null
+  renewal_plan_name: string
+  payment_method_brand: string | null
+  payment_method_last4: string | null
+  payment_method_label: string | null
 }
 
 /** Stores on a Razorpay subscription whose period ends in (from, until], a page at a time after `after`. */
 export const selectRazorpayStoresEnding = (tx: ScopedSql, from: Date, until: Date, limit: number, after: { periodEnd: Date; storeId: string } | null = null): Promise<RazorpayStoreEnding[]> =>
   tx<RazorpayStoreEnding[]>`
-    select sub.store_id, sub.partner_id, sub.period_end, sub.razorpay_subscription_id, sub.razorpay_mode from store_subscription sub
+    select sub.store_id, sub.partner_id, sub.period_end, sub.razorpay_subscription_id, sub.razorpay_mode, sub.currency,
+      case when ${tx.unsafe(scheduledAtEnd)} then (case when coalesce(sub.next_interval, sub.interval) = 'year' then pp.yearly_amount else pp.monthly_amount end)
+        else sub.amount end::int as renewal_amount,
+      case when ${tx.unsafe(scheduledAtEnd)} then np.name else p.name end as renewal_plan_name,
+      sub.payment_method_brand, sub.payment_method_last4, sub.payment_method_label
+    from store_subscription sub
     join store s on s.id = sub.store_id
+    join plan p on p.id = sub.plan_id
+    left join plan np on np.id = sub.next_plan_id
+    left join plan_price pp on pp.plan_id = sub.next_plan_id and pp.version = sub.next_plan_version and pp.currency = sub.currency
     where sub.razorpay_subscription_id is not null and sub.status in ('active', 'past_due') and sub.cancel_at is null and sub.amount > 0
       and sub.period_end > ${from} and sub.period_end <= ${until} and s.status in ('active', 'past_due', 'suspended')
       ${after ? tx`and (sub.period_end, sub.store_id) > (${after.periodEnd}, ${after.storeId})` : tx``}

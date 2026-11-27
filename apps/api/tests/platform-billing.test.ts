@@ -86,7 +86,6 @@ const q = {
   card: `{ paymentMethod { brand last4 expires status } }`,
   invoices: `{ partnerInvoices { items { id number what amount { amount currency } status } } }`,
   download: `query($id: ID!) { downloadInvoice(id: $id) { ok reason url } }`,
-  mode: `mutation($m: String!) { setBillingMode(mode: $m) { ok reason } }`,
   payout: `mutation($t: String!) { setPayoutAccount(token: $t) { ok reason } }`,
   pay: `mutation($t: String!) { setPaymentMethod(token: $t) { ok reason } }`,
 }
@@ -405,17 +404,9 @@ describe('payout account and card', () => {
 })
 
 describe('who bills, and one partner never another', () => {
-  it('lets Owner and Finance set their own billing, audited, and refuses DripFunnel billing (#1743)', async () => {
-    expect((await run(q.mode, callerOf(ids.ns, 'partner-admin'), { m: 'own' })).code).toBe('FORBIDDEN')
-    expect((await run(q.mode, callerOf(ids.ns, 'partner-read-only'), { m: 'own' })).code).toBe('FORBIDDEN')
+  it('has every partner bill its own merchants, with no way left to choose DripFunnel (#1743)', async () => {
     const finance = callerOf(ids.ns, 'partner-finance')
-    expect((await run<{ setBillingMode: { reason: string } }>(q.mode, finance, { m: 'stripe' })).data?.setBillingMode.reason).toBe('INVALID_INPUT')
-    expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'own' })).data?.setBillingMode.ok).toBe(true)
-    expect((await run<{ billingSettings: { mode: string } }>(q.settings, finance)).data?.billingSettings.mode).toBe('own')
-    expect(await db.sql`select 1 from activity_log where action = 'partner.billing_mode_set' and partner_id = ${ids.ns}`).toHaveLength(1)
-    expect((await run<{ setBillingMode: { reason: string } }>(q.mode, finance, { m: 'dripfunnel' })).data?.setBillingMode.reason).toBe('INVALID_INPUT')
-    expect((await run<{ billingSettings: { mode: string } }>(q.settings, finance)).data?.billingSettings.mode).toBe('own')
-    await db.sql`update partner set billing_mode = 'dripfunnel' where id = ${ids.ns}`
+    await expect(run('mutation { setBillingMode(mode: "dripfunnel") { ok } }', finance)).rejects.toThrow(/setBillingMode/)
   })
 
   it('makes a new partner bill its own merchants', async () => {
@@ -472,7 +463,7 @@ describe('who bills, and one partner never another', () => {
     })
     const before = await northstarRows()
     const finance = callerOf(ids.bz, 'partner-finance')
-    expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'own' })).data?.setBillingMode.ok).toBe(true)
+    await db.sql`update partner set billing_mode = 'own' where id = ${ids.bz}`
     expect((await run<{ setPayoutAccount: { ok: boolean } }>(q.payout, finance, { t: 'btok_bazaar1' })).data?.setPayoutAccount.ok).toBe(true)
     expect((await run<{ setPaymentMethod: { ok: boolean } }>(q.pay, finance, { t: 'pm_bazaar1' })).data?.setPaymentMethod.ok).toBe(true)
     expect(await northstarRows()).toEqual(before)

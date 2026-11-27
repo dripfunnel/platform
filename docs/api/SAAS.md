@@ -512,8 +512,8 @@ the partner.
 **Decided 2026-11-26 (Kshitij, #1743): every partner bills its own merchants.** DripFunnel
 charges partners by hand, now and for the foreseeable future, and no longer bills merchants on
 a partner's behalf. Migration 0419 set every partner, the house partner included, to `own` and
-made it the default; `setBillingMode` accepts only `own`, and the partner console no longer
-offers the choice. The Stripe merchant-billing path below (§7.2's store subscriptions,
+made it the default; the Platform API's `setBillingMode` is removed, and the partner console no
+longer offers the choice. The Stripe merchant-billing path below (§7.2's store subscriptions,
 `merchant_charge`, Connect payouts) stays in the code but is no longer reached; deleting it is a
 card of its own. How a partner charges its merchants through its own Razorpay account is #1744.
 

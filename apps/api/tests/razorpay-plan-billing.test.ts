@@ -15,7 +15,7 @@ import { razorpayBilling, type RazorpayBilling, type RazorpayInvoice, type Razor
 import { activityLog } from '#saas/activity/index'
 import { createPartnerRazorpayService } from '#saas/billing/index'
 import { handleRazorpayBillingHook } from '#hooks/razorpayBilling'
-import { followEndedSubscriptions, queueRenewalReminders, settleFromRazorpayWebhook } from '#saas/storeBilling/index'
+import { followStoreSubscription, planFollowKind, queueRenewalReminders, queueSubscriptionFollows, settleFromRazorpayWebhook } from '#saas/storeBilling/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -160,6 +160,17 @@ const disconnectAll = async () => {
   for (const m of ['live', 'test']) await platform('mutation D($m: String!) { disconnectRazorpay(mode: $m) { ok } }', callerOf(t.partnerA, 'partner-owner'), { m })
 }
 
+/** The hourly run: it queues a job per store due, and each job reads that store back from Razorpay. */
+const backstop = async () => {
+  await queueSubscriptionFollows(db.sql, clock)
+  const jobs = await db.sql<{ id: string; store_id: string }[]>`select id, store_id from outbox where kind = ${planFollowKind} and delivered_at is null`
+  for (const job of jobs) {
+    await followStoreSubscription(deps(), job.store_id)
+    await db.sql`update outbox set delivered_at = now() where id = ${job.id}`
+  }
+  return jobs.length
+}
+
 const storeOf = (who: Who) => (who === 'trialOwner' ? t.storeA2 : who === 'otherOwner' ? t.storeB1 : t.storeA1)
 const store = async (source: string, who: Who, variables: Record<string, unknown> = {}) => {
   const partnerId = who === 'otherOwner' ? t.partnerB : t.partnerA
@@ -214,7 +225,7 @@ afterAll(async () => {
 beforeEach(async () => {
   clock = new Date('2026-11-10T00:00:00Z')
   Object.assign(rz, { plans: new Map(), subs: new Map(), addons: new Map(), invoices: new Map(), payments: new Map(), calls: [], refuseKeys: false, otherAccount: false })
-  await db.sql`delete from outbox where payload->>'template' = 'plan-renewal-reminder'`
+  await db.sql`delete from outbox where payload->>'template' = 'plan-renewal-reminder' or kind = ${planFollowKind}`
   await db.sql`delete from store_plan_charge`
   await db.sql`delete from razorpay_plan`
   await db.sql`delete from partner_credential where kind = 'billing'`
@@ -364,7 +375,7 @@ describe('following Razorpay', () => {
     // A webhook that never came: the hourly run reads the store back once its period has ended.
     clock = new Date('2027-01-10T01:00:00Z')
     renew(subscriptionId, new Date('2027-01-10T00:00:00Z'), new Date('2027-02-10T00:00:00Z'))
-    expect(await followEndedSubscriptions(deps())).toBe(1)
+    expect(await backstop()).toBe(1)
     expect((await subRow(t.storeA1))?.period_end).toEqual(new Date('2027-02-10T00:00:00Z'))
   })
 
@@ -457,7 +468,7 @@ describe('changes on a running subscription', () => {
     const end = (await subRow(t.storeA1))?.period_end ?? clock
     clock = new Date(end.getTime() + 60_000)
     subOf(subscriptionId).status = 'cancelled'
-    expect(await followEndedSubscriptions(deps())).toBe(1)
+    expect(await backstop()).toBe(1)
     expect(await subRow(t.storeA1)).toMatchObject({ plan_id: plans.free, razorpay_subscription_id: null })
     expect(await storeStatus(t.storeA1)).toBe('active')
   })

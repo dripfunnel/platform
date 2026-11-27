@@ -212,12 +212,6 @@ builder.mutationFields((t) => ({
 }))
 
 builder.mutationFields((t) => ({
-  setBillingMode: t.field({
-    type: Result,
-    args: { mode: t.arg.string({ required: true }) },
-    extensions: { access: { api: 'platform', scope: 'partner', permission: 'billing.write', target: 'none', audit: billingAudit.setBillingMode } },
-    resolve: (_, { mode }, ctx) => signedIn(ctx.billing).setBillingMode(mode),
-  }),
   setPayoutAccount: t.field({ type: Result, args: { token: t.arg.string({ required: true }) }, extensions: moneyDetails('payout.write', billingAudit.setPayoutAccount), resolve: (_, { token }, ctx) => signedIn(ctx.billing).setPayoutAccount(token) }),
   setPaymentMethod: t.field({ type: Result, args: { token: t.arg.string({ required: true }) }, extensions: moneyDetails('card.write', billingAudit.setPaymentMethod), resolve: (_, { token }, ctx) => signedIn(ctx.billing).setPaymentMethod(token) }),
 }))

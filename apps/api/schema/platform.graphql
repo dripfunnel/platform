@@ -402,7 +402,6 @@ type Mutation {
   savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
   saveSmsAccount(accessKeyId: String, accountSid: String, authKey: String, authToken: String, entityId: String, messagingServiceSid: String, provider: String!, region: String, secretAccessKey: String, senderId: String, templates: [PartnerSmsTemplateInput!]): PartnerSmsResult
   saveWhatsAppAccount(accessToken: String!, businessAccountId: String!, language: String!, phoneNumberId: String!, templates: [PartnerWhatsAppTemplateInput!]!): PartnerWhatsAppResult
-  setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setMapsChoice(account: String!): PartnerMapsResult
   setPaymentMethod(token: String!): BillingResult

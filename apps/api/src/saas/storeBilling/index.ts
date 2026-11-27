@@ -55,7 +55,7 @@ export type { Interval, Quote, When } from './quote'
 export { applyStoreSubscription, dunningLabel, suspendOverdueStores, suspendAfterDays } from './dunning'
 export { endTrials, keepWithinPlan } from './keep'
 export { createStoreDataExport, storeDataAudit, storeDataParts } from './exportData'
-export { followEndedSubscriptions, queueRenewalReminders, settleFromRazorpayWebhook } from './razorpay'
+export { followStoreSubscription, planFollowKind, queueRenewalReminders, queueSubscriptionFollows, settleFromRazorpayWebhook } from './razorpay'
 export type { PlanBillingDeps } from './razorpay'
 
 // The store's Billing (FIRST-RELEASE §16, SAAS §7; card #329): the partner's plans, the plan change with its

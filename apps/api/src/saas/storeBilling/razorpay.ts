@@ -23,10 +23,10 @@ import {
   selectSubscribeCharge,
   type GatewayMode,
 } from '#db/scoped/razorpayBilling'
+import { insertOutboxMany } from '#db/scoped/outbox'
 import { applyPlan, clearScheduledChange, scheduleChange, selectBillingSubscription } from '#db/scoped/storeBilling'
 import { selectStoreForUpdate } from '#db/scoped/stores'
 import { dateOf, methodOf, razorpayKeysSchema, type PlanMethod, type RazorpayBilling, type RazorpayKeys, type RazorpaySubscription } from '#integrations/payments/index'
-import { queueSideEffect } from '#saas/outbox/index'
 import { transitionStore } from '#saas/stores/index'
 import { dunningLabel } from './dunning'
 import { keepWithinPlan } from './keep'
@@ -41,7 +41,7 @@ export const upiBelow = 1_500_000
 const remindAheadMs = 2 * 86_400_000
 const dayMs = 86_400_000
 const sweepSize = 100
-/** A run stops after this many pages; the next run (hourly, or tomorrow's reminder window) carries on. */
+/** A run queues at most this many pages; the next run carries on (the queue does the Razorpay calls). */
 const sweepPages = 50
 /** How far back the hourly run looks for a store whose period ended without Razorpay's renewal reaching it. */
 const backstopMs = 7 * dayMs
@@ -348,58 +348,63 @@ export const settleFromRazorpayWebhook = async (deps: PlanBillingDeps, partnerId
   return 'invalid'
 }
 
-/** The hourly backstop for a missed webhook: each store whose period ended in the last week is read back from Razorpay. */
-export const followEndedSubscriptions = async (deps: PlanBillingDeps): Promise<number> => {
-  const at = deps.now()
-  const gateways = new Map<string, Promise<Gateway | null>>()
-  let followed = 0
-  for await (const store of storesEnding(deps.sql, new Date(at.getTime() - backstopMs), at)) {
-    const key = `${store.partner_id}:${store.razorpay_mode}`
-    if (!gateways.has(key)) gateways.set(key, openGateway(deps, store.partner_id, store.razorpay_mode))
-    const gateway = await gateways.get(key)
-    if (!gateway) continue
-    try {
-      if ((await followSubscription(deps, gateway, store.partner_id, await deps.api.subscription(gateway.keys, store.razorpay_subscription_id))) !== 'unknown') followed += 1
-    } catch (error) {
-      if (!(error instanceof PaymentUnavailable || error instanceof PaymentRefused)) throw error
-    }
-  }
-  return followed
+/** The job kind that reads one store's subscription back from Razorpay (jobs/queues/deliverers/planFollow). */
+export const planFollowKind = 'plan.follow'
+
+/**
+ * The hourly backstop for a missed webhook: one job per store whose period ended in the last week, keyed by the hour,
+ * so the Razorpay calls run on the queue with its retries, never in the cron.
+ */
+export const queueSubscriptionFollows = (sql: postgres.Sql, now: Date): Promise<number> => {
+  const hour = Math.floor(now.getTime() / 3_600_000)
+  return sweep(sql, new Date(now.getTime() - backstopMs), now, (tx, rows) =>
+    insertOutboxMany(tx, rows.map((r) => ({ kind: planFollowKind, idempotencyKey: `${r.store_id}:${hour}`, payload: { storeId: r.store_id }, partnerId: r.partner_id, storeId: r.store_id }))),
+  )
+}
+
+/** One store's subscription read back from Razorpay and followed; nothing when it has none or its keys are gone. */
+export const followStoreSubscription = async (deps: PlanBillingDeps, storeId: string): Promise<'renewed' | 'changed' | 'past_due' | 'unchanged' | 'unknown'> => {
+  const sub = await withSystemScope(deps.sql, (tx) => selectBillingSubscription(tx, storeId))
+  if (!sub?.razorpay_subscription_id || !sub.razorpay_mode) return 'unknown'
+  const gateway = await openGateway(deps, sub.partner_id, sub.razorpay_mode)
+  if (!gateway) return 'unknown'
+  return followSubscription(deps, gateway, sub.partner_id, await deps.api.subscription(gateway.keys, sub.razorpay_subscription_id))
 }
 
 /** The reminder the day before a renewal, once per period, naming a change scheduled for it (SAAS §7.4). */
-export const queueRenewalReminders = async (sql: postgres.Sql, now: Date): Promise<number> => {
-  let queued = 0
-  for await (const due of storesEnding(sql, new Date(now.getTime() + dayMs), new Date(now.getTime() + remindAheadMs))) {
-    queued += await withSystemScope(sql, async (tx) => {
-      const sub = await selectBillingSubscription(tx, due.store_id)
-      if (!sub) return 0
-      const scheduled = sub.next_plan_id && sub.next_plan_version !== null && sub.change_at && sub.change_at.getTime() <= sub.period_end.getTime()
-      const amount = scheduled ? await selectPlanPrice(tx, sub.next_plan_id ?? '', sub.next_plan_version ?? 1, sub.currency, sub.next_interval ?? sub.interval) : sub.amount
-      if (!amount) return 0
-      await queueSideEffect(tx, {
-        kind: 'email',
-        idempotencyKey: `plan-renewal-reminder:${sub.store_id}:${sub.period_end.toISOString()}`,
-        payload: { template: 'plan-renewal-reminder', storeId: sub.store_id, plan: scheduled ? (sub.next_plan_name ?? sub.plan_name) : sub.plan_name, amount: String(amount), currency: sub.currency, method: savedMethodOf(sub), at: sub.period_end.toISOString() },
-        partnerId: sub.partner_id,
-        storeId: sub.store_id,
-      })
-      return 1
-    })
-  }
-  return queued
-}
+export const queueRenewalReminders = (sql: postgres.Sql, now: Date): Promise<number> =>
+  sweep(sql, new Date(now.getTime() + dayMs), new Date(now.getTime() + remindAheadMs), (tx, rows) =>
+    insertOutboxMany(
+      tx,
+      rows
+        .filter((r) => r.renewal_amount)
+        .map((r) => ({
+          kind: 'email',
+          idempotencyKey: `plan-renewal-reminder:${r.store_id}:${r.period_end.toISOString()}`,
+          payload: { template: 'plan-renewal-reminder', storeId: r.store_id, plan: r.renewal_plan_name, amount: String(r.renewal_amount), currency: r.currency, method: savedMethodOf(r), at: r.period_end.toISOString() },
+          partnerId: r.partner_id,
+          storeId: r.store_id,
+        })),
+    ),
+  )
 
-/** Every store ending in the window, a page at a time, so one run reaches all of them (up to sweepPages). */
-async function* storesEnding(sql: postgres.Sql, from: Date, until: Date): AsyncGenerator<RazorpayStoreEnding> {
+/** Every store ending in the window, a page per transaction (keyset on period end and store), up to sweepPages. */
+const sweep = async (sql: postgres.Sql, from: Date, until: Date, each: (tx: ScopedSql, rows: RazorpayStoreEnding[]) => Promise<void>): Promise<number> => {
   let after: { periodEnd: Date; storeId: string } | null = null
+  let total = 0
   for (let page = 0; page < sweepPages; page += 1) {
-    const rows = await withSystemScope(sql, (tx) => selectRazorpayStoresEnding(tx, from, until, sweepSize, after))
-    yield* rows
+    const cursor = after
+    const rows = await withSystemScope(sql, async (tx) => {
+      const found = await selectRazorpayStoresEnding(tx, from, until, sweepSize, cursor)
+      await each(tx, found)
+      return found
+    })
+    total += rows.length
     const last = rows.at(-1)
-    if (!last || rows.length < sweepSize) return
+    if (!last || rows.length < sweepSize) break
     after = { periodEnd: last.period_end, storeId: last.store_id }
   }
+  return total
 }
 
 /** The method a store's subscription charges, as stored (db/scoped/razorpayBilling saveRazorpaySubscription). */
