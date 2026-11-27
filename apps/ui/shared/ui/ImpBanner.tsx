@@ -97,9 +97,18 @@ export const SessionEndCard = ({ title, body, action, close }: SessionEndCardPro
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
   useEffect(() => {
+    const before = document.activeElement
     actionRef.current?.focus()
     const over = overRef.current
-    return over ? inertAround(over) : undefined
+    const undo = over ? inertAround(over) : undefined
+    return () => {
+      undo?.()
+      // WCAG 2.4.3: focus goes back to where it was, or to the page's main region, never to <body>.
+      if (before instanceof HTMLElement && before !== document.body && before.isConnected) return before.focus()
+      const main = document.querySelector<HTMLElement>('main, [role="main"]')
+      main?.setAttribute('tabindex', '-1')
+      main?.focus()
+    }
   }, [])
   return (
     <div ref={overRef} className="df-session-over" role="dialog" aria-modal="true" aria-labelledby={titleId}>

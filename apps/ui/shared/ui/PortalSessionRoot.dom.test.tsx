@@ -146,6 +146,30 @@ describe('closing the end card', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('returns focus to where it was and makes the page usable again', async () => {
+    const page = document.createElement('div')
+    page.innerHTML = '<main><button type="button" id="behind">Behind</button></main>'
+    document.body.append(page)
+    const behind = page.querySelector<HTMLElement>('#behind')
+    behind?.focus()
+    await openCard()
+    expect(page.inert).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(page.inert).toBe(false)
+    expect(document.activeElement).toBe(behind)
+    page.remove()
+  })
+
+  it('moves focus to the main region when nothing was focused before', async () => {
+    const page = document.createElement('div')
+    page.innerHTML = '<main id="portal-main"><p>Portal</p></main>'
+    document.body.append(page)
+    await openCard()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(document.activeElement).toBe(page.querySelector('#portal-main'))
+    page.remove()
+  })
+
   it('closes with Esc', async () => {
     await openCard()
     fireEvent.keyDown(document, { key: 'Escape' })
