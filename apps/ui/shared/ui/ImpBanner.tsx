@@ -78,13 +78,24 @@ export interface SessionEndCardProps {
   title: string
   body: string
   action: { label: string; href: string }
+  // The ended card's ✕ and Esc; left out, the card can't be dismissed (the "link no longer works" card).
+  close?: { label: string; onClose: () => void }
 }
 
 // The full-screen card once a session is over or its link is spent: nothing behind it is usable.
-export const SessionEndCard = ({ title, body, action }: SessionEndCardProps) => {
+export const SessionEndCard = ({ title, body, action, close }: SessionEndCardProps) => {
   const titleId = useId()
   const overRef = useRef<HTMLDivElement>(null)
   const actionRef = useRef<HTMLAnchorElement>(null)
+  const onClose = close?.onClose
+  useEffect(() => {
+    if (!onClose) return undefined
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
   useEffect(() => {
     actionRef.current?.focus()
     const over = overRef.current
@@ -93,6 +104,13 @@ export const SessionEndCard = ({ title, body, action }: SessionEndCardProps) => 
   return (
     <div ref={overRef} className="df-session-over" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="df-session-card">
+        {close && (
+          <button type="button" className="df-session-card-close" aria-label={close.label} onClick={close.onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        )}
         <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
           <path d={icons.clock} />
         </svg>

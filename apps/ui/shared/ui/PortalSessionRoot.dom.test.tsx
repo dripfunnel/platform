@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalSessionRoot } from './PortalSessionRoot'
@@ -36,6 +36,7 @@ const words: StaffSessionWords = {
   endFailed: 'That didn’t go through.',
   back: 'Back',
   action: 'Back to the admin console',
+  close: 'Close',
   notice: 'Support ({staff}) is signed in as {user}. Ends in {time}.',
   noticeSetup: 'DripFunnel is setting up your console: {staff}, until {time}.',
   ended: 'This session has ended',
@@ -126,5 +127,35 @@ describe('the tab that was in the session', () => {
     const tab = await renderRoot(load)
     await tab.changed()
     expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  })
+})
+
+// #1757: the ended card can be closed, and the tab then shows the portal without a session.
+describe('closing the end card', () => {
+  const ended = () => vi.fn<() => Promise<PortalStaffSession | null>>().mockResolvedValueOnce(session({})).mockResolvedValue(session({ state: 'ended', endedBy: 'portal' }))
+  const openCard = async () => {
+    await renderRoot(ended())
+    await advance(sessionPollMs)
+    expect(screen.getByRole('dialog', { name: 'This session has ended' })).toBeTruthy()
+  }
+
+  it('closes with the ✕, named Close', async () => {
+    await openCard()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('closes with Esc', async () => {
+    await openCard()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('stays closed at the next read, and still links back to the admin console while open', async () => {
+    await openCard()
+    expect(screen.getByRole('link', { name: 'Back to the admin console' }).getAttribute('href')).toBe('https://admin.dripfunnel.ai')
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await advance(sessionPollMs)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
