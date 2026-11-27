@@ -94,24 +94,48 @@ const fake: RazorpayBilling = {
   },
 }
 
+/** Razorpay's invoice for a charge, in the partner's name, GST included; newest first on the subscription. */
+const invoiced = (subscriptionId: string, paymentId: string, amount: number, period: { start: Date; end: Date } | null) => {
+  const inv = id('inv')
+  const invoice: RazorpayInvoice = {
+    id: inv,
+    invoice_number: `NS/${inv.slice(-4)}`,
+    status: 'paid',
+    amount,
+    tax_amount: Math.round((amount * 18) / 118),
+    currency: 'INR',
+    payment_id: paymentId,
+    billing_start: period ? seconds(period.start) : null,
+    billing_end: period ? seconds(period.end) : null,
+    issued_at: seconds(clock),
+    paid_at: seconds(clock),
+    created_at: seconds(clock),
+    short_url: `https://rzp.io/i/${inv}`,
+  }
+  rz.invoices.set(subscriptionId, [invoice, ...(rz.invoices.get(subscriptionId) ?? [])])
+}
+
 /**
  * The Owner pays in Checkout, and Checkout signs the answer. A subscription starting now is active for its first period; one
- * starting later (a plan change) is only authenticated, its add-on or Razorpay's authorisation paid today.
+ * starting later (a plan change) is only authenticated, its add-on or Razorpay's authorisation paid today. Razorpay
+ * invoices what it charges, never the authorisation.
  */
 const authorise = (subscriptionId: string, payment: Partial<RazorpayPayment> = {}) => {
   const s = subOf(subscriptionId)
   const later = !!s.start_at
   const p: RazorpayPayment = { id: id('pay'), status: 'captured', amount: later ? (rz.addons.get(s.id) ?? 500) : (rz.plans.get(s.plan_id)?.amount ?? 0), currency: 'INR', method: 'card', card: { last4: '1111', network: 'Visa' }, ...payment }
   rz.payments.set(p.id, p)
-  Object.assign(s, later ? { status: 'authenticated', customer_id: 'cust_T0OWNER1' } : { status: 'active', customer_id: 'cust_T0OWNER1', current_start: seconds(clock), current_end: seconds(new Date(clock.getTime() + 30 * day)), paid_count: 1 })
+  const period = { start: clock, end: new Date(clock.getTime() + 30 * day) }
+  Object.assign(s, later ? { status: 'authenticated', customer_id: 'cust_T0OWNER1' } : { status: 'active', customer_id: 'cust_T0OWNER1', current_start: seconds(period.start), current_end: seconds(period.end), paid_count: 1 })
+  if (!later) invoiced(s.id, p.id, p.amount, period)
+  else if (rz.addons.has(s.id)) invoiced(s.id, p.id, p.amount, null)
   return { p: p.id, s: subscriptionId, g: createHmac('sha256', keys.keySecret).update(`${p.id}|${subscriptionId}`).digest('hex') }
 }
 /** Razorpay charges the next period on its own. */
 const renew = (subscriptionId: string, start: Date, end: Date, planId?: string) => {
   const s = subOf(subscriptionId)
-  const pay = id('pay')
   Object.assign(s, { status: 'active', current_start: seconds(start), current_end: seconds(end), paid_count: s.paid_count + 1, ...(planId ? { plan_id: planId } : {}) })
-  rz.invoices.set(subscriptionId, [{ id: id('inv'), status: 'paid', payment_id: pay, billing_start: seconds(start), billing_end: seconds(end) }, ...(rz.invoices.get(subscriptionId) ?? [])])
+  invoiced(subscriptionId, id('pay'), rz.plans.get(s.plan_id)?.amount ?? 0, { start, end })
 }
 const webhook = (subscriptionId: string, secret = keys.webhookSecret) => {
   const body = JSON.stringify({ event: 'subscription.charged', payload: { subscription: { entity: { id: subscriptionId } } } })
@@ -227,6 +251,7 @@ beforeEach(async () => {
   Object.assign(rz, { plans: new Map(), subs: new Map(), addons: new Map(), invoices: new Map(), payments: new Map(), calls: [], refuseKeys: false, otherAccount: false })
   await db.sql`delete from outbox where payload->>'template' = 'plan-renewal-reminder' or kind = ${planFollowKind}`
   await db.sql`delete from store_plan_charge`
+  await db.sql`delete from invoice`
   await db.sql`delete from razorpay_plan`
   await db.sql`delete from partner_credential where kind = 'billing'`
   await db.sql`update partner set billing_mode = 'own'`
@@ -508,5 +533,85 @@ describe('the reminder a day before', () => {
     expect(sent[0]?.payload).toMatchObject({ amount: '99900', currency: 'INR', plan: 'Growth', method: { kind: 'card', brand: 'visa', last4: '1111' }, at: end.toISOString() })
     clock = new Date(end.getTime() - 0.5 * day)
     expect(await queueRenewalReminders(db.sql, clock)).toBe(0)
+  })
+})
+
+// Card #1759: each charge's invoice is Razorpay's own, recorded in Billing › Invoices; its PDF is Razorpay's page.
+describe('the invoices', () => {
+  type Listed = { id: string; number: string | null; kind: string; status: string; amount: { amount: string; currency: string }; tax: { amount: string }; lines: { label: string; kind: string }[] }
+  const listQuery = '{ invoices(first: 10) { nodes { id number kind status amount { amount currency } tax { amount } lines { label kind } } } }'
+  const download = 'query D($id: ID!) { downloadInvoice(id: $id) }'
+  const listed = async (who: Who) => ((await store(listQuery, who)).data?.['invoices'] as { nodes: Listed[] }).nodes
+  const razorpays = (subscriptionId: string) => rz.invoices.get(subscriptionId) ?? []
+
+  it('records the first payment once, with Razorpay’s number, amount and tax, paid, labelled with the plan, details snapshotted', async () => {
+    await connect(t.partnerA)
+    await db.sql`insert into store_billing_details (store_id, legal_name, address, email) values (${t.storeA1}, 'A1 Retail Pvt Ltd', ${db.sql.json({ city: 'Jaipur', country: 'IN' })}, 'accounts@a1.example') on conflict (store_id) do nothing`
+    const started = (await store(q.start, 'owner', { p: plans.growth })).data?.['startPlanPayment'] as Checkout
+    const answer = authorise(started.subscriptionId)
+    await store(q.confirm, 'owner', answer)
+    await store(q.confirm, 'owner', answer)
+    const hook = webhook(started.subscriptionId)
+    await settleFromRazorpayWebhook(deps(), t.partnerA, hook.body, hook.signature)
+    const [paid] = razorpays(started.subscriptionId)
+    const rows = await listed('owner')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ number: paid?.invoice_number, kind: 'subscription', status: 'paid', amount: { amount: '99900', currency: 'INR' }, tax: { amount: String(paid?.tax_amount) }, lines: [{ label: 'Growth', kind: 'plan' }] })
+    expect((await db.sql<{ name: string }[]>`select billing_details->>'legal_name' as name from invoice where store_id = ${t.storeA1}`)[0]?.name).toBe('A1 Retail Pvt Ltd')
+    await db.sql`delete from store_billing_details where store_id = ${t.storeA1}`
+  })
+
+  it('records each renewal once, however often it is reported: by webhook, by the hourly run, and with a confirm sent again', async () => {
+    await connect(t.partnerA)
+    const started = (await store(q.start, 'owner', { p: plans.growth })).data?.['startPlanPayment'] as Checkout
+    const answer = authorise(started.subscriptionId)
+    await store(q.confirm, 'owner', answer)
+    const signedIn = clock
+    clock = new Date('2026-12-10T01:00:00Z')
+    renew(started.subscriptionId, new Date('2026-12-10T00:00:00Z'), new Date('2027-01-10T00:00:00Z'))
+    expect(await backstop()).toBe(1)
+    const hook = webhook(started.subscriptionId)
+    await settleFromRazorpayWebhook(deps(), t.partnerA, hook.body, hook.signature)
+    await settleFromRazorpayWebhook(deps(), t.partnerA, hook.body, hook.signature)
+    // Back within the Owner's session.
+    clock = signedIn
+    await store(q.confirm, 'owner', answer)
+    const rows = await listed('owner')
+    expect(rows.map((r) => r.number)).toEqual(razorpays(started.subscriptionId).map((i) => i.invoice_number))
+    expect(rows.map((r) => r.kind)).toEqual(['subscription', 'subscription'])
+  })
+
+  it('records an upgrade’s add-on as a proration, and nothing for a downgrade’s or a keep’s authorisation', async () => {
+    await connect(t.partnerA)
+    await subscribeVia('owner', plans.growth)
+    clock = new Date(clock.getTime() + 3_600_000)
+    const up = (await store(q.start, 'owner', { p: plans.big, w: 'NOW' })).data?.['startPlanPayment'] as Checkout
+    await store(q.confirm, 'owner', authorise(up.subscriptionId))
+    const rows = await listed('owner')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ kind: 'proration', amount: { amount: up.amount.amount }, number: razorpays(up.subscriptionId)[0]?.invoice_number, lines: [{ label: 'Big', kind: 'proration_charge' }] })
+    await subscribeVia('owner', plans.growth, 'PERIOD_END')
+    await subscribeVia('owner', plans.big, 'NOW')
+    expect(await listed('owner')).toHaveLength(2)
+  })
+
+  it('keeps each store to its own: another store’s or another partner’s Owner gets NOT_FOUND from the list and the download', async () => {
+    await connect(t.partnerA)
+    await subscribeVia('owner', plans.growth)
+    const [own] = await listed('owner')
+    expect(own).toBeDefined()
+    for (const who of ['trialOwner', 'otherOwner'] as const) {
+      expect(await listed(who)).toEqual([])
+      expect((await store(download, who, { id: own?.id })).code).toBe('NOT_FOUND')
+    }
+  })
+
+  it('opens Razorpay’s own invoice page, with no Stripe, and refuses a page on any other host', async () => {
+    await connect(t.partnerA)
+    const subscriptionId = await subscribeVia('owner', plans.growth)
+    const [own] = await listed('owner')
+    expect((await store(download, 'owner', { id: own?.id })).data?.['downloadInvoice']).toBe(razorpays(subscriptionId)[0]?.short_url)
+    await db.sql`update invoice set invoice_url = 'https://rzp.io.evil.example/i/x' where id = ${own?.id ?? ''}`
+    expect((await store(download, 'owner', { id: own?.id })).code).toBe('NO_PDF')
   })
 })

@@ -168,7 +168,10 @@ export const upsertBillingDetails = async (tx: ScopedSql, storeId: string, d: Om
 
 export interface StoreInvoiceRow {
   id: string
-  stripe_invoice_id: string
+  /** Exactly one of the two provider ids is set; a Razorpay row keeps its page in invoice_url (SAAS §7.4). */
+  stripe_invoice_id: string | null
+  razorpay_invoice_id: string | null
+  invoice_url: string | null
   number: string | null
   kind: 'subscription' | 'proration' | 'setup' | 'usage' | 'credit'
   status: 'paid' | 'open' | 'void' | 'refunded'
@@ -181,7 +184,7 @@ export interface StoreInvoiceRow {
 }
 
 const invoiceColumns = (tx: ScopedSql) => tx`
-  select i.id, i.stripe_invoice_id, i.number, i.kind, i.status, i.amount::text, i.tax_amount::text, i.currency, i.issued_at, i.paid_at,
+  select i.id, i.stripe_invoice_id, i.razorpay_invoice_id, i.invoice_url, i.number, i.kind, i.status, i.amount::text, i.tax_amount::text, i.currency, i.issued_at, i.paid_at,
     coalesce((select json_agg(json_build_object('label', l.label, 'amount', l.amount::text, 'currency', l.currency, 'kind', l.kind, 'period_start', l.period_start, 'period_end', l.period_end) order by l.position)
       from invoice_line l where l.invoice_id = i.id), '[]'::json) as lines
   from invoice i
@@ -217,11 +220,14 @@ export interface InvoiceUpsert {
  * The invoice as Stripe has it now, its details snapshotted the first time it is seen and never after (SAAS §7.2).
  * Paid, void and refunded are final on Stripe, so a read that saw it open but committed later never takes one back.
  */
+const billingDetailsSnapshot = (tx: ScopedSql, storeId: string) =>
+  tx`(select to_jsonb(d) - 'store_id' - 'updated_at' from store_billing_details d where d.store_id = ${storeId})`
+
 export const upsertStoreInvoice = async (tx: ScopedSql, i: InvoiceUpsert): Promise<void> => {
   const [row] = await tx<{ id: string; inserted: boolean }[]>`
     insert into invoice (store_id, stripe_invoice_id, number, kind, status, amount, tax_amount, currency, billing_details, issued_at, paid_at)
     values (${i.storeId}, ${i.stripeInvoiceId}, ${i.number}, ${i.kind}, ${i.status}, ${i.amount}, ${i.taxAmount}, ${i.currency},
-      (select to_jsonb(d) - 'store_id' - 'updated_at' from store_billing_details d where d.store_id = ${i.storeId}), ${i.issuedAt}, ${i.paidAt})
+      ${billingDetailsSnapshot(tx, i.storeId)}, ${i.issuedAt}, ${i.paidAt})
     on conflict (stripe_invoice_id) do update set number = coalesce(excluded.number, invoice.number), status = excluded.status, amount = excluded.amount,
       tax_amount = excluded.tax_amount, paid_at = excluded.paid_at
     where invoice.store_id = excluded.store_id and not (invoice.status in ('paid', 'void', 'refunded') and excluded.status = 'open')
@@ -233,6 +239,40 @@ export const upsertStoreInvoice = async (tx: ScopedSql, i: InvoiceUpsert): Promi
     insert into invoice_line (invoice_id, store_id, position, label, amount, currency, kind, period_start, period_end)
     select ${row.id}, ${i.storeId}, l.position, l.label, l.amount, ${i.currency}, l.kind, l.period_start, l.period_end
     from json_to_recordset(${JSON.stringify(lines)}::text::json) as l(position int, label text, amount bigint, kind text, period_start timestamptz, period_end timestamptz)
+  `
+}
+
+export interface RazorpayInvoiceInsert {
+  storeId: string
+  razorpayInvoiceId: string
+  invoiceUrl: string | null
+  number: string | null
+  kind: 'subscription' | 'proration'
+  amount: number
+  taxAmount: number
+  currency: string
+  issuedAt: Date
+  paidAt: Date | null
+  /** The plan paid for; its name labels the invoice's one line. */
+  planId: string
+  periodStart: Date | null
+  periodEnd: Date | null
+}
+
+/** A paid Razorpay plan invoice, recorded once however often its payment is reported, details snapshotted (SAAS §7.4). */
+export const insertRazorpayInvoice = async (tx: ScopedSql, i: RazorpayInvoiceInsert): Promise<void> => {
+  const [row] = await tx<{ id: string }[]>`
+    insert into invoice (store_id, razorpay_invoice_id, invoice_url, number, kind, status, amount, tax_amount, currency, billing_details, issued_at, paid_at)
+    values (${i.storeId}, ${i.razorpayInvoiceId}, ${i.invoiceUrl}, ${i.number}, ${i.kind}, 'paid', ${i.amount}, ${i.taxAmount}, ${i.currency},
+      ${billingDetailsSnapshot(tx, i.storeId)}, ${i.issuedAt}, ${i.paidAt})
+    on conflict (razorpay_invoice_id) do nothing
+    returning id
+  `
+  if (!row) return
+  await tx`
+    insert into invoice_line (invoice_id, store_id, position, label, amount, currency, kind, period_start, period_end)
+    select ${row.id}, ${i.storeId}, 0, left(p.name, 300), ${i.amount}, ${i.currency}, ${i.kind === 'proration' ? 'proration_charge' : 'plan'}, ${i.periodStart}, ${i.periodEnd}
+    from plan p where p.id = ${i.planId}
   `
 }
 

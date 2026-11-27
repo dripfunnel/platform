@@ -41,7 +41,7 @@ import {
   type BillingSubscriptionRow,
   type CataloguePlanRow,
 } from '#db/scoped/storeBilling'
-import type { PlanMethod, RazorpayBilling } from '#integrations/payments/index'
+import { isRazorpayInvoiceUrl, type PlanMethod, type RazorpayBilling } from '#integrations/payments/index'
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
 import { taxIdOf } from '#engine/modules/storeInfo/index'
 import { transitionStore } from '#saas/stores/index'
@@ -544,11 +544,13 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     })
   }
 
-  // Stripe's own link to the PDF, read fresh because it expires (as the partner's, saas/billing/partner.ts).
+  // Razorpay's invoice page as recorded (SAAS §7.4); Stripe's link to the PDF, read fresh because it expires.
   const downloadInvoice = async (rawId: unknown): Promise<StoreBillingResult<string>> => {
     if (!z.guid().safeParse(rawId).success) return refused('NOT_FOUND')
     const invoice = await inStore((tx) => selectStoreInvoice(tx, storeId, String(rawId)))
     if (!invoice) return refused('NOT_FOUND')
+    if (invoice.razorpay_invoice_id) return invoice.invoice_url && isRazorpayInvoiceUrl(invoice.invoice_url) ? { ok: true, value: invoice.invoice_url } : refused('NO_PDF')
+    if (!invoice.stripe_invoice_id) return refused('NO_PDF')
     if (!stripe) return refused('NOT_CONNECTED')
     try {
       const url = (await stripe.invoice(invoice.stripe_invoice_id)).invoice_pdf ?? null

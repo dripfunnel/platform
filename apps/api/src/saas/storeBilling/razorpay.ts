@@ -24,9 +24,9 @@ import {
   type GatewayMode,
 } from '#db/scoped/razorpayBilling'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { applyPlan, clearScheduledChange, scheduleChange, selectBillingSubscription } from '#db/scoped/storeBilling'
+import { applyPlan, clearScheduledChange, insertRazorpayInvoice, scheduleChange, selectBillingSubscription, type RazorpayInvoiceInsert } from '#db/scoped/storeBilling'
 import { selectStoreForUpdate } from '#db/scoped/stores'
-import { dateOf, methodOf, razorpayKeysSchema, type PlanMethod, type RazorpayBilling, type RazorpayKeys, type RazorpaySubscription } from '#integrations/payments/index'
+import { dateOf, methodOf, razorpayKeysSchema, type PlanMethod, type RazorpayBilling, type RazorpayInvoice, type RazorpayKeys, type RazorpaySubscription } from '#integrations/payments/index'
 import { transitionStore } from '#saas/stores/index'
 import { dunningLabel } from './dunning'
 import { keepWithinPlan } from './keep'
@@ -128,6 +128,29 @@ const razorpayPlanFor = async (deps: PlanBillingDeps, gateway: Gateway, partnerI
   return withSystemScope(deps.sql, (tx) => insertRazorpayPlan(tx, key, made))
 }
 
+/** The paid invoice for a payment; without its id, the subscription's first paid one. */
+const paidInvoice = (invoices: readonly RazorpayInvoice[], paymentId: string | null): RazorpayInvoice | undefined => {
+  const paid = invoices.filter((i) => i.status === 'paid')
+  return paymentId ? paid.find((i) => i.payment_id === paymentId) : paid.at(-1)
+}
+
+// Razorpay's own invoice, in the partner's name with its GST; the platform only records it (#1759).
+const invoiceRowOf = (storeId: string, i: RazorpayInvoice, kind: RazorpayInvoiceInsert['kind'], planId: string, period: { start: Date; end: Date }): RazorpayInvoiceInsert => ({
+  storeId,
+  razorpayInvoiceId: i.id,
+  invoiceUrl: i.short_url ?? null,
+  number: i.invoice_number ?? i.id,
+  kind,
+  amount: i.amount,
+  taxAmount: i.tax_amount ?? 0,
+  currency: i.currency,
+  issuedAt: new Date((i.issued_at ?? i.created_at) * 1000),
+  paidAt: dateOf(i.paid_at),
+  planId,
+  periodStart: period.start,
+  periodEnd: period.end,
+})
+
 // ---- The store follows its subscription ----
 
 const toActive = async (deps: PlanBillingDeps, tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
@@ -199,6 +222,7 @@ export const followSubscription = async (deps: PlanBillingDeps, gateway: Gateway
       const paid = invoices.find((i) => i.status === 'paid' && i.billing_start === s.current_start)
       const recorded = await insertRenewal(tx, { store_id: sub.store_id, partner_id: partnerId, mode: gateway.mode, plan_id: plan.planId, plan_version: plan.planVersion, interval: plan.interval, amount: plan.amount, currency: plan.currency, razorpay_subscription_id: s.id, razorpay_payment_id: paid?.payment_id ?? null, period_start: start, period_end: end })
       await advancePeriod(tx, sub.store_id, { planId: plan.planId, planVersion: plan.planVersion, interval: plan.interval, amount: plan.amount, periodStart: start, periodEnd: end })
+      if (paid) await insertRazorpayInvoice(tx, invoiceRowOf(sub.store_id, paid, 'subscription', plan.planId, { start, end }))
       if (recorded) await deps.activity.record(tx, systemEntry({ id: sub.store_id, partner_id: partnerId, name: sub.store_name }, planBillingAudit.renewed, 'paid', [{ field: 'period_end', before: sub.period_end.toISOString(), after: end.toISOString() }]))
       await toActive(deps, tx, sub.store_id, at)
       return 'renewed'
@@ -273,6 +297,9 @@ const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId:
   const notes = s.notes && !Array.isArray(s.notes) ? s.notes : {}
   if (notes['df_store_id'] !== storeId || (s.status !== 'active' && s.status !== 'authenticated')) return null
   const method = paymentId ? methodOf(await deps.api.payment(gateway.keys, paymentId)) : null
+  // A change at the period's end is only authorised today (the ₹5 check): nothing paid, so no invoice to read.
+  const pending = await withSystemScope(deps.sql, (tx) => selectSubscribeCharge(tx, partnerId, s.id))
+  const invoices = pending && pending.status !== 'captured' && pending.change_when !== 'period_end' ? await deps.api.invoices(gateway.keys, s.id) : []
   const before = await withSystemScope(deps.sql, (tx) => selectBillingSubscription(tx, storeId))
   if (before?.razorpay_subscription_id && before.razorpay_subscription_id !== s.id && before.razorpay_mode) {
     const old = await openGateway(deps, partnerId, before.razorpay_mode)
@@ -298,6 +325,8 @@ const applyCheckout = async (deps: PlanBillingDeps, gateway: Gateway, partnerId:
       await applyPlan(tx, storeId, { ...move, subscriptionId: null, periodStart: start, periodEnd: end, activate: true })
     }
     await markChargeCaptured(tx, locked.id, { paymentId, periodStart: start, periodEnd: end }, at)
+    const paid = locked.change_when === 'period_end' ? undefined : paidInvoice(invoices, paymentId)
+    if (paid) await insertRazorpayInvoice(tx, invoiceRowOf(storeId, paid, locked.change_when === 'now' ? 'proration' : 'subscription', locked.plan_id, { start, end }))
     await toActive(deps, tx, storeId, at)
     return { method, applied }
   })

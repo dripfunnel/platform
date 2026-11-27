@@ -366,7 +366,7 @@ describe('the Billing screen', () => {
     expect(screen.getByText('GSTIN: 29ABCDE1234F1Z5')).toBeTruthy()
   })
 
-  it('pages the invoices, exports them all and opens a PDF only at Stripe’s link', async () => {
+  it('pages the invoices, exports them all and opens a PDF at its provider’s link', async () => {
     api.loadMoreInvoices.mockResolvedValue({ rows: [invoice('i1', 'KC-0001')], next: null })
     api.loadAllInvoices.mockResolvedValue([invoice('i2', 'KC-0002'), invoice('i1', 'KC-0001')])
     api.invoicePdf.mockResolvedValue('https://pay.stripe.com/invoice/x/pdf')

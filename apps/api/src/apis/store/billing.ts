@@ -193,7 +193,7 @@ export const registerBilling = (builder: StoreBuilder) => {
       extensions: { access: read },
       resolve: (_, args, ctx) => service(ctx).invoices(storePage(args)),
     }),
-    // A short-lived link to Stripe's PDF, read fresh: a read, as the partner's is (platform.graphql).
+    // Stripe's short-lived PDF link, read fresh, or Razorpay's invoice page (SAAS §7.4): a read, as the partner's is.
     downloadInvoice: t.string({
       args: { id: t.arg.id({ required: true }) },
       extensions: { access: read },
