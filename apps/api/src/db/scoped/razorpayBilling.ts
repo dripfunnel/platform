@@ -49,8 +49,11 @@ export const selectSealedBillingGateway = async (tx: ScopedSql, partnerId: strin
   )[0] ?? null
 
 /** Whether the partner has Razorpay keys connected for plan billing, in either mode. */
-export const hasBillingGateway = async (tx: ScopedSql, partnerId: string): Promise<boolean> =>
-  (await tx`select 1 from partner_credential where partner_id = ${partnerId} and kind = 'billing' and provider = 'razorpay' limit 1`).length > 0
+export const hasBillingGateway = async (tx: ScopedSql, partnerId: string): Promise<boolean> => (await billingGatewayMode(tx, partnerId)) !== null
+
+/** The mode a new plan payment uses: live where connected, else test (selectSealedBillingGateway's order); null with none. */
+export const billingGatewayMode = async (tx: ScopedSql, partnerId: string): Promise<GatewayMode | null> =>
+  (await tx<{ mode: GatewayMode }[]>`select settings->>'mode' as mode from partner_credential where partner_id = ${partnerId} and kind = 'billing' and provider = 'razorpay' order by (settings->>'mode') = 'live' desc limit 1`)[0]?.mode ?? null
 
 // ---- The partner's plans as Razorpay plans ----
 

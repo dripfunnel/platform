@@ -14,6 +14,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { razorpayBilling, type RazorpayBilling, type RazorpayInvoice, type RazorpayPayment, type RazorpaySubscription } from '#integrations/payments/index'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerRazorpayService } from '#saas/billing/index'
+import { handleRazorpayBillingHook } from '#hooks/razorpayBilling'
 import { followEndedSubscriptions, queueRenewalReminders, settleFromRazorpayWebhook } from '#saas/storeBilling/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -366,6 +367,13 @@ describe('following Razorpay', () => {
     renew(subscriptionId, new Date('2026-12-10T00:00:00Z'), new Date('2027-01-10T00:00:00Z'))
     await settleFromRazorpayWebhook(deps(), t.partnerA, hook.body, hook.signature)
     expect(await storeStatus(t.storeA1)).toBe('active')
+  })
+
+  it('answers a signed webhook for a subscription Razorpay refuses with 200, so Razorpay stops sending it', async () => {
+    await connect(t.partnerA)
+    const hook = webhook('sub_T0UNKNOWN')
+    const request = new Request(`https://hooks.example/razorpay/partner/${t.partnerA}`, { method: 'POST', body: hook.body, headers: { 'x-razorpay-signature': hook.signature } })
+    expect((await handleRazorpayBillingHook(request, { partnerId: t.partnerA }, deps(), async () => true)).status).toBe(200)
   })
 
   it('settles a webhook only when the partner’s own secret signed it, and never another partner’s store', async () => {

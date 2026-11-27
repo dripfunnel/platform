@@ -14,7 +14,7 @@ import { countLiveSuppliers } from '#db/scoped/suppliers'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
 import { planValuesOf, UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreAccount } from '#db/scoped/storeAccount'
-import { hasBillingGateway } from '#db/scoped/razorpayBilling'
+import { billingGatewayMode, hasBillingGateway } from '#db/scoped/razorpayBilling'
 import { selectStoreForUpdate } from '#db/scoped/stores'
 import {
   applyPlan,
@@ -181,7 +181,6 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
   const inStore = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, caller.context, work)
   const subscriptionRow = () => system((tx) => selectBillingSubscription(tx, storeId))
   const planBilling: PlanBillingDeps | null = razorpay ? { sql, api: razorpay.api, secrets: razorpay.secrets, activity, now } : null
-  const gatewayConnected = () => system((tx) => hasBillingGateway(tx, partnerId))
 
   const entry = (action: string, changes: NonNullable<ActivityEntry['changes']>): ActivityEntry => ({
     category: 'write',
@@ -210,8 +209,10 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
   const planPayments = async () => {
     const row = await subscriptionRow()
     if (!row || row.billing_mode !== 'own') return { available: false, mode: null, subscribed: false }
-    const connected = planBilling !== null && (await gatewayConnected())
-    return { available: connected, mode: row.razorpay_mode, subscribed: connected && row.razorpay_subscription_id !== null }
+    const mode = planBilling ? await system((tx) => billingGatewayMode(tx, partnerId)) : null
+    const subscribed = mode !== null && row.razorpay_subscription_id !== null
+    // A subscribed store is charged in its subscription's mode; a new payment in the mode its partner's keys give.
+    return { available: mode !== null, mode: subscribed ? row.razorpay_mode : mode, subscribed }
   }
 
   // The partner's Live plans priced in the store's billing currency, each with everything it includes (SAAS §6.1).

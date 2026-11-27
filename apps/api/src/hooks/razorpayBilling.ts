@@ -1,6 +1,6 @@
 import { readCapped } from '#core/http'
 import { logEvent } from '#core/log'
-import { PaymentUnavailable } from '#core/payments'
+import { PaymentRefused, PaymentUnavailable } from '#core/payments'
 import { settleFromRazorpayWebhook, type PlanBillingDeps } from '#saas/storeBilling/index'
 
 // hooks.<host>/razorpay/partner/<partner> (#1744; SAAS §7.4): plan payments on the partner's own Razorpay account, signed with
@@ -27,6 +27,11 @@ export const handleRazorpayBillingHook = async (request: Request, hook: { partne
     if (outcome === 'invalid') return new Response(null, { status: 400 })
     return Response.json({ received: true })
   } catch (error) {
+    // Razorpay refusing the read-back (a subscription this account doesn't have) won't change on a retry.
+    if (error instanceof PaymentRefused) {
+      logEvent({ event: 'plan_payment_webhook', api: 'hooks', code: 'provider_refused' })
+      return Response.json({ received: true })
+    }
     if (!(error instanceof PaymentUnavailable)) throw error
     logEvent({ event: 'plan_payment_webhook', api: 'hooks', code: 'provider_unavailable' })
     return new Response(null, { status: 503 })
