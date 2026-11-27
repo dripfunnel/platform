@@ -50,8 +50,27 @@ const paymentSchema = z
   .loose()
 export type RazorpayPayment = z.infer<typeof paymentSchema>
 
-const invoiceSchema = z.object({ id: z.string(), status: z.string(), payment_id: z.string().nullish(), billing_start: z.number().int().nullish(), billing_end: z.number().int().nullish() }).loose()
+const invoiceSchema = z
+  .object({
+    id: idOf('inv'),
+    invoice_number: z.string().max(100).nullish(),
+    status: z.string(),
+    amount: z.number().int().nonnegative(),
+    tax_amount: z.number().int().nonnegative().nullish(),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    payment_id: z.string().nullish(),
+    billing_start: z.number().int().nullish(),
+    billing_end: z.number().int().nullish(),
+    issued_at: z.number().int().nullish(),
+    paid_at: z.number().int().nullish(),
+    created_at: z.number().int(),
+    short_url: z.string().max(500).nullish(),
+  })
+  .loose()
 export type RazorpayInvoice = z.infer<typeof invoiceSchema>
+
+/** Razorpay's invoice pages: its short links and its own domain, over https only. */
+export const isRazorpayInvoiceUrl = (url: string): boolean => /^https:\/\/(rzp\.io|([a-z0-9-]+\.)*razorpay\.com)\//.test(url)
 
 const eventSchema = z
   .object({

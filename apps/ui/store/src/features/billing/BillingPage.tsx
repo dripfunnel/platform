@@ -422,7 +422,7 @@ const InvoicesCard = ({ read, sub, sample, onToast }: { read: BillingRead; sub: 
       .finally(() => setBusy(null))
   }
 
-  // The tab opens on the click, before Stripe's fresh link comes back, or the browser blocks it.
+  // The tab opens on the click, before the invoice's link comes back, or the browser blocks it.
   const openPdf = (id: string) => {
     if (sample) return
     const tab = reserveTab()

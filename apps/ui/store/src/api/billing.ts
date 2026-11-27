@@ -189,10 +189,11 @@ export const saveBillingDetails = async (input: BillingDetailsInput): Promise<Bi
   return saved
 }
 
-// Stripe's own link to the invoice, read fresh because it expires; only Stripe's https hosts are opened.
+// Stripe's link to the PDF, read fresh because it expires, or Razorpay's invoice page (SAAS §7.4); only their https hosts open.
+const invoiceHost = /^https:\/\/(([a-z0-9-]+\.)*stripe\.com|rzp\.io|([a-z0-9-]+\.)*razorpay\.com)\//
 export const invoicePdf = async (id: string): Promise<string> => {
   const { downloadInvoice: url } = await query('query P($id: ID!) { downloadInvoice(id: $id) }', z.object({ downloadInvoice: z.string().nullable() }), { id })
-  if (!url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) throw new ApiError('NO_PDF', 'The invoice link is not one of Stripe’s.')
+  if (!url || !invoiceHost.test(url)) throw new ApiError('NO_PDF', 'The invoice link is not one of Stripe’s or Razorpay’s.')
   return url
 }
 

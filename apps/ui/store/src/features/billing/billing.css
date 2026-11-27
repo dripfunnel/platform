@@ -387,7 +387,7 @@
   }
 
   .df-billing-invoice {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 
   .df-billing-invoice-day,
