@@ -907,7 +907,7 @@ api/README.md §2.1); a partner id in a request is not authority.
 | Branding | `branding` (look, words, what the contract fixes, contrast results), `emailTemplates`, `brandingHistory` | `saveBrandingDraft`, `publishBranding(when)`, `cancelScheduledBranding(id)`, `rollbackBranding(id)`, `updateEmailTemplate`, `sendTestEmail(template)` |
 | Domains | `partnerDomains`, `merchantDomains(after, before)` | `addPartnerDomain(kind, host)`, `recheckPartnerDomain(kind)`, `recheckMerchantDomain(storeId)` |
 | Reports | `reportGrowth(range, plan, country)`, `reportRevenue(…)`, `reportPlans(…)`, `reportStorePerformance(…)`, `reportUsage(…)`, `reportSetupHealth(…)` | `exportReport(tab, filter)` (a job) |
-| Billing | `merchantPayments(after, before)`, `payouts(after, before)`, `nextPayout`, `partnerInvoices(after, before)`, `billingSettings` | `setBillingMode(mode)`, `downloadInvoice(id)` |
+| Billing | `merchantPayments(after, before)`, `payouts(after, before)`, `nextPayout`, `partnerInvoices(after, before)`, `billingSettings`, `razorpayAccount` | `downloadInvoice(id)`, `connectRazorpay(mode, keyId, keySecret, webhookSecret)`, `disconnectRazorpay(mode)` (#1744) |
 | Support | `supportTargets(search, after, before)`, `supportSessions(filter, after, before)`, `mySupportSession` | `reauthenticate(code)` (a single-use proof), `startSupportSession(membershipId, reason, ticket, proof)`, `endSupportSession(id)`, `returnToSupportSession(id)` (a fresh handoff link); the merchant's Allow/Deny of write access is the Store API's (ACCESS §8) |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` (a job) |
 | Settings | `partnerCompany`, `team(after, before)`, `payoutAccount`, `paymentMethod` | `inviteTeamMember`, `resendTeamInvite`, `revokeTeamInvite`, `changeTeamRole`, `removeTeamMember`, `transferOwnership`, `setPayoutAccount`, `setPaymentMethod(token)` (a hosted-field token, never a card number), `setSecondFactorPolicy(required)` |
@@ -1239,8 +1239,8 @@ secrets and the same code runs.
   `STRIPE_PUBLISHABLE_KEY` Worker variable at request time, or null while it is unset (#278). The
   console loads Stripe.js from `js.stripe.com` only when Settings › Payout and payment opens; no
   `VITE_*` variable (#272 rule 4).
-- `setBillingMode(mode)` (`billing.write`: Owner, Finance) is audited and flips only what the
-  Stores list shows and what `setStoreBillingStatus` allows (#159).
+- Every partner bills its own merchants (#1743; SAAS §7.1): there is no billing-mode mutation. `connectRazorpay` and
+  `disconnectRazorpay` (`billing.write`: Owner, Finance, never a staff session) are audited (#1744; SAAS §7.4).
 - `setPayoutAccount(token)` (`payout.write`) and `setPaymentMethod(token)` (`card.write`): Owner
   and Finance, **never a staff session** (`BLOCKED_WHILE_IMPERSONATING`,
   `PARTNER_ENTERS_THIS_ITSELF`), and they take only Stripe's tokens — a bank account from
