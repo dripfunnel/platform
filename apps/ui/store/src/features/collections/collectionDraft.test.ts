@@ -11,7 +11,7 @@ const facets: Facet[] = [
 ]
 
 const rule = (r: Partial<CollectionRule> & Pick<CollectionRule, 'kind'>): CollectionRule => ({ joiner: 'and', valueIds: [], valueMatch: null, productIds: [], text: null, productId: null, versionId: null, currency: null, min: null, max: null, ...r })
-const words = { is: 'is', or: 'or', and: 'and', orJoin: 'or', nameContains: 'name contains “{text}”', product: 'a chosen product', version: 'a chosen version', priceRange: 'a price range', picked: '{count} picked products' }
+const words = { is: 'is', or: 'or', and: 'and', orJoin: 'or', nameContains: 'name contains “{text}”', product: 'a chosen product', version: 'a chosen version', priceRange: 'a price range', picked: 'picked products' }
 
 describe('the Filters card’s blocks', () => {
   const rules = [
@@ -42,7 +42,7 @@ describe('the Filters card’s blocks', () => {
   })
 
   it('says what a collection holds in words, each block joined to the one before it', () => {
-    expect(sentenceOf({ rules }, facets, words)).toBe('2 picked products or Fabric is Linen or Cotton and name contains “shirt” or a price range')
+    expect(sentenceOf({ rules }, facets, words)).toBe('picked products or Fabric is Linen or Cotton and name contains “shirt” or a price range')
   })
 
   it('calls a collection of picks alone, or nothing, hand-picked', () => {

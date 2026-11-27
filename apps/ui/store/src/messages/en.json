@@ -2851,7 +2851,7 @@
       "and": "and",
       "orJoin": "or",
       "nameContains": "name contains “{text}”",
-      "picked": "{count} picked products",
+      "picked": "picked products",
       "product": "a chosen product",
       "version": "a chosen version",
       "priceRange": "a price range"

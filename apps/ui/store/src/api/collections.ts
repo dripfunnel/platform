@@ -12,7 +12,7 @@ const ruleSchema = z.object({
   joiner: z.string(),
   valueIds: z.array(z.string()),
   valueMatch: z.string().nullable(),
-  productIds: z.array(z.string()),
+  productIds: z.array(z.string()).default([]),
   text: z.string().nullable(),
   productId: z.string().nullable(),
   versionId: z.string().nullable(),
@@ -21,7 +21,8 @@ const ruleSchema = z.object({
   max: z.string().nullable(),
 })
 export type CollectionRule = z.infer<typeof ruleSchema>
-const ruleFields = 'kind joiner valueIds valueMatch productIds text productId versionId currency min max'
+const listRuleFields = 'kind joiner valueIds valueMatch text productId versionId currency min max'
+const ruleFields = `${listRuleFields} productIds`
 
 const summarySchema = z.object({
   id: z.string(),
@@ -42,7 +43,7 @@ export const loadCollections = (): Promise<CollectionSummary[]> =>
     async (after) =>
       (
         await query(
-          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name visible parentId inheritParent imageAssetId rules { ${ruleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
+          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name visible parentId inheritParent imageAssetId rules { ${listRuleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
           z.object({ collections: z.object({ nodes: z.array(summarySchema), pageInfo: pageInfoSchema }) }),
           { after },
         )

@@ -138,14 +138,14 @@ export interface SentenceWords {
   picked: string
 }
 
-/** What a collection holds, in the Filters card's words: "3 picked products or Fabric is Linen and name contains “shirt”". */
+/** What a collection holds, in the Filters card's words: "picked products or Fabric is Linen and name contains “shirt”". */
 export const sentenceOf = (c: Pick<CollectionSummary, 'rules'>, facets: readonly Facet[], w: SentenceWords): string => {
   const names = new Map(facets.flatMap((f) => f.values.map((v) => [v.id, v.name] as const)))
   return blocksOf(c.rules, facets)
     .map((b, i) => {
       const text =
         b.kind === 'picks'
-          ? w.picked.replace('{count}', String(b.productIds.length))
+          ? w.picked
           : b.kind === 'name'
             ? w.nameContains.replace('{text}', b.text)
             : b.kind === 'filter'

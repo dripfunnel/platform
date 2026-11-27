@@ -175,7 +175,7 @@ export const selectCollections = (tx: ScopedSql, storeId: string, window: PageWi
   const backwards = window.before !== null && window.after === null
   return tx<CollectionListRow[]>`
     select c.id, c.name, c.slug, c.kind, c.visibility, c.parent_id, c.inherit_parent, c.match, c.image_asset_id, c.computed_at, c.updated_at, c.created_at,
-      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args, 'joiner', r.joiner) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
+      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', case when r.kind = 'picks' then '{}'::jsonb else r.args end, 'joiner', r.joiner) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
       (select count(*)::int from collection_product cp join product p on p.id = cp.product_id where cp.collection_id = c.id and p.deleted_at is null) as products
     from collection c
     where c.store_id = ${storeId} and c.deleted_at is null
