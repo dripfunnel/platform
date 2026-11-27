@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { billingAudit, type PartnerBillingService } from '#saas/billing/index'
+import { billingAudit, razorpayAudit, type PartnerBillingService } from '#saas/billing/index'
 import { builder } from './builder'
 import { signedIn } from './fields'
 import { MoneyType } from './money'
@@ -180,6 +180,36 @@ builder.queryFields((t) => ({
 const moneyDetails = (permission: 'payout.write' | 'card.write', audit: string) => ({
   access: { api: 'platform' as const, scope: 'partner' as const, permission, target: 'none' as const, audit, blockedFor: ['impersonation' as const, 'setup' as const] },
 })
+
+const RazorpayMode = builder.objectRef<{ mode: 'live' | 'test'; connected: boolean; keyHint: string | null; checkedAt: Date | null }>('RazorpayMode').implement({
+  fields: (t) => ({
+    mode: t.exposeString('mode'),
+    connected: t.exposeBoolean('connected'),
+    // "rzp_live_••••AbCd": the mode and the last four, never the key (#1744).
+    keyHint: t.exposeString('keyHint', { nullable: true }),
+    checkedAt: t.string({ nullable: true, resolve: (m) => iso(m.checkedAt) }),
+  }),
+})
+const RazorpayAccount = builder.objectRef<{ webhookUrl: string; modes: { mode: 'live' | 'test'; connected: boolean; keyHint: string | null; checkedAt: Date | null }[] }>('RazorpayAccount').implement({
+  fields: (t) => ({ webhookUrl: t.exposeString('webhookUrl'), modes: t.field({ type: [RazorpayMode], resolve: (a) => a.modes }) }),
+})
+
+builder.queryFields((t) => ({
+  razorpayAccount: t.field({ type: RazorpayAccount, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.razorpay).account() }),
+}))
+
+// The partner's own Razorpay keys (#1744): Owner and Finance, never a staff session, as the other money details (ACCESS §8.2).
+const razorpayWrite = (audit: string) => ({ access: { api: 'platform' as const, scope: 'partner' as const, permission: 'billing.write' as const, target: 'none' as const, audit, blockedFor: ['impersonation' as const, 'setup' as const] } })
+
+builder.mutationFields((t) => ({
+  connectRazorpay: t.field({
+    type: Result,
+    args: { mode: t.arg.string({ required: true }), keyId: t.arg.string({ required: true }), keySecret: t.arg.string({ required: true }), webhookSecret: t.arg.string({ required: true }) },
+    extensions: razorpayWrite(razorpayAudit.connected),
+    resolve: (_, { mode, ...keys }, ctx) => signedIn(ctx.razorpay).connect(mode, keys),
+  }),
+  disconnectRazorpay: t.field({ type: Result, args: { mode: t.arg.string({ required: true }) }, extensions: razorpayWrite(razorpayAudit.disconnected), resolve: (_, { mode }, ctx) => signedIn(ctx.razorpay).disconnect(mode) }),
+}))
 
 builder.mutationFields((t) => ({
   setBillingMode: t.field({

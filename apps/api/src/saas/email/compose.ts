@@ -109,6 +109,8 @@ const payloads = {
   'api-keys-creator-gone': z.object({ storeId: id, creatorId: id, keys: z.number().int().positive() }),
   'store-role-changed': z.object({ storeId: id, to: email, role: z.enum(['owner', 'manager', 'staff']) }),
   'store-cancelled': z.object({ storeId: id, until: z.iso.datetime() }),
+  // #1744: the day before a renewal is charged on the saved card or UPI AutoPay (SAAS §7.4).
+  'plan-renewal-reminder': z.object({ storeId: id, plan: z.string().min(1).max(100), amount: z.string().regex(/^\d+$/), currency: z.string().regex(/^[A-Z]{3}$/), method: z.string().max(80).nullable(), at: z.iso.datetime() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
   'order-downloads': z.object({ orderId: id }),
@@ -706,6 +708,15 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storefrontBaseline
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name), w.kept] } }
+    }
+    case 'plan-renewal-reminder': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.planRenewalReminder
+      const amount = en.money('en', p.amount, p.currency)
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name, amount), heading: w.heading(amount), paragraphs: [w.body(m.store.name, p.plan, amount, en.date(new Date(p.at)), p.method), w.change] } }
     }
     case 'store-cancelled': {
       const p = parse(t)

@@ -6991,7 +6991,8 @@
     "payLine": "What you pay {partner} for your shop. Nobody takes a fee on your orders.",
     "collected": {
       "dripfunnel": "DripFunnel collects it on {partner}’s behalf.",
-      "partner": "{partner} bills you directly, so plan changes go through them."
+      "partner": "{partner} bills you directly, so plan changes go through them.",
+      "razorpay": "{partner} bills you through Razorpay: choose or change your plan here."
     },
     "asOf": "Payment status as of {time}. It can be a few minutes behind.",
     "loading": "Loading your plan",
@@ -7181,7 +7182,11 @@
       "none": "No card yet",
       "on": "{brand} ending {last4}",
       "expires": "{card} · expires {date}",
-      "note": "Never used for your shoppers’ payments. Not needed during the trial."
+      "note": "Never used for your shoppers’ payments. Not needed during the trial.",
+      "paidTo": "Paid to {partner} through Razorpay. Never used for your shoppers’ payments.",
+      "unavailable": "{partner} hasn’t set up card payments yet. Your shop keeps working; {partner} will tell you how to pay.",
+      "testMode": "Test mode: no real money moves.",
+      "savedWithPlan": "Your card or UPI AutoPay is saved when you pay for your plan, and renewals are charged to it."
     },
     "details": {
       "title": "On your invoices",
@@ -7265,6 +7270,9 @@
         "YEAR": "a year"
       },
       "tax": "Tax is added where it applies.",
+      "payNote": "Razorpay opens to take today’s payment and turn on AutoPay with your card or UPI. Razorpay then charges each renewal automatically, and you get an email the day before.",
+      "checkoutLine": "{plan} plan, with AutoPay for renewals",
+      "changeNote": "Razorpay opens for you to approve AutoPay on the new plan, as it does for every plan change. It takes what is due today, or only checks your card or UPI when nothing is, and ends your current AutoPay.",
       "noCard": "You’ll need the card that pays for your plan first.",
       "confirm": "Switch to {plan}",
       "confirmKeep": "Keep {plan}",
@@ -7690,6 +7698,7 @@
       "store.ai_fallback_changed": "changed what happens when the AI account fails",
       "store.ai_account_removed": "removed the AI account",
       "billing.plan_changed": "changed the plan",
+      "billing.renewed": "renewed the plan",
       "billing.change_scheduled": "scheduled a plan change",
       "billing.change_cancelled": "cancelled a scheduled plan change",
       "billing.products_kept": "chose the products to keep on the new plan",

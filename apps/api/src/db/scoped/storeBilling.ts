@@ -29,6 +29,11 @@ export interface BillingSubscriptionRow {
   payment_method_brand: string | null
   payment_method_last4: string | null
   payment_method_expires: Date | null
+  /** The saved method as Razorpay names it: a card's network and last 4, or a masked UPI handle (#1744). */
+  payment_method_label: string | null
+  razorpay_subscription_id: string | null
+  razorpay_customer_id: string | null
+  razorpay_mode: 'live' | 'test' | null
   billing_revision: number
   /** The Owner's picks for a smaller plan to come (SAAS §6.2); null when none were made. */
   keep_products: string[] | null
@@ -44,7 +49,7 @@ const subscriptionColumns = (tx: ScopedSql) => tx`
   select sub.store_id, sub.partner_id, sub.plan_id, sub.plan_version, p.name as plan_name, sub.status, sub.interval, sub.currency, sub.amount,
     sub.period_start, sub.period_end, sub.trial_ends_at, sub.cancel_at, sub.next_plan_id, sub.next_plan_version, np.name as next_plan_name,
     sub.next_interval, sub.change_at, sub.stripe_customer_id, sub.stripe_subscription_id, sub.payment_method_brand, sub.payment_method_last4,
-    sub.payment_method_expires, sub.billing_revision, to_jsonb(sub.keep_products) as keep_products, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
+    sub.payment_method_expires, sub.payment_method_label, sub.razorpay_subscription_id, sub.razorpay_customer_id, sub.razorpay_mode, sub.billing_revision, to_jsonb(sub.keep_products) as keep_products, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
   from store_subscription sub
   join store s on s.id = sub.store_id
   join plan p on p.id = sub.plan_id

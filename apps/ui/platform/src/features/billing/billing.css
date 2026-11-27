@@ -4,13 +4,8 @@
   gap: var(--df-space-4);
 }
 
-.df-billing h2,
-.df-billing h3 {
+.df-billing h2 {
   margin: 0;
-}
-
-.df-billing h3 {
-  font-size: 14px;
 }
 
 .df-billing-table-wrap {
@@ -39,68 +34,47 @@
   vertical-align: top;
 }
 
-.df-billing-status {
+/* Billing › Razorpay account (#1744): a row per mode, then the webhook address to copy. */
+.df-billing-modes-list {
   display: grid;
-  justify-items: start;
-  gap: 2px;
-  font-size: 13px;
-}
-
-.df-billing-failed {
-  display: grid;
-  gap: var(--df-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.df-billing-failed li {
+.df-billing-modes-list li {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--df-space-1) var(--df-space-3);
-  padding: var(--df-space-2) var(--df-space-3);
-  border: 1px solid var(--df-color-danger-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-danger-surface);
+  gap: var(--df-space-2) var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-billing-modes-list li > .df-stack {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.df-billing-webhook {
+  padding-top: var(--df-space-3);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-billing-webhook-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+  align-items: center;
+}
+
+.df-billing-webhook-row code {
+  flex: 1;
+  min-width: 14rem;
+  overflow-wrap: anywhere;
 }
 
 .df-billing-held {
   color: var(--df-color-danger);
   font-weight: 600;
-}
-
-.df-billing-modes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--df-space-2);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-/* The prototype's choice: the radio beside its label and sentence. */
-.df-billing-mode {
-  display: flex;
-  gap: var(--df-space-2);
-  align-items: flex-start;
-  padding: var(--df-space-3);
-  border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius);
-  cursor: pointer;
-}
-
-.df-billing-mode input {
-  margin-top: 3px;
-  accent-color: var(--df-color-brand);
-}
-
-.df-billing-modes:disabled .df-billing-mode {
-  cursor: not-allowed;
-}
-
-.df-billing-mode--current {
-  border-color: var(--df-color-brand);
-  background: var(--df-color-hover);
 }

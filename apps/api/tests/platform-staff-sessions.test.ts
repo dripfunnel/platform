@@ -223,7 +223,7 @@ describe('the blocked lists', () => {
   }
   const support = ['endSupportSession', 'extendSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
   // Payment and payout details stay with the partner (ACCESS §8.1, §8.2; #201).
-  const moneyDetails = ['paymentMethod', 'payoutAccount', 'setPaymentMethod', 'setPayoutAccount']
+  const moneyDetails = ['connectRazorpay', 'disconnectRazorpay', 'paymentMethod', 'payoutAccount', 'setPaymentMethod', 'setPayoutAccount']
   // An AI key is set by the partner, or by staff in a setup session (#275), never while acting as a partner user.
   const aiKeyWrites = ['addPartnerAiKey', 'beginPartnerAiOauth', 'finishPartnerAiOauth', 'removePartnerAiKey', 'setDefaultPartnerAiKey']
   const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']

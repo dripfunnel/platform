@@ -3,7 +3,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BillingRead, CataloguePlan, Invoice, PlanChangeQuote, Subscription } from '../../api/billing'
+import { noPlanPayments, type BillingRead, type CataloguePlan, type Invoice, type PlanChangeQuote, type Subscription } from '../../api/billing'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
 import { billToLines, cardText, includesRows, invoiceCsvRows, metersOf, planPoints } from './billingView'
@@ -23,6 +23,8 @@ const api = vi.hoisted(() => ({
   invoicePdf: vi.fn(),
   cancelStore: vi.fn(),
   exportStoreData: vi.fn(),
+  startPlanPayment: vi.fn(),
+  confirmPlanPayment: vi.fn(),
   loadStoreDataExport: vi.fn(),
 }))
 vi.mock('../../api/billing', async (actual) => ({ ...(await actual<typeof import('../../api/billing')>()), ...api }))
@@ -65,6 +67,7 @@ const sub: Subscription = {
   cancelAt: null,
   scheduled: null,
   card: { brand: 'visa', last4: '4242', expires: '2028-04' },
+  paymentMethod: null,
   collectedBy: 'dripfunnel',
   partnerName: 'Kesari Commerce',
   asOf: '2026-10-10T09:00:00.000Z',
@@ -74,6 +77,7 @@ const invoice = (id: string, number: string): Invoice => ({ id, number, kind: 's
 
 const read = (more: Partial<BillingRead> = {}): BillingRead => ({
   subscription: sub,
+  payments: noPlanPayments,
   plans: [free, growth, pro],
   usage: [
     { key: 'products', used: 84, limit: 100, unlimited: false, monthly: false },
@@ -225,6 +229,62 @@ describe('the Billing screen', () => {
     expect(api.changePlan).toHaveBeenCalledWith('pro', 'MONTH', 'NOW')
     expect(api.loadBilling).toHaveBeenCalledTimes(2)
     expect(screen.getByRole('status').textContent).toContain('You’re on Growth.')
+  })
+
+  it('opens Razorpay on a new subscription for the first plan payment when the partner bills by Razorpay (#1744)', async () => {
+    const own = { ...sub, collectedBy: 'partner' as const, card: null, paymentMethod: null }
+    api.loadBilling.mockResolvedValue(read({ subscription: own, payments: { available: true, mode: 'test', subscribed: false } }))
+    api.quotePlanChange.mockResolvedValueOnce(quote({ offered: ['NOW'] }))
+    api.startPlanPayment.mockResolvedValue({ keyId: 'rzp_test_AbCdEf123456', subscriptionId: 'sub_T1', amount: inr('116600'), mode: 'test', upi: true })
+    api.confirmPlanPayment.mockResolvedValue({ subscription: { ...own, plan: { id: 'pro', name: 'Growth Pro' }, paymentMethod: 'UPI AutoPay · ja••••@okhdfc' }, outcome: 'captured' })
+    const opened: Record<string, unknown>[] = []
+    window.Razorpay = class {
+      constructor(private readonly options: Record<string, unknown>) {
+        opened.push(options)
+      }
+      open() {
+        ;(this.options['handler'] as (r: unknown) => void)({ razorpay_subscription_id: 'sub_T1', razorpay_payment_id: 'pay_T1', razorpay_signature: 'a'.repeat(64) })
+      }
+    }
+    await show(owner)
+    fireEvent.click(plan('Growth Pro').getByRole('button', { name: words.plans.upgrade }))
+    await settle()
+    expect(dialog().getByText(words.change.payNote)).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: 'Switch to Growth Pro' }))
+    await settle()
+    await settle()
+    expect(api.changePlan).not.toHaveBeenCalled()
+    expect(api.startPlanPayment).toHaveBeenCalledWith('pro', 'MONTH', 'NOW')
+    expect(opened[0]).toMatchObject({ key: 'rzp_test_AbCdEf123456', subscription_id: 'sub_T1' })
+    expect(api.confirmPlanPayment).toHaveBeenCalledWith({ subscriptionId: 'sub_T1', paymentId: 'pay_T1', signature: 'a'.repeat(64) })
+    delete window.Razorpay
+  })
+
+  it('takes a subscribed store’s plan change through Checkout too, at the period’s end when chosen (#1744)', async () => {
+    const own = { ...sub, collectedBy: 'partner' as const, card: null, paymentMethod: 'Visa ending 1111' }
+    api.loadBilling.mockResolvedValue(read({ subscription: own, payments: { available: true, mode: 'test', subscribed: true } }))
+    api.quotePlanChange.mockResolvedValueOnce(quote()).mockResolvedValueOnce(quote({ charge: inr('0'), credit: inr('0'), today: inr('0'), from: sub.periodEnd }))
+    api.startPlanPayment.mockResolvedValue({ keyId: 'rzp_test_AbCdEf123456', subscriptionId: 'sub_T2', amount: inr('0'), mode: 'test', upi: true })
+    api.confirmPlanPayment.mockResolvedValue({ subscription: own, outcome: 'captured' })
+    window.Razorpay = class {
+      constructor(private readonly options: Record<string, unknown>) {}
+      open() {
+        ;(this.options['handler'] as (r: unknown) => void)({ razorpay_subscription_id: 'sub_T2', razorpay_payment_id: 'pay_T2', razorpay_signature: 'b'.repeat(64) })
+      }
+    }
+    await show(owner)
+    fireEvent.click(plan('Growth Pro').getByRole('button', { name: words.plans.upgrade }))
+    await settle()
+    expect(dialog().getByText(words.change.changeNote)).toBeTruthy()
+    fireEvent.change(dialog().getByLabelText(words.change.when), { target: { value: 'PERIOD_END' } })
+    fireEvent.click(dialog().getByRole('button', { name: 'Switch to Growth Pro' }))
+    await settle()
+    await settle()
+    expect(api.changePlan).not.toHaveBeenCalled()
+    expect(api.startPlanPayment).toHaveBeenCalledWith('pro', 'MONTH', 'PERIOD_END')
+    // Checkout's script loads once per page, so the answer is whichever stand-in loaded first.
+    expect(api.confirmPlanPayment).toHaveBeenCalledTimes(1)
+    delete window.Razorpay
   })
 
   it('takes a smaller plan at the period’s end only, and says when', async () => {

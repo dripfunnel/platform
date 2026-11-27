@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-26 (the scheduled domain check also takes portal hosts and merchant domains Cloudflare is still verifying or issuing, §8). Before: 2026-11-24 (#1579: once a partner's Email sender is live, its stores' email comes from it, §3.6). Before: 2026-11-18 (#1581: answerDesignQuestions and changeDesignPlan take a required `run` and start a `DesignRun` too, §9.2). Before: 2026-11-18 (#1563: askDesign and buildDesignPlan take a required `run` and start a `DesignRun` Workflow, read by `designRun`, §9.2; a DeepInfra key's models come from its own list on every call, `/api/v1` and a DeepInfra fallback included, §9.3). Before: 2026-11-17 (#1537: chooseTemplate later brings the template's own images, §9.2). Before: 2026-11-16 (#1506: the number step only while the partner's WhatsApp is on, its code by WhatsApp first and by SMS on request after 20 s, built, §4.1). Before: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the partner's WhatsApp on Meta's Cloud API first, by SMS on request after 20 s; sign-up asks for a number only while the partner's WhatsApp is on, §4.1). Before: 2026-11-13 (DeepInfra's models only from families that call tools, §9). Before: 2026-11-13 (`OUT_OF_CREDIT` for a provider account out of credit, and a model that can't see images gets a note in place of each, §9). Before: 2026-11-13 (a failed tool result reaches the OpenAI formats as `Error:` text, §9.3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-11 (#1416: the upgrade's commit refreshes the repo's template files from the new core, §10). Before: 2026-11-10 (#1406: a new store's default Cash on delivery and flat rate, §5 step 2). Before: 2026-11-08 (#1340: `store.domain_connected_at`, §8). Before: 2026-11-06 (#1316: a lost or crashed upgrade pins its store, `upgrade_stuck` and `upgrade_crashed`, §10). Before: 2026-11-06 (#1312: the Admin API's `coreRolloutStores` and the paused-rollouts badge, §10). Before: 2026-11-05 (#1243: a vague request's questions, plan and page-by-page build, one prompt unit with a run per page, §9.2). Before: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-26 (#1744: a merchant pays its partner for its plan through the partner's own Razorpay, §7.4; §14's question on how the platform learns a store's status is answered). Before: 2026-11-26 (#1743: every partner bills its own merchants; DripFunnel no longer bills them on a partner's behalf, §7.1). Before: 2026-11-26 (the scheduled domain check also takes portal hosts and merchant domains Cloudflare is still verifying or issuing, §8). Before: 2026-11-24 (#1579: once a partner's Email sender is live, its stores' email comes from it, §3.6). Before: 2026-11-18 (#1581: answerDesignQuestions and changeDesignPlan take a required `run` and start a `DesignRun` too, §9.2). Before: 2026-11-18 (#1563: askDesign and buildDesignPlan take a required `run` and start a `DesignRun` Workflow, read by `designRun`, §9.2; a DeepInfra key's models come from its own list on every call, `/api/v1` and a DeepInfra fallback included, §9.3). Before: 2026-11-17 (#1537: chooseTemplate later brings the template's own images, §9.2). Before: 2026-11-16 (#1506: the number step only while the partner's WhatsApp is on, its code by WhatsApp first and by SMS on request after 20 s, built, §4.1). Before: 2026-11-16 (with Gaurav, not built yet: a portal code goes by the partner's WhatsApp on Meta's Cloud API first, by SMS on request after 20 s; sign-up asks for a number only while the partner's WhatsApp is on, §4.1). Before: 2026-11-13 (DeepInfra's models only from families that call tools, §9). Before: 2026-11-13 (`OUT_OF_CREDIT` for a provider account out of credit, and a model that can't see images gets a note in place of each, §9). Before: 2026-11-13 (a failed tool result reaches the OpenAI formats as `Error:` text, §9.3). Before: 2026-11-12 (#1441: dev moved to `dripfunnel.dev`). Before: 2026-11-11 (#1416: the upgrade's commit refreshes the repo's template files from the new core, §10). Before: 2026-11-10 (#1406: a new store's default Cash on delivery and flat rate, §5 step 2). Before: 2026-11-08 (#1340: `store.domain_connected_at`, §8). Before: 2026-11-06 (#1316: a lost or crashed upgrade pins its store, `upgrade_stuck` and `upgrade_crashed`, §10). Before: 2026-11-06 (#1312: the Admin API's `coreRolloutStores` and the paused-rollouts badge, §10). Before: 2026-11-05 (#1243: a vague request's questions, plan and page-by-page build, one prompt unit with a run per page, §9.2). Before: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -509,6 +509,14 @@ merchants" follows as a per-partner setting. For the house
 partner, DripFunnel bills its merchants directly, which is the second model with DripFunnel as
 the partner.
 
+**Decided 2026-11-26 (Kshitij, #1743): every partner bills its own merchants.** DripFunnel
+charges partners by hand, now and for the foreseeable future, and no longer bills merchants on
+a partner's behalf. Migration 0419 set every partner, the house partner included, to `own` and
+made it the default; `setBillingMode` accepts only `own`, and the partner console no longer
+offers the choice. The Stripe merchant-billing path below (§7.2's store subscriptions,
+`merchant_charge`, Connect payouts) stays in the code but is no longer reached; deleting it is a
+card of its own. How a partner charges its merchants through its own Razorpay account is #1744.
+
 **Built on #212**: `partner.billing_mode` (`dripfunnel` | `own`) and `store.billing_status`
 (DATA-MODEL §2.4). When the partner bills its merchants itself, the platform still needs the store's status.
 How it learns it (the partner sets status through the Platform API, a webhook from the
@@ -591,6 +599,55 @@ its contact, and emails the Owner. A suspended store can't pay in the portal (§
 names no way to but that contact, which may restore it (ACCESS §5.3); Stripe reporting it paid
 afterwards (its own retry) restores it and makes it active, while a person's suspension stays. Payouts to partners, when
 DripFunnel bills on their behalf, show period, gross, fees, payout and status (H5).
+
+### 7.4 Plan billing through the partner's Razorpay (#1744)
+
+**Decided 2026-11-26 (Kshitij, #1744).** A partner that bills its own merchants (every partner, §7.1) connects its own
+Razorpay account in Partner console › Billing, and its merchants pay their plan into it by card or UPI AutoPay through
+**Razorpay Subscriptions**, which needs no request to Razorpay. DripFunnel never holds the money. Without Razorpay connected
+the partner sets each store's billing status by hand, as before. *An earlier version that held the mandate itself and
+charged it from the cron (Razorpay's on-demand Recurring Payments API) is kept in `git stash` on this card, for later.*
+
+- **Keys.** Key ID, key secret and webhook secret, per mode (`live`, `test`), Owner and Finance (`billing.write`), never a
+  staff session. Checked with Razorpay before they are sealed (THIRD-PARTY-ACCESS §3.1's way); shown back as
+  `rzp_live_••••AbCd`. **A store is billed with the partner's live keys where they are connected, else its test keys**
+  (no environment flag exists), and the merchant's screen says when it is test mode. Connecting another account's keys, or
+  disconnecting, leaves the stores' subscriptions on the old account: they subscribe again.
+- **Plans.** Each partner plan version, period and price becomes a Razorpay plan on the partner's account the first time a
+  store needs it (`razorpay_plan`), and is kept; a new price is a new Razorpay plan.
+- **The first payment.** The trial is never charged. The Owner picks a plan; the platform creates a Razorpay subscription on
+  it and Checkout opens on that subscription: one payment of the plan's own amount (₹1,999 for Growth) pays the first period
+  and sets up AutoPay. UPI AutoPay only for a charge under ₹15,000 (Razorpay's rule for Subscriptions); a card always.
+  Nothing the browser says is taken as paid: Checkout's signature (`payment|subscription`) is checked and the subscription
+  read back first; then the plan applies from the period Razorpay started, and the store's subscription and customer ids are
+  kept.
+- **Renewals and failures are Razorpay's.** Razorpay charges each period, sends the pre-debit notice and retries. The
+  platform follows: a new period it charged moves the store's period on (one `store_plan_charge` per period), a `pending` or
+  `halted` subscription makes the store past due (§7.3's 14 days then apply), and paid again it is active. **A reminder
+  email goes the day before** (`plan-renewal-reminder`: the amount, the plan, the date and the method), once per period.
+- **Plan changes are a new subscription** (decided 2026-11-27, Kshitij): Razorpay changes no plan on a card mandate (it
+  refuses both `now` and `cycle_end`), so the Owner approves a new subscription in Checkout, starting when the current
+  period ends (`start_at`), and confirming it ends the old one at once, so only one ever charges.
+  - **Upgrade now:** today's prorated part (§7.2's quote) is a one-time add-on paid at approval, and the store is on the
+    new plan at once for the same period; a longer period starts today and renews a period from now.
+  - **Downgrade or a shorter period:** nothing is due today (Razorpay may take its small authorisation charge); the change
+    is scheduled, and the new subscription's first charge at the period's end applies it.
+  - **Keeping the plan** after a scheduled downgrade is a new subscription on the current plan the same way, ending the
+    downgrade's.
+  - **A free plan** at the period's end cancels the subscription at the cycle's end; when it ends, the free plan applies and
+    the store has no subscription left, so a paid plan later is a first payment again.
+- **Close my store** cancels the subscription at the cycle's end; the storefront sells until then.
+- **Outcomes are read back.** The webhook (`hooks.<host>/razorpay/partner/<partner id>`, signed with the partner's webhook
+  secret, subscription events), the hourly backstop for stores whose period has ended, and the Owner's own confirmation each
+  read the subscription back from Razorpay and settle it the same way, once.
+- **Not offered yet:** changing the card or UPI of a running subscription (Razorpay documents no API for it); the partner
+  helps in Razorpay, or the store cancels and subscribes again. A card of its own when needed.
+- **Refunds** (decided 2026-11-26, Kshitij): the partner refunds a plan payment in its own Razorpay dashboard; the platform
+  isn't told, and the partner changes the store's plan or billing status in the partner console if it should follow.
+- **Invoices** (decided 2026-11-26, Kshitij): the platform makes an invoice in the partner's name for each captured plan
+  payment, shown in the merchant's Billing › Invoices. Not built yet: its own card.
+- **Fees:** Razorpay charges a Subscriptions add-on on top of its payment fee (THIRD-PARTY-ACCESS §3.1).
+- **Not in this card:** emails for receipts and failures, and deleting the Stripe merchant-billing path.
 
 ---
 
@@ -1206,9 +1263,11 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
 
 **Plans and billing**
 - Plan names and contents (house partner and defaults for new partners).
-- The merchant billing model: by the partner, by DripFunnel on its behalf, or both, and
-  **which comes first**. Wholesale pricing: per store, per plan, revenue share, minimums?
-- When the partner bills its merchants, how does the platform learn a store's status?
+- ~~The merchant billing model: by the partner, by DripFunnel on its behalf, or both, and
+  which comes first.~~ By the partner (decided 2026-11-26 on #1743, §7.1). Wholesale pricing: per
+  store, per plan, revenue share, minimums?
+- ~~When the partner bills its merchants, how does the platform learn a store's status?~~ From its Razorpay, read back
+  (decided 2026-11-26 on #1744, §7.4); without Razorpay connected, the partner sets it by hand.
 - ~~Dunning policy: when does past due become suspended, and what does a suspended or past-due
   storefront show?~~ After 14 days; past due keeps selling, suspended shows the unavailable page
   (decided 2026-10-05 on #284).

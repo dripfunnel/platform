@@ -3,6 +3,7 @@ import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { PreviewLinks } from '#auth/previewLink'
 import type { SecretBox } from '#auth/secretBox'
+import type { RazorpayBilling } from '#integrations/payments/index'
 import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
@@ -44,6 +45,8 @@ export interface StoreContext extends Record<string, unknown> {
   couriers?: CourierDirectory | null
   /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
   billing?: (StripeApi & StoreBillingStripe) | null
+  /** Razorpay's calls for a plan paid to the partner (#1744); tests pass a stand-in, the Worker the real one. */
+  razorpayBilling?: RazorpayBilling
   /** The Worker's `ASSETS` bucket, where a booked label's file is kept; null where it isn't bound. */
   files?: AssetStore | null
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */

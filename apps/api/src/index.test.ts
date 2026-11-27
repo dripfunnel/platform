@@ -459,17 +459,17 @@ describe('the cron', () => {
       events: ['domain_checks_failed', 'courier_tracking_failed', 'exports_purge_failed', 'unpaid_orders_failed', 'trial_end_failed', 'dunning_failed', 'abandoned_carts_failed', 'cart_reminders_failed', 'wishlist_reminders_failed', 'storefront_auto_publish_failed'],
       threw: false,
     })
-    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'product_rank_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'rider_sign_in_purge_failed', 'signup_purge_failed'], threw: false })
-    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed'], threw: false })
+    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'product_rank_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'rider_sign_in_purge_failed', 'signup_purge_failed', 'plan_follow_failed'], threw: false })
+    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed', 'plan_reminders_failed'], threw: false })
   })
 
   it('cleans the storefront buckets daily only where all three are bound', async () => {
     const bucket = {}
     expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket, STOREFRONT_DRAFTS: bucket })).toEqual({
-      events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_cleanup_failed', 'storefront_vitals_failed', 'core_images_failed'],
+      events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_cleanup_failed', 'storefront_vitals_failed', 'core_images_failed', 'plan_reminders_failed'],
       threw: false,
     })
-    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket })).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed'], threw: false })
+    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket })).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed', 'plan_reminders_failed'], threw: false })
   })
 
   it('logs one event and runs nothing for an expression it has no group for', async () => {

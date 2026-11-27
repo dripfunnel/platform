@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
 import type { BillingDetailsRow, StoreInvoiceRow } from '#db/scoped/storeBilling'
 import type { CatalogExportDto } from '#engine/modules/catalog/index'
+import { razorpayBilling } from '#integrations/payments/index'
 import { createStoreBillingService, createStoreDataExport, storeBillingAudit, storeDataAudit, type BillingSubscriptionDto, type StoreBillingRefusal, type StoreBillingResult } from '#saas/storeBilling/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, supportBlocked, type StoreContext } from './access'
@@ -45,7 +46,7 @@ export const registerBilling = (builder: StoreBuilder) => {
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
-    return createStoreBillingService({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, stripe: ctx.billing ?? null, now: ctx.now })
+    return createStoreBillingService({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, stripe: ctx.billing ?? null, razorpay: ctx.secrets ? { api: ctx.razorpayBilling ?? razorpayBilling(), secrets: ctx.secrets } : null, now: ctx.now })
   }
 
   const Interval = builder.enumType('BillingInterval', { values: { MONTH: { value: 'month' }, YEAR: { value: 'year' } } as const })
@@ -71,6 +72,8 @@ export const registerBilling = (builder: StoreBuilder) => {
       cancelAt: t.string({ nullable: true, resolve: (s) => s.cancelAt?.toISOString() ?? null }),
       scheduled: t.field({ type: Scheduled, nullable: true, resolve: (s) => s.scheduled }),
       card: t.field({ type: Card, nullable: true, resolve: (s) => s.card }),
+      // The saved Razorpay method as a person reads it, "Visa ending 4242" or a masked UPI handle (#1744).
+      paymentMethod: t.exposeString('paymentMethod', { nullable: true }),
       // dripfunnel (on the partner's behalf) or partner: who charges, which the screen says (SAAS §7.1).
       collectedBy: t.exposeString('collectedBy'),
       partnerName: t.exposeString('partnerName'),
@@ -201,6 +204,45 @@ export const registerBilling = (builder: StoreBuilder) => {
       args: { planId: t.arg.id({ required: true }), interval: t.arg({ type: Interval, required: true }), when: t.arg({ type: When, required: true }) },
       extensions: { access: read },
       resolve: async (_, args, ctx) => answered(await service(ctx).quotePlanChange({ planId: String(args.planId), interval: args.interval, when: args.when })),
+    }),
+  }))
+
+  // Card or UPI AutoPay paid to the partner through Razorpay Subscriptions on its own account (#1744; SAAS §7.4).
+  const PlanPayments = builder.objectRef<{ available: boolean; mode: string | null; subscribed: boolean }>('PlanPayments').implement({
+    fields: (t) => ({ available: t.exposeBoolean('available'), mode: t.exposeString('mode', { nullable: true }), subscribed: t.exposeBoolean('subscribed') }),
+  })
+  // What Razorpay Checkout opens with: the partner's public key id and the subscription; never a secret.
+  const Checkout = builder.objectRef<{ keyId: string; subscriptionId: string; amount: number; currency: string; mode: string; upi: boolean }>('PlanCheckout').implement({
+    fields: (t) => ({
+      keyId: t.exposeString('keyId'),
+      subscriptionId: t.exposeString('subscriptionId'),
+      amount: t.field({ type: Money, resolve: (c) => ({ amount: String(c.amount), currency: c.currency }) }),
+      mode: t.exposeString('mode'),
+      // UPI AutoPay only for a charge under ₹15,000 (Razorpay's rule for Subscriptions); a card always.
+      upi: t.exposeBoolean('upi'),
+    }),
+  })
+  const Confirmed = builder.objectRef<{ subscription: BillingSubscriptionDto; outcome: string }>('PlanPaymentConfirmed').implement({
+    fields: (t) => ({ subscription: t.field({ type: Subscription, resolve: (c) => c.subscription }), outcome: t.exposeString('outcome') }),
+  })
+
+  builder.queryFields((t) => ({
+    planPayments: t.field({ type: PlanPayments, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).planPayments() }),
+  }))
+
+  builder.mutationFields((t) => ({
+    startPlanPayment: t.field({
+      type: Checkout,
+      // On a subscribed store a change is a new subscription, so `when` matters as it does for changePlan (#1744).
+      args: { planId: t.arg.id({ required: true }), interval: t.arg({ type: Interval, required: true }), when: t.arg({ type: When, required: false }) },
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.changePlan } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).startPlanPayment({ planId: String(args.planId), interval: args.interval, ...(args.when ? { when: args.when } : {}) })),
+    }),
+    confirmPlanPayment: t.field({
+      type: Confirmed,
+      args: { paymentId: t.arg.string({ required: true }), subscriptionId: t.arg.string({ required: true }), signature: t.arg.string({ required: true }) },
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.changePlan } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).confirmPlanPayment(args)),
     }),
   }))
 
