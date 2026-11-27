@@ -546,18 +546,3 @@
   padding: 6px 0;
   font-size: 13px;
 }
-
-/* Card that pays for your plan (#1744): the choice of card or UPI AutoPay before Razorpay's Checkout opens. */
-.df-billing-methods {
-  display: grid;
-  gap: var(--df-space-2);
-  padding: var(--df-space-3);
-  border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius);
-}
-
-.df-billing-method-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--df-space-2);
-}
