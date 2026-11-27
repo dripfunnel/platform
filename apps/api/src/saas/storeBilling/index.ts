@@ -48,7 +48,7 @@ import { transitionStore } from '#saas/stores/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { keepWithinPlan, productLimitOf } from './keep'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
-import { cancelSubscription, confirmSubscription, savedMethodOf, startSubscription, type CheckoutAnswer, type PlanBillingDeps, type PlanChange } from './razorpay'
+import { cancelSubscription, confirmSubscription, savedMethodOf, startSubscription, type CheckoutAnswer, type PlanBillingDeps, type PlanChange, type SubscriptionCheckout } from './razorpay'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
 export type { Interval, Quote, When } from './quote'
@@ -652,49 +652,60 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
   const startPlanPayment = async (raw: unknown) => {
     const input = z.strictObject({ planId: z.guid(), interval: z.enum(['month', 'year']), when: z.enum(['now', 'period_end']).optional() }).safeParse(raw)
     if (!input.success) return refused('INVALID_INPUT')
-    if (!planBilling) return refused('BILLED_BY_PARTNER')
-    const p = await planned({ planId: input.data.planId, interval: input.data.interval, when: input.data.when ?? 'now' })
-    if (!p.ok) return p
-    const { sub, plan, current, amount, rank, interval, when } = p.value
-    if (sub.billing_mode !== 'own') return refused('BILLED_BY_PARTNER')
-    if (amount === 0) return refused('INVALID_INPUT')
-    const pick = { planId: plan.id, planVersion: plan.version, planName: plan.name, interval, currency: sub.currency, amount }
-    if (!sub.razorpay_subscription_id) return when === 'now' ? startSubscription(planBilling, storeId, partnerId, pick) : refused('INVALID_INPUT')
-    const at = now()
-    const keeps = plan.id === sub.plan_id && interval === sub.interval
-    let change: PlanChange
-    if (keeps || when === 'period_end') {
-      change = { when: 'period_end', startAt: sub.period_end, periodStart: sub.period_end, periodEnd: addInterval(sub.period_end, interval), today: 0 }
-    } else {
-      // A longer period starts today (quote.ts), so its first renewal is a period from now.
-      const periodStart = interval === sub.interval ? sub.period_start : at
-      const periodEnd = interval === sub.interval ? sub.period_end : addInterval(at, interval)
-      change = { when: 'now', startAt: periodEnd, periodStart, periodEnd, today: quoteChange(current, { amount, interval, rank }, 'now', at).today }
-    }
-    return startSubscription(planBilling, storeId, partnerId, pick, change)
+    const billing = planBilling
+    if (!billing) return refused('BILLED_BY_PARTNER')
+    // One billing change at a time, as changePlan and cancelStore (claimed).
+    return claimed<SubscriptionCheckout>(async () => {
+      const p = await planned({ planId: input.data.planId, interval: input.data.interval, when: input.data.when ?? 'now' })
+      if (!p.ok) return p
+      const { sub, plan, current, amount, rank, interval, when } = p.value
+      if (sub.billing_mode !== 'own') return refused('BILLED_BY_PARTNER')
+      if (amount === 0) return refused('INVALID_INPUT')
+      const pick = { planId: plan.id, planVersion: plan.version, planName: plan.name, interval, currency: sub.currency, amount }
+      if (!sub.razorpay_subscription_id) return when === 'now' ? startSubscription(billing, storeId, partnerId, pick) : refused('INVALID_INPUT')
+      const at = now()
+      const keeps = plan.id === sub.plan_id && interval === sub.interval
+      let change: PlanChange
+      if (keeps || when === 'period_end') {
+        change = { when: 'period_end', startAt: sub.period_end, periodStart: sub.period_end, periodEnd: addInterval(sub.period_end, interval), today: 0 }
+      } else {
+        // A longer period starts today (quote.ts), so its first renewal is a period from now.
+        const periodStart = interval === sub.interval ? sub.period_start : at
+        const periodEnd = interval === sub.interval ? sub.period_end : addInterval(at, interval)
+        change = { when: 'now', startAt: periodEnd, periodStart, periodEnd, today: quoteChange(current, { amount, interval, rank }, 'now', at).today }
+      }
+      return startSubscription(billing, storeId, partnerId, pick, change)
+    })
   }
 
   /** Checkout's answer: checked, read back from Razorpay, and only then is the subscription the store's and its plan on. */
   const confirmPlanPayment = async (raw: unknown) => {
     const input = answerInput.safeParse(raw)
     if (!input.success) return refused('INVALID_INPUT')
-    if (!planBilling) return refused('BILLED_BY_PARTNER')
+    const billing = planBilling
+    if (!billing) return refused('BILLED_BY_PARTNER')
     const answer: CheckoutAnswer = input.data
-    const before = await subscriptionRow()
-    const result = await confirmSubscription(planBilling, storeId, partnerId, answer)
-    if (!result.ok) return result
-    const { applied } = result.value
-    const audit = applied === 'none' ? null : { started: storeBillingAudit.changePlan, now: storeBillingAudit.changePlan, scheduled: storeBillingAudit.scheduleChange, kept: storeBillingAudit.cancelChange }[applied]
-    if (audit) await system(async (tx) => {
-      const after = await selectBillingSubscription(tx, storeId)
-      await activity.record(tx, entry(audit, [{ field: 'plan', before: before?.plan_id ?? null, after: after?.next_plan_id ?? after?.plan_id ?? null }]))
-      const was = before ? savedMethodOf(before) : null
-      const now = result.value.method
-      const asText = (m: PlanMethod | null) => (m === null ? null : m.kind === 'upi' ? `upi ${m.handle}` : `${m.brand} ${m.last4}`)
-      if (now !== null && asText(now) !== asText(was)) await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'payment_method', before: asText(was), after: asText(now) }]))
+    return claimed(async () => {
+      const before = await subscriptionRow()
+      const result = await confirmSubscription(billing, storeId, partnerId, answer)
+      if (!result.ok) return result
+      const { applied } = result.value
+      const audit = applied === 'none' ? null : { started: storeBillingAudit.changePlan, now: storeBillingAudit.changePlan, scheduled: storeBillingAudit.scheduleChange, kept: storeBillingAudit.cancelChange }[applied]
+      if (audit) await system(async (tx) => {
+        const after = await selectBillingSubscription(tx, storeId)
+        await activity.record(tx, entry(audit, [{ field: 'plan', before: before?.plan_id ?? null, after: after?.next_plan_id ?? after?.plan_id ?? null }]))
+        const was = before ? savedMethodOf(before) : null
+        const now = result.value.method
+        const asText = (m: PlanMethod | null) => (m === null ? null : m.kind === 'upi' ? `upi ${m.handle}` : `${m.brand} ${m.last4}`)
+        if (now !== null && asText(now) !== asText(was)) await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'payment_method', before: asText(was), after: asText(now) }]))
+      })
+      const settled = await subscriptionRow()
+      if (settled?.cancel_at && settled.razorpay_subscription_id && settled.razorpay_mode && applied !== 'none') {
+        // Approved while the store was closing: the new subscription ends with the period too, never charging after it.
+        await cancelSubscription(billing, partnerId, settled.razorpay_subscription_id, settled.razorpay_mode)
+      }
+      return settled ? { ok: true as const, value: { subscription: subscriptionDto(settled), outcome: 'captured' } } : refused('NO_SUBSCRIPTION')
     })
-    const after = await subscriptionRow()
-    return after ? { ok: true as const, value: { subscription: subscriptionDto(after), outcome: 'captured' } } : refused('NO_SUBSCRIPTION')
   }
 
   return { subscription, planPayments, planCatalogue, usage, billingDetails, invoices, quotePlanChange, changePlan, setPaymentMethod, startPlanPayment, confirmPlanPayment, saveBillingDetails, downloadInvoice, planKeep, keepProducts, cancelStore }

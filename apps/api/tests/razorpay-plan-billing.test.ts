@@ -327,6 +327,17 @@ describe('the first payment', () => {
     expect(await storeStatus(t.storeA1)).toBe('active')
   })
 
+  it('takes one billing change at a time: a confirm while another change holds the store is refused, and saves nothing', async () => {
+    await connect(t.partnerA)
+    const started = (await store(q.start, 'owner', { p: plans.growth })).data?.['startPlanPayment'] as Checkout
+    const answer = authorise(started.subscriptionId)
+    await db.sql`update store_subscription set billing_claim = gen_random_uuid(), billing_claim_until = ${new Date(clock.getTime() + 60_000)} where store_id = ${t.storeA1}`
+    expect((await store(q.confirm, 'owner', answer)).code).toBe('CHANGE_IN_PROGRESS')
+    expect((await subRow(t.storeA1))?.razorpay_subscription_id).toBeNull()
+    await db.sql`update store_subscription set billing_claim = null, billing_claim_until = null where store_id = ${t.storeA1}`
+    expect((await store(q.confirm, 'owner', answer)).data?.['confirmPlanPayment']).toMatchObject({ outcome: 'captured' })
+  })
+
   it('takes nothing the browser claims: a wrong signature, or another store’s subscription, saves nothing', async () => {
     await connect(t.partnerA)
     const started = (await store(q.start, 'owner', { p: plans.growth })).data?.['startPlanPayment'] as Checkout

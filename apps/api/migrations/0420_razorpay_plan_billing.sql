@@ -19,6 +19,10 @@ alter table store_subscription
   add column razorpay_customer_id text check (razorpay_customer_id ~ '^cust_[A-Za-z0-9]{6,40}$'),
   add column razorpay_mode text check (razorpay_mode in ('live', 'test'));
 create unique index store_subscription_razorpay on store_subscription (razorpay_subscription_id) where razorpay_subscription_id is not null;
+-- The partner's key change forgets its stores' subscriptions in the same transaction as the keys (SAAS §7.4), never reading them.
+grant select (razorpay_mode, billing_revision) on store_subscription to app_partner;
+grant update (razorpay_subscription_id, razorpay_customer_id, razorpay_mode, payment_method_label, payment_method_brand, payment_method_last4,
+  billing_revision) on store_subscription to app_partner;
 
 -- Each partner plan version, interval and price as a Razorpay plan on the partner's account, made once when first needed.
 create table razorpay_plan (

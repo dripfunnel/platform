@@ -85,8 +85,9 @@ export const createPartnerRazorpayService = ({ sql, caller, facts, activity, sec
       if (before) await updateBillingGateway(tx, before.id, write)
       else await insertBillingGateway(tx, { ...write, partnerId, mode: mode.data, createdBy: actingName(caller) })
       await activity.record(tx, entry({ action: razorpayAudit.connected, target, reason: mode.data, changes: [{ field: 'key', before: before?.key_prefix ?? null, after: write.keyPrefix }] }))
+      // In the same transaction as the keys, so stores never point at an account the keys no longer reach.
+      if (otherAccount) await forgetRazorpaySubscriptions(tx, partnerId, mode.data)
     })
-    if (otherAccount) await withSystemScope(sql, (tx) => forgetRazorpaySubscriptions(tx, partnerId, mode.data))
     return { ok: true }
   }
 
@@ -100,11 +101,10 @@ export const createPartnerRazorpayService = ({ sql, caller, facts, activity, sec
       if (!row) return false
       await deleteBillingGateway(tx, row.id)
       await activity.record(tx, entry({ action: razorpayAudit.disconnected, target, reason: mode.data, changes: [{ field: 'key', before: row.key_prefix, after: null }] }))
+      await forgetRazorpaySubscriptions(tx, partnerId, mode.data)
       return true
     })
-    if (!removed) return { ok: false, reason: 'NOT_FOUND' }
-    await withSystemScope(sql, (tx) => forgetRazorpaySubscriptions(tx, partnerId, mode.data))
-    return { ok: true }
+    return removed ? { ok: true } : { ok: false, reason: 'NOT_FOUND' }
   }
 
   return { account, connect, disconnect }
